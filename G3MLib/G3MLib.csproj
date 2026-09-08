@@ -1,0 +1,58 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>14.0</LangVersion>
+    <Nullable>annotations</Nullable>
+    <OutputType>Library</OutputType>
+    <AssemblyName>G3MLib</AssemblyName>
+    <AssemblyTitle>G3MLib</AssemblyTitle>
+    <ProductName>G3MLib</ProductName>
+    <PackageId>G3MLib</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Y114</Authors>
+    <Copyright>Copyright © 2026 Y114</Copyright>
+    <Description>.NET library for reading, writing, analyzing, decompiling, patching, and merging GameMaker data files and more.</Description>
+    <PackageTags>gamemaker;gamemaker-studio;data-win;modding;patching;decompiler;compiler</PackageTags>
+    <PackageProjectUrl>https://github.com/y114git/G3MLib</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/y114git/G3MLib.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <PackageReleaseNotes>Initial stable 1.0.0 release. See CHANGELOG.md in the package.</PackageReleaseNotes>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>1570;1573;1574;1591;CA1069</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>G3MLib.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Fody" Version="6.9.3" PrivateAssets="all" />
+    <PackageReference Include="Magick.NET-Q8-AnyCPU" Version="14.17.1" />
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="5.9.0" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="5.9.0" />
+    <PackageReference Include="Microsoft.CodeAnalysis.Scripting.Common" Version="5.9.0" />
+    <PackageReference Include="PropertyChanged.Fody" Version="4.1.0" PrivateAssets="all" />
+    <PackageReference Include="SharpZipLib" Version="1.4.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\LICENSE" Pack="true" PackagePath="" />
+    <None Include="..\CHANGELOG.md" Pack="true" PackagePath="" />
+    <None Include="..\README.md" Pack="true" PackagePath="" />
+    <None Include="..\THIRD_PARTY_NOTICES.md" Pack="true" PackagePath="" />
+    <None Include="..\licenses\*.txt" Pack="true" PackagePath="licenses" />
+    <EmbeddedResource Include="DataFile\GameSpecificData\**\*" />
+    <Content Include="DataFile\GameSpecificData\**\*" Link="GameSpecificData\%(RecursiveDir)%(Filename)%(Extension)"
+            CopyToOutputDirectory="PreserveNewest" Pack="true"
+            ExcludeFromSingleFile="true"
+            PackagePath="contentFiles\any\any\GameSpecificData\%(RecursiveDir)%(Filename)%(Extension)"
+            PackageCopyToOutput="true" />
+  </ItemGroup>
+</Project>

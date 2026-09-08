@@ -1,0 +1,15 @@
+global using System;
+global using System.Collections.Generic;
+global using System.Linq;
+global using System.Threading;
+global using System.Threading.Tasks;
+global using G3MLib.Modding.Caching;
+global using G3MLib.Modding.Batching;
+global using G3MLib.Modding.Integrity;
+global using G3MLib.Modding.Internal;
+global using G3MLib.Modding.Hashing;
+global using G3MLib.Modding.Logging;
+global using G3MLib.Modding.Merging;
+global using G3MLib.Modding.Patching;
+global using G3MLib.Modding.Resources;
+global using G3MLib.Modding.XDelta;
