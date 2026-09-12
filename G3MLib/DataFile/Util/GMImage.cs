@@ -677,8 +677,7 @@ public class GMImage
                         }
 
                         // Convert to raw image data
-                        uncompressedData.Seek(0, SeekOrigin.Begin);
-                        rawImage = QoiConverter.GetImageFromStream(uncompressedData);
+                        rawImage = QoiConverter.GetImageFromSpan(uncompressedData.GetBuffer().AsSpan(0, (int)uncompressedData.Length));
                     }
 
                     // Save raw image to PNG
@@ -736,7 +735,7 @@ public class GMImage
             case ImageFormat.Dds:
                 {
                     // Convert image to raw byte array
-                    var image = new MagickImage(_data);
+                    using var image = new MagickImage(_data);
                     image.Alpha(AlphaOption.Set);
                     image.Format = MagickFormat.Bgra;
                     image.Depth = 8;
@@ -759,8 +758,7 @@ public class GMImage
                         }
 
                         // Convert to raw image data
-                        uncompressedData.Seek(0, SeekOrigin.Begin);
-                        return QoiConverter.GetImageFromStream(uncompressedData);
+                        return QoiConverter.GetImageFromSpan(uncompressedData.GetBuffer().AsSpan(0, (int)uncompressedData.Length));
                     }
                 }
             case ImageFormat.Unknown:
@@ -809,8 +807,7 @@ public class GMImage
                         }
 
                         // Convert to raw image data
-                        uncompressedData.Seek(0, SeekOrigin.Begin);
-                        rawImage = QoiConverter.GetImageFromStream(uncompressedData);
+                        rawImage = QoiConverter.GetImageFromSpan(uncompressedData.GetBuffer().AsSpan(0, (int)uncompressedData.Length));
                     }
 
                     // Convert raw image to PNG

@@ -19,7 +19,6 @@ public class VariableNode(IGMVariable variable, VariableType referenceType, IExp
                           List<IExpressionNode>? arrayIndices = null, bool regularPush = false)
     : IMacroTypeNode, IConditionalValueNode
 {
-    private const string ArgumentVariableName = "argument";
 
     /// <summary>
     /// The variable being referenced.

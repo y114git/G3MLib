@@ -143,6 +143,10 @@ public class GlobalDecompileContext : IGameContext
 
         // Prefix used for sub-functions
         const string subFunctionPrefix = "gml_Script_";
+        var functionsByName = new Dictionary<string, GameMakerFunction>(StringComparer.Ordinal);
+        foreach (GameMakerFunction function in data.Functions)
+            if (function?.Name?.Content is string functionName)
+                functionsByName.TryAdd(functionName, function);
 
         // Add all functions that aren't sub-functions, if they aren't already there
         foreach (GameMakerFunction func in data.Functions)
@@ -159,14 +163,14 @@ public class GlobalDecompileContext : IGameContext
         {
             if (script?.Name?.Content is string name && !name.StartsWith(subFunctionPrefix, StringComparison.Ordinal) &&
                 !data.GlobalFunctions.FunctionNameExists(name) &&
-                data.Functions.ByName(name) is GameMakerFunction function)
+                functionsByName.TryGetValue(name, out GameMakerFunction function))
             {
                 // Regular script asset (pre and post 2.3)
                 data.GlobalFunctions.DefineFunction(name, function);
             }
             else if (script?.Code is GameMakerCode { ParentEntry: null } code &&
                      code.Name?.Content is string codeName && codeName.StartsWith(subFunctionPrefix, StringComparison.Ordinal) &&
-                     data.Functions.ByName(codeName) is GameMakerFunction extFunction)
+                     functionsByName.TryGetValue(codeName, out GameMakerFunction extFunction))
             {
                 // If code name starts with "gml_Script_", and there's no parent code entry,
                 // then this is probably a GML-defined extension function.
@@ -190,7 +194,7 @@ public class GlobalDecompileContext : IGameContext
                     foreach (GameMakerExtensionFunction extensionFunc in extensionFile.Functions)
                     {
                         if (extensionFunc?.Name?.Content is string functionName &&
-                            data.Functions.ByName(functionName) is GameMakerFunction foundFunction)
+                            functionsByName.TryGetValue(functionName, out GameMakerFunction foundFunction))
                         {
                             data.GlobalFunctions.DefineFunction(functionName, foundFunction);
                         }

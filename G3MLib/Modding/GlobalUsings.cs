@@ -4,7 +4,6 @@ global using System.Linq;
 global using System.Threading;
 global using System.Threading.Tasks;
 global using G3MLib.Modding.Caching;
-global using G3MLib.Modding.Batching;
 global using G3MLib.Modding.Integrity;
 global using G3MLib.Modding.Internal;
 global using G3MLib.Modding.Hashing;

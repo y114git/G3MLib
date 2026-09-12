@@ -10,12 +10,11 @@ namespace G3MLib.DataFile.Util
     // Initial implementation was based on DogScepter's implementation
     public class BufferBinaryReader : IBinaryReader
     {
-        private const string ChunkBoundsMessage = "Reading out of chunk bounds";
 
         // A faster implementation of "MemoryStream"
         private sealed class ChunkBuffer
         {
-            private readonly byte[] _buffer;
+            private byte[] _buffer = [];
 
             private int _length;
             public int Position { get; set; }
@@ -24,8 +23,15 @@ namespace G3MLib.DataFile.Util
 
             public ChunkBuffer(int capacity)
             {
-                _buffer = new byte[capacity];
                 Capacity = capacity;
+            }
+
+            public void Prepare(int length)
+            {
+                if (_buffer.Length < length)
+                    _buffer = new byte[length];
+                _length = 0;
+                Position = 0;
             }
 
             public void Read(byte[] buffer, int count)
@@ -144,7 +150,7 @@ namespace G3MLib.DataFile.Util
 
             // Check data file length
             if (Length >= 12 * 1024 * 1024) // 12 MB
-                chunkBuffer = new(12 * 1024 * 1024);
+                chunkBuffer = new(12 * 1024 * 1024 + 8);
             else
                 chunkBuffer = new((int)Length);
 
@@ -164,7 +170,7 @@ namespace G3MLib.DataFile.Util
                 throw new IOException("Reading out of chunk bounds");
 
             Stream.Position -= 8; // Chunk name + length
-            chunkBuffer.Position = 0;
+            chunkBuffer.Prepare((int)copyLength);
 
             // Source - https://stackoverflow.com/a/13022108/12136394
             int read;

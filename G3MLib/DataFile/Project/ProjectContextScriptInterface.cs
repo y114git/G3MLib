@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -22,6 +21,9 @@ partial class ProjectContext : IScriptInterface
     private string _scriptErrorMessage = string.Empty;
     private string _scriptErrorType = string.Empty;
 
+    public Action<string> ScriptMessageHandler { get; set; }
+    public Action<string> ScriptWarningHandler { get; set; }
+
     public ProjectContext Project => this;
     public string FilePath => LoadDataPath;
     public string ScriptPath => _scriptPath;
@@ -30,7 +32,7 @@ partial class ProjectContext : IScriptInterface
     public bool CanSave => Data is not null && SaveDataPath is not null;
     public bool ScriptExecutionSuccess => _scriptErrorMessage.Length == 0;
     public string ScriptErrorMessage => _scriptErrorMessage;
-    public string ExePath => Path.GetDirectoryName(Environment.ProcessPath) ?? Environment.CurrentDirectory;
+    public string ExePath => AppContext.BaseDirectory;
     public string ScriptErrorType => _scriptErrorType;
     public bool IsAppClosed => false;
 
@@ -170,27 +172,19 @@ partial class ProjectContext : IScriptInterface
     }
 
     public string ScriptInputDialog(string title, string label, string defaultInput, string cancelText, string submitText, bool isMultiline, bool preventClose) => throw UiUnavailable();
-    public void ScriptMessage(string message) => Console.WriteLine(message);
-    public void ScriptOpenURL(string url)
-    {
-        if (!Uri.TryCreate(url, UriKind.Absolute, out _))
-        {
-            throw new ScriptException($"Invalid URL \"{url}\".");
-        }
-
-        Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
-    }
+    public void ScriptMessage(string message) => ScriptMessageHandler?.Invoke(message);
+    public void ScriptOpenURL(string url) => throw UiUnavailable();
     public bool ScriptQuestion(string message) => false;
-    public void ScriptWarning(string message) => Console.Error.WriteLine(message);
+    public void ScriptWarning(string message) => ScriptWarningHandler?.Invoke(message);
     public void SetFinishedMessage(bool isFinishedMessageEnabled)
     {
     }
     public void SetProgress(int value) => Interlocked.Exchange(ref _progress, value);
     public void SetProgressBar(string message, string status, double progressValue, double maxValue) => SetProgress((int)Math.Clamp(progressValue, int.MinValue, int.MaxValue));
     public void SetProgressBar() => SetProgress(0);
-    public void SetUMTConsoleText(string message) => Console.WriteLine(message);
+    public void SetUMTConsoleText(string message) => ScriptMessage(message);
     public string SimpleTextInput(string title, string label, string defaultValue, bool allowMultiline, bool showDialog = true) => throw UiUnavailable();
-    public void SimpleTextOutput(string title, string label, string message, bool allowMultiline) => Console.WriteLine(message);
+    public void SimpleTextOutput(string title, string label, string message, bool allowMultiline) => ScriptMessage(message);
     public void StartProgressBarUpdater()
     {
     }

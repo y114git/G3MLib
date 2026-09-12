@@ -9,6 +9,24 @@ namespace G3MLib.Tests;
 
 public sealed class BinaryWriterTests
 {
+    [Fact]
+    public void BufferedChunksGrowAndRejectStaleBytesAfterShrinking()
+    {
+        const int maximumChunk = 12 * 1024 * 1024;
+        using var stream = new MemoryStream(new byte[maximumChunk + 8]);
+        using var reader = new BufferBinaryReader(stream);
+        foreach (int length in new[] { 4, maximumChunk, 1 })
+        {
+            stream.Position = 8;
+            stream.WriteByte(42);
+            stream.Position = 8;
+            reader.CopyChunkToBuffer((uint)length);
+            Assert.Equal(42, reader.ReadByte());
+            reader.Position = length + 8;
+            Assert.Throws<IOException>(() => reader.ReadByte());
+        }
+    }
+
     [Fact("BinaryWriterTests.cs", 9)]
     public void FileBinaryWriterWritesLittleEndianValuesAndGameMakerStrings()
     {

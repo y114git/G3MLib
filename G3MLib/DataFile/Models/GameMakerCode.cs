@@ -18,7 +18,6 @@ namespace G3MLib.DataFile.Models;
 /// </summary>
 public class GameMakerInstruction : GameMakerObject, IGMInstruction
 {
-    private const string NullValueText = "(null)";
 
     /// <summary>
     /// Possible opcodes an instruction can use.

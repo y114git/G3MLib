@@ -14,7 +14,7 @@ public class DiffServiceTests
     [Fact("DiffServiceTests.cs", 10)]
     public async Task DiffSkipsBinaryAnalysisForGeneralInfoOnlyChange()
     {
-        string directory = Path.Combine(Path.GetTempPath(), $"G3MToolTests-{Guid.NewGuid():N}");
+        string directory = Path.Combine(Path.GetTempPath(), $"G3MLibTests-{Guid.NewGuid():N}");
         Directory.CreateDirectory(directory);
         try
         {
@@ -47,7 +47,7 @@ public class DiffServiceTests
     [Fact("DiffServiceTests.cs", 42)]
     public async Task DiffReportsChangedDataFilesAndWritesReusableCache()
     {
-        string directory = Path.Combine(Path.GetTempPath(), $"G3MToolTests-{Guid.NewGuid():N}");
+        string directory = Path.Combine(Path.GetTempPath(), $"G3MLibTests-{Guid.NewGuid():N}");
         Directory.CreateDirectory(directory);
         try
         {

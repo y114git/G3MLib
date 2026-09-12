@@ -15,12 +15,131 @@ namespace G3MLib.Tests;
 
 public class PatchServiceTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task PatchManifestsRecordLibraryVersionAndAcceptLegacyInputs(bool sequential)
+    {
+        string directory = Path.Combine(Path.GetTempPath(), $"G3MLibTests-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        try
+        {
+            string original = Path.Combine(directory, "original.win");
+            string modified = Path.Combine(directory, "modified.win");
+            string patch = Path.Combine(directory, "change.g3mpatch");
+            string merged = Path.Combine(directory, "merged.g3mpatch");
+            using (var data = GameMakerData.CreateNew2026LTS())
+            {
+                Write(original, data);
+                data.Rooms[0].Width++;
+                Write(modified, data);
+            }
+            var created = await PatchService.CreatePatchAsync(original, modified, patch);
+            Assert.True(created.Success, created.Error);
+            using (var archive = System.IO.Compression.ZipFile.Open(patch, System.IO.Compression.ZipArchiveMode.Update))
+            {
+                var entry = archive.GetEntry("g3mpatch.json")!;
+                System.Text.Json.Nodes.JsonObject manifest;
+                using (var stream = entry.Open())
+                    manifest = System.Text.Json.Nodes.JsonNode.Parse(stream)!.AsObject();
+                Assert.Equal("G3MLib", manifest["library"]!["name"]!.GetValue<string>());
+                Assert.Equal(G3MLib.Modding.ModdingMetadata.LibraryVersion, manifest["library"]!["version"]!.GetValue<string>());
+                manifest.Remove("library");
+                Assert.Null(System.Text.Json.JsonSerializer.Deserialize<G3MPatchManifest>(manifest.ToJsonString())!.Library);
+                entry.Delete();
+                using var output = archive.CreateEntry("g3mpatch.json").Open();
+                System.Text.Json.JsonSerializer.Serialize(output, manifest);
+            }
+            var applied = await PatchService.ApplyPatchAsync(original, patch, Path.Combine(directory, "applied.win"));
+            Assert.True(applied.Success, applied.Error);
+            var result = await MergeService.MergePatchesAsync(original, [patch, patch], new MergeOptions
+            {
+                OutputPath = merged,
+                UseSequentialMerge = sequential
+            });
+            Assert.True(result.Success, result.Error);
+            using var mergedArchive = System.IO.Compression.ZipFile.OpenRead(merged);
+            using var manifestStream = mergedArchive.GetEntry("g3mpatch.json")!.Open();
+            var mergedManifest = System.Text.Json.JsonSerializer.Deserialize<G3MPatchManifest>(manifestStream)!;
+            Assert.Equal("G3MLib", mergedManifest.Library!.Name);
+            Assert.Equal(G3MLib.Modding.ModdingMetadata.LibraryVersion, mergedManifest.Library.Version);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task SequentialMergeRejectsPropertyMerging()
+    {
+        MergeResult result = await MergeService.MergePatchesAsync("unused.win", [], new MergeOptions { UseSequentialMerge = true, UsePropertyMerge = true });
+        Assert.False(result.Success);
+        Assert.Equal("Sequential merge does not support code or property merging.", result.Error);
+    }
+
+    [Fact]
+    public async Task MergeDataInputsSupportsOverlayWithoutManifest()
+    {
+        string directory = Path.Combine(Path.GetTempPath(), $"G3MLibTests-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        try
+        {
+            string original = Path.Combine(directory, "original.win");
+            string modified = Path.Combine(directory, "modified.win");
+            string output = Path.Combine(directory, "merged.win");
+            using (GameMakerData data = GameMakerData.CreateNew2026LTS())
+            {
+                Write(original, data);
+                data.GeneralInfo.LastObj = 321;
+                Write(modified, data);
+            }
+
+            MergeResult result = await MergeService.MergePatchesAsync(original, [modified, modified], new MergeOptions { ApplyPath = output });
+
+            Assert.True(result.Success, result.Error);
+            using GameMakerData merged = Read(output);
+            Assert.Equal(321u, merged.GeneralInfo.LastObj);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task InvalidPatchPreservesExistingOutputAndOriginal()
+    {
+        string directory = Path.Combine(Path.GetTempPath(), $"G3MLibTests-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        try
+        {
+            string original = Path.Combine(directory, "original.win");
+            string patch = Path.Combine(directory, "invalid.g3mpatch");
+            using (GameMakerData data = GameMakerData.CreateNew2026LTS())
+                Write(original, data);
+            byte[] expected = await File.ReadAllBytesAsync(original, TestContext.Current.CancellationToken);
+            await File.WriteAllTextAsync(patch, "invalid zip", TestContext.Current.CancellationToken);
+
+            PatchApplyResult result = await PatchService.ApplyPatchAsync(original, patch, original);
+
+            Assert.False(result.Success);
+            Assert.True(File.Exists(original));
+            Assert.Equal(expected, await File.ReadAllBytesAsync(original, TestContext.Current.CancellationToken));
+            Assert.Equal(2, Directory.GetFiles(directory).Length);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
     [Theory("PatchServiceTests.cs", 9)]
     [InlineData([false])]
     [InlineData([true])]
     public async Task PatchRoundTripFindsNamedResourceAfterIndexShift(bool includesRoomOrder)
     {
-        string directory = Path.Combine(Path.GetTempPath(), $"G3MToolTests-{Guid.NewGuid():N}");
+        string directory = Path.Combine(Path.GetTempPath(), $"G3MLibTests-{Guid.NewGuid():N}");
         Directory.CreateDirectory(directory);
         try
         {
@@ -92,7 +211,7 @@ public class PatchServiceTests
     [Fact("PatchServiceTests.cs", 69)]
     public async Task MergeAppliesIndependentRoomChanges()
     {
-        string directory = Path.Combine(Path.GetTempPath(), $"G3MToolTests-{Guid.NewGuid():N}");
+        string directory = Path.Combine(Path.GetTempPath(), $"G3MLibTests-{Guid.NewGuid():N}");
         Directory.CreateDirectory(directory);
         try
         {
@@ -158,7 +277,7 @@ public class PatchServiceTests
     [Fact("PatchServiceTests.cs", 126)]
     public async Task SequentialMergeKeepsChangesWhenBothPatchesShiftIndices()
     {
-        string directory = Path.Combine(Path.GetTempPath(), $"G3MToolTests-{Guid.NewGuid():N}");
+        string directory = Path.Combine(Path.GetTempPath(), $"G3MLibTests-{Guid.NewGuid():N}");
         Directory.CreateDirectory(directory);
         try
         {
@@ -224,7 +343,7 @@ public class PatchServiceTests
     [Fact("PatchServiceTests.cs", 177)]
     public async Task MergeKeepsIndependentChangesAfterMultipleResourceIndexShifts()
     {
-        string directory = Path.Combine(Path.GetTempPath(), $"G3MToolTests-{Guid.NewGuid():N}");
+        string directory = Path.Combine(Path.GetTempPath(), $"G3MLibTests-{Guid.NewGuid():N}");
         Directory.CreateDirectory(directory);
         try
         {
@@ -297,7 +416,7 @@ public class PatchServiceTests
     [Fact("PatchServiceTests.cs", 233)]
     public async Task MergePreservesGameObjectReferencesAfterIndexShifts()
     {
-        string directory = Path.Combine(Path.GetTempPath(), $"G3MToolTests-{Guid.NewGuid():N}");
+        string directory = Path.Combine(Path.GetTempPath(), $"G3MLibTests-{Guid.NewGuid():N}");
         Directory.CreateDirectory(directory);
         try
         {
@@ -378,7 +497,7 @@ public class PatchServiceTests
     [Fact("PatchServiceTests.cs", 296)]
     public async Task MergeCombinesThreePatchesWithIndependentRoomIndexShifts()
     {
-        string directory = Path.Combine(Path.GetTempPath(), $"G3MToolTests-{Guid.NewGuid():N}");
+        string directory = Path.Combine(Path.GetTempPath(), $"G3MLibTests-{Guid.NewGuid():N}");
         Directory.CreateDirectory(directory);
         try
         {
@@ -468,7 +587,7 @@ public class PatchServiceTests
     [Fact("PatchServiceTests.cs", 368)]
     public async Task MergeKeepsHighIndexRoomsAcrossThreeShiftedPatches()
     {
-        string directory = Path.Combine(Path.GetTempPath(), $"G3MToolTests-{Guid.NewGuid():N}");
+        string directory = Path.Combine(Path.GetTempPath(), $"G3MLibTests-{Guid.NewGuid():N}");
         Directory.CreateDirectory(directory);
         try
         {
@@ -558,7 +677,7 @@ public class PatchServiceTests
     [Fact("PatchServiceTests.cs", 440)]
     public async Task MergeKeepsSixIndependentHighIndexChangesAfterDivergentRoomShifts()
     {
-        string directory = Path.Combine(Path.GetTempPath(), $"G3MToolTests-{Guid.NewGuid():N}");
+        string directory = Path.Combine(Path.GetTempPath(), $"G3MLibTests-{Guid.NewGuid():N}");
         Directory.CreateDirectory(directory);
         try
         {

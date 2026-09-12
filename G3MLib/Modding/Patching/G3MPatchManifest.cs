@@ -11,6 +11,10 @@ public class G3MPatchManifest
 	[JsonPropertyName("tool")]
 	public ToolInfo? Tool { get; set; }
 
+	[JsonPropertyName("library")]
+	[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+	public ToolInfo? Library { get; set; }
+
 	[JsonPropertyName("original")]
 	public DataFileInfo? Original { get; set; }
 

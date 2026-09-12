@@ -22,7 +22,6 @@ namespace G3MLib.Modding.Resources;
 
 public static class ResourceHashService
 {
-	private const string ValuePropertyName = "value";
 
 	public static Dictionary<string, Dictionary<string, string>> HashAll(GameMakerData data, string? dataFilePath = null)
 	{
@@ -703,8 +702,9 @@ public static class ResourceHashService
 	private static (int Width, int Height, byte[] Pixels) GetRgbaPixels(GMImage image)
 	{
 		GMImage rawImage = image.ConvertToRawBgra();
-		ReadOnlySpan<byte> bgra = rawImage.GetRawImageData();
-		byte[] rgba = GC.AllocateUninitializedArray<byte>(bgra.Length);
+		// Decoded images belong to this call; raw input pixels still belong to the caller.
+		byte[] rgba = ReferenceEquals(rawImage, image) ? rawImage.GetData().ToArray() : rawImage.GetData();
+		ReadOnlySpan<byte> bgra = rgba;
 		int offset = 0;
 		if (Vector.IsHardwareAccelerated)
 		{
@@ -724,10 +724,7 @@ public static class ResourceHashService
 		}
 		for (; offset < bgra.Length; offset += 4)
 		{
-			rgba[offset] = bgra[offset + 2];
-			rgba[offset + 1] = bgra[offset + 1];
-			rgba[offset + 2] = bgra[offset];
-			rgba[offset + 3] = bgra[offset + 3];
+			(rgba[offset], rgba[offset + 2]) = (rgba[offset + 2], rgba[offset]);
 		}
 		return (rawImage.Width, rawImage.Height, rgba);
 	}
@@ -1265,7 +1262,7 @@ public static class ResourceHashService
 			return new Dictionary<string, string>();
 		}
 		Dictionary<string, string> result = new Dictionary<string, string>(StringComparer.Ordinal);
-		string tempRoot = Path.Combine(Path.GetTempPath(), "g3mtool_seq_hash", Guid.NewGuid().ToString("N"));
+		string tempRoot = Path.Combine(Path.GetTempPath(), "g3mlib_seq_hash", Guid.NewGuid().ToString("N"));
 		try
 		{
 			ProjectContext context = ResourceAssetUtil.CreateProjectContext(data, tempRoot);

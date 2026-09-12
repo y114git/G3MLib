@@ -433,23 +433,8 @@ namespace G3MLib.DataFile
         {
             if (countUnserializeExc is not null)
             {
-                string logMessage = string.Empty;
-                try
-                {
-                    string fileDir = Path.GetDirectoryName(Environment.ProcessPath);
-                    File.WriteAllText(Path.Join(fileDir, "unserializeCountError.txt"),
-                                      countUnserializeExc + "\n"
-                                      + countUnserializeExc.Message + "\n"
-                                      + countUnserializeExc.StackTrace);
-                    logMessage = " The error log is saved to \"unserializeCountError.txt\".";
-                }
-                catch
-                {
-                    // The error log is optional; keep the original warning when it cannot be written.
-                }
-
                 SubmitWarning("Warning - there was an error while trying to unserialize total object count.\n" +
-                              logMessage + " Please report that error to the G3MLib maintainers.");
+                              "Please report that error to the G3MLib maintainers.");
 
                 countUnserializeExc = null;
 

@@ -23,7 +23,7 @@ public static class Paths
             fullDirectoryPath += Path.DirectorySeparatorChar;
         }
         string fullPathToTest = Path.GetFullPath(pathToTest);
-        return fullPathToTest.StartsWith(fullDirectoryPath, StringComparison.Ordinal);
+        return fullPathToTest.StartsWith(fullDirectoryPath, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
     }
 
     /// <summary>

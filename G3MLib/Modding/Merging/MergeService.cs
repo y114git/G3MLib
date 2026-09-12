@@ -37,7 +37,6 @@ public class MergeResult
 public static partial class MergeService
 {
     private const int DataFileBufferSize = 1024 * 1024;
-    private const long LowMemoryThresholdBytes = 4L * 1024 * 1024 * 1024;
     private const string MemoryFailurePrefix = "Out of memory while merging: ";
 
     private static FileStream OpenDataReadStream(string path) =>
@@ -45,13 +44,6 @@ public static partial class MergeService
 
     private static FileStream OpenDataWriteStream(string path) =>
         new(path, FileMode.Create, FileAccess.Write, FileShare.None, DataFileBufferSize);
-
-    private static bool ShouldUseLowMemoryPipeline() =>
-        GC.GetGCMemoryInfo().TotalAvailableMemoryBytes < LowMemoryThresholdBytes;
-
-    private static bool CanUseLowMemoryPipeline(MergeOptions options) =>
-        options.UseSequentialMerge &&
-        !options.UseCodeMerge && !options.UsePropertyMerge;
 
     private static int GetNormalizationConcurrency(bool lowMemory)
     {
@@ -66,11 +58,6 @@ public static partial class MergeService
         exception is OutOfMemoryException ||
         exception is AggregateException aggregate && aggregate.Flatten().InnerExceptions.Any(IsOutOfMemory);
 
-    private static bool IsMemoryFailure(string? error) =>
-        !string.IsNullOrWhiteSpace(error) &&
-        (error.Contains("out of memory", StringComparison.OrdinalIgnoreCase) ||
-        error.Contains(nameof(OutOfMemoryException), StringComparison.Ordinal));
-
     private static readonly HashSet<string> s_codeSensitiveResourceTypes = new(StringComparer.OrdinalIgnoreCase)
     {
         "CodeEntries",
@@ -79,29 +66,6 @@ public static partial class MergeService
         "Functions",
         "Variables",
         "GeneralInfo"
-    };
-
-    private static readonly HashSet<string> s_assetIndexSensitiveResourceTypes = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "Sprites",
-        "Sounds",
-        "Fonts",
-        "Backgrounds",
-        "Paths",
-        "Shaders",
-        "AudioGroups",
-        "EmbeddedAudio",
-        "TextureGroupInfo",
-        "Tilesets",
-        "TexturePageItems",
-        "EmbeddedTextures",
-        "Rooms",
-        "GameObjects",
-        "CodeEntries",
-        "Scripts",
-        "GlobalScripts",
-        "Functions",
-        "Variables"
     };
 
     private static readonly (string Section, Func<PatchAssetRemaps, Dictionary<int, int>> Target)[] s_assetRemapSections =
@@ -237,8 +201,7 @@ public static partial class MergeService
 
     private static bool SourceSupportsExactBase(string sourcePath)
     {
-        string ext = Path.GetExtension(sourcePath).ToLowerInvariant();
-        return ext == ".xdelta" || DataFileExtensionUtil.IsDataFile(sourcePath);
+        return PatchInputService.IsXDelta(sourcePath) || DataFileExtensionUtil.IsDataFile(sourcePath);
     }
 
     private static int TryGetBestExactCodeBasePatchIndex(PatchFileSystem[] patches, string[] sourcePaths)
@@ -275,22 +238,14 @@ public static partial class MergeService
         if (!string.IsNullOrWhiteSpace(outDir))
             Directory.CreateDirectory(outDir);
 
-        string ext = Path.GetExtension(sourceInputPath).ToLowerInvariant();
         if (DataFileExtensionUtil.IsDataFile(sourceInputPath))
         {
-            File.Copy(sourceInputPath, outputPath, overwrite: true);
-            string? sourceDir = Path.GetDirectoryName(sourceInputPath);
-            if (!string.IsNullOrWhiteSpace(sourceDir) && Directory.Exists(sourceDir) &&
-                !string.IsNullOrWhiteSpace(outDir))
-            {
-                foreach (var audioGroupPath in Directory.GetFiles(sourceDir, "audiogroup*.dat"))
-                    File.Copy(audioGroupPath, Path.Combine(outDir, Path.GetFileName(audioGroupPath)), overwrite: true);
-            }
+            PatchInputService.CopyDataFile(sourceInputPath, outputPath);
             return true;
         }
 
         string? xdeltaPath = null;
-        if (ext == ".xdelta")
+        if (PatchInputService.IsXDelta(sourceInputPath))
         {
             xdeltaPath = sourceInputPath;
         }
@@ -299,6 +254,7 @@ public static partial class MergeService
 
         var xdelta = new XDeltaService();
         var result = await xdelta.ApplyPatchAsync(originalPath, xdeltaPath, outputPath);
+        if (result.Success) PatchInputService.CopyExternalAudioGroups(originalPath, outputPath);
         return result.Success;
     }
 
@@ -319,14 +275,12 @@ public static partial class MergeService
         PatchAssetRemaps exactBaseAssetRemap,
         SoundAudioIdRemapResult soundAudioIdRemaps)
     {
-        string tempRoot = Path.Combine(Path.GetTempPath(), $"g3mtool_merge_exact_{Guid.NewGuid():N}");
+        string tempRoot = Path.Combine(Path.GetTempPath(), $"g3mlib_merge_exact_{Guid.NewGuid():N}");
         Directory.CreateDirectory(tempRoot);
 
         string baseDataPath = Path.Combine(tempRoot, "base.win");
         string overlayPatchPath = Path.Combine(tempRoot, "overlay.g3mpatch");
-        string mergedDataPath = string.IsNullOrWhiteSpace(applyPath)
-            ? Path.Combine(tempRoot, "merged.win")
-            : applyPath!;
+        string mergedDataPath = Path.Combine(tempRoot, "merged.win");
 
         try
         {
@@ -339,9 +293,8 @@ public static partial class MergeService
                 };
             }
 
-            GameMakerData baseData;
-            using (var baseStream = OpenDataReadStream(baseDataPath))
-                baseData = GameMakerIO.Read(baseStream);
+            using var baseStream = OpenDataReadStream(baseDataPath);
+            using GameMakerData baseData = GameMakerIO.Read(baseStream);
 
             var overlayPfs = BuildOverlayAgainstExactCodeBase(
                 finalPfs,
@@ -443,6 +396,8 @@ public static partial class MergeService
                 }
             }
 
+            if (!string.IsNullOrWhiteSpace(applyPath))
+                PatchInputService.CopyDataFile(mergedDataPath, applyPath);
             return new ExactCodeBaseFinalizeResult { Success = true };
         }
         finally
@@ -450,6 +405,7 @@ public static partial class MergeService
             try
             {
                 if (File.Exists(baseDataPath)) File.Delete(baseDataPath);
+                if (File.Exists(mergedDataPath)) File.Delete(mergedDataPath);
                 if (File.Exists(overlayPatchPath)) File.Delete(overlayPatchPath);
                 foreach (var sidecar in Directory.Exists(tempRoot) ? Directory.GetFiles(tempRoot, "audiogroup*.dat") : [])
                     File.Delete(sidecar);
@@ -844,75 +800,6 @@ public static partial class MergeService
             patch.RemoveFile(path);
     }
 
-    private static string? TryGetParentCodeNameFromAsmPath(PatchFileSystem patch, string entryKey)
-    {
-        var asmPath = patch.AsmEntryPaths.GetValueOrDefault(entryKey);
-        if (string.IsNullOrWhiteSpace(asmPath))
-            return null;
-
-        var segments = asmPath.Split('/', StringSplitOptions.RemoveEmptyEntries);
-        if (segments.Length < 3)
-            return null;
-
-        string parentName = segments[1];
-        string logicalName = patch.CodeEntryLogicalNames.GetValueOrDefault(entryKey) ?? entryKey;
-        if (string.Equals(parentName, logicalName, StringComparison.OrdinalIgnoreCase))
-            return null;
-
-        return parentName;
-    }
-
-    private static bool PatchHasCodeEntryLogicalName(PatchFileSystem patch, string logicalName)
-    {
-        foreach (var name in patch.CodeEntryLogicalNames.Values)
-        {
-            if (string.Equals(name, logicalName, StringComparison.OrdinalIgnoreCase))
-                return true;
-        }
-
-        return patch.GmlEntries.ContainsKey(logicalName) || patch.AsmEntries.ContainsKey(logicalName);
-    }
-
-    private static void RemoveOrphanChildCodeEntries(PatchFileSystem patch, G3MPatchManifest? manifest)
-    {
-        var orphanKeys = new List<string>();
-        foreach (var entryKey in patch.CodeEntryLogicalNames.Keys.ToList())
-        {
-            string? parentName = TryGetParentCodeNameFromAsmPath(patch, entryKey);
-            if (string.IsNullOrWhiteSpace(parentName))
-                continue;
-
-            if (!PatchHasCodeEntryLogicalName(patch, parentName))
-                orphanKeys.Add(entryKey);
-        }
-
-        if (orphanKeys.Count == 0)
-            return;
-
-        foreach (var entryKey in orphanKeys)
-        {
-            string logicalName = patch.CodeEntryLogicalNames.GetValueOrDefault(entryKey) ?? entryKey;
-            RemoveResourceFromPatch(patch, "CodeEntries", entryKey);
-            RemoveResourceFromPatch(patch, "Scripts", logicalName);
-
-            if (manifest?.Resources != null)
-            {
-                if (manifest.Resources.TryGetValue("CodeEntries", out var codeChanges))
-                {
-                    codeChanges.Changed?.RemoveAll(c => string.Equals(c.Name, logicalName, StringComparison.OrdinalIgnoreCase) || string.Equals(c.Name, entryKey, StringComparison.OrdinalIgnoreCase));
-                    codeChanges.New?.RemoveAll(c => string.Equals(c.Name, logicalName, StringComparison.OrdinalIgnoreCase) || string.Equals(c.Name, entryKey, StringComparison.OrdinalIgnoreCase));
-                }
-
-                if (manifest.Resources.TryGetValue("Scripts", out var scriptChanges))
-                {
-                    scriptChanges.Changed?.RemoveAll(c => string.Equals(c.Name, logicalName, StringComparison.OrdinalIgnoreCase));
-                    scriptChanges.New?.RemoveAll(c => string.Equals(c.Name, logicalName, StringComparison.OrdinalIgnoreCase));
-                    scriptChanges.Deleted?.RemoveAll(d => string.Equals(d, logicalName, StringComparison.OrdinalIgnoreCase));
-                }
-            }
-        }
-    }
-
     private static void PruneVariablesFunctionsHelper(PatchFileSystem patch)
     {
         string vfPath = $"{patch.HelpersPrefix}/variables_functions.json";
@@ -960,236 +847,6 @@ public static partial class MergeService
 
         root["codeEntries"] = filtered;
         patch.AddTextFile(vfPath, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
-    }
-
-    private static void RemoveAllDeletions(G3MPatchManifest? manifest, params string[] resourceTypes)
-    {
-        if (manifest?.Resources == null)
-            return;
-
-        foreach (string resourceType in resourceTypes)
-        {
-            if (manifest.Resources.TryGetValue(resourceType, out var changes))
-                changes.Deleted?.Clear();
-        }
-    }
-
-    private static void RemoveScriptEntriesMissingCode(
-        PatchFileSystem patch,
-        G3MPatchManifest? manifest,
-        HashSet<string> availableCodeNames)
-    {
-        if (manifest?.Resources == null || !manifest.Resources.TryGetValue("Scripts", out var scriptChanges))
-            return;
-
-        var removeNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var change in (scriptChanges.Changed ?? []).Concat(scriptChanges.New ?? []))
-        {
-            if (!string.IsNullOrWhiteSpace(change.Name) && !availableCodeNames.Contains(change.Name))
-                removeNames.Add(change.Name);
-        }
-
-        foreach (string name in removeNames)
-            RemoveResourceFromPatch(patch, "Scripts", name);
-
-        scriptChanges.Changed?.RemoveAll(c => !string.IsNullOrWhiteSpace(c.Name) && removeNames.Contains(c.Name));
-        scriptChanges.New?.RemoveAll(c => !string.IsNullOrWhiteSpace(c.Name) && removeNames.Contains(c.Name));
-        scriptChanges.Deleted?.RemoveAll(d => !string.IsNullOrWhiteSpace(d) && removeNames.Contains(d));
-    }
-
-    private static void SanitizeRoomCodeReferences(
-        PatchFileSystem patch,
-        HashSet<string> availableCodeNames)
-    {
-        bool IsMissing(string? codeName) =>
-            !string.IsNullOrWhiteSpace(codeName) && !availableCodeNames.Contains(codeName);
-
-        foreach (string path in patch.GetAllFilePaths()
-            .Where(p => p.StartsWith("Rooms/", StringComparison.OrdinalIgnoreCase) &&
-                        p.EndsWith("/room.json", StringComparison.OrdinalIgnoreCase))
-            .ToList())
-        {
-            if (!patch.TryGetFile(path, out var bytes))
-                continue;
-
-            JsonNode? parsed;
-            try
-            {
-                parsed = JsonNode.Parse(bytes);
-            }
-            catch
-            {
-                continue;
-            }
-
-            if (parsed is not JsonObject roomObj)
-                continue;
-
-            bool changed = false;
-
-            string? roomCreationCode = roomObj["creationCodeId"]?.GetValue<string>();
-            if (IsMissing(roomCreationCode))
-            {
-                roomObj["creationCodeId"] = "";
-                changed = true;
-            }
-
-            if (roomObj["gameObjects"] is JsonArray gameObjects)
-            {
-                foreach (var node in gameObjects)
-                {
-                    if (node is not JsonObject gameObject)
-                        continue;
-
-                    string? creationCode = gameObject["creationCode"]?.GetValue<string>();
-                    if (IsMissing(creationCode))
-                    {
-                        gameObject["creationCode"] = "";
-                        changed = true;
-                    }
-
-                    string? preCreateCode = gameObject["preCreateCode"]?.GetValue<string>();
-                    if (IsMissing(preCreateCode))
-                    {
-                        gameObject["preCreateCode"] = "";
-                        changed = true;
-                    }
-                }
-            }
-
-            if (changed)
-                patch.AddTextFile(path, roomObj.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
-        }
-    }
-
-    private static void SanitizeLowerPriorityExactOverlay(PatchFileSystem patch, G3MPatchManifest? manifest, GameMakerData baseData)
-    {
-        RemoveAllDeletions(manifest, "Scripts", "CodeEntries");
-        var availableCodeNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var code in baseData.Code)
-        {
-            var codeName = code?.Name?.Content;
-            if (!string.IsNullOrWhiteSpace(codeName))
-                availableCodeNames.Add(codeName);
-        }
-
-        foreach (var logicalName in patch.CodeEntryLogicalNames.Values)
-        {
-            if (!string.IsNullOrWhiteSpace(logicalName))
-                availableCodeNames.Add(logicalName);
-        }
-
-        RemoveScriptEntriesMissingCode(patch, manifest, availableCodeNames);
-        PruneVariablesFunctionsHelper(patch);
-        SanitizeRoomCodeReferences(patch, availableCodeNames);
-    }
-
-    private static void StripRuntimeSensitiveResourcesFromOverlay(PatchFileSystem patch, G3MPatchManifest? manifest)
-    {
-        string[] resourceTypes =
-        [
-            "CodeEntries",
-            "Scripts",
-            "GlobalScripts",
-            "Functions",
-            "Variables",
-            "Rooms",
-            "GameObjects"
-        ];
-
-        foreach (string resourceType in resourceTypes)
-        {
-            foreach (string path in patch.GetAllFilePaths()
-                .Where(p => GetTopLevelFolder(p).Equals(resourceType, StringComparison.OrdinalIgnoreCase))
-                .ToList())
-            {
-                patch.RemoveFile(path);
-            }
-
-            if (resourceType.Equals("CodeEntries", StringComparison.OrdinalIgnoreCase))
-            {
-                foreach (string entryKey in patch.GmlEntries.Keys.ToList())
-                    patch.RemoveGmlEntry(entryKey);
-                foreach (string entryKey in patch.AsmEntries.Keys.ToList())
-                    patch.RemoveAsmEntry(entryKey);
-            }
-
-            if (manifest?.Resources != null)
-                manifest.Resources.Remove(resourceType);
-        }
-
-        foreach (string helperPath in patch.GetAllFilePaths().Where(path =>
-            path.EndsWith("variables_functions.json", StringComparison.OrdinalIgnoreCase) ||
-            path.EndsWith("object_events.json", StringComparison.OrdinalIgnoreCase)).ToList())
-        {
-            patch.RemoveFile(helperPath);
-        }
-    }
-
-    private static void StripAssetIndexSensitiveResourcesFromOverlay(PatchFileSystem patch, G3MPatchManifest? manifest)
-    {
-        foreach (string resourceType in s_assetIndexSensitiveResourceTypes)
-        {
-            foreach (string path in patch.GetAllFilePaths()
-                .Where(p => GetTopLevelFolder(p).Equals(resourceType, StringComparison.OrdinalIgnoreCase))
-                .ToList())
-            {
-                patch.RemoveFile(path);
-            }
-
-            if (resourceType.Equals("CodeEntries", StringComparison.OrdinalIgnoreCase))
-            {
-                foreach (string entryKey in patch.GmlEntries.Keys.ToList())
-                    patch.RemoveGmlEntry(entryKey);
-                foreach (string entryKey in patch.AsmEntries.Keys.ToList())
-                    patch.RemoveAsmEntry(entryKey);
-            }
-
-            manifest?.Resources?.Remove(resourceType);
-        }
-
-        foreach (string helperPath in patch.GetAllFilePaths().Where(path =>
-            path.EndsWith("variables_functions.json", StringComparison.OrdinalIgnoreCase) ||
-            path.EndsWith("object_events.json", StringComparison.OrdinalIgnoreCase) ||
-            path.EndsWith("texture_page_items.json", StringComparison.OrdinalIgnoreCase) ||
-            path.EndsWith("sprite_frame_map.json", StringComparison.OrdinalIgnoreCase)).ToList())
-        {
-            patch.RemoveFile(helperPath);
-        }
-    }
-
-    private static HashSet<ResourceTouchKey> BuildHigherPriorityTouches(PatchFileSystem[] patches, int patchIndexExclusive)
-    {
-        var touches = new HashSet<ResourceTouchKey>();
-        for (int i = patchIndexExclusive + 1; i < patches.Length; i++)
-        {
-            var resources = patches[i].Manifest?.Resources;
-            if (resources == null)
-                continue;
-
-            foreach (var (resourceType, changes) in resources)
-            {
-                foreach (var changed in changes.Changed ?? [])
-                {
-                    if (!string.IsNullOrWhiteSpace(changed.Name))
-                        touches.Add(new ResourceTouchKey(resourceType, changed.Name));
-                }
-
-                foreach (var added in changes.New ?? [])
-                {
-                    if (!string.IsNullOrWhiteSpace(added.Name))
-                        touches.Add(new ResourceTouchKey(resourceType, added.Name));
-                }
-
-                foreach (var deleted in changes.Deleted ?? [])
-                {
-                    if (!string.IsNullOrWhiteSpace(deleted))
-                        touches.Add(new ResourceTouchKey(resourceType, deleted));
-                }
-            }
-        }
-
-        return touches;
     }
 
     private static G3MPatchManifest? BuildFilteredManifest(
@@ -1253,6 +910,7 @@ public static partial class MergeService
         {
             CreatedAt = sourceManifest.CreatedAt,
             Tool = sourceManifest.Tool,
+            Library = sourceManifest.Library,
             Original = sourceManifest.Original,
             Modified = sourceManifest.Modified,
             Resources = resources,
@@ -1297,59 +955,24 @@ public static partial class MergeService
         return (filteredPatch, filteredManifest);
     }
 
-    private static void StripGlobalTextureWorldFromPatch(PatchFileSystem patch, G3MPatchManifest? manifest)
-    {
-        foreach (var path in patch.GetAllFilePaths().ToList())
-        {
-            if (path.StartsWith("TexturePageItems/", StringComparison.OrdinalIgnoreCase) ||
-                path.StartsWith("EmbeddedTextures/", StringComparison.OrdinalIgnoreCase) ||
-                path.EndsWith("texture_page_items.json", StringComparison.OrdinalIgnoreCase) ||
-                path.EndsWith("sprite_frame_map.json", StringComparison.OrdinalIgnoreCase))
-            {
-                patch.RemoveFile(path);
-            }
-        }
-
-        if (manifest?.Resources != null)
-        {
-            manifest.Resources.Remove("TexturePageItems");
-            manifest.Resources.Remove("EmbeddedTextures");
-        }
-
-        patch.RebuildDirectoryIndex();
-    }
-
     private static string GetTopLevelFolder(string path)
     {
         int slash = path.IndexOf('/');
         return slash >= 0 ? path[..slash] : path;
     }
-
-    // ═══════════════════════════════════════════════════════════════════
     // Main Pipeline
-    // ═══════════════════════════════════════════════════════════════════
-
     public static async Task<MergeResult> MergePatchesAsync(
         string originalPath,
         List<string> patchPaths,
         MergeOptions options)
     {
-        if (ShouldUseLowMemoryPipeline() && CanUseLowMemoryPipeline(options))
+        if (options.UseSequentialMerge)
         {
-            LogService.Warning("[MergeService] Using the sequential low-memory merge pipeline.");
+            if (options.UseCodeMerge || options.UsePropertyMerge)
+                return new MergeResult { Success = false, Error = "Sequential merge does not support code or property merging." };
             return await MergePatchesSequentiallyAsync(originalPath, patchPaths, options);
         }
-
-        var result = await MergePatchesFastAsync(originalPath, patchPaths, options);
-        bool ranOutOfMemory =
-            result.Error?.StartsWith(MemoryFailurePrefix, StringComparison.Ordinal) == true ||
-            IsMemoryFailure(result.Error);
-        if (result.Success || !ranOutOfMemory || !CanUseLowMemoryPipeline(options))
-            return result;
-
-        LogService.Warning($"[MergeService] {result.Error} Retrying with the sequential low-memory merge pipeline.");
-        GC.Collect(2, GCCollectionMode.Aggressive, true, true);
-        return await MergePatchesSequentiallyAsync(originalPath, patchPaths, options);
+        return await MergePatchesFastAsync(originalPath, patchPaths, options);
     }
 
     private static async Task<MergeResult> MergePatchesFastAsync(
@@ -1378,7 +1001,7 @@ public static partial class MergeService
         else
         {
             var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-            zipOutputPath = Path.Combine(PlatformUtil.GetExecutableDirectory(), $"merged_{timestamp}.g3mpatch");
+            zipOutputPath = Path.Combine(Path.GetDirectoryName(originalPath)!, $"merged_{timestamp}.g3mpatch");
         }
 
         var totalSw = Stopwatch.StartNew();
@@ -1400,9 +1023,7 @@ public static partial class MergeService
 
         try
         {
-            // ══════════════════════════════════════════════════════════
             // Phase 1: Load original
-            // ══════════════════════════════════════════════════════════
             stepSw.Restart();
             LogService.Progress(1, 100);
 
@@ -1430,10 +1051,7 @@ public static partial class MergeService
             LogService.Log($"[Bench] Load original: {stepSw.Elapsed.TotalSeconds:F2}s " +
                 $"(prep hash: {origHashSw.Elapsed.TotalSeconds:F2}s, convert inputs: {needsPatchConversion}, {originalData.GeneralInfo?.DisplayName?.Content ?? "?"})");
             LogService.Progress(5, 100);
-
-            // ══════════════════════════════════════════════════════════
             // Phase 2: Normalize patches to PFS (parallel)
-            // ══════════════════════════════════════════════════════════
             stepSw.Restart();
             var patchFileSystems = new PatchFileSystem[patchPaths.Count];
 
@@ -1492,18 +1110,12 @@ public static partial class MergeService
             // Prepare decompiler for 3-way code merge
             var decompileCache = new Dictionary<string, string?>();
             GlobalDecompileContext decompileCtx = new(originalData);
-
-            // ══════════════════════════════════════════════════════════
             // Pre-compute asset index remaps (patch order → merged order)
             // so hardcoded numeric asset ids in GML/ASM code are corrected.
-            // ══════════════════════════════════════════════════════════
             var patchAssetOrders = LoadPatchAssetOrders(patchFileSystems);
             var patchAssetRemaps = BuildPatchAssetRemaps(originalAssetOrder, patchAssetOrders, patchNames);
             var originalAssetRemap = BuildOriginalAssetRemap(originalAssetOrder, patchAssetOrders);
-
-            // ══════════════════════════════════════════════════════════
             // Phase 3: Merge loop (low priority → high priority)
-            // ══════════════════════════════════════════════════════════
             stepSw.Restart();
             var finalPfs = new PatchFileSystem();
             // Track which patch last wrote each file/code entry (for report)
@@ -1780,10 +1392,7 @@ public static partial class MergeService
                 finalPfs);
             if (addedBaseAssetRecompile > 0)
                 LogService.Log($"[MergeService] Added {addedBaseAssetRecompile} unchanged code entries for asset-index recompilation");
-
-            // ══════════════════════════════════════════════════════════
             // Phase 4: Merge helper files
-            // ══════════════════════════════════════════════════════════
             stepSw.Restart();
 
             bool includeTexturePageHelpers = HasEmbeddedTexturePayload(patchFileSystems);
@@ -1878,10 +1487,7 @@ public static partial class MergeService
             decompileCache.Clear();
             GC.Collect(2, GCCollectionMode.Aggressive, true, true);
             LogService.Progress(75, 100);
-
-            // ══════════════════════════════════════════════════════════
             // Phase 5: Build manifest + save
-            // ══════════════════════════════════════════════════════════
             stepSw.Restart();
 
             var manifest = BuildMergedManifest(patchFileSystems, finalPfs);
@@ -1894,10 +1500,7 @@ public static partial class MergeService
                 LogService.Log($"[Bench] Save patch: {stepSw.Elapsed.TotalSeconds:F2}s ({zipOutputPath})");
             }
             LogService.Progress(88, 100);
-
-            // ══════════════════════════════════════════════════════════
             // Phase 6: Apply if requested
-            // ══════════════════════════════════════════════════════════
             if (applyData)
             {
                 stepSw.Restart();
@@ -1924,10 +1527,7 @@ public static partial class MergeService
                 LogService.Log($"[Bench] Apply patch: {stepSw.Elapsed.TotalSeconds:F2}s ({options.ApplyPath})");
             }
             LogService.Progress(98, 100);
-
-            // ══════════════════════════════════════════════════════════
             // Phase 7: Conflict report
-            // ══════════════════════════════════════════════════════════
             string? logPath = options.ReportPath;
             if (logPath != null || conflicts.Count > 0)
             {
@@ -1995,12 +1595,13 @@ public static partial class MergeService
         if (zipOutputPath == null && options.ApplyPath == null)
         {
             var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-            zipOutputPath = Path.Combine(PlatformUtil.GetExecutableDirectory(), $"merged_{timestamp}.g3mpatch");
+            zipOutputPath = Path.Combine(Path.GetDirectoryName(originalPath)!, $"merged_{timestamp}.g3mpatch");
         }
 
         var patchNames = BuildPatchNames(patchPaths);
         var tempFiles = new List<string>();
         GameMakerData? currentData = null;
+        string? dataDirectory = null;
         bool writeReport = !string.IsNullOrWhiteSpace(options.ReportPath);
         var report = writeReport ? new StringBuilder() : null;
         var totalSw = Stopwatch.StartNew();
@@ -2085,8 +1686,9 @@ public static partial class MergeService
                 precomputeSw.Stop();
             }
 
-            string currentDataPath = Path.Combine(Path.GetTempPath(), $"g3m_merge_seq_base_{Guid.NewGuid():N}{Path.GetExtension(originalPath)}");
-            File.Copy(originalPath, currentDataPath, overwrite: true);
+            dataDirectory = Directory.CreateTempSubdirectory("g3mlib-merge-sequential-").FullName;
+            string currentDataPath = Path.Combine(dataDirectory, Path.GetFileName(originalPath));
+            PatchInputService.CopyDataFile(originalPath, currentDataPath);
             tempFiles.Add(currentDataPath);
 
             string? currentKnownMd5 = sharedOriginalInfo?.Md5;
@@ -2193,13 +1795,9 @@ public static partial class MergeService
                 GameMakerIO.Write(outStream, currentData);
             }
 
-            if (!string.IsNullOrWhiteSpace(options.ApplyPath))
-            {
-                var applyDir = Path.GetDirectoryName(options.ApplyPath!);
-                if (!string.IsNullOrWhiteSpace(applyDir))
-                    Directory.CreateDirectory(applyDir);
-                File.Copy(currentDataPath, options.ApplyPath!, overwrite: true);
-            }
+            string? validationError = PatchService.ValidateSavedDataFile(currentDataPath);
+            if (validationError is not null)
+                return new MergeResult { Success = false, Error = "Saved merged data validation failed: " + validationError };
 
             if (!string.IsNullOrWhiteSpace(zipOutputPath))
             {
@@ -2228,6 +1826,11 @@ public static partial class MergeService
             }
 
             LogService.Progress(92, 100);
+
+            if (!string.IsNullOrWhiteSpace(options.ApplyPath))
+            {
+                PatchInputService.CopyDataFile(currentDataPath, options.ApplyPath);
+            }
 
             string? reportPath = options.ReportPath;
             if (!string.IsNullOrWhiteSpace(reportPath))
@@ -2268,15 +1871,13 @@ public static partial class MergeService
         finally
         {
             currentData?.Dispose();
+            if (dataDirectory is not null)
+                try { Directory.Delete(dataDirectory, recursive: true); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { LogService.Warning(ex.Message); }
             foreach (var temp in tempFiles)
                 try { File.Delete(temp); } catch { }
         }
     }
-
-    // ═══════════════════════════════════════════════════════════════════
     // Asset Order Merge (union approach - preserves original indices)
-    // ═══════════════════════════════════════════════════════════════════
-
     private static Dictionary<string, List<string>> ExtractAssetOrder(GameMakerData data)
     {
         var order = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
@@ -3065,11 +2666,7 @@ public static partial class MergeService
 
         return (sections, counts);
     }
-
-    // ═══════════════════════════════════════════════════════════════════
     // Variables/Functions Merge (union)
-    // ═══════════════════════════════════════════════════════════════════
-
     private static string? MergeVariablesFunctions(GameMakerData originalData, PatchFileSystem[] patches)
     {
         // Variables and functions are index-sensitive for bytecode. Keep the
@@ -3284,11 +2881,7 @@ public static partial class MergeService
 
         return added;
     }
-
-    // ═══════════════════════════════════════════════════════════════════
     // Object Events Merge (union per object)
-    // ═══════════════════════════════════════════════════════════════════
-
     private static string? MergeObjectEvents(PatchFileSystem[] patches)
     {
         // Union events per object; later patch wins on conflict.
@@ -3357,11 +2950,7 @@ public static partial class MergeService
         if (!foundAny) return null;
         return JsonSerializer.Serialize(merged);
     }
-
-    // ═══════════════════════════════════════════════════════════════════
     // Texture Helpers Merge (TPIs + frame maps)
-    // ═══════════════════════════════════════════════════════════════════
-
     private static void MergeTextureHelpers(
         PatchFileSystem finalPfs,
         PatchFileSystem[] patches,
@@ -3738,11 +3327,6 @@ public static partial class MergeService
                spriteName.StartsWith("spr_fnt_ja_", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static bool IsLanguageSpriteName(string spriteName) =>
-        spriteName.StartsWith("spr_ja_", StringComparison.OrdinalIgnoreCase) ||
-        spriteName.StartsWith("bg_lang_ja_", StringComparison.OrdinalIgnoreCase) ||
-        spriteName.StartsWith("spr_fnt_ja_", StringComparison.OrdinalIgnoreCase);
-
     private static bool IsLocaleArtSpriteName(string spriteName) =>
         spriteName.StartsWith("spr_ja_", StringComparison.OrdinalIgnoreCase) ||
         spriteName.StartsWith("bg_lang_ja_", StringComparison.OrdinalIgnoreCase);
@@ -3821,11 +3405,7 @@ public static partial class MergeService
     {
         return text.Replace("\r\n", "\n").Replace('\r', '\n').Trim().TrimStart('\uFEFF');
     }
-
-    // ═══════════════════════════════════════════════════════════════════
     // 3-Way Code Merge (LCS-based)
-    // ═══════════════════════════════════════════════════════════════════
-
     private static string? GetOriginalGml(
         GameMakerData data,
         GlobalDecompileContext ctx,
@@ -4096,11 +3676,7 @@ public static partial class MergeService
     {
         return text.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
     }
-
-    // ═══════════════════════════════════════════════════════════════════
     // JSON Deep Merge
-    // ═══════════════════════════════════════════════════════════════════
-
     /// <summary>
     /// Deep merge two JSON documents. Object fields are merged recursively;
     /// arrays and primitives from the incoming document overwrite the existing.
@@ -4557,11 +4133,7 @@ public static partial class MergeService
 
         return source.DeepClone().AsArray();
     }
-
-    // ═══════════════════════════════════════════════════════════════════
     // Manifest Generation
-    // ═══════════════════════════════════════════════════════════════════
-
     private static G3MPatchManifest BuildMergedManifest(
         PatchFileSystem[] patches,
         PatchFileSystem finalPfs)
@@ -4636,6 +4208,7 @@ public static partial class MergeService
         return new G3MPatchManifest
         {
             CreatedAt = DateTime.UtcNow.ToString("o"),
+            Library = new G3MLib.Modding.Patching.ToolInfo { Name = "G3MLib", Version = ModdingMetadata.LibraryVersion },
 			Tool = new G3MLib.Modding.Patching.ToolInfo { Name = ModdingMetadata.ToolName, Version = ModdingMetadata.ToolVersion },
             Original = originalInfo,
             Resources = mergedResources,
@@ -4643,11 +4216,7 @@ public static partial class MergeService
             ApplyPlan = PatchService.BuildPatchApplyPlan(mergedResources)
         };
     }
-
-    // ═══════════════════════════════════════════════════════════════════
     // Conflict Report Generation
-    // ═══════════════════════════════════════════════════════════════════
-
     /// <summary>
     /// Build display names for patches. Uses parent folder name when filenames collide.
     /// </summary>
@@ -4767,20 +4336,6 @@ public static partial class MergeService
 
         return counts;
     }
-
-    private static bool IsOrderedAssetResourceType(string resourceType) =>
-        resourceType.Equals("Sounds", StringComparison.OrdinalIgnoreCase) ||
-        resourceType.Equals("Sprites", StringComparison.OrdinalIgnoreCase) ||
-        resourceType.Equals("Backgrounds", StringComparison.OrdinalIgnoreCase) ||
-        resourceType.Equals("Paths", StringComparison.OrdinalIgnoreCase) ||
-        resourceType.Equals("Scripts", StringComparison.OrdinalIgnoreCase) ||
-        resourceType.Equals("Fonts", StringComparison.OrdinalIgnoreCase) ||
-        resourceType.Equals("GameObjects", StringComparison.OrdinalIgnoreCase) ||
-        resourceType.Equals("Timelines", StringComparison.OrdinalIgnoreCase) ||
-        resourceType.Equals("Rooms", StringComparison.OrdinalIgnoreCase) ||
-        resourceType.Equals("Shaders", StringComparison.OrdinalIgnoreCase) ||
-        resourceType.Equals("Extensions", StringComparison.OrdinalIgnoreCase) ||
-        resourceType.Equals("AudioGroups", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Extract short display name from conflict file path.
@@ -5042,7 +4597,7 @@ public static partial class MergeService
     private static string GenerateConflictReport(string[] patchNames, List<ConflictEntry> conflicts)
     {
         var sb = new StringBuilder();
-        sb.AppendLine("# G3MTool CLI Merge Report");
+        sb.AppendLine("# G3MLib Merge Report");
         sb.AppendLine();
         sb.AppendLine($"**Date:** {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss} UTC");
         sb.AppendLine($"**Patches:** {string.Join(", ", patchNames.Select((n, i) => $"{n} (priority {i + 1})"))}");
@@ -5100,11 +4655,7 @@ public static partial class MergeService
 
         return sb.ToString();
     }
-
-    // ═══════════════════════════════════════════════════════════════════
     // Diff Helpers (for conflict report)
-    // ═══════════════════════════════════════════════════════════════════
-
     /// <summary>
     /// Generate a unified diff between two code versions (for overwrite conflicts).
     /// Shows only changed hunks with context lines.
@@ -5204,11 +4755,7 @@ public static partial class MergeService
             result = result[..4000] + "\n... (truncated)";
         return result;
     }
-
-    // ═══════════════════════════════════════════════════════════════════
     // Asset index remapping helpers
-    // ═══════════════════════════════════════════════════════════════════
-
     [GeneratedRegex(@"(?<fn>\b(?:i_ex|instance_number|instance_exists|instance_find)\s*\(\s*)(?<value>-?\d+)(?<suffix>\s*(?:,|\)))",
         RegexOptions.IgnoreCase)]
     private static partial Regex GmlObjectFirstArgRegex();
@@ -5351,29 +4898,6 @@ public static partial class MergeService
         gml = RemapGmlRegex(gml, GmlAudioGroupFirstArgRegex(), remap.AudioGroups);
         gml = RemapGmlVariableAssignments(gml, remap.AudioGroups, IsIdentifierUsedAsAudioGroupArgument);
         return gml;
-    }
-
-    private static string RemapGmlAssetNameIdentifiers(string gml, PatchAssetRemaps remap)
-    {
-        if (remap.ShiftedAssetNameIndices.Count == 0)
-            return gml;
-
-        foreach (var (name, index) in remap.ShiftedAssetNameIndices.OrderByDescending(p => p.Key.Length))
-        {
-            if (!HasSafeAssetNamePrefix(name))
-                continue;
-            gml = Regex.Replace(
-                gml,
-                $@"(?<![\w.]){Regex.Escape(name)}(?!\w|\s*\(|\s*\.)",
-                index.ToString(),
-                RegexOptions.CultureInvariant);
-        }
-        return gml;
-    }
-
-    private static string RemapGmlObjectVariableAssignments(string gml, Dictionary<int, int> remap)
-    {
-        return RemapGmlVariableAssignments(gml, remap, IsIdentifierUsedAsObjectArgument);
     }
 
     private static string RemapGmlVariableAssignments(

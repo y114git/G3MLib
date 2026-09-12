@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using G3MLib.DataFile;
 using G3MLib.DataFile.Project;
+using G3MLib.DataFile.Util;
 
 namespace G3MLib.Modding.Internal;
 
@@ -126,11 +127,7 @@ internal static class ResourceAssetUtil
 		{
 			string baseDir = Path.GetFullPath(dataDir);
 			string fullPath = Path.GetFullPath(Path.Combine(baseDir, relativePath));
-			return (fullPath.StartsWith(baseDir.TrimEnd(new char[2]
-			{
-				Path.DirectorySeparatorChar,
-				Path.AltDirectorySeparatorChar
-			}) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) || string.Equals(fullPath, baseDir, StringComparison.OrdinalIgnoreCase)) ? fullPath : null;
+			return Paths.IsWithinDirectory(baseDir, fullPath) ? fullPath : null;
 		}
 		catch
 		{
@@ -140,7 +137,7 @@ internal static class ResourceAssetUtil
 
 	public static string? ResolveAudioGroupPathFromDataFile(GameMakerData data, string dataPath, int groupId)
 	{
-		string baseDir = Path.GetDirectoryName(dataPath);
+		string baseDir = Path.GetDirectoryName(Path.GetFullPath(dataPath));
 		if (!string.IsNullOrWhiteSpace(baseDir))
 		{
 			return ResolveAudioGroupPath(data, baseDir, groupId);
@@ -153,7 +150,7 @@ internal static class ResourceAssetUtil
 		Directory.CreateDirectory(root);
 		string project = Path.Combine(root, "project", "project.yy");
 		Directory.CreateDirectory(Path.GetDirectoryName(project));
-		return new ProjectContext(data, Path.Combine(root, "load.win"), Path.Combine(root, "save.win"), project, "G3MTool CLI");
+		return new ProjectContext(data, Path.Combine(root, "load.win"), Path.Combine(root, "save.win"), project, "G3MLib");
 	}
 
 	public static bool IsLocaleArtSpriteName(string spriteName)

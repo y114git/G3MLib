@@ -22,15 +22,38 @@ public sealed class ModdingProgress
 
 public static class LogService
 {
-    private static string s_currentOperation = "";
+    private static readonly AsyncLocal<string?> CurrentOperation = new();
+    private static readonly AsyncLocal<Scope?> CurrentScope = new();
 
     public static event Action<ModdingLogMessage>? MessageLogged;
     public static event Action<ModdingProgress>? ProgressReported;
-    public static bool Verbose { get; set; }
-    public static bool Suppress { get; set; }
-    public static bool FileLoggingEnabled => MessageLogged is not null;
+    private static bool s_verbose;
+    private static bool s_suppress;
+    public static bool Verbose { get => CurrentScope.Value?.Verbose ?? s_verbose; set => s_verbose = value; }
+    public static bool Suppress { get => CurrentScope.Value?.Suppress ?? s_suppress; set => s_suppress = value; }
+    public static bool FileLoggingEnabled => CurrentScope.Value is { } scope ? scope.Message is not null : MessageLogged is not null;
 
-    public static void SetOperation(string operation) => s_currentOperation = operation;
+    /// <summary>Routes log and progress messages in this async operation to the supplied host callbacks.</summary>
+    public static IDisposable BeginScope(Action<ModdingLogMessage>? message, Action<ModdingProgress>? progress, bool? verbose = null, bool? suppress = null)
+    {
+        var scope = new Scope(CurrentScope.Value, message, progress, verbose ?? Verbose, suppress ?? Suppress);
+        CurrentScope.Value = scope;
+        return scope;
+    }
+
+    private sealed class Scope(Scope? previous, Action<ModdingLogMessage>? message, Action<ModdingProgress>? progress, bool verbose, bool suppress) : IDisposable
+    {
+        public Action<ModdingLogMessage>? Message { get; } = message;
+        public Action<ModdingProgress>? Progress { get; } = progress;
+        public bool Verbose { get; } = verbose;
+        public bool Suppress { get; } = suppress;
+        public void Dispose()
+        {
+            if (ReferenceEquals(CurrentScope.Value, this)) CurrentScope.Value = previous;
+        }
+    }
+
+    public static void SetOperation(string operation) => CurrentOperation.Value = operation;
     public static void Log(string message) => Write(ModdingLogLevel.Trace, message);
 
     public static void Log(ref LogInterpolatedStringHandler handler)
@@ -46,26 +69,33 @@ public static class LogService
     public static void Progress(int current, int total)
     {
         if (total > 0 && !Suppress)
-            ProgressReported?.Invoke(new ModdingProgress { Operation = s_currentOperation, Current = current, Total = total });
+            ReportProgress(new ModdingProgress { Operation = CurrentOperation.Value ?? "", Current = current, Total = total });
     }
 
     public static void ProgressRange(int current, int total, int rangeStart, int rangeEnd)
     {
         if (total <= 0 || Suppress) return;
         int start = Math.Clamp(rangeStart, 0, 100);
-        Progress(start + (int)Math.Round((double)(current * (Math.Clamp(rangeEnd, start, 100) - start)) / total), 100);
+        Progress(start + (int)Math.Round((double)current * (Math.Clamp(rangeEnd, start, 100) - start) / total), 100);
     }
 
     public static void ProgressComplete()
     {
         if (!Suppress)
-            ProgressReported?.Invoke(new ModdingProgress { Operation = s_currentOperation, Current = 0, Total = 0, IsComplete = true });
+            ReportProgress(new ModdingProgress { Operation = CurrentOperation.Value ?? "", Current = 0, Total = 0, IsComplete = true });
     }
 
     private static void Write(ModdingLogLevel level, string message)
     {
-        if (level != ModdingLogLevel.Trace || Verbose || MessageLogged is not null)
-            MessageLogged?.Invoke(new ModdingLogMessage { Level = level, Message = message });
+        Action<ModdingLogMessage>? sink = CurrentScope.Value is { } scope ? scope.Message : MessageLogged;
+        if (level != ModdingLogLevel.Trace || Verbose || sink is not null)
+            sink?.Invoke(new ModdingLogMessage { Level = level, Message = message });
+    }
+
+    private static void ReportProgress(ModdingProgress progress)
+    {
+        Action<ModdingProgress>? sink = CurrentScope.Value is { } scope ? scope.Progress : ProgressReported;
+        sink?.Invoke(progress);
     }
 }
 

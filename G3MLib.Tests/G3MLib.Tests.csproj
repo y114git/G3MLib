@@ -13,7 +13,7 @@
     <ItemGroup>
         <Content Include="Fixtures\**\*" CopyToOutputDirectory="PreserveNewest" />
         <ProjectReference Include="..\G3MLib\G3MLib.csproj" />
-        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.9.0" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.10.0" />
         <PackageReference Include="xunit.v3" Version="4.0.0" />
         <PackageReference Include="xunit.runner.visualstudio" Version="4.0.0" PrivateAssets="all" />
         <Using Include="Xunit" />

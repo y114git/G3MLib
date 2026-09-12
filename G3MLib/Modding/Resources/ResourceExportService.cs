@@ -47,8 +47,6 @@ public static class ResourceExportService
 
 	private static readonly char[] s_invalidChars = Path.GetInvalidFileNameChars();
 
-	private const int MaxSafeNameLength = 96;
-
 	internal static string SafeName(string name)
 	{
 		if (string.IsNullOrWhiteSpace(name))

@@ -195,7 +195,6 @@ public class PatchService
 
 	private const int DataFileBufferSize = 1048576;
 
-	private static readonly string[] s_codeTopologyWatchKeys = new string[5] { "gml_GlobalScript_scr_flag_get/gml_Script_scr_flag_get", "gml_GlobalScript_scr_flag_get/gml_Script_scr_flag_name_get", "gml_GlobalScript_scr_flag_get/gml_Script_scr_getflag", "gml_GlobalScript_scr_rhythmgame_init/gml_Script_scr_rhythmgame_init", "gml_Object_obj_watercooler_enemy_Step_0" };
 
 	private static FileStream OpenDataReadStream(string path)
 	{
@@ -247,8 +246,7 @@ public class PatchService
 				resourceTypesToProcess.Add(rt);
 			}
 		}
-		foreach (string rt2 in (from kvp in manifest?.Resources?.Where((KeyValuePair<string, ResourceTypeChanges> kvp) => (kvp.Value.Deleted?.Count ?? 0) > 0)
-			select kvp.Key).ToHashSet<string>(StringComparer.OrdinalIgnoreCase) ?? new HashSet<string>())
+		foreach (string rt2 in manifest?.Resources?.Where(kvp => (kvp.Value.Deleted?.Count ?? 0) > 0).Select(kvp => kvp.Key) ?? [])
 		{
 			if (!resourceTypesToProcess.Contains<string>(rt2, StringComparer.OrdinalIgnoreCase))
 			{
@@ -534,7 +532,7 @@ public class PatchService
 			{
 				return false;
 			}
-			reorderDir = Path.Combine(Path.GetTempPath(), $"g3mtool_final_reorder_{Guid.NewGuid():N}");
+			reorderDir = Path.Combine(Path.GetTempPath(), $"g3mlib_final_reorder_{Guid.NewGuid():N}");
 			Directory.CreateDirectory(reorderDir);
 			HashSet<string> sections = BuildRelevantAssetOrderSections(resourceTypes, includeScriptsForCodeEntries: true);
 			sections.Add("counts");
@@ -617,7 +615,7 @@ public class PatchService
 		{
 			return;
 		}
-		string reorderDir = Path.Combine(Path.GetTempPath(), $"g3mtool_reorder_{Guid.NewGuid():N}");
+		string reorderDir = Path.Combine(Path.GetTempPath(), $"g3mlib_reorder_{Guid.NewGuid():N}");
 		Directory.CreateDirectory(reorderDir);
 		string[] filteredLines = SelectAssetOrderSections(pfs.ReadAllLines(assetOrderPath), BuildRelevantAssetOrderSections(resourceTypes, includeScriptsForCodeEntries: false), "TexturePageItems", "EmbeddedTextures");
 		File.WriteAllLines(Path.Combine(reorderDir, "asset_order.txt"), filteredLines);
@@ -721,7 +719,7 @@ public class PatchService
 			}
 			LogService.Log(ref handler);
 		}
-		string reorderDir = Path.Combine(Path.GetTempPath(), $"g3mtool_aoreorder_{Guid.NewGuid():N}");
+		string reorderDir = Path.Combine(Path.GetTempPath(), $"g3mlib_aoreorder_{Guid.NewGuid():N}");
 		try
 		{
 			LogService.Log("[PatchService] Reordering assets to match TARGET order...");
@@ -847,49 +845,20 @@ public class PatchService
 				Error = "Modified file not found: " + modifiedPath
 			};
 		}
-		string tempXdeltaResult = null;
+		string tempOutputPath = null;
 		string tempExactPatch = null;
 		string exactPatchSourcePath = null;
-		if (Path.GetExtension(modifiedPath).Equals(".xdelta", StringComparison.OrdinalIgnoreCase))
-		{
-			LogService.Log("[PatchService] Detected xdelta file, applying to original first...");
-			XDeltaService xDeltaService = new XDeltaService();
-			tempXdeltaResult = Path.Combine(Path.GetTempPath(), $"g3mtool_xdelta_{Guid.NewGuid():N}.win");
-			XDeltaResult xdeltaResult = await xDeltaService.ApplyPatchAsync(originalPath, modifiedPath, tempXdeltaResult);
-			if (!xdeltaResult.Success)
-			{
-				if (File.Exists(tempXdeltaResult))
-				{
-					File.Delete(tempXdeltaResult);
-				}
-				return new PatchCreateResult
-				{
-					Success = false,
-					Error = "Failed to apply xdelta: " + xdeltaResult.Error
-				};
-			}
-			LogService.Log("[PatchService] xdelta applied successfully, using result as modified file");
-			string originalDir = Path.GetDirectoryName(originalPath);
-			string tempDir = Path.GetDirectoryName(tempXdeltaResult);
-			if (!string.IsNullOrEmpty(originalDir) && !string.IsNullOrEmpty(tempDir))
-			{
-				string[] files = Directory.GetFiles(originalDir, "audiogroup*.dat");
-				foreach (string audioGroup in files)
-				{
-					string destPath = Path.Combine(tempDir, Path.GetFileName(audioGroup));
-					if (!File.Exists(destPath))
-					{
-						File.Copy(audioGroup, destPath);
-					}
-				}
-			}
-			modifiedPath = tempXdeltaResult;
-		}
+		string materializationDirectory = null;
 		try
 		{
+			if (PatchInputService.IsXDelta(modifiedPath))
+			{
+				materializationDirectory = Directory.CreateTempSubdirectory("g3mlib-xdelta-").FullName;
+				modifiedPath = await PatchInputService.MaterializeDataAsync(originalPath, modifiedPath, materializationDirectory);
+			}
 			Stopwatch totalSw = Stopwatch.StartNew();
 			Stopwatch phaseSw = new Stopwatch();
-			string tempDir2 = Path.Combine(Path.GetTempPath(), $"g3mtool_{Guid.NewGuid():N}");
+			string tempDir2 = Path.Combine(Path.GetTempPath(), $"g3mlib_{Guid.NewGuid():N}");
 			string modifiedExportDir = Path.Combine(tempDir2, "modified");
 			Directory.CreateDirectory(modifiedExportDir);
 			LogService.SetOperation("Creating patch");
@@ -1003,7 +972,7 @@ public class PatchService
 			LogService.Progress(20, 100);
 			phaseSw.Restart();
 			LogService.Log((precomputedModifiedData != null) ? "[PatchService] Using preloaded modified data..." : "[PatchService] Loading modified data file...");
-			G3MCacheOptions modifiedCacheOptions = ((tempXdeltaResult == null) ? cacheOptions : null);
+			G3MCacheOptions modifiedCacheOptions = materializationDirectory is null ? cacheOptions : null;
 			HashSet<string> helperForcedResourceTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 			DataFileInfo modifiedInfo;
 			Dictionary<string, Dictionary<string, string>> modifiedHashes;
@@ -1144,6 +1113,7 @@ public class PatchService
 			G3MPatchManifest manifest = new G3MPatchManifest
 			{
 				CreatedAt = DateTime.UtcNow.ToString("o"),
+				Library = new ToolInfo { Name = "G3MLib", Version = ModdingMetadata.LibraryVersion },
 				Tool = new ToolInfo
 				{
 					Name = ModdingMetadata.ToolName,
@@ -1209,7 +1179,8 @@ public class PatchService
 				}
 				phaseSw.Restart();
 				LogService.Log("[PatchService] Creating .g3mpatch file...");
-				using (FileStream stream = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.None, 1048576, FileOptions.SequentialScan))
+				tempOutputPath = Path.GetFullPath(outputPath) + $".{Guid.NewGuid():N}.tmp";
+				using (FileStream stream = new FileStream(tempOutputPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, 1048576, FileOptions.SequentialScan))
 				{
 					using ZipArchive archive = new ZipArchive(stream, ZipArchiveMode.Create);
 					using (StreamWriter writer = new StreamWriter(await archive.CreateEntry("g3mpatch.json", ArchiveCompressionUtil.GetLevel("g3mpatch.json")).OpenAsync()))
@@ -1301,7 +1272,7 @@ public class PatchService
 					if (includeXdeltaFallback && exactPatchSourcePath == null)
 					{
 						XDeltaService xDeltaService2 = new XDeltaService();
-						tempExactPatch = Path.Combine(Path.GetTempPath(), $"g3mtool_xdelta_fallback_{Guid.NewGuid():N}.xdelta");
+						tempExactPatch = Path.Combine(Path.GetTempPath(), $"g3mlib_xdelta_fallback_{Guid.NewGuid():N}.xdelta");
 						XDeltaResult exactResult = await xDeltaService2.CreatePatchAsync(originalPath, modifiedPath, tempExactPatch);
 						if (exactResult.Success && File.Exists(tempExactPatch))
 						{
@@ -1320,6 +1291,7 @@ public class PatchService
 						await fileStream.CopyToAsync(entryStream);
 					}
 				}
+				File.Move(tempOutputPath, outputPath, overwrite: true);
 				LogInterpolatedStringHandler handler13 = new LogInterpolatedStringHandler(23, 1, out shouldAppend);
 				if (shouldAppend)
 				{
@@ -1353,19 +1325,10 @@ public class PatchService
 				try
 				{
 					Directory.Delete(tempDir2, recursive: true);
+					if (tempOutputPath is not null) File.Delete(tempOutputPath);
 				}
 				catch
 				{
-				}
-				if (tempXdeltaResult != null)
-				{
-					try
-					{
-						File.Delete(tempXdeltaResult);
-					}
-					catch
-					{
-					}
 				}
 				if (tempExactPatch != null)
 				{
@@ -1381,16 +1344,6 @@ public class PatchService
 		}
 		catch (Exception ex)
 		{
-			if (tempXdeltaResult != null)
-			{
-				try
-				{
-					File.Delete(tempXdeltaResult);
-				}
-				catch
-				{
-				}
-			}
 			if (tempExactPatch != null)
 			{
 				try
@@ -1407,6 +1360,16 @@ public class PatchService
 				Error = "Failed to create patch: " + ex.Message
 			};
 		}
+		finally
+		{
+			if (materializationDirectory is not null)
+			{
+				try { Directory.Delete(materializationDirectory, recursive: true); }
+				catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+				{ LogService.Warning("Could not delete temporary materialization: " + ex.Message); }
+			}
+		}
+
 	}
 
 	private static Dictionary<string, Dictionary<string, int>> ReadResourceNameCounts(string dataPath)
@@ -1985,6 +1948,40 @@ public class PatchService
 	}
 
 	public static async Task<PatchApplyResult> ApplyPatchAsync(string dataPath, string patchPath, string outputPath, bool allowXdeltaFallback = false, bool verifyModifiedHash = true)
+	{
+		string? temporaryDirectory = null;
+		try
+		{
+			string destinationPath = Path.GetFullPath(outputPath);
+			string directory = Path.GetDirectoryName(destinationPath)!;
+			Directory.CreateDirectory(directory);
+			temporaryDirectory = Path.Combine(directory, $".g3mlib-apply-{Guid.NewGuid():N}");
+			Directory.CreateDirectory(temporaryDirectory);
+			string temporaryPath = Path.Combine(temporaryDirectory, Path.GetFileName(destinationPath));
+			PatchApplyResult result = await ApplyPatchCoreAsync(dataPath, patchPath, temporaryPath, allowXdeltaFallback, verifyModifiedHash);
+			if (result.Success)
+			{
+				PatchInputService.CopyExternalAudioGroups(dataPath, temporaryPath);
+				PatchInputService.CommitDataFile(temporaryPath, destinationPath);
+			}
+			return result;
+		}
+		catch (Exception ex)
+		{
+			return new PatchApplyResult { Success = false, Error = "Failed to apply patch: " + ex.Message };
+		}
+		finally
+		{
+			if (temporaryDirectory is not null)
+			{
+				try { Directory.Delete(temporaryDirectory, recursive: true); }
+				catch (IOException) { }
+				catch (UnauthorizedAccessException) { }
+			}
+		}
+	}
+
+	private static async Task<PatchApplyResult> ApplyPatchCoreAsync(string dataPath, string patchPath, string outputPath, bool allowXdeltaFallback, bool verifyModifiedHash)
 	{
 		if (!File.Exists(dataPath))
 		{
@@ -3611,7 +3608,7 @@ public class PatchService
 		{
 			extension = ".xdelta";
 		}
-		string tempExactPatch = Path.Combine(Path.GetTempPath(), $"g3mtool_exact_apply_{Guid.NewGuid():N}{extension}");
+		string tempExactPatch = Path.Combine(Path.GetTempPath(), $"g3mlib_exact_apply_{Guid.NewGuid():N}{extension}");
 		try
 		{
 			await File.WriteAllBytesAsync(tempExactPatch, pfs.ExactPatchBytes);
@@ -3682,7 +3679,7 @@ public class PatchService
 
 	private static void ApplyDeferredGlobalScripts(GameMakerData data, string globalScriptsJson)
 	{
-		string tempDir = Path.Combine(Path.GetTempPath(), $"g3mtool_globals_{Guid.NewGuid():N}");
+		string tempDir = Path.Combine(Path.GetTempPath(), $"g3mlib_globals_{Guid.NewGuid():N}");
 		try
 		{
 			Directory.CreateDirectory(tempDir);
@@ -3781,42 +3778,6 @@ public class PatchService
 			}
 		}
 		return lookup;
-	}
-
-	private static void LogWatchedArchiveCodeState(string phase, Dictionary<string, GameMakerCode> archiveCodeLookup)
-	{
-		if (!LogService.Verbose)
-		{
-			return;
-		}
-		try
-		{
-			List<string> lines = new List<string>(s_codeTopologyWatchKeys.Length);
-			string[] array = s_codeTopologyWatchKeys;
-			foreach (string key in array)
-			{
-				if (!archiveCodeLookup.TryGetValue(key, out GameMakerCode code) || code == null)
-				{
-					lines.Add(key + " => <missing>");
-					continue;
-				}
-				string parent = code.ParentEntry?.Name?.Content ?? "<top>";
-				lines.Add($"{key} => {code.Name?.Content ?? "<null>"} | parent={parent} | children={code.ChildEntries?.Count ?? 0}");
-			}
-			bool shouldAppend;
-			LogInterpolatedStringHandler handler = new LogInterpolatedStringHandler(28, 2, out shouldAppend);
-			if (shouldAppend)
-			{
-				handler.AppendLiteral("[ImportCodeEntries][Watch:");
-				handler.AppendFormatted(phase);
-				handler.AppendLiteral("] ");
-				handler.AppendFormatted(string.Join("; ", lines));
-			}
-			LogService.Log(ref handler);
-		}
-		catch
-		{
-		}
 	}
 
 	private static Dictionary<string, (string LogicalName, int Occurrence, string? ParentArchiveKey)> ParseTargetCodeEntryMetadata(JsonElement root, Dictionary<string, string>? fallbackLogicalNames)
@@ -5166,7 +5127,7 @@ public class PatchService
 		if (hasQueuedGmlCompilation)
 		{
 			Dictionary<string, GameMakerCode> currentArchiveLookupAfterCompile = BuildArchiveCodeLookup(data);
-			LogWatchedArchiveCodeState("post-compile", currentArchiveLookupAfterCompile);
+
 			HashSet<string> currentEntries = new HashSet<string>(BuildArchiveCodeLookup(data).Keys, StringComparer.Ordinal);
 			HashSet<GameMakerCode> currentCodeObjects = new HashSet<GameMakerCode>(data.Code);
 			HashSet<string> currentScripts = new HashSet<string>(data.Scripts.Count);
@@ -5334,7 +5295,7 @@ public class PatchService
 				LogService.Log(ref handler16);
 			}
 			currentArchiveLookupAfterCompile = BuildArchiveCodeLookup(data);
-			LogWatchedArchiveCodeState("post-restore", currentArchiveLookupAfterCompile);
+
 		}
 		if (hasQueuedGmlCompilation)
 		{
@@ -5723,7 +5684,7 @@ public class PatchService
 		List<(string, string, bool)> asmGmlFallbackEntries = new List<(string, string, bool)>();
 		Stopwatch archiveLookupSw = Stopwatch.StartNew();
 		archiveCodeLookup = BuildArchiveCodeLookup(data);
-		LogWatchedArchiveCodeState("pre-asm", archiveCodeLookup);
+
 		archiveLookupSw.Stop();
 		Stopwatch skeletonSw = Stopwatch.StartNew();
 		if (codeImportStringLookup == null)
@@ -6185,7 +6146,7 @@ public class PatchService
 			}
 		}
 		archiveCodeLookup = BuildArchiveCodeLookup(data);
-		LogWatchedArchiveCodeState("post-asm", archiveCodeLookup);
+
 		postAsmTopologySw.Stop();
 		if (asmFailed > 5)
 		{
@@ -7054,53 +7015,16 @@ public class PatchService
 	public static async Task<string> EnsureG3MPatchAsync(string originalPath, string inputPath, string? tempDir = null, Dictionary<string, Dictionary<string, string>>? precomputedOriginalHashes = null, DataFileInfo? precomputedOriginalInfo = null, Dictionary<string, Dictionary<string, int>>? precomputedOriginalNameCounts = null, Dictionary<string, IReadOnlyList<string>>? precomputedOriginalOrderedNames = null, G3MCacheOptions? cacheOptions = null)
 	{
 		string ext = Path.GetExtension(inputPath).ToLowerInvariant();
-		string text = ext;
-		if ((text == ".g3mpatch" || text == ".zip") ? true : false)
-		{
-			return inputPath;
-		}
-		string dataFilePath;
-		if (PatchInputService.IsXDelta(inputPath))
-		{
-			LogService.Warning("Input '" + Path.GetFileName(inputPath) + "' is xdelta, converting to .g3mpatch...");
-			XDeltaService xDeltaService = new XDeltaService();
-			dataFilePath = Path.Combine(tempDir ?? Path.GetTempPath(), $"g3mtool_conv_{Guid.NewGuid():N}.win");
-			XDeltaResult xResult = await xDeltaService.ApplyPatchAsync(originalPath, inputPath, dataFilePath);
-			if (!xResult.Success)
-			{
-				throw new InvalidOperationException("Failed to apply xdelta '" + Path.GetFileName(inputPath) + "': " + xResult.Error);
-			}
-		}
-		else if (DataFileExtensionUtil.IsDataFile(inputPath))
-		{
-			LogService.Warning("Input '" + Path.GetFileName(inputPath) + "' is a data file, converting to .g3mpatch...");
-			dataFilePath = inputPath;
-		}
-		else
-		{
-			if (!(ext == ".csx"))
-			{
-				throw new NotSupportedException("Unsupported patch input '" + Path.GetFileName(inputPath) + "'.");
-			}
+		if (ext is ".g3mpatch" or ".zip") return inputPath;
+		if (ext == ".csx")
 			throw new NotSupportedException("CSX inputs require a scripting host; materialize the data file before creating a patch.");
-		}
-		string outputZip = Path.Combine(tempDir ?? Path.GetTempPath(), $"g3mtool_conv_{Guid.NewGuid():N}.g3mpatch");
-		PatchCreateResult result = await CreatePatchAsync(originalPath, dataFilePath, outputZip, precomputedOriginalHashes, precomputedOriginalInfo, precomputedOriginalNameCounts, precomputedOriginalOrderedNames, null, includeXdeltaFallback: false, cacheOptions);
+		if (!PatchInputService.IsXDelta(inputPath) && !DataFileExtensionUtil.IsDataFile(inputPath))
+			throw new NotSupportedException("Unsupported patch input '" + Path.GetFileName(inputPath) + "'.");
+
+		string outputZip = Path.Combine(tempDir ?? Path.GetTempPath(), $"g3mlib_conv_{Guid.NewGuid():N}.g3mpatch");
+		PatchCreateResult result = await CreatePatchAsync(originalPath, inputPath, outputZip, precomputedOriginalHashes, precomputedOriginalInfo, precomputedOriginalNameCounts, precomputedOriginalOrderedNames, null, includeXdeltaFallback: false, cacheOptions);
 		if (!result.Success)
-		{
 			throw new InvalidOperationException("Failed to create .g3mpatch from '" + Path.GetFileName(inputPath) + "': " + result.Error);
-		}
-		if (PatchInputService.IsXDelta(inputPath) && dataFilePath != inputPath)
-		{
-			try
-			{
-				File.Delete(dataFilePath);
-			}
-			catch (Exception ex) when (((ex is IOException || ex is UnauthorizedAccessException) ? 1 : 0) != 0)
-			{
-				LogService.Warning("Could not delete temporary data file '" + dataFilePath + "': " + ex.Message);
-			}
-		}
 		return outputZip;
 	}
 
@@ -7702,7 +7626,7 @@ public class PatchService
 		{
 			return null;
 		}
-		string stageDir = Path.Combine(Path.GetTempPath(), $"g3mtool_embedded_stage_{Guid.NewGuid():N}");
+		string stageDir = Path.Combine(Path.GetTempPath(), $"g3mlib_embedded_stage_{Guid.NewGuid():N}");
 		Directory.CreateDirectory(stageDir);
 		CopyEmbeddedTexturesForAssetOrder(pfs, stageDir);
 		ExportMissingEmbeddedTexturesForAssetOrder(data, pfs, stageDir);

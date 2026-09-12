@@ -13,7 +13,7 @@ public class ResourceExportServiceTests
     [Fact("ResourceExportServiceTests.cs", 10)]
     public void ExportPreservesReferenceIndexes()
     {
-        string directory = Path.Combine(Path.GetTempPath(), $"G3MToolTests-{Guid.NewGuid():N}");
+        string directory = Path.Combine(Path.GetTempPath(), $"G3MLibTests-{Guid.NewGuid():N}");
         Directory.CreateDirectory(directory);
         try
         {

@@ -436,7 +436,6 @@ public class GameMakerSequence : GameMakerNamedResource, IProjectAsset, INotifyP
     /// </summary>
     public sealed class Track : GameMakerObject
     {
-        private const string ColourTrackModelName = "GMColourTrack";
 
         /// <summary>
         /// Some known builtin track names.

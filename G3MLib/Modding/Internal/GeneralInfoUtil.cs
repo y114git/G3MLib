@@ -1,4 +1,3 @@
-using System;
 using G3MLib.DataFile;
 using G3MLib.DataFile.Models;
 
@@ -76,59 +75,4 @@ public static class GeneralInfoUtil
 		return prefix + " " + interpretedVersion;
 	}
 
-	public static void PrintVerboseGeneralInfo(GameMakerGeneralInfo gi)
-	{
-		Console.WriteLine();
-		Console.WriteLine("General Info (detailed):");
-		Console.WriteLine("  Display Name: " + (gi.DisplayName?.Content ?? "N/A"));
-		Console.WriteLine("  Internal Name: " + (gi.Name?.Content ?? "N/A"));
-		Console.WriteLine("  File Name: " + (gi.FileName?.Content ?? "N/A"));
-		Console.WriteLine("  Config: " + (gi.Config?.Content ?? "N/A"));
-		Console.WriteLine($"  Game ID: {gi.GameID}");
-		Console.WriteLine($"  DirectPlay GUID: {gi.DirectPlayGuid}");
-		Console.WriteLine();
-		Console.WriteLine("Version:");
-		Console.WriteLine($"  Major: {gi.Major}");
-		Console.WriteLine($"  Minor: {gi.Minor}");
-		Console.WriteLine($"  Release: {gi.Release}");
-		Console.WriteLine($"  Build: {gi.Build}");
-		Console.WriteLine($"  Bytecode Version: {gi.BytecodeVersion}");
-		Console.WriteLine($"  Branch: {gi.Branch}");
-		Console.WriteLine();
-		Console.WriteLine("Window:");
-		Console.WriteLine($"  Default Width: {gi.DefaultWindowWidth}");
-		Console.WriteLine($"  Default Height: {gi.DefaultWindowHeight}");
-		Console.WriteLine();
-		Console.WriteLine("Flags:");
-		PrintInfoFlags(gi.Info);
-		Console.WriteLine();
-		Console.WriteLine("Other:");
-		Console.WriteLine($"  Steam App ID: {gi.SteamAppID}");
-		Console.WriteLine($"  Timestamp: {gi.Timestamp}");
-		Console.WriteLine($"  License CRC32: {gi.LicenseCRC32}");
-		Console.WriteLine($"  Active Targets: {gi.ActiveTargets}");
-		Console.WriteLine($"  Room Order Count: {gi.RoomOrder?.Count ?? 0}");
-		if (gi.BytecodeVersion >= 14)
-		{
-			Console.WriteLine($"  Debugger Port: {gi.DebuggerPort}");
-			Console.WriteLine($"  Debugger Disabled: {gi.IsDebuggerDisabled}");
-		}
-		if (gi.Major >= 2)
-		{
-			Console.WriteLine($"  GMS2 FPS: {gi.GMS2FPS}");
-			Console.WriteLine($"  GMS2 Allow Statistics: {gi.GMS2AllowStatistics}");
-		}
-	}
-
-	private static void PrintInfoFlags(GameMakerGeneralInfo.InfoFlags flags)
-	{
-		Console.WriteLine($"  Fullscreen: {flags.HasFlag(GameMakerGeneralInfo.InfoFlags.Fullscreen)}");
-		Console.WriteLine($"  Interpolate: {flags.HasFlag(GameMakerGeneralInfo.InfoFlags.Interpolate)}");
-		Console.WriteLine($"  Scale: {flags.HasFlag(GameMakerGeneralInfo.InfoFlags.Scale)}");
-		Console.WriteLine($"  Show Cursor: {flags.HasFlag(GameMakerGeneralInfo.InfoFlags.ShowCursor)}");
-		Console.WriteLine($"  Sizeable: {flags.HasFlag(GameMakerGeneralInfo.InfoFlags.Sizeable)}");
-		Console.WriteLine($"  Steam Enabled: {flags.HasFlag(GameMakerGeneralInfo.InfoFlags.SteamEnabled)}");
-		Console.WriteLine($"  Borderless Window: {flags.HasFlag(GameMakerGeneralInfo.InfoFlags.BorderlessWindow)}");
-		Console.WriteLine($"  Use AppData Save Location: {flags.HasFlag(GameMakerGeneralInfo.InfoFlags.UseAppDataSaveLocation)}");
-	}
 }

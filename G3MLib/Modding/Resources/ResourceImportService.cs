@@ -390,17 +390,15 @@ public static partial class ResourceImportService
 		}
 	}
 
-	[ThreadStatic]
-	private static PatchFileSystem? _pfs;
+	private static readonly AsyncLocal<PatchFileSystem?> PatchFileSystemContext = new();
+	private static readonly AsyncLocal<(int Start, int End)?> ProgressRangeContext = new();
+	private static readonly AsyncLocal<string?> LoadedDataPathContext = new();
+	private static readonly AsyncLocal<string?> SavingDataPathContext = new();
 
-	[ThreadStatic]
-	private static (int Start, int End)? _progressRange;
-
-	[ThreadStatic]
-	private static string? _loadedDataPath;
-
-	[ThreadStatic]
-	private static string? _savingDataPath;
+	private static PatchFileSystem? _pfs { get => PatchFileSystemContext.Value; set => PatchFileSystemContext.Value = value; }
+	private static (int Start, int End)? _progressRange { get => ProgressRangeContext.Value; set => ProgressRangeContext.Value = value; }
+	private static string? _loadedDataPath { get => LoadedDataPathContext.Value; set => LoadedDataPathContext.Value = value; }
+	private static string? _savingDataPath { get => SavingDataPathContext.Value; set => SavingDataPathContext.Value = value; }
 
 	private static void ImportGameObjects(GameMakerData data, string inputDir)
 	{
@@ -2855,7 +2853,7 @@ public static partial class ResourceImportService
 		{
 			return;
 		}
-		string tempRoot = Path.Combine(Path.GetTempPath(), "g3mtool_seq_import", Guid.NewGuid().ToString("N"));
+		string tempRoot = Path.Combine(Path.GetTempPath(), "g3mlib_seq_import", Guid.NewGuid().ToString("N"));
 		Directory.CreateDirectory(tempRoot);
 		try
 		{

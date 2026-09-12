@@ -247,7 +247,7 @@ public static class DiffService
 		handler.AppendLiteral("` |");
 		stringBuilder3.AppendLine(ref handler);
 		sb.AppendLine();
-		string tempDir = Path.Combine(Path.GetTempPath(), $"g3mtool_diff_{Guid.NewGuid():N}");
+		string tempDir = Path.Combine(Path.GetTempPath(), $"g3mlib_diff_{Guid.NewGuid():N}");
 		string patchExtractDir = Path.Combine(tempDir, "patch");
 		string dataExportDir = Path.Combine(tempDir, "data");
 		try
@@ -447,7 +447,7 @@ public static class DiffService
 		handler.AppendLiteral("` |");
 		stringBuilder3.AppendLine(ref handler);
 		sb.AppendLine();
-		string tempDir = Path.Combine(Path.GetTempPath(), $"g3mtool_diff_{Guid.NewGuid():N}");
+		string tempDir = Path.Combine(Path.GetTempPath(), $"g3mlib_diff_{Guid.NewGuid():N}");
 		string patch1Dir = Path.Combine(tempDir, "patch1");
 		string patch2Dir = Path.Combine(tempDir, "patch2");
 		try
@@ -1323,7 +1323,7 @@ public static class DiffService
 	private static async Task<ResourceDiffSummary> CompareWinFilesAsync(string file1Path, string file2Path, string file1Md5, string file2Md5, G3MDataAnalysisCache? cached1, G3MDataAnalysisCache? cached2, DiffReportMode reportMode, G3MCacheOptions? cacheOptions)
 	{
 		ResourceDiffSummary summary = new ResourceDiffSummary();
-		string tempDir = Path.Combine(Path.GetTempPath(), $"g3mtool_diff_{Guid.NewGuid():N}");
+		string tempDir = Path.Combine(Path.GetTempPath(), $"g3mlib_diff_{Guid.NewGuid():N}");
 		string export1Dir = Path.Combine(tempDir, "file1");
 		string export2Dir = Path.Combine(tempDir, "file2");
 		try

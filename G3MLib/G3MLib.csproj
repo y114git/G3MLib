@@ -8,7 +8,7 @@
     <AssemblyTitle>G3MLib</AssemblyTitle>
     <ProductName>G3MLib</ProductName>
     <PackageId>G3MLib</PackageId>
-    <Version>1.0.0</Version>
+    <Version>1.0.1</Version>
     <Authors>Y114</Authors>
     <Copyright>Copyright © 2026 Y114</Copyright>
     <Description>.NET library for reading, writing, analyzing, decompiling, patching, and merging GameMaker data files and more.</Description>
@@ -17,11 +17,9 @@
     <RepositoryUrl>https://github.com/y114git/G3MLib.git</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
-    <PackageReleaseNotes>Initial stable 1.0.0 release. See CHANGELOG.md in the package.</PackageReleaseNotes>
+    <PackageReleaseNotes>See CHANGELOG.md in the package.</PackageReleaseNotes>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <AssemblyVersion>1.0.0.0</AssemblyVersion>
-    <FileVersion>1.0.0.0</FileVersion>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>1570;1573;1574;1591;CA1069</NoWarn>
   </PropertyGroup>

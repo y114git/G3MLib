@@ -1,6 +1,6 @@
 # Third-Party Notices
 
-G3MLib 1.0.0 is licensed under GPL-3.0-only. See `LICENSE`.
+G3MLib is licensed under GPL-3.0-only. See `LICENSE`.
 
 G3MLib includes code derived from UndertaleModLib under GPL-3.0 and
 Underanalyzer under MPL-2.0. MPL-covered source files retain their notices;

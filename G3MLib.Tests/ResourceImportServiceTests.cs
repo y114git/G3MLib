@@ -12,10 +12,33 @@ namespace G3MLib.Tests;
 
 public class ResourceImportServiceTests
 {
+    [Fact]
+    public async Task PatchContextFlowsAcrossAwaitAndIsolatesChildOperations()
+    {
+        var parent = new G3MLib.Modding.Patching.PatchFileSystem();
+        var child = new G3MLib.Modding.Patching.PatchFileSystem();
+        ResourceImportService.SetPatchFileSystem(parent);
+        try
+        {
+            await Task.Run(async () =>
+            {
+                Assert.Same(parent, ResourceImportService.GetPatchFileSystem());
+                ResourceImportService.SetPatchFileSystem(child);
+                await Task.Yield();
+                Assert.Same(child, ResourceImportService.GetPatchFileSystem());
+            }, TestContext.Current.CancellationToken);
+            Assert.Same(parent, ResourceImportService.GetPatchFileSystem());
+        }
+        finally
+        {
+            ResourceImportService.SetPatchFileSystem(null);
+        }
+    }
+
     [Fact("ResourceImportServiceTests.cs", 12)]
     public void ImportsNamedTimelineAndExtensionResources()
     {
-        string directory = Path.Combine(Path.GetTempPath(), $"G3MToolTests-{Guid.NewGuid():N}");
+        string directory = Path.Combine(Path.GetTempPath(), $"G3MLibTests-{Guid.NewGuid():N}");
         Directory.CreateDirectory(Path.Combine(directory, "timeline_test"));
         Directory.CreateDirectory(Path.Combine(directory, "extension_test"));
         try
@@ -44,7 +67,7 @@ public class ResourceImportServiceTests
     [Fact("ResourceImportServiceTests.cs", 9)]
     public void AssetOrderRewritesCollisionEventIndexes()
     {
-        string directory = Path.Combine(Path.GetTempPath(), $"G3MToolTests-{Guid.NewGuid():N}");
+        string directory = Path.Combine(Path.GetTempPath(), $"G3MLibTests-{Guid.NewGuid():N}");
         Directory.CreateDirectory(directory);
         try
         {

@@ -14,6 +14,23 @@ namespace G3MLib.Tests;
 
 public sealed class ProjectContextTests
 {
+    [Fact]
+    public void ScriptOutputUsesHostCallbacksAndCannotLaunchApplications()
+    {
+        ProjectContext context = ProjectContext.CreateWithDataFilePaths("input.win", "output.win", "project.json");
+        var messages = new List<string>();
+        var warnings = new List<string>();
+        context.ScriptMessageHandler = messages.Add;
+        context.ScriptWarningHandler = warnings.Add;
+        context.ScriptMessage("message");
+        context.SetUMTConsoleText("console");
+        context.SimpleTextOutput("title", "label", "text", false);
+        context.ScriptWarning("warning");
+        Assert.Equal(new[] { "message", "console", "text" }, messages);
+        Assert.Equal(new[] { "warning" }, warnings);
+        Assert.Throws<G3MLib.DataFile.Scripting.ScriptException>(() => context.ScriptOpenURL("https://example.com"));
+    }
+
     [Fact("ProjectContextTests.cs", 12)]
     public void ContextFactoriesNormalizeRelativePaths()
     {

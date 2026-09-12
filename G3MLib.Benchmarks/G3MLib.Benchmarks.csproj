@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../G3MLib/G3MLib.csproj" />
+  </ItemGroup>
+  <PropertyGroup Condition="'$(UndertaleModToolPath)' != ''">
+    <DefineConstants>$(DefineConstants);UPSTREAM</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(UndertaleModToolPath)' != ''">
+    <ProjectReference Include="$(UndertaleModToolPath)/UndertaleModLib/UndertaleModLib.csproj" />
+  </ItemGroup>
+</Project>

@@ -7,6 +7,24 @@ namespace G3MLib.Tests;
 
 public sealed class ResourceHashServiceTests
 {
+    [Fact]
+    public void HashingRawTexturesPreservesPixelsAndMatchesCompressedTextures()
+    {
+        using FileStream stream = File.OpenRead(Path.Combine(AppContext.BaseDirectory, "Fixtures", "data-2026.win"));
+        using var data = GameMakerIO.Read(stream);
+        var expected = ResourceHashService.HashAll(data)["Sprites"];
+        foreach (var texture in data.EmbeddedTextures)
+            texture.TextureData.Image = texture.TextureData.Image.ConvertToRawBgra();
+        byte[][] pixels = data.EmbeddedTextures.Select(texture => texture.TextureData.Image.GetData().ToArray()).ToArray();
+
+        for (int iteration = 0; iteration < 2; iteration++)
+        {
+            Assert.Equal(expected, ResourceHashService.HashAll(data)["Sprites"]);
+            for (int index = 0; index < pixels.Length; index++)
+                Assert.Equal(pixels[index], data.EmbeddedTextures[index].TextureData.Image.GetData());
+        }
+    }
+
     [Fact("ResourceHashServiceTests.cs", 9)]
     public void SpriteHashUsesStableRgbaPixels()
     {

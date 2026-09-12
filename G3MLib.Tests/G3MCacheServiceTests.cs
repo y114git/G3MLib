@@ -12,7 +12,7 @@ public sealed class G3MCacheServiceTests
     [Fact("G3MCacheServiceTests.cs", 14)]
     public async Task CacheRejectsChangedAndCorruptSourcesWithoutThrowing()
     {
-        string directory = Path.Combine(Path.GetTempPath(), $"G3MToolTests-{Guid.NewGuid():N}");
+        string directory = Path.Combine(Path.GetTempPath(), $"G3MLibTests-{Guid.NewGuid():N}");
         string sourcePath = Path.Combine(directory, "source.win");
         string cacheDirectory = Path.Combine(directory, "cache");
         Directory.CreateDirectory(directory);

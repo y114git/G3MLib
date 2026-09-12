@@ -11,9 +11,6 @@ namespace G3MLib.Modding.Patching;
 
 public sealed class PatchFileSystem
 {
-	private const string ManifestPath = "g3mpatch.json";
-
-	private const string CodeEntriesPrefix = "CodeEntries/";
 
 	private readonly Dictionary<string, byte[]> _files;
 
