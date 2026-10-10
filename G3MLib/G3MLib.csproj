@@ -32,7 +32,7 @@
 
   <ItemGroup>
     <PackageReference Include="Fody" Version="6.9.3" PrivateAssets="all" />
-    <PackageReference Include="Magick.NET-Q8-AnyCPU" Version="14.17.1" />
+    <PackageReference Include="Magick.NET-Q8-AnyCPU" Version="14.17.2" />
     <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="5.9.0" PrivateAssets="all" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="5.9.0" />
     <PackageReference Include="Microsoft.CodeAnalysis.Scripting.Common" Version="5.9.0" />
