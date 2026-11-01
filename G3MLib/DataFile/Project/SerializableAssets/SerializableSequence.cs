@@ -1,7 +1,4 @@
-using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using G3MLib.DataFile.Models;
@@ -261,7 +258,7 @@ internal sealed class SerializableSequence : ISerializableProjectAsset
     }
 
     // Data asset that was located during pre-import.
-    private GameMakerSequence _dataAsset = null;
+    private GameMakerSequence? _dataAsset;
 
     /// <summary>
     /// Populates this serializable sequence with data from an actual sequence.
@@ -298,13 +295,12 @@ internal sealed class SerializableSequence : ISerializableProjectAsset
             Channels = [.. keyframe.Channels.Select((kvp) => new KeyframeChannel<List<string>>()
             {
                 Channel = kvp.Channel,
-                Value = kvp.Value.Events.Select(e => e?.Content).ToList()
+                Value = [.. kvp.Value.Events.Select(e => e?.Content)]
             })]
         })];
 
         // Update tracks
-        Func<GameMakerSequence.Track, Track> convertTrack = null;
-        convertTrack = (track) => new Track()
+        Track convertTrack(GameMakerSequence.Track track) => new()
         {
             ModelName = track.ModelName?.Content,
             Name = track.Name?.Content,
@@ -532,7 +528,7 @@ internal sealed class SerializableSequence : ISerializableProjectAsset
     /// <inheritdoc/>
     public IProjectAsset Import(ProjectContext projectContext)
     {
-        GameMakerSequence seq = _dataAsset;
+        var seq = _dataAsset;
 
         // Update all main properties
         seq.Playback = (GameMakerSequence.PlaybackType)Playback;
@@ -576,8 +572,7 @@ internal sealed class SerializableSequence : ISerializableProjectAsset
         })];
 
         // Update tracks
-        Func<Track, GameMakerSequence.Track> convertTrack = null;
-        convertTrack = (track) => new GameMakerSequence.Track()
+        GameMakerSequence.Track convertTrack(Track track) => new()
         {
             ModelName = projectContext.MakeString(track.ModelName),
             Name = projectContext.MakeString(track.Name),

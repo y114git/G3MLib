@@ -4,8 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System;
-using System.Collections.Generic;
 using G3MLib.Analyzer.Compiler.Nodes;
 using G3MLib.Analyzer.Compiler.Parser;
 
@@ -26,7 +24,7 @@ internal static class PrefixPostfixRewriteHelper
             case PrefixNode prefix:
                 if (sideEffectOutput is not null)
                 {
-                    PrefixNode sideEffectPrefix = prefix.Duplicate(context) as PrefixNode ?? throw new InvalidOperationException("Duplicated prefix is no longer a prefix");
+                    var sideEffectPrefix = prefix.Duplicate(context) as PrefixNode ?? throw new InvalidOperationException("Duplicated prefix is no longer a prefix");
                     sideEffectPrefix.IsStatement = true;
                     sideEffectOutput.Add(sideEffectPrefix);
                 }
@@ -38,21 +36,21 @@ internal static class PrefixPostfixRewriteHelper
             case PostfixNode postfix:
                 if (sideEffectOutput is not null)
                 {
-                    PostfixNode sideEffectPostfix = postfix.Duplicate(context) as PostfixNode ?? throw new InvalidOperationException("Duplicated postfix is no longer a postfix");
+                    var sideEffectPostfix = postfix.Duplicate(context) as PostfixNode ?? throw new InvalidOperationException("Duplicated postfix is no longer a postfix");
                     sideEffectPostfix.IsStatement = true;
                     sideEffectOutput.Add(sideEffectPostfix);
                 }
 
                 return postfix.Expression;
             case SimpleFunctionCallNode funcCall:
-                for (int i = 0; i < funcCall.Arguments.Count; i++)
+                for (var i = 0; i < funcCall.Arguments.Count; i++)
                 {
                     funcCall.Arguments[i] = RemoveSideEffects(context, funcCall.Arguments[i], sideEffectOutput);
                 }
                 return funcCall;
             case FunctionCallNode funcCall:
                 funcCall.Expression = RemoveSideEffects(context, funcCall.Expression, sideEffectOutput);
-                for (int i = 0; i < funcCall.Arguments.Count; i++)
+                for (var i = 0; i < funcCall.Arguments.Count; i++)
                 {
                     funcCall.Arguments[i] = RemoveSideEffects(context, funcCall.Arguments[i], sideEffectOutput);
                 }
@@ -71,7 +69,7 @@ internal static class PrefixPostfixRewriteHelper
                 unary.Expression = RemoveSideEffects(context, unary.Expression, sideEffectOutput);
                 return unary;
             case BinaryChainNode binary:
-                for (int i = 0; i < binary.Arguments.Count; i++)
+                for (var i = 0; i < binary.Arguments.Count; i++)
                 {
                     binary.Arguments[i] = RemoveSideEffects(context, binary.Arguments[i], sideEffectOutput);
                 }
@@ -87,7 +85,7 @@ internal static class PrefixPostfixRewriteHelper
                 return nullish;
             case NewObjectNode newObj:
                 newObj.Expression = RemoveSideEffects(context, newObj.Expression, sideEffectOutput);
-                for (int i = 0; i < newObj.Arguments.Count; i++)
+                for (var i = 0; i < newObj.Arguments.Count; i++)
                 {
                     newObj.Arguments[i] = RemoveSideEffects(context, newObj.Arguments[i], sideEffectOutput);
                 }
@@ -105,7 +103,7 @@ internal static class PrefixPostfixRewriteHelper
     /// </remarks>
     public static IASTNode DuplicateAndRemoveSideEffects(ParseContext context, IASTNode node, List<IASTNode>? sideEffectOutput = null)
     {
-        IASTNode duplicated = node.Duplicate(context);
+        var duplicated = node.Duplicate(context);
         return RemoveSideEffects(context, duplicated, sideEffectOutput);
     }
 }

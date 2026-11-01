@@ -1,9 +1,5 @@
-using System;
-using System.IO;
-using System.Threading.Tasks;
 using G3MLib.DataFile;
 using G3MLib.Modding.Patching;
-using Xunit;
 
 namespace G3MLib.Tests;
 
@@ -12,24 +8,24 @@ public sealed class PatchInputServiceTests
     [Fact]
     public void CopyAudioGroupsPreservesMaterializedChanges()
     {
-        string directory = Path.Combine(Path.GetTempPath(), $"G3MLibTests-{Guid.NewGuid():N}");
-        string source = Path.Combine(directory, "source");
-        string destination = Path.Combine(directory, "destination");
+        var directory = Path.Combine(Path.GetTempPath(), $"G3MLibTests-{Guid.NewGuid():N}");
+        var source = Path.Combine(directory, "source");
+        var destination = Path.Combine(directory, "destination");
         Directory.CreateDirectory(source);
         Directory.CreateDirectory(destination);
         try
         {
-            string dataPath = Path.Combine(destination, "data.win");
-            using (GameMakerData data = GameMakerData.CreateNew2026LTS())
-            using (FileStream stream = File.Create(dataPath))
+            var dataPath = Path.Combine(destination, "data.win");
+            using (var data = GameMakerData.CreateNew2026LTS())
+            using (var stream = File.Create(dataPath))
             {
                 data.AudioGroups.Clear();
-                data.AudioGroups.Add(new G3MLib.DataFile.Models.GameMakerAudioGroup { Name = data.Strings.MakeString("default") });
-                data.AudioGroups.Add(new G3MLib.DataFile.Models.GameMakerAudioGroup { Name = data.Strings.MakeString("external") });
+                data.AudioGroups.Add(new DataFile.Models.GameMakerAudioGroup { Name = data.Strings.MakeString("default") });
+                data.AudioGroups.Add(new DataFile.Models.GameMakerAudioGroup { Name = data.Strings.MakeString("external") });
                 GameMakerIO.Write(stream, data);
             }
-            string sourceGroup = Path.Combine(source, "audiogroup1.dat");
-            string destinationGroup = Path.Combine(destination, "audiogroup1.dat");
+            var sourceGroup = Path.Combine(source, "audiogroup1.dat");
+            var destinationGroup = Path.Combine(destination, "audiogroup1.dat");
             File.WriteAllBytes(sourceGroup, [1, 2, 3]);
             PatchInputService.CopyExternalAudioGroups(Path.Combine(source, "data.win"), dataPath);
             Assert.Equal(new byte[] { 1, 2, 3 }, File.ReadAllBytes(destinationGroup));
@@ -50,14 +46,14 @@ public sealed class PatchInputServiceTests
     [Fact("PatchInputServiceTests.cs", 12)]
     public async Task MaterializeDataAcceptsValidDataAndRejectsCorruptData()
     {
-        string directory = Path.Combine(Path.GetTempPath(), $"G3MLibTests-{Guid.NewGuid():N}");
+        var directory = Path.Combine(Path.GetTempPath(), $"G3MLibTests-{Guid.NewGuid():N}");
         Directory.CreateDirectory(directory);
         try
         {
-            string sourcePath = Path.Combine(directory, "source.win");
-            string corruptPath = Path.Combine(directory, "corrupt.win");
-            using (GameMakerData data = GameMakerData.CreateNew2026LTS())
-            using (FileStream stream = File.Create(sourcePath))
+            var sourcePath = Path.Combine(directory, "source.win");
+            var corruptPath = Path.Combine(directory, "corrupt.win");
+            using (var data = GameMakerData.CreateNew2026LTS())
+            using (var stream = File.Create(sourcePath))
             {
                 GameMakerIO.Write(stream, data);
             }
@@ -78,14 +74,14 @@ public sealed class PatchInputServiceTests
     [Fact("PatchInputServiceTests.cs", 39)]
     public async Task MaterializeDataRejectsUnsupportedInputsWithoutProducingData()
     {
-        string directory = Path.Combine(Path.GetTempPath(), $"G3MLibTests-{Guid.NewGuid():N}");
+        var directory = Path.Combine(Path.GetTempPath(), $"G3MLibTests-{Guid.NewGuid():N}");
         Directory.CreateDirectory(directory);
         try
         {
-            string sourcePath = Path.Combine(directory, "source.win");
-            string unsupportedPath = Path.Combine(directory, "input.txt");
-            using (GameMakerData data = GameMakerData.CreateNew2026LTS())
-            using (FileStream stream = File.Create(sourcePath))
+            var sourcePath = Path.Combine(directory, "source.win");
+            var unsupportedPath = Path.Combine(directory, "input.txt");
+            using (var data = GameMakerData.CreateNew2026LTS())
+            using (var stream = File.Create(sourcePath))
             {
                 GameMakerIO.Write(stream, data);
             }

@@ -1,39 +1,28 @@
-using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using G3MLib.Analyzer.Decompiler;
 using G3MLib.DataFile.Decompiler;
 using G3MLib.DataFile.Models;
 using G3MLib.DataFile.Scripting;
-using Microsoft.CodeAnalysis.CSharp.Scripting;
 
 namespace G3MLib.DataFile.Project;
 
-partial class ProjectContext : IScriptInterface
+public partial class ProjectContext : IScriptInterface
 {
-    private object _highlighted;
-    private object _selected;
     private int _progress;
-    private string _scriptErrorMessage = string.Empty;
-    private string _scriptErrorType = string.Empty;
 
     public Action<string> ScriptMessageHandler { get; set; }
     public Action<string> ScriptWarningHandler { get; set; }
 
     public ProjectContext Project => this;
     public string FilePath => LoadDataPath;
-    public string ScriptPath => _scriptPath;
-    public object Highlighted => _highlighted;
-    public object Selected => _selected;
+    public string ScriptPath { get; private set; }
+    public object Highlighted { get; private set; }
+    public object Selected { get; private set; }
     public bool CanSave => Data is not null && SaveDataPath is not null;
-    public bool ScriptExecutionSuccess => _scriptErrorMessage.Length == 0;
-    public string ScriptErrorMessage => _scriptErrorMessage;
+    public bool ScriptExecutionSuccess => ScriptErrorMessage.Length == 0;
+    public string ScriptErrorMessage { get; private set; } = string.Empty;
     public string ExePath => AppContext.BaseDirectory;
-    public string ScriptErrorType => _scriptErrorType;
+    public string ScriptErrorType { get; private set; } = string.Empty;
     public bool IsAppClosed => false;
 
     GameMakerData IScriptInterface.Data => Data;
@@ -43,25 +32,25 @@ partial class ProjectContext : IScriptInterface
 
     public void ChangeSelection(object newSelection, bool inNewTab = false)
     {
-        _selected = newSelection;
-        _highlighted = newSelection;
+        Selected = newSelection;
+        Highlighted = newSelection;
     }
 
-    public Task ClickableSearchOutput(string title, string query, int resultsCount, IOrderedEnumerable<KeyValuePair<string, List<(int lineNum, string codeLine)>>> resultsDict, bool showInDecompiledView, IOrderedEnumerable<string> failedList = null) => Task.CompletedTask;
+    public Task ClickableSearchOutput(string title, string query, int resultsCount, IOrderedEnumerable<KeyValuePair<string, List<(int lineNum, string codeLine)>>> resultsDict, bool showInDecompiledView, IOrderedEnumerable<string>? failedList = null) => Task.CompletedTask;
 
-    public Task ClickableSearchOutput(string title, string query, int resultsCount, IDictionary<string, List<(int lineNum, string codeLine)>> resultsDict, bool showInDecompiledView, IEnumerable<string> failedList = null) => Task.CompletedTask;
+    public Task ClickableSearchOutput(string title, string query, int resultsCount, IDictionary<string, List<(int lineNum, string codeLine)>> resultsDict, bool showInDecompiledView, IEnumerable<string>? failedList = null) => Task.CompletedTask;
 
     public void EnableUI()
     {
     }
 
-    public string GetDecompiledText(string codeName, GlobalDecompileContext context = null, IDecompileSettings settings = null)
+    public string GetDecompiledText(string codeName, GlobalDecompileContext? context = null, IDecompileSettings? settings = null)
     {
         EnsureDataLoaded();
         return GetDecompiledText(Data.Code.ByName(codeName) ?? throw new ScriptException($"Code entry \"{codeName}\" was not found."), context, settings);
     }
 
-    public string GetDecompiledText(GameMakerCode code, GlobalDecompileContext context = null, IDecompileSettings settings = null)
+    public string GetDecompiledText(GameMakerCode code, GlobalDecompileContext? context = null, IDecompileSettings? settings = null)
     {
         EnsureDataLoaded();
         try
@@ -82,6 +71,7 @@ partial class ProjectContext : IScriptInterface
 
     public string GetDisassemblyText(GameMakerCode code)
     {
+        ArgumentNullException.ThrowIfNull(code);
         EnsureDataLoaded();
         if (code.ParentEntry is not null)
         {
@@ -111,7 +101,7 @@ partial class ProjectContext : IScriptInterface
         try
         {
             InitializeScripting();
-            CSharpScript.Create(File.ReadAllText(path, Encoding.UTF8), _scriptOptions.WithFilePath(path).WithFileEncoding(Encoding.UTF8), typeof(IScriptInterface)).Compile();
+            ScriptRunner.Compile(Path.GetFullPath(path));
             return true;
         }
         catch (Exception e)
@@ -141,21 +131,21 @@ partial class ProjectContext : IScriptInterface
         try
         {
             InitializeScripting();
-            string fullPath = Path.GetFullPath(path);
-            string scriptText = $"#line 1 \"{fullPath}\"\n" + File.ReadAllText(fullPath, Encoding.UTF8);
-            string previousScriptPath = _scriptPath;
-            _scriptPath = fullPath;
+            var previousScriptPath = ScriptPath;
+            var globals = CreateScriptGlobals();
+            ScriptRunResult result;
             try
             {
-                MainThreadAction(() => CSharpScript.EvaluateAsync(scriptText, _scriptOptions.WithFilePath(fullPath).WithFileEncoding(Encoding.UTF8), this, typeof(IScriptInterface)).GetAwaiter().GetResult());
+                ScriptPath = Path.GetFullPath(path);
+                result = ScriptRunner.RunAsync(path, globals).GetAwaiter().GetResult();
             }
             finally
             {
-                _scriptPath = previousScriptPath;
+                ScriptPath = previousScriptPath;
             }
-            _scriptErrorMessage = string.Empty;
-            _scriptErrorType = string.Empty;
-            return true;
+            ScriptErrorMessage = globals.ScriptErrorMessage;
+            ScriptErrorType = globals.ScriptErrorType;
+            return result.Success;
         }
         catch (Exception e)
         {
@@ -166,8 +156,8 @@ partial class ProjectContext : IScriptInterface
 
     public void ScriptError(string error, string title = "Error", bool SetConsoleText = true)
     {
-        _scriptErrorMessage = error;
-        _scriptErrorType = title;
+        ScriptErrorMessage = error;
+        ScriptErrorType = title;
         throw new ScriptException(error);
     }
 
@@ -207,7 +197,7 @@ partial class ProjectContext : IScriptInterface
 
     private void SetScriptError(Exception error)
     {
-        _scriptErrorMessage = error.Message;
-        _scriptErrorType = error.GetType().Name;
+        ScriptErrorMessage = error.Message;
+        ScriptErrorType = error.GetType().Name;
     }
 }

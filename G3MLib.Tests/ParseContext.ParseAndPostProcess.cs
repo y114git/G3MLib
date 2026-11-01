@@ -5,7 +5,6 @@
 */
 
 using G3MLib.Analyzer.Compiler.Nodes;
-using G3MLib.Analyzer.Compiler.Parser;
 
 namespace G3MLib.Tests;
 
@@ -14,7 +13,7 @@ public class ParseContext_ParseAndPostProcess
     [Fact]
     public void TestEnums()
     {
-        ParseContext context = TestUtil.ParseAndPostProcess(
+        var context = TestUtil.ParseAndPostProcess(
             """
             test1 = A.a;
             test2 = A.b;
@@ -39,36 +38,36 @@ public class ParseContext_ParseAndPostProcess
 
         Assert.Empty(context.CompileContext.Errors);
         Assert.False(context.CompileContext.HasErrors);
-        Assert.Collection(((BlockNode)context.Root!).Children,
+        Assert.Collection(((BlockNode)context.Root).Children,
             (node) =>
             {
-                AssignNode assign = (AssignNode)node;
-                Assert.Equal("test1", ((SimpleVariableNode)assign.Destination!).VariableName);
-                Assert.Equal(0, ((Int64Node)assign.Expression!).Value);
+                var assign = (AssignNode)node;
+                Assert.Equal("test1", ((SimpleVariableNode)assign.Destination).VariableName);
+                Assert.Equal(0, ((Int64Node)assign.Expression).Value);
             },
             (node) =>
             {
-                AssignNode assign = (AssignNode)node;
-                Assert.Equal("test2", ((SimpleVariableNode)assign.Destination!).VariableName);
-                Assert.Equal(2, ((Int64Node)assign.Expression!).Value);
+                var assign = (AssignNode)node;
+                Assert.Equal("test2", ((SimpleVariableNode)assign.Destination).VariableName);
+                Assert.Equal(2, ((Int64Node)assign.Expression).Value);
             },
             (node) =>
             {
-                AssignNode assign = (AssignNode)node;
-                Assert.Equal("test3", ((SimpleVariableNode)assign.Destination!).VariableName);
-                Assert.Equal(3, ((Int64Node)assign.Expression!).Value);
+                var assign = (AssignNode)node;
+                Assert.Equal("test3", ((SimpleVariableNode)assign.Destination).VariableName);
+                Assert.Equal(3, ((Int64Node)assign.Expression).Value);
             },
             (node) =>
             {
-                AssignNode assign = (AssignNode)node;
-                Assert.Equal("test4", ((SimpleVariableNode)assign.Destination!).VariableName);
-                Assert.Equal(4, ((Int64Node)assign.Expression!).Value);
+                var assign = (AssignNode)node;
+                Assert.Equal("test4", ((SimpleVariableNode)assign.Destination).VariableName);
+                Assert.Equal(4, ((Int64Node)assign.Expression).Value);
             },
             (node) =>
             {
-                AssignNode assign = (AssignNode)node;
-                Assert.Equal("test5", ((SimpleVariableNode)assign.Destination!).VariableName);
-                Assert.Equal(4, ((Int64Node)assign.Expression!).Value);
+                var assign = (AssignNode)node;
+                Assert.Equal("test5", ((SimpleVariableNode)assign.Destination).VariableName);
+                Assert.Equal(4, ((Int64Node)assign.Expression).Value);
             },
             (node) => Assert.IsType<EmptyNode>(node),
             (node) => Assert.IsType<EmptyNode>(node)
@@ -78,7 +77,7 @@ public class ParseContext_ParseAndPostProcess
     [Fact]
     public void TestCalculator()
     {
-        ParseContext context = TestUtil.ParseAndPostProcess(
+        var context = TestUtil.ParseAndPostProcess(
             """
             a = 2 + 2;
             b = 1 + 2 + 3;
@@ -94,11 +93,11 @@ public class ParseContext_ParseAndPostProcess
 
         Assert.Empty(context.CompileContext.Errors);
         Assert.False(context.CompileContext.HasErrors);
-        Assert.Collection(((BlockNode)context.Root!).Children,
+        Assert.Collection(((BlockNode)context.Root).Children,
             (node) => Assert.Equal(4, ((NumberNode)((AssignNode)node).Expression).Value),
             (node) => Assert.Equal(6, ((NumberNode)((AssignNode)node).Expression).Value),
             (node) => Assert.Equal(10, ((NumberNode)((AssignNode)node).Expression).Value),
-            (node) => Assert.Equal((5.0 * 4.0) + (6.0 / 2.0) + (5.0 % 4.5), ((NumberNode)((AssignNode)node).Expression).Value),
+            (node) => Assert.Equal(5.0 * 4.0 + 6.0 / 2.0 + 5.0 % 4.5, ((NumberNode)((AssignNode)node).Expression).Value),
             (node) => Assert.Equal(1, ((NumberNode)((AssignNode)node).Expression).Value),
             (node) => Assert.Equal(123, ((Int64Node)((AssignNode)node).Expression).Value),
             (node) => Assert.Equal(-5, ((NumberNode)((AssignNode)node).Expression).Value),
@@ -110,7 +109,7 @@ public class ParseContext_ParseAndPostProcess
     [Fact]
     public void TestCalculatorEnums()
     {
-        ParseContext context = TestUtil.ParseAndPostProcess(
+        var context = TestUtil.ParseAndPostProcess(
             """
             enum A
             {
@@ -134,38 +133,38 @@ public class ParseContext_ParseAndPostProcess
 
         Assert.Empty(context.CompileContext.Errors);
         Assert.False(context.CompileContext.HasErrors);
-        Assert.Collection(((BlockNode)context.Root!).Children,
+        Assert.Collection(((BlockNode)context.Root).Children,
             (node) => Assert.IsType<EmptyNode>(node),
             (node) => Assert.IsType<EmptyNode>(node),
             (node) =>
             {
-                AssignNode assign = (AssignNode)node;
-                Assert.Equal("test1", ((SimpleVariableNode)assign.Destination!).VariableName);
-                Assert.Equal(123, ((Int64Node)assign.Expression!).Value);
+                var assign = (AssignNode)node;
+                Assert.Equal("test1", ((SimpleVariableNode)assign.Destination).VariableName);
+                Assert.Equal(123, ((Int64Node)assign.Expression).Value);
             },
             (node) =>
             {
-                AssignNode assign = (AssignNode)node;
-                Assert.Equal("test2", ((SimpleVariableNode)assign.Destination!).VariableName);
-                Assert.Equal(133, ((Int64Node)assign.Expression!).Value);
+                var assign = (AssignNode)node;
+                Assert.Equal("test2", ((SimpleVariableNode)assign.Destination).VariableName);
+                Assert.Equal(133, ((Int64Node)assign.Expression).Value);
             },
             (node) =>
             {
-                AssignNode assign = (AssignNode)node;
-                Assert.Equal("test3", ((SimpleVariableNode)assign.Destination!).VariableName);
-                Assert.Equal(143, ((Int64Node)assign.Expression!).Value);
+                var assign = (AssignNode)node;
+                Assert.Equal("test3", ((SimpleVariableNode)assign.Destination).VariableName);
+                Assert.Equal(143, ((Int64Node)assign.Expression).Value);
             },
             (node) =>
             {
-                AssignNode assign = (AssignNode)node;
-                Assert.Equal("test4", ((SimpleVariableNode)assign.Destination!).VariableName);
-                Assert.Equal(144, ((Int64Node)assign.Expression!).Value);
+                var assign = (AssignNode)node;
+                Assert.Equal("test4", ((SimpleVariableNode)assign.Destination).VariableName);
+                Assert.Equal(144, ((Int64Node)assign.Expression).Value);
             },
             (node) =>
             {
-                AssignNode assign = (AssignNode)node;
-                Assert.Equal("test5", ((SimpleVariableNode)assign.Destination!).VariableName);
-                Assert.Equal(143, ((Int64Node)assign.Expression!).Value);
+                var assign = (AssignNode)node;
+                Assert.Equal("test5", ((SimpleVariableNode)assign.Destination).VariableName);
+                Assert.Equal(143, ((Int64Node)assign.Expression).Value);
             }
         );
     }
@@ -174,7 +173,7 @@ public class ParseContext_ParseAndPostProcess
     public void TestBasicIntrinsicFunctions()
     {
 
-        ParseContext context = TestUtil.ParseAndPostProcess(
+        var context = TestUtil.ParseAndPostProcess(
             """
             a = ord("A");
             a2 = ord(x);
@@ -193,65 +192,65 @@ public class ParseContext_ParseAndPostProcess
 
         Assert.Empty(context.CompileContext.Errors);
         Assert.False(context.CompileContext.HasErrors);
-        Assert.Collection(((BlockNode)context.Root!).Children,
+        Assert.Collection(((BlockNode)context.Root).Children,
             (node) =>
             {
-                NumberNode number = (NumberNode)((AssignNode)node).Expression;
+                var number = (NumberNode)((AssignNode)node).Expression;
                 Assert.Equal(0x41, number.Value);
             },
             (node) =>
             {
-                SimpleFunctionCallNode func = (SimpleFunctionCallNode)((AssignNode)node).Expression;
+                var func = (SimpleFunctionCallNode)((AssignNode)node).Expression;
                 Assert.Equal("ord", func.FunctionName);
             },
             (node) =>
             {
-                NumberNode number = (NumberNode)((AssignNode)node).Expression;
+                var number = (NumberNode)((AssignNode)node).Expression;
                 Assert.Equal(0, number.Value);
             },
             (node) =>
             {
-                StringNode str = (StringNode)((AssignNode)node).Expression;
+                var str = (StringNode)((AssignNode)node).Expression;
                 Assert.Equal("A", str.Value);
             },
             (node) =>
             {
-                SimpleFunctionCallNode func = (SimpleFunctionCallNode)((AssignNode)node).Expression;
+                var func = (SimpleFunctionCallNode)((AssignNode)node).Expression;
                 Assert.Equal("chr", func.FunctionName);
             },
             (node) =>
             {
-                Int64Node number = (Int64Node)((AssignNode)node).Expression;
+                var number = (Int64Node)((AssignNode)node).Expression;
                 Assert.Equal(123, number.Value);
             },
             (node) =>
             {
-                SimpleFunctionCallNode func = (SimpleFunctionCallNode)((AssignNode)node).Expression;
+                var func = (SimpleFunctionCallNode)((AssignNode)node).Expression;
                 Assert.Equal("int64", func.FunctionName);
             },
             (node) =>
             {
-                NumberNode number = (NumberNode)((AssignNode)node).Expression;
+                var number = (NumberNode)((AssignNode)node).Expression;
                 Assert.Equal(123, number.Value);
             },
             (node) =>
             {
-                NumberNode number = (NumberNode)((AssignNode)node).Expression;
+                var number = (NumberNode)((AssignNode)node).Expression;
                 Assert.Equal(123, number.Value);
             },
             (node) =>
             {
-                NumberNode number = (NumberNode)((AssignNode)node).Expression;
+                var number = (NumberNode)((AssignNode)node).Expression;
                 Assert.Equal(1000000, number.Value);
             },
             (node) =>
             {
-                NumberNode number = (NumberNode)((AssignNode)node).Expression;
+                var number = (NumberNode)((AssignNode)node).Expression;
                 Assert.Equal(0x1234, number.Value);
             },
             (node) =>
             {
-                NumberNode number = (NumberNode)((AssignNode)node).Expression;
+                var number = (NumberNode)((AssignNode)node).Expression;
                 Assert.Equal(0b1010_0101, number.Value);
             }
         );

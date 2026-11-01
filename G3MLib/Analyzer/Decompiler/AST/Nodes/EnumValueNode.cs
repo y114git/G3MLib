@@ -4,7 +4,7 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
+using System.Globalization;
 using G3MLib.Analyzer.Decompiler.GameSpecific;
 
 namespace G3MLib.Analyzer.Decompiler.AST;
@@ -36,10 +36,10 @@ public class EnumValueNode(string enumName, string enumValueName, long enumValue
     public bool IsUnknownEnum { get; } = isUnknownEnum;
 
     /// <inheritdoc/>
-    public bool Duplicated { get; set; } = false;
+    public bool Duplicated { get; set; }
 
     /// <inheritdoc/>
-    public bool Group { get; set; } = false;
+    public bool Group { get; set; }
 
     /// <inheritdoc/>
     public IGMInstruction.DataType StackType { get; set; } = IGMInstruction.DataType.Int64;
@@ -48,7 +48,7 @@ public class EnumValueNode(string enumName, string enumValueName, long enumValue
     public string ConditionalTypeName => "EnumValue";
 
     /// <inheritdoc/>
-    public string ConditionalValue => IsUnknownEnum ? EnumValue.ToString() : $"{EnumName}.{EnumValueName}";
+    public string ConditionalValue => IsUnknownEnum ? EnumValue.ToString(CultureInfo.InvariantCulture) : $"{EnumName}.{EnumValueName}";
 
     /// <inheritdoc/>
     public IExpressionNode Clean(ASTCleaner cleaner)
@@ -65,6 +65,7 @@ public class EnumValueNode(string enumName, string enumValueName, long enumValue
     /// <inheritdoc/>
     public void Print(ASTPrinter printer)
     {
+        ArgumentNullException.ThrowIfNull(printer);
         if (Group)
         {
             printer.Write('(');
@@ -87,9 +88,10 @@ public class EnumValueNode(string enumName, string enumValueName, long enumValue
     /// <inheritdoc/>
     public IExpressionNode? ResolveMacroType(ASTCleaner cleaner, IMacroType type)
     {
+        ArgumentNullException.ThrowIfNull(cleaner);
         if (type is IMacroTypeInt64 type64)
         {
-            string enumNameBefore = EnumName;
+            var enumNameBefore = EnumName;
             if (type64.Resolve(cleaner, this, EnumValue) is IExpressionNode resolved)
             {
                 // Dereference the unknown enum, if applicable
@@ -100,7 +102,7 @@ public class EnumValueNode(string enumName, string enumValueName, long enumValue
                     {
                         // Remove declaration altogether - it's no longer referenced
                         cleaner.Context.NameToEnumDeclaration.Remove(EnumName);
-                        cleaner.Context.EnumDeclarations.Remove(cleaner.Context.UnknownEnumDeclaration!);
+                        cleaner.Context.EnumDeclarations.Remove(cleaner.Context.UnknownEnumDeclaration);
                         cleaner.Context.UnknownEnumDeclaration = null;
                     }
                 }

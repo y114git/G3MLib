@@ -4,8 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System;
-using System.Collections.Generic;
 using G3MLib.Analyzer.Compiler.Nodes;
 using static G3MLib.Analyzer.IGMInstruction;
 
@@ -53,7 +51,7 @@ internal sealed class BytecodeContext : ISubCompileContext
     /// <summary>
     /// Current instruction writing position.
     /// </summary>
-    public int Position { get; private set; } = 0;
+    public int Position { get; private set; }
 
     /// <summary>
     /// Function to call before any exit/return instructions, as part of their cleanup.
@@ -62,7 +60,7 @@ internal sealed class BytecodeContext : ISubCompileContext
     /// Yes, due to not being attached to function scopes, this results in bugged code generation,
     /// but this mimics official GML compiler behavior.
     /// </remarks>
-    public string? FunctionCallBeforeExit { get; set; } = null;
+    public string? FunctionCallBeforeExit { get; set; }
 
     /// <summary>
     /// When <see cref="IGameContext.UsingArrayCopyOnWrite"/> is <see langword="true"/>, this is updated to
@@ -81,7 +79,7 @@ internal sealed class BytecodeContext : ISubCompileContext
     /// When <see cref="IGameContext.UsingArrayCopyOnWrite"/> is <see langword="true"/>, this is updated to
     /// reflect whether array owner IDs can currently be generated in the tree.
     /// </summary>
-    public bool CanGenerateArrayOwners { get; set; } = false;
+    public bool CanGenerateArrayOwners { get; set; }
 
     // Stack used for storing data types as on the VM data stack.
     private readonly Stack<DataType> _dataTypeStack = new(16);
@@ -116,7 +114,7 @@ internal sealed class BytecodeContext : ISubCompileContext
 #if DEBUG
         if (_dataTypeStack.Count > 0)
         {
-            throw new Exception("Data type stack not cleared by end of code generation");
+            throw new InvalidOperationException("Data type stack not cleared by end of code generation");
         }
 #endif
     }
@@ -126,30 +124,30 @@ internal sealed class BytecodeContext : ISubCompileContext
     /// </summary>
     public static void PatchInstructions(CompileContext context, InstructionPatches patches)
     {
-        ICodeBuilder codeBuilder = context.GameContext.CodeBuilder;
+        var codeBuilder = context.GameContext.CodeBuilder;
 
         // Resolve variable patches
-        foreach (VariablePatch variablePatch in patches.VariablePatches!)
+        foreach (var variablePatch in patches.VariablePatches)
         {
-            codeBuilder.PatchInstruction(variablePatch.Instruction!, variablePatch.Name, variablePatch.InstanceType, variablePatch.InstructionInstanceType,
+            codeBuilder.PatchInstruction(variablePatch.Instruction, variablePatch.Name, variablePatch.InstanceType, variablePatch.InstructionInstanceType,
                                          variablePatch.VariableType, variablePatch.IsBuiltin, variablePatch.KeepInstanceType);
         }
 
         // Resolve function patches
-        foreach (FunctionPatch functionPatch in patches.FunctionPatches!)
+        foreach (var functionPatch in patches.FunctionPatches)
         {
-            codeBuilder.PatchInstruction(functionPatch.Instruction!, functionPatch.Scope, functionPatch.Name, functionPatch.BuiltinFunction);
+            codeBuilder.PatchInstruction(functionPatch.Instruction, functionPatch.Scope, functionPatch.Name, functionPatch.BuiltinFunction);
         }
 
         // Resolve local function patches
-        foreach (LocalFunctionPatch functionPatch in patches.LocalFunctionPatches!)
+        foreach (var functionPatch in patches.LocalFunctionPatches)
         {
             FunctionEntry entry;
             if (functionPatch.FunctionEntry is not null)
             {
                 entry = functionPatch.FunctionEntry;
             }
-            else if (functionPatch.FunctionScope!.TryGetDeclaredFunction(context.GameContext, functionPatch.FunctionName!, out FunctionEntry? found))
+            else if (functionPatch.FunctionScope.TryGetDeclaredFunction(context.GameContext, functionPatch.FunctionName, out var found))
             {
                 entry = found;
             }
@@ -157,26 +155,26 @@ internal sealed class BytecodeContext : ISubCompileContext
             {
                 throw new CompilerException($"Failed to resolve local function with name \"{functionPatch.FunctionName}\"");
             }
-            codeBuilder.PatchInstruction(functionPatch.Instruction!, entry);
+            codeBuilder.PatchInstruction(functionPatch.Instruction, entry);
         }
 
         // Resolve struct variable patches
-        foreach (StructVariablePatch variablePatch in patches.StructVariablePatches!)
+        foreach (var variablePatch in patches.StructVariablePatches)
         {
-            codeBuilder.PatchInstruction(variablePatch.Instruction!, variablePatch.FunctionEntry.StructName ?? throw new InvalidOperationException("Struct name not resolved on function entry"),
+            codeBuilder.PatchInstruction(variablePatch.Instruction, variablePatch.FunctionEntry.StructName ?? throw new InvalidOperationException("Struct name not resolved on function entry"),
                                          variablePatch.InstanceType, variablePatch.InstructionInstanceType, variablePatch.VariableType, false, true);
         }
 
         // Resolve variable hash patches
-        foreach (VariableHashPatch variableHashPatch in patches.VariableHashPatches!)
+        foreach (var variableHashPatch in patches.VariableHashPatches)
         {
-            codeBuilder.PatchVariableHashInstruction(variableHashPatch.Instruction!, variableHashPatch.Name, variableHashPatch.IsBuiltin);
+            codeBuilder.PatchVariableHashInstruction(variableHashPatch.Instruction, variableHashPatch.Name, variableHashPatch.IsBuiltin);
         }
 
         // Resolve string patches
-        foreach (StringPatch stringPatch in patches.StringPatches!)
+        foreach (var stringPatch in patches.StringPatches)
         {
-            codeBuilder.PatchInstruction(stringPatch.Instruction!, stringPatch.Content);
+            codeBuilder.PatchInstruction(stringPatch.Instruction, stringPatch.Content);
         }
     }
 
@@ -185,7 +183,7 @@ internal sealed class BytecodeContext : ISubCompileContext
     /// </summary>
     public IGMInstruction Emit(Opcode opcode)
     {
-        IGMInstruction instr = _codeBuilder.CreateInstruction(Position, opcode);
+        var instr = _codeBuilder.CreateInstruction(Position, opcode);
         Instructions.Add(instr);
         Position += 4;
         return instr;
@@ -196,7 +194,7 @@ internal sealed class BytecodeContext : ISubCompileContext
     /// </summary>
     public IGMInstruction Emit(Opcode opcode, DataType dataType)
     {
-        IGMInstruction instr = _codeBuilder.CreateInstruction(Position, opcode, dataType);
+        var instr = _codeBuilder.CreateInstruction(Position, opcode, dataType);
         Instructions.Add(instr);
         Position += 4;
         return instr;
@@ -207,7 +205,7 @@ internal sealed class BytecodeContext : ISubCompileContext
     /// </summary>
     public IGMInstruction Emit(Opcode opcode, DataType dataType1, DataType dataType2)
     {
-        IGMInstruction instr = _codeBuilder.CreateInstruction(Position, opcode, dataType1, dataType2);
+        var instr = _codeBuilder.CreateInstruction(Position, opcode, dataType1, dataType2);
         Instructions.Add(instr);
         Position += 4;
         return instr;
@@ -218,7 +216,7 @@ internal sealed class BytecodeContext : ISubCompileContext
     /// </summary>
     public IGMInstruction Emit(Opcode opcode, short value, DataType dataType1, DataType dataType2 = DataType.Double)
     {
-        IGMInstruction instr = _codeBuilder.CreateInstruction(Position, opcode, value, dataType1, dataType2);
+        var instr = _codeBuilder.CreateInstruction(Position, opcode, value, dataType1, dataType2);
         Instructions.Add(instr);
         Position += 4;
         return instr;
@@ -229,7 +227,7 @@ internal sealed class BytecodeContext : ISubCompileContext
     /// </summary>
     public IGMInstruction Emit(Opcode opcode, int value, DataType dataType1, DataType dataType2 = DataType.Double)
     {
-        IGMInstruction instr = _codeBuilder.CreateInstruction(Position, opcode, value, dataType1, dataType2);
+        var instr = _codeBuilder.CreateInstruction(Position, opcode, value, dataType1, dataType2);
         Instructions.Add(instr);
         Position += 8;
         return instr;
@@ -240,7 +238,7 @@ internal sealed class BytecodeContext : ISubCompileContext
     /// </summary>
     public IGMInstruction Emit(Opcode opcode, long value, DataType dataType1, DataType dataType2 = DataType.Double)
     {
-        IGMInstruction instr = _codeBuilder.CreateInstruction(Position, opcode, value, dataType1, dataType2);
+        var instr = _codeBuilder.CreateInstruction(Position, opcode, value, dataType1, dataType2);
         Instructions.Add(instr);
         Position += 12;
         return instr;
@@ -251,7 +249,7 @@ internal sealed class BytecodeContext : ISubCompileContext
     /// </summary>
     public IGMInstruction Emit(Opcode opcode, double value, DataType dataType1, DataType dataType2 = DataType.Double)
     {
-        IGMInstruction instr = _codeBuilder.CreateInstruction(Position, opcode, value, dataType1, dataType2);
+        var instr = _codeBuilder.CreateInstruction(Position, opcode, value, dataType1, dataType2);
         Instructions.Add(instr);
         Position += 12;
         return instr;
@@ -262,7 +260,7 @@ internal sealed class BytecodeContext : ISubCompileContext
     /// </summary>
     public IGMInstruction Emit(Opcode opcode, ComparisonType comparisonType, DataType dataType1, DataType dataType2)
     {
-        IGMInstruction instr = _codeBuilder.CreateInstruction(Position, opcode, comparisonType, dataType1, dataType2);
+        var instr = _codeBuilder.CreateInstruction(Position, opcode, comparisonType, dataType1, dataType2);
         Instructions.Add(instr);
         Position += 4;
         return instr;
@@ -273,7 +271,7 @@ internal sealed class BytecodeContext : ISubCompileContext
     /// </summary>
     public IGMInstruction Emit(ExtendedOpcode extendedOpcode)
     {
-        IGMInstruction instr = _codeBuilder.CreateInstruction(Position, extendedOpcode);
+        var instr = _codeBuilder.CreateInstruction(Position, extendedOpcode);
         Instructions.Add(instr);
         Position += 4;
         return instr;
@@ -284,12 +282,12 @@ internal sealed class BytecodeContext : ISubCompileContext
     /// </summary>
     public IGMInstruction Emit(ExtendedOpcode extendedOpcode, LocalFunctionPatch function)
     {
-        IGMInstruction instr = _codeBuilder.CreateInstruction(Position, extendedOpcode, 0);
+        var instr = _codeBuilder.CreateInstruction(Position, extendedOpcode, 0);
         Instructions.Add(instr);
         Position += 8;
 
         function.Instruction = instr;
-        Patches.LocalFunctionPatches!.Add(function);
+        Patches.LocalFunctionPatches.Add(function);
 
         return instr;
     }
@@ -299,12 +297,12 @@ internal sealed class BytecodeContext : ISubCompileContext
     /// </summary>
     public IGMInstruction Emit(ExtendedOpcode extendedOpcode, FunctionPatch function)
     {
-        IGMInstruction instr = _codeBuilder.CreateInstruction(Position, extendedOpcode, 0);
+        var instr = _codeBuilder.CreateInstruction(Position, extendedOpcode, 0);
         Instructions.Add(instr);
         Position += 8;
 
         function.Instruction = instr;
-        Patches.FunctionPatches!.Add(function);
+        Patches.FunctionPatches.Add(function);
 
         return instr;
     }
@@ -314,7 +312,7 @@ internal sealed class BytecodeContext : ISubCompileContext
     /// </summary>
     public IGMInstruction Emit(ExtendedOpcode extendedOpcode, int extendedValue)
     {
-        IGMInstruction instr = _codeBuilder.CreateInstruction(Position, extendedOpcode, extendedValue);
+        var instr = _codeBuilder.CreateInstruction(Position, extendedOpcode, extendedValue);
         Instructions.Add(instr);
         Position += 8;
         return instr;
@@ -325,7 +323,7 @@ internal sealed class BytecodeContext : ISubCompileContext
     /// </summary>
     public IGMInstruction EmitDuplicate(DataType dataType, byte duplicationSize)
     {
-        IGMInstruction instr = _codeBuilder.CreateDuplicateInstruction(Position, dataType, duplicationSize);
+        var instr = _codeBuilder.CreateDuplicateInstruction(Position, dataType, duplicationSize);
         Instructions.Add(instr);
         Position += 4;
         return instr;
@@ -336,7 +334,7 @@ internal sealed class BytecodeContext : ISubCompileContext
     /// </summary>
     public IGMInstruction EmitDupSwap(DataType dataType, byte duplicationSize, byte duplicationSize2)
     {
-        IGMInstruction instr = _codeBuilder.CreateDupSwapInstruction(Position, dataType, duplicationSize, duplicationSize2);
+        var instr = _codeBuilder.CreateDupSwapInstruction(Position, dataType, duplicationSize, duplicationSize2);
         Instructions.Add(instr);
         Position += 4;
         return instr;
@@ -347,7 +345,7 @@ internal sealed class BytecodeContext : ISubCompileContext
     /// </summary>
     public IGMInstruction EmitPopSwap(byte swapSize)
     {
-        IGMInstruction instr = _codeBuilder.CreatePopSwapInstruction(Position, swapSize);
+        var instr = _codeBuilder.CreatePopSwapInstruction(Position, swapSize);
         Instructions.Add(instr);
         Position += 4;
         return instr;
@@ -358,7 +356,7 @@ internal sealed class BytecodeContext : ISubCompileContext
     /// </summary>
     public IGMInstruction EmitPopWithExit()
     {
-        IGMInstruction instr = _codeBuilder.CreateWithExitInstruction(Position);
+        var instr = _codeBuilder.CreateWithExitInstruction(Position);
         Instructions.Add(instr);
         Position += 4;
         return instr;
@@ -369,12 +367,12 @@ internal sealed class BytecodeContext : ISubCompileContext
     /// </summary>
     public IGMInstruction Emit(Opcode opcode, VariablePatch variable, DataType dataType1, DataType dataType2 = DataType.Double)
     {
-        IGMInstruction instr = _codeBuilder.CreateInstruction(Position, opcode, dataType1, dataType2);
+        var instr = _codeBuilder.CreateInstruction(Position, opcode, dataType1, dataType2);
         Instructions.Add(instr);
         Position += 8;
 
         variable.Instruction = instr;
-        Patches.VariablePatches!.Add(variable);
+        Patches.VariablePatches.Add(variable);
 
         // If this is a local variable, declare it if not already done.
         // This is done at this stage to match the order produced by the official compiler.
@@ -392,12 +390,12 @@ internal sealed class BytecodeContext : ISubCompileContext
     /// </summary>
     public IGMInstruction Emit(Opcode opcode, StructVariablePatch variable, DataType dataType1, DataType dataType2 = DataType.Double)
     {
-        IGMInstruction instr = _codeBuilder.CreateInstruction(Position, opcode, dataType1, dataType2);
+        var instr = _codeBuilder.CreateInstruction(Position, opcode, dataType1, dataType2);
         Instructions.Add(instr);
         Position += 8;
 
         variable.Instruction = instr;
-        Patches.StructVariablePatches!.Add(variable);
+        Patches.StructVariablePatches.Add(variable);
 
         return instr;
     }
@@ -407,12 +405,12 @@ internal sealed class BytecodeContext : ISubCompileContext
     /// </summary>
     public IGMInstruction EmitPushFunction(FunctionPatch function)
     {
-        IGMInstruction instr = _codeBuilder.CreateInstruction(Position, Opcode.Push, DataType.Int32);
+        var instr = _codeBuilder.CreateInstruction(Position, Opcode.Push, DataType.Int32);
         Instructions.Add(instr);
         Position += 8;
 
         function.Instruction = instr;
-        Patches.FunctionPatches!.Add(function);
+        Patches.FunctionPatches.Add(function);
 
         return instr;
     }
@@ -422,12 +420,12 @@ internal sealed class BytecodeContext : ISubCompileContext
     /// </summary>
     public IGMInstruction EmitPushFunction(LocalFunctionPatch function)
     {
-        IGMInstruction instr = _codeBuilder.CreateInstruction(Position, Opcode.Push, DataType.Int32);
+        var instr = _codeBuilder.CreateInstruction(Position, Opcode.Push, DataType.Int32);
         Instructions.Add(instr);
         Position += 8;
 
         function.Instruction = instr;
-        Patches.LocalFunctionPatches!.Add(function);
+        Patches.LocalFunctionPatches.Add(function);
 
         return instr;
     }
@@ -437,12 +435,12 @@ internal sealed class BytecodeContext : ISubCompileContext
     /// </summary>
     public IGMInstruction EmitPushVariableHash(VariableHashPatch variableHash)
     {
-        IGMInstruction instr = _codeBuilder.CreateInstruction(Position, Opcode.Push, DataType.Int32);
+        var instr = _codeBuilder.CreateInstruction(Position, Opcode.Push, DataType.Int32);
         Instructions.Add(instr);
         Position += 8;
 
         variableHash.Instruction = instr;
-        Patches.VariableHashPatches!.Add(variableHash);
+        Patches.VariableHashPatches.Add(variableHash);
 
         return instr;
     }
@@ -452,12 +450,12 @@ internal sealed class BytecodeContext : ISubCompileContext
     /// </summary>
     public IGMInstruction EmitCall(FunctionPatch function, int argumentCount)
     {
-        IGMInstruction instr = _codeBuilder.CreateCallInstruction(Position, argumentCount);
+        var instr = _codeBuilder.CreateCallInstruction(Position, argumentCount);
         Instructions.Add(instr);
         Position += 8;
 
         function.Instruction = instr;
-        Patches.FunctionPatches!.Add(function);
+        Patches.FunctionPatches.Add(function);
 
         return instr;
     }
@@ -467,7 +465,7 @@ internal sealed class BytecodeContext : ISubCompileContext
     /// </summary>
     public IGMInstruction EmitCallVariable(int argumentCount)
     {
-        IGMInstruction instr = _codeBuilder.CreateCallVariableInstruction(Position, argumentCount);
+        var instr = _codeBuilder.CreateCallVariableInstruction(Position, argumentCount);
         Instructions.Add(instr);
         Position += 4;
         return instr;
@@ -478,12 +476,12 @@ internal sealed class BytecodeContext : ISubCompileContext
     /// </summary>
     public IGMInstruction Emit(Opcode opcode, StringPatch stringPatch, DataType dataType1, DataType dataType2 = DataType.Double)
     {
-        IGMInstruction instr = _codeBuilder.CreateInstruction(Position, opcode, dataType1, dataType2);
+        var instr = _codeBuilder.CreateInstruction(Position, opcode, dataType1, dataType2);
         Instructions.Add(instr);
         Position += 8;
 
         stringPatch.Instruction = instr;
-        Patches.StringPatches!.Add(stringPatch);
+        Patches.StringPatches.Add(stringPatch);
 
         return instr;
     }
@@ -537,7 +535,7 @@ internal sealed class BytecodeContext : ISubCompileContext
     public bool ConvertDataType(DataType destDataType)
     {
         // Pop data type from top of stack
-        DataType srcDataType = _dataTypeStack.Pop();
+        var srcDataType = _dataTypeStack.Pop();
 
         // Emit convert instruction if data type is different; otherwise do nothing
         if (srcDataType != destDataType)
@@ -581,7 +579,7 @@ internal sealed class BytecodeContext : ISubCompileContext
     public InstanceConversionType ConvertToInstanceId()
     {
         // If data type isn't an integer, convert to one
-        DataType dataType = PopDataType();
+        var dataType = PopDataType();
         if (dataType != DataType.Int32)
         {
             if (dataType == DataType.Variable && CompileContext.GameContext.UsingGMLv2)
@@ -605,7 +603,7 @@ internal sealed class BytecodeContext : ISubCompileContext
     /// </summary>
     public bool DoAnyControlFlowRequireCleanup()
     {
-        foreach (IControlFlowContext context in CurrentScope.ControlFlowContexts!)
+        foreach (var context in CurrentScope.ControlFlowContexts)
         {
             if (context.RequiresCleanup)
             {
@@ -620,7 +618,7 @@ internal sealed class BytecodeContext : ISubCompileContext
     /// </summary>
     public void GenerateControlFlowCleanup()
     {
-        foreach (IControlFlowContext context in CurrentScope.ControlFlowContexts!)
+        foreach (var context in CurrentScope.ControlFlowContexts)
         {
             if (context.RequiresCleanup)
             {
@@ -641,7 +639,7 @@ internal sealed class BytecodeContext : ISubCompileContext
         }
 
         // Check script assets
-        if (_gameContext.GetScriptId(name, out int _))
+        if (_gameContext.GetScriptId(name, out var _))
         {
             return true;
         }
@@ -655,7 +653,7 @@ internal sealed class BytecodeContext : ISubCompileContext
     /// </summary>
     public void PushControlFlowContext(IControlFlowContext context)
     {
-        CurrentScope.ControlFlowContexts!.Push(context);
+        CurrentScope.ControlFlowContexts.Push(context);
     }
 
     /// <summary>
@@ -663,7 +661,7 @@ internal sealed class BytecodeContext : ISubCompileContext
     /// </summary>
     public void PopControlFlowContext()
     {
-        CurrentScope.ControlFlowContexts!.Pop();
+        CurrentScope.ControlFlowContexts.Pop();
     }
 
     /// <summary>
@@ -671,7 +669,7 @@ internal sealed class BytecodeContext : ISubCompileContext
     /// </summary>
     public bool AnyControlFlowContexts()
     {
-        return CurrentScope.ControlFlowContexts!.Count > 0;
+        return CurrentScope.ControlFlowContexts.Count > 0;
     }
 
     /// <summary>
@@ -679,7 +677,7 @@ internal sealed class BytecodeContext : ISubCompileContext
     /// </summary>
     public bool AnyLoopContexts()
     {
-        foreach (IControlFlowContext context in CurrentScope.ControlFlowContexts!)
+        foreach (var context in CurrentScope.ControlFlowContexts)
         {
             if (context.IsLoop)
             {
@@ -694,7 +692,7 @@ internal sealed class BytecodeContext : ISubCompileContext
     /// </summary>
     public IControlFlowContext GetTopControlFlowContext()
     {
-        return CurrentScope.ControlFlowContexts!.Peek();
+        return CurrentScope.ControlFlowContexts.Peek();
     }
 
     /// <summary>
@@ -704,7 +702,7 @@ internal sealed class BytecodeContext : ISubCompileContext
     {
         // If currently generating a function declaration header (arguments, inheritance calls),
         // use the outer scope for function resolution. Otherwise, use current scope.
-        FunctionScope scope = CurrentScope.GeneratingFunctionDeclHeader ? CurrentScope.Parent! : CurrentScope;
+        var scope = CurrentScope.GeneratingFunctionDeclHeader ? CurrentScope.Parent : CurrentScope;
 
         switch (CompileContext.ScriptKind)
         {

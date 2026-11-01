@@ -2,7 +2,7 @@ namespace G3MLib.Modding.Caching;
 
 public sealed class G3MCacheOptions
 {
-	public static readonly G3MCacheOptions None = new G3MCacheOptions();
+	public static readonly G3MCacheOptions None = new();
 
 	public string? ReadDirectory { get; init; }
 

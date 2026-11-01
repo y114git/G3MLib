@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Compiler.Bytecode;
 using G3MLib.Analyzer.Compiler.Lexer;
 using G3MLib.Analyzer.Compiler.Parser;
@@ -37,7 +36,7 @@ internal sealed class ContinueNode(IToken? token) : IASTNode
             // Check whether we should generate, based on control flow being used (but always generate in older versions)
             // Generate block, setting continue variable before continuing
             context.CurrentScope.DeclareLocal(tryContext.ContinueVariableName);
-            BlockNode blockNode = BlockNode.CreateEmpty(NearbyToken, 2);
+            var blockNode = BlockNode.CreateEmpty(NearbyToken, 2);
             blockNode.Children.Add(new AssignNode(AssignKind.Normal, new SimpleVariableNode(tryContext.ContinueVariableName, null, InstanceType.Local), new NumberNode(1, NearbyToken)));
             blockNode.Children.Add(this);
 
@@ -67,7 +66,7 @@ internal sealed class ContinueNode(IToken? token) : IASTNode
         }
 
         // Use control flow context's continue branch
-        IControlFlowContext topContext = context.GetTopControlFlowContext();
+        var topContext = context.GetTopControlFlowContext();
         if (!topContext.CanContinueBeUsed)
         {
             // Can't actually use the continue branch!

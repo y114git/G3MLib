@@ -4,8 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
-
 namespace G3MLib.Analyzer.Decompiler.AST;
 
 /// <summary>
@@ -30,7 +28,7 @@ public class WhileLoopNode(IExpressionNode condition, BlockNode body, bool mustB
     public bool MustBeWhileLoop { get; } = mustBeWhileLoop;
 
     /// <inheritdoc/>
-    public bool SemicolonAfter { get => false; }
+    public bool SemicolonAfter => false;
 
     /// <inheritdoc/>
     public bool EmptyLineBefore { get; set; }
@@ -41,6 +39,7 @@ public class WhileLoopNode(IExpressionNode condition, BlockNode body, bool mustB
     /// <inheritdoc/>
     public IStatementNode Clean(ASTCleaner cleaner)
     {
+        ArgumentNullException.ThrowIfNull(cleaner);
         EmptyLineAfter = EmptyLineBefore = cleaner.Context.Settings.EmptyLineAroundBranchStatements;
 
         if (!MustBeWhileLoop && Condition is Int64Node i64 && i64.Value == 1)
@@ -64,15 +63,16 @@ public class WhileLoopNode(IExpressionNode condition, BlockNode body, bool mustB
     /// <inheritdoc/>
     public int BlockClean(ASTCleaner cleaner, BlockNode block, int i)
     {
+        ArgumentNullException.ThrowIfNull(block);
         // Check if we should convert this loop into a for loop
         if (!MustBeWhileLoop && i > 0 && block.Children[i - 1] is AssignNode initializer &&
             Body.Children is [.., AssignNode incrementor])
         {
             // For readability, just stick to integer and variable assignments/compound operations
             if (initializer.Value is not (Int16Node or Int32Node or Int64Node or VariableNode) ||
-                (incrementor.Value is not (Int16Node or Int32Node or Int64Node or VariableNode) &&
+                incrementor.Value is not (Int16Node or Int32Node or Int64Node or VariableNode) &&
                  incrementor.AssignKind != AssignNode.AssignType.Prefix &&
-                 incrementor.AssignKind != AssignNode.AssignType.Postfix))
+                 incrementor.AssignKind != AssignNode.AssignType.Postfix)
             {
                 return i;
             }
@@ -116,12 +116,13 @@ public class WhileLoopNode(IExpressionNode condition, BlockNode body, bool mustB
     /// <inheritdoc/>
     public IStatementNode PostClean(ASTCleaner cleaner)
     {
+        ArgumentNullException.ThrowIfNull(cleaner);
         Condition = Condition.PostClean(cleaner);
         Condition.Group = false;
 
-        cleaner.TopFragmentContext!.PushLocalScope(cleaner.Context, cleaner.TopFragmentContext!.CurrentPostCleanupBlock!, this);
+        cleaner.TopFragmentContext.PushLocalScope(cleaner.Context, cleaner.TopFragmentContext.CurrentPostCleanupBlock, this);
         Body.PostClean(cleaner);
-        cleaner.TopFragmentContext!.PopLocalScope(cleaner.Context);
+        cleaner.TopFragmentContext.PopLocalScope(cleaner.Context);
 
         return this;
     }
@@ -129,6 +130,7 @@ public class WhileLoopNode(IExpressionNode condition, BlockNode body, bool mustB
     /// <inheritdoc/>
     public void Print(ASTPrinter printer)
     {
+        ArgumentNullException.ThrowIfNull(printer);
         printer.PrintBlockStatement("while", Condition, Body);
     }
 

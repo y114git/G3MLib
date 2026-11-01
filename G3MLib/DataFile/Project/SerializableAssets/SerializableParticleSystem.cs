@@ -1,7 +1,4 @@
-using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using G3MLib.DataFile.Models;
@@ -107,9 +104,9 @@ internal sealed class SerializableParticleSystem : ISerializableProjectAsset
         if (!projectContext.Data.ParticleSystems.Contains(_dataAsset))
             projectContext.Data.ParticleSystems.Add(_dataAsset);
         _dataAsset.Emitters.Clear();
-        foreach (Emitter emitter in Emitters ?? [])
+        foreach (var emitter in Emitters ?? [])
         {
-            GameMakerParticleSystemEmitter dataEmitter = projectContext.Data.ParticleSystemEmitters.ByName(emitter.Name) ?? new() { Name = projectContext.MakeString(emitter.Name) };
+            var dataEmitter = projectContext.Data.ParticleSystemEmitters.ByName(emitter.Name) ?? new() { Name = projectContext.MakeString(emitter.Name) };
             if (!projectContext.Data.ParticleSystemEmitters.Contains(dataEmitter))
                 projectContext.Data.ParticleSystemEmitters.Add(dataEmitter);
             _dataAsset.Emitters.Add(new(dataEmitter, projectContext.Data.ParticleSystemEmitters.IndexOf(dataEmitter)));
@@ -122,9 +119,9 @@ internal sealed class SerializableParticleSystem : ISerializableProjectAsset
         _dataAsset.OriginY = OriginY;
         _dataAsset.DrawOrder = (GameMakerParticleSystem.DrawOrderEnum)DrawOrder;
         _dataAsset.GlobalSpaceParticles = GlobalSpaceParticles;
-        foreach (Emitter emitter in Emitters ?? [])
+        foreach (var emitter in Emitters ?? [])
         {
-            GameMakerParticleSystemEmitter dataEmitter = projectContext.Data.ParticleSystemEmitters.ByName(emitter.Name) ??
+            var dataEmitter = projectContext.Data.ParticleSystemEmitters.ByName(emitter.Name) ??
                 throw new ProjectException($"Failed to find particle emitter \"{emitter.Name}\" for \"{DataName}\"");
             Apply(projectContext, dataEmitter, emitter);
         }
@@ -133,16 +130,65 @@ internal sealed class SerializableParticleSystem : ISerializableProjectAsset
 
     private static Emitter FromData(GameMakerParticleSystemEmitter emitter) => new()
     {
-        Name = emitter.Name.Content, Enabled = emitter.Enabled, Mode = (int)emitter.Mode, EmitCount = emitter.EmitCount, EmitRelative = emitter.EmitRelative,
-        DelayMin = emitter.DelayMin, DelayMax = emitter.DelayMax, DelayUnit = (int)emitter.DelayUnit, IntervalMin = emitter.IntervalMin, IntervalMax = emitter.IntervalMax, IntervalUnit = (int)emitter.IntervalUnit,
-        Distribution = (int)emitter.Distribution, Shape = (int)emitter.Shape, RegionX = emitter.RegionX, RegionY = emitter.RegionY, RegionWidth = emitter.RegionWidth, RegionHeight = emitter.RegionHeight, Rotation = emitter.Rotation,
-        Sprite = emitter.Sprite?.Name?.Content, Texture = (int)emitter.Texture, FrameIndex = emitter.FrameIndex, Animate = emitter.Animate, Stretch = emitter.Stretch, IsRandom = emitter.IsRandom,
-        StartColor = emitter.StartColor, MidColor = emitter.MidColor, EndColor = emitter.EndColor, AdditiveBlend = emitter.AdditiveBlend, LifetimeMin = emitter.LifetimeMin, LifetimeMax = emitter.LifetimeMax, ScaleX = emitter.ScaleX, ScaleY = emitter.ScaleY,
-        SizeMinX = emitter.SizeMinX, SizeMaxX = emitter.SizeMaxX, SizeIncreaseX = emitter.SizeIncreaseX, SizeWiggleX = emitter.SizeWiggleX, SizeMinY = emitter.SizeMinY, SizeMaxY = emitter.SizeMaxY, SizeIncreaseY = emitter.SizeIncreaseY, SizeWiggleY = emitter.SizeWiggleY,
-        SpeedMin = emitter.SpeedMin, SpeedMax = emitter.SpeedMax, SpeedIncrease = emitter.SpeedIncrease, SpeedWiggle = emitter.SpeedWiggle, GravityForce = emitter.GravityForce, GravityDirection = emitter.GravityDirection,
-        DirectionMin = emitter.DirectionMin, DirectionMax = emitter.DirectionMax, DirectionIncrease = emitter.DirectionIncrease, DirectionWiggle = emitter.DirectionWiggle, OrientationMin = emitter.OrientationMin, OrientationMax = emitter.OrientationMax,
-        OrientationIncrease = emitter.OrientationIncrease, OrientationWiggle = emitter.OrientationWiggle, OrientationRelative = emitter.OrientationRelative,
-        SpawnOnDeath = emitter.SpawnOnDeath?.Name?.Content, SpawnOnDeathCount = emitter.SpawnOnDeathCount, SpawnOnUpdate = emitter.SpawnOnUpdate?.Name?.Content, SpawnOnUpdateCount = emitter.SpawnOnUpdateCount
+        Name = emitter.Name.Content,
+        Enabled = emitter.Enabled,
+        Mode = (int)emitter.Mode,
+        EmitCount = emitter.EmitCount,
+        EmitRelative = emitter.EmitRelative,
+        DelayMin = emitter.DelayMin,
+        DelayMax = emitter.DelayMax,
+        DelayUnit = (int)emitter.DelayUnit,
+        IntervalMin = emitter.IntervalMin,
+        IntervalMax = emitter.IntervalMax,
+        IntervalUnit = (int)emitter.IntervalUnit,
+        Distribution = (int)emitter.Distribution,
+        Shape = (int)emitter.Shape,
+        RegionX = emitter.RegionX,
+        RegionY = emitter.RegionY,
+        RegionWidth = emitter.RegionWidth,
+        RegionHeight = emitter.RegionHeight,
+        Rotation = emitter.Rotation,
+        Sprite = emitter.Sprite?.Name?.Content,
+        Texture = (int)emitter.Texture,
+        FrameIndex = emitter.FrameIndex,
+        Animate = emitter.Animate,
+        Stretch = emitter.Stretch,
+        IsRandom = emitter.IsRandom,
+        StartColor = emitter.StartColor,
+        MidColor = emitter.MidColor,
+        EndColor = emitter.EndColor,
+        AdditiveBlend = emitter.AdditiveBlend,
+        LifetimeMin = emitter.LifetimeMin,
+        LifetimeMax = emitter.LifetimeMax,
+        ScaleX = emitter.ScaleX,
+        ScaleY = emitter.ScaleY,
+        SizeMinX = emitter.SizeMinX,
+        SizeMaxX = emitter.SizeMaxX,
+        SizeIncreaseX = emitter.SizeIncreaseX,
+        SizeWiggleX = emitter.SizeWiggleX,
+        SizeMinY = emitter.SizeMinY,
+        SizeMaxY = emitter.SizeMaxY,
+        SizeIncreaseY = emitter.SizeIncreaseY,
+        SizeWiggleY = emitter.SizeWiggleY,
+        SpeedMin = emitter.SpeedMin,
+        SpeedMax = emitter.SpeedMax,
+        SpeedIncrease = emitter.SpeedIncrease,
+        SpeedWiggle = emitter.SpeedWiggle,
+        GravityForce = emitter.GravityForce,
+        GravityDirection = emitter.GravityDirection,
+        DirectionMin = emitter.DirectionMin,
+        DirectionMax = emitter.DirectionMax,
+        DirectionIncrease = emitter.DirectionIncrease,
+        DirectionWiggle = emitter.DirectionWiggle,
+        OrientationMin = emitter.OrientationMin,
+        OrientationMax = emitter.OrientationMax,
+        OrientationIncrease = emitter.OrientationIncrease,
+        OrientationWiggle = emitter.OrientationWiggle,
+        OrientationRelative = emitter.OrientationRelative,
+        SpawnOnDeath = emitter.SpawnOnDeath?.Name?.Content,
+        SpawnOnDeathCount = emitter.SpawnOnDeathCount,
+        SpawnOnUpdate = emitter.SpawnOnUpdate?.Name?.Content,
+        SpawnOnUpdateCount = emitter.SpawnOnUpdateCount
     };
 
     private static void Apply(ProjectContext context, GameMakerParticleSystemEmitter target, Emitter source)

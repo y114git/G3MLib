@@ -17,15 +17,15 @@ public interface IMacroTypeResolver
     /// <summary>
     /// Resolves a macro type for a variable name on this resolver, or <see langword="null"/> if none is found.
     /// </summary>
-    public IMacroType? ResolveVariableType(ASTCleaner cleaner, string? variableName);
+    IMacroType? ResolveVariableType(ASTCleaner cleaner, string? variableName);
 
     /// <summary>
     /// Resolves a macro type for a function's arguments on this resolver, or <see langword="null"/> if none is found.
     /// </summary>
-    public IMacroType? ResolveFunctionArgumentTypes(ASTCleaner cleaner, string? functionName);
+    IMacroType? ResolveFunctionArgumentTypes(ASTCleaner cleaner, string? functionName);
 
     /// <summary>
     /// Resolves a macro type for a function's return value on this resolver, or <see langword="null"/> if none is found.
     /// </summary>
-    public IMacroType? ResolveReturnValueType(ASTCleaner cleaner, string? functionName);
+    IMacroType? ResolveReturnValueType(ASTCleaner cleaner, string? functionName);
 }

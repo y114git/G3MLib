@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Decompiler.GameSpecific;
 
 namespace G3MLib.Analyzer.Decompiler.AST;
@@ -15,10 +14,10 @@ namespace G3MLib.Analyzer.Decompiler.AST;
 public class EmptyStructNode() : IStatementNode, IConditionalValueNode
 {
     /// <inheritdoc/>
-    public bool Duplicated { get; set; } = false;
+    public bool Duplicated { get; set; }
 
     /// <inheritdoc/>
-    public bool Group { get; set; } = false;
+    public bool Group { get; set; }
 
     /// <inheritdoc/>
     public IGMInstruction.DataType StackType { get; set; } = IGMInstruction.DataType.Variable;
@@ -68,6 +67,7 @@ public class EmptyStructNode() : IStatementNode, IConditionalValueNode
     /// <inheritdoc/>
     public void Print(ASTPrinter printer)
     {
+        ArgumentNullException.ThrowIfNull(printer);
         if (Group)
         {
             printer.Write('(');

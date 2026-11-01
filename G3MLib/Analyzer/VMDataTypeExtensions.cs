@@ -4,8 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System;
-using static G3MLib.Analyzer.Compiler.Nodes.BinaryChainNode;
 using static G3MLib.Analyzer.IGMInstruction;
 
 namespace G3MLib.Analyzer;
@@ -38,7 +36,7 @@ internal static class VMDataTypeExtensions
                 }
                 break;
             case Opcode.GMLDivRemainder:
-                if ((type1 == DataType.String && type2 != DataType.Variable) || type2 == DataType.String)
+                if (type1 == DataType.String && type2 != DataType.Variable || type2 == DataType.String)
                 {
                     return DataType.Double;
                 }
@@ -48,8 +46,8 @@ internal static class VMDataTypeExtensions
         }
 
         // Choose whichever type has a higher bias, or if equal, the smaller numerical data type value.
-        int bias1 = StackTypeBias(type1);
-        int bias2 = StackTypeBias(type2);
+        var bias1 = StackTypeBias(type1);
+        var bias2 = StackTypeBias(type2);
         if (bias1 == bias2)
         {
             return (DataType)Math.Min((byte)type1, (byte)type2);

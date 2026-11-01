@@ -1920,8 +1920,8 @@ public class DecompileContext_DecompileToString
     [Fact]
     public void TestInheritance()
     {
-        var context = new G3MLib.Analyzer.Mock.GameContextMock();
-        var func = new G3MLib.Analyzer.Mock.GMFunction("gml_Script_TestA");
+        var context = new GameContextMock();
+        var func = new GMFunction("gml_Script_TestA");
         ((GlobalFunctions)context.GlobalFunctions).DefineFunction("TestA", func);
 
         TestUtil.VerifyDecompileResult(
@@ -2385,7 +2385,7 @@ public class DecompileContext_DecompileToString
     {
         GameContextMock gameContext = new();
         DecompileContext decompilerContext = new(gameContext, TestUtil.GetCode("", gameContext));
-        string decompileResult = decompilerContext.DecompileToString();
+        var decompileResult = decompilerContext.DecompileToString();
         Assert.Equal("", decompileResult);
     }
 

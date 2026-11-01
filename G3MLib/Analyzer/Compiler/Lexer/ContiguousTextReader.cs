@@ -4,8 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System;
-
 namespace G3MLib.Analyzer.Compiler.Lexer;
 
 /// <summary>
@@ -19,7 +17,7 @@ internal static class ContiguousTextReader
     public static int ReadUntilWhitespace(ReadOnlySpan<char> text, int startPosition, out ReadOnlySpan<char> output)
     {
         // Read until no longer identifier characters
-        int pos = startPosition;
+        var pos = startPosition;
         while (pos < text.Length)
         {
             if (!char.IsWhiteSpace(text[pos]))
@@ -43,7 +41,7 @@ internal static class ContiguousTextReader
     public static int ReadUntilChar(ReadOnlySpan<char> text, int startPosition, char c, out ReadOnlySpan<char> output)
     {
         // Read until no longer identifier characters
-        int pos = startPosition;
+        var pos = startPosition;
         while (pos < text.Length)
         {
             if (text[pos] != c)
@@ -67,11 +65,11 @@ internal static class ContiguousTextReader
     public static int ReadWhileIdentifier(ReadOnlySpan<char> text, int startPosition, out ReadOnlySpan<char> output)
     {
         // Read until no longer identifier characters
-        int pos = startPosition;
+        var pos = startPosition;
         while (pos < text.Length)
         {
-            char c = text[pos];
-            if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_')
+            var c = text[pos];
+            if (c is >= 'a' and <= 'z' or >= 'A' and <= 'Z' or >= '0' and <= '9' or '_')
             {
                 pos++;
             }
@@ -96,11 +94,11 @@ internal static class ContiguousTextReader
     {
         // Read until no longer internal identifier characters
         anyNormalChars = false;
-        int pos = startPosition;
+        var pos = startPosition;
         while (pos < text.Length)
         {
-            char c = text[pos];
-            if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '@')
+            var c = text[pos];
+            if (c is >= 'a' and <= 'z' or >= 'A' and <= 'Z' or >= '0' and <= '9' or '_' or '@')
             {
                 pos++;
                 if (c != '@')
@@ -126,12 +124,12 @@ internal static class ContiguousTextReader
     public static int ReadWhileNumber(ReadOnlySpan<char> text, int startPosition, out ReadOnlySpan<char> output)
     {
         // Read until no longer number characters
-        int pos = startPosition;
-        bool usedDot = false;
+        var pos = startPosition;
+        var usedDot = false;
         while (pos < text.Length)
         {
-            char c = text[pos];
-            if (char.IsDigit(c) || (!usedDot && c == '.'))
+            var c = text[pos];
+            if (char.IsDigit(c) || !usedDot && c == '.')
             {
                 usedDot |= c == '.';
                 pos++;
@@ -153,11 +151,11 @@ internal static class ContiguousTextReader
     public static int ReadWhileHex(ReadOnlySpan<char> text, int startPosition, out ReadOnlySpan<char> output)
     {
         // Read until no longer hex digit characters
-        int pos = startPosition;
+        var pos = startPosition;
         while (pos < text.Length)
         {
-            char c = text[pos];
-            if ((c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f'))
+            var c = text[pos];
+            if (c is >= '0' and <= '9' or >= 'A' and <= 'F' or >= 'a' and <= 'f')
             {
                 pos++;
             }

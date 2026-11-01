@@ -1,7 +1,4 @@
 using ImageMagick;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using G3MLib.DataFile.Models;
 
 namespace G3MLib.DataFile.Util;
@@ -22,6 +19,11 @@ public sealed class TextureGroupPacker
     public int Border { get; }
 
     /// <summary>
+    /// Whether finished pages are cut to power of two sizes. When false they are cut to the used size.
+    /// </summary>
+    public bool PowerOfTwoPages { get; }
+
+    /// <summary>
     /// Whether the texture group being packed allows cropping to occur.
     /// </summary>
     public bool AllowCrop { get; }
@@ -32,10 +34,10 @@ public sealed class TextureGroupPacker
     public GMImage.ImageFormat Format { get; }
 
     // Next unique ID used for pack images (for determinism when sorting)
-    private int _nextPackImageId = 0;
+    private int _nextPackImageId;
 
     // List of pages generated for the texture group
-    private List<GameMakerEmbeddedTexture> _pages = null;
+    private List<GameMakerEmbeddedTexture>? _pages;
 
     // List of texture items generated for the texture group
     private readonly List<GameMakerTexturePageItem> _textureItems = new(128);
@@ -52,20 +54,20 @@ public sealed class TextureGroupPacker
     /// <summary>
     /// Initializes a new texture group packer with the provided texture group settings.
     /// </summary>
-    public TextureGroupPacker(int maxTextureSize = 2048, int border = 2, bool allowCrop = true, GMImage.ImageFormat format = GMImage.ImageFormat.Png)
+    public TextureGroupPacker(int maxTextureSize = 2048, int border = 2, bool allowCrop = true, GMImage.ImageFormat format = GMImage.ImageFormat.Png, bool powerOfTwoPages = true)
     {
         // Make sure max texture size is valid
-        if (maxTextureSize < 16 || maxTextureSize > GMImage.MaxImageDimension)
+        if (maxTextureSize is < 16 or > GMImage.MaxImageDimension)
         {
             throw new ArgumentOutOfRangeException(nameof(maxTextureSize));
         }
-        if ((maxTextureSize & (maxTextureSize - 1)) != 0)
+        if (powerOfTwoPages && (maxTextureSize & (maxTextureSize - 1)) != 0)
         {
             throw new ArgumentException("Maximum texture size is not a power of two", nameof(maxTextureSize));
         }
 
         // Make sure border is valid
-        if (border < 0 || border >= (maxTextureSize / 2))
+        if (border < 0 || border >= maxTextureSize / 2)
         {
             throw new ArgumentOutOfRangeException(nameof(border));
         }
@@ -74,6 +76,7 @@ public sealed class TextureGroupPacker
         Border = border;
         AllowCrop = allowCrop;
         Format = format;
+        PowerOfTwoPages = powerOfTwoPages;
     }
 
     /// <summary>
@@ -81,6 +84,7 @@ public sealed class TextureGroupPacker
     /// </summary>
     public GameMakerTexturePageItem AddImage(MagickImage image, BorderFlags borderFlags, bool allowCrop = true)
     {
+        ArgumentNullException.ThrowIfNull(image);
         // Make sure this is used *before* packing only...
         if (_pages is not null)
         {
@@ -102,12 +106,12 @@ public sealed class TextureGroupPacker
             minX = uncroppedWidth;
             minY = uncroppedHeight;
             int maxX = 0, maxY = 0;
-            ReadOnlySpan<byte> pixels = image.GetPixels().GetReadOnlyArea(0, 0, image.Width, image.Height);
-            for (int y = 0; y < uncroppedHeight; y++)
+            var pixels = image.GetPixels().GetReadOnlyArea(0, 0, image.Width, image.Height);
+            for (var y = 0; y < uncroppedHeight; y++)
             {
-                for (int x = 0; x < uncroppedWidth; x++)
+                for (var x = 0; x < uncroppedWidth; x++)
                 {
-                    if (pixels[(4 * (x + (y * uncroppedWidth))) + 3] != 0)
+                    if (pixels[4 * (x + y * uncroppedWidth) + 3] != 0)
                     {
                         minX = Math.Min(minX, x);
                         minY = Math.Min(minY, y);
@@ -121,8 +125,10 @@ public sealed class TextureGroupPacker
             {
                 // Image is literally just empty
                 image.Dispose();
-                image = new(MagickColors.Transparent, 1, 1);
-                image.Format = MagickFormat.Rgba;
+                image = new(MagickColors.Transparent, 1, 1)
+                {
+                    Format = MagickFormat.Rgba
+                };
                 image.SetBitDepth(8);
                 image.SetCompression(CompressionMethod.NoCompression);
                 image.Alpha(AlphaOption.Set);
@@ -130,12 +136,12 @@ public sealed class TextureGroupPacker
             else
             {
                 // Crop image
-                image.Crop(new MagickGeometry(minX, minY, (uint)((maxX - minX) + 1), (uint)((maxY - minY) + 1)));
+                image.Crop(new MagickGeometry(minX, minY, (uint)(maxX - minX + 1), (uint)(maxY - minY + 1)));
             }
         }
 
         // Ensure image can actually fix on page
-        if (image.Width + (Border * 2) > MaxTextureSize || image.Height + (Border * 2) > MaxTextureSize)
+        if (image.Width + Border * 2 > MaxTextureSize || image.Height + Border * 2 > MaxTextureSize)
         {
             throw new ArgumentException($"Cannot fit texture item of size {image.Width}x{image.Height} with max texture size {MaxTextureSize}, border {Border}", nameof(image));
         }
@@ -146,11 +152,11 @@ public sealed class TextureGroupPacker
         PackImage packImage = new(image, textureItem, _nextPackImageId++, (minX, minY), (uncroppedWidth, uncroppedHeight), borderFlags);
 
         // Check for duplicate, and use original if so
-        long hash = packImage.ComputeHash();
-        if (_similarPackImages.TryGetValue(hash, out List<PackImage> similarImages))
+        var hash = packImage.ComputeHash();
+        if (_similarPackImages.TryGetValue(hash, out var similarImages))
         {
             // Check all similar images (with the same hash)
-            foreach (PackImage similarImage in similarImages)
+            foreach (var similarImage in similarImages)
             {
                 if (similarImage.IsDuplicateOf(packImage))
                 {
@@ -186,7 +192,7 @@ public sealed class TextureGroupPacker
         // Sort images by area, and then by unique ID
         _images.Sort((a, b) =>
         {
-            int area = ((int)a.Width * (int)a.Height) - ((int)b.Width * (int)b.Height);
+            var area = (int)a.Width * (int)a.Height - (int)b.Width * (int)b.Height;
             if (area != 0)
             {
                 return area;
@@ -202,21 +208,21 @@ public sealed class TextureGroupPacker
         }
 
         // Resolve all duplicate images
-        foreach (PackImageDuplicate duplicateImage in _duplicateImages)
+        foreach (var duplicateImage in _duplicateImages)
         {
-            GameMakerTexturePageItem dupTextureItem = duplicateImage.TextureItem;
-            GameMakerTexturePageItem origTextureItem = duplicateImage.OriginalTextureItem;
+            var dupTextureItem = duplicateImage.TextureItem;
+            var origTextureItem = duplicateImage.OriginalTextureItem;
             dupTextureItem.TexturePage = origTextureItem.TexturePage;
             dupTextureItem.SourceX = origTextureItem.SourceX;
             dupTextureItem.SourceY = origTextureItem.SourceY;
             dupTextureItem.SourceWidth = origTextureItem.SourceWidth;
             dupTextureItem.SourceHeight = origTextureItem.SourceHeight;
-            dupTextureItem.TargetX = (ushort)duplicateImage.CroppedOffsetX;
-            dupTextureItem.TargetY = (ushort)duplicateImage.CroppedOffsetY;
+            dupTextureItem.TargetX = checked((ushort)duplicateImage.CroppedOffsetX);
+            dupTextureItem.TargetY = checked((ushort)duplicateImage.CroppedOffsetY);
             dupTextureItem.TargetWidth = origTextureItem.TargetWidth;
             dupTextureItem.TargetHeight = origTextureItem.TargetHeight;
-            dupTextureItem.BoundingWidth = (ushort)duplicateImage.UncroppedWidth;
-            dupTextureItem.BoundingHeight = (ushort)duplicateImage.UncroppedHeight;
+            dupTextureItem.BoundingWidth = checked((ushort)duplicateImage.UncroppedWidth);
+            dupTextureItem.BoundingHeight = checked((ushort)duplicateImage.UncroppedHeight);
         }
     }
 
@@ -229,15 +235,15 @@ public sealed class TextureGroupPacker
         EnsurePacked();
 
         // Import textures
-        int embeddedTextureCount = data.EmbeddedTextures.Count;
-        foreach (GameMakerEmbeddedTexture texture in _pages)
+        var embeddedTextureCount = data.EmbeddedTextures.Count;
+        foreach (var texture in _pages)
         {
             texture.Name = new GameMakerString($"Texture {embeddedTextureCount++}");
             data.EmbeddedTextures.Add(texture);
         }
         // Import texture items
-        int textureItemCount = data.TexturePageItems.Count;
-        foreach (GameMakerTexturePageItem textureItem in _textureItems)
+        var textureItemCount = data.TexturePageItems.Count;
+        foreach (var textureItem in _textureItems)
         {
             textureItem.Name = new GameMakerString($"PageItem {textureItemCount++}");
             data.TexturePageItems.Add(textureItem);
@@ -269,12 +275,12 @@ public sealed class TextureGroupPacker
             throw new InvalidOperationException("The texture group must define an external file location.");
         }
 
-        int embeddedTextureCount = data.EmbeddedTextures.Count;
-        int indexInGroup = textureGroup.TexturePages
+        var embeddedTextureCount = data.EmbeddedTextures.Count;
+        var indexInGroup = textureGroup.TexturePages
             .Select(reference => reference?.Resource?.IndexInGroup ?? -1)
             .DefaultIfEmpty(-1)
             .Max() + 1;
-        foreach (GameMakerEmbeddedTexture texture in _pages)
+        foreach (var texture in _pages)
         {
             texture.Name = new GameMakerString($"Texture {embeddedTextureCount++}");
             texture.TextureInfo = textureGroup;
@@ -288,8 +294,8 @@ public sealed class TextureGroupPacker
             texture.SaveExternalTexture(gameDirectory);
         }
 
-        int textureItemCount = data.TexturePageItems.Count;
-        foreach (GameMakerTexturePageItem textureItem in _textureItems)
+        var textureItemCount = data.TexturePageItems.Count;
+        foreach (var textureItem in _textureItems)
         {
             textureItem.Name = new GameMakerString($"PageItem {textureItemCount++}");
             data.TexturePageItems.Add(textureItem);
@@ -322,45 +328,53 @@ public sealed class TextureGroupPacker
             new(0, 0, MaxTextureSize, MaxTextureSize)
         };
         List<PackImage> currentPageImages = new(128);
-        for (int i = _images.Count - 1; i >= 0; i--)
+        for (var i = _images.Count - 1; i >= 0; i--)
         {
             // Attempt inserting current image
-            PackImage currImage = _images[i];
-            if (TryInsertImage(freeRectangles, (int)currImage.Width + (Border * 2), (int)currImage.Height + (Border * 2), out int x, out int y))
+            var currImage = _images[i];
+            if (TryInsertImage(freeRectangles, (int)currImage.Width + Border * 2, (int)currImage.Height + Border * 2, out var x, out var y))
             {
                 // Successfully placed - remove image from list, and add to list for current page
                 _images.RemoveAt(i);
                 currentPageImages.Add(currImage);
 
                 // Update max width/height of this page
-                maxWidth = Math.Max(maxWidth, x + (int)currImage.Width + (Border * 2));
-                maxHeight = Math.Max(maxHeight, y + (int)currImage.Height + (Border * 2));
+                maxWidth = Math.Max(maxWidth, x + (int)currImage.Width + Border * 2);
+                maxHeight = Math.Max(maxHeight, y + (int)currImage.Height + Border * 2);
 
                 // Update texture item for image
-                GameMakerTexturePageItem currTextureItem = currImage.TextureItem;
+                var currTextureItem = currImage.TextureItem;
                 currTextureItem.TexturePage = newTex;
-                currTextureItem.SourceX = (ushort)(x + Border);
-                currTextureItem.SourceY = (ushort)(y + Border);
-                currTextureItem.SourceWidth = (ushort)currImage.Width;
-                currTextureItem.SourceHeight = (ushort)currImage.Height;
-                currTextureItem.TargetX = (ushort)currImage.CroppedOffsetX;
-                currTextureItem.TargetY = (ushort)currImage.CroppedOffsetY;
-                currTextureItem.TargetWidth = (ushort)currImage.Width;
-                currTextureItem.TargetHeight = (ushort)currImage.Height;
-                currTextureItem.BoundingWidth = (ushort)currImage.UncroppedWidth;
-                currTextureItem.BoundingHeight = (ushort)currImage.UncroppedHeight;
+                currTextureItem.SourceX = checked((ushort)(x + Border));
+                currTextureItem.SourceY = checked((ushort)(y + Border));
+                currTextureItem.SourceWidth = checked((ushort)currImage.Width);
+                currTextureItem.SourceHeight = checked((ushort)currImage.Height);
+                currTextureItem.TargetX = checked((ushort)currImage.CroppedOffsetX);
+                currTextureItem.TargetY = checked((ushort)currImage.CroppedOffsetY);
+                currTextureItem.TargetWidth = checked((ushort)currImage.Width);
+                currTextureItem.TargetHeight = checked((ushort)currImage.Height);
+                currTextureItem.BoundingWidth = checked((ushort)currImage.UncroppedWidth);
+                currTextureItem.BoundingHeight = checked((ushort)currImage.UncroppedHeight);
             }
         }
 
         // Crop final page
         uint width = (uint)MaxTextureSize, height = (uint)MaxTextureSize;
-        while ((width / 2) >= maxWidth)
+        if (PowerOfTwoPages)
         {
-            width /= 2;
+            while (width / 2 >= maxWidth)
+            {
+                width /= 2;
+            }
+            while (height / 2 >= maxHeight)
+            {
+                height /= 2;
+            }
         }
-        while ((height / 2) >= maxHeight)
+        else
         {
-            height /= 2;
+            width = (uint)maxWidth;
+            height = (uint)maxHeight;
         }
 
         // Generate texture image
@@ -370,7 +384,7 @@ public sealed class TextureGroupPacker
         };
         textureImage.SetCompression(CompressionMethod.NoCompression);
         textureImage.Alpha(AlphaOption.Set);
-        foreach (PackImage image in currentPageImages)
+        foreach (var image in currentPageImages)
         {
             int x = image.TextureItem.SourceX, y = image.TextureItem.SourceY;
             textureImage.Composite(image.Image, x, y, CompositeOperator.Copy);
@@ -388,26 +402,33 @@ public sealed class TextureGroupPacker
         if (Border == 0 || !image.BorderFlags.HasFlag(BorderFlags.Enabled))
             return;
 
-        int borderWidth = image.BorderFlags.HasFlag(BorderFlags.ExtraBorder) ? Border : Math.Min(Border, 1);
+        var borderWidth = image.BorderFlags.HasFlag(BorderFlags.ExtraBorder) ? Border : Math.Min(Border, 1);
         int width = (int)image.Width, height = (int)image.Height;
         int x = image.TextureItem.SourceX, y = image.TextureItem.SourceY;
-        bool wrapX = image.BorderFlags.HasFlag(BorderFlags.TileHorizontally);
-        bool wrapY = image.BorderFlags.HasFlag(BorderFlags.TileVertically);
-        IPixelCollection<byte> source = image.Image.GetPixels();
-        IPixelCollection<byte> destination = textureImage.GetPixels();
+        var wrapX = image.BorderFlags.HasFlag(BorderFlags.TileHorizontally);
+        var wrapY = image.BorderFlags.HasFlag(BorderFlags.TileVertically);
+        using var sourcePixels = image.Image.GetPixels();
+        var source = sourcePixels.GetReadOnlyArea(0, 0, (uint)width, (uint)height);
 
-        for (int offsetY = -borderWidth; offsetY < height + borderWidth; offsetY++)
+        // The frame plus its border is built in one buffer and written back as one area.
+        int patchWidth = width + borderWidth * 2, patchHeight = height + borderWidth * 2;
+        var patch = new byte[patchWidth * patchHeight * 4];
+        for (var offsetY = -borderWidth; offsetY < height + borderWidth; offsetY++)
         {
-            for (int offsetX = -borderWidth; offsetX < width + borderWidth; offsetX++)
+            var sourceY = wrapY ? Mod(offsetY, height) : Math.Clamp(offsetY, 0, height - 1);
+            var sourceRow = source.Slice(sourceY * width * 4, width * 4);
+            var patchRow = patch.AsSpan((offsetY + borderWidth) * patchWidth * 4, patchWidth * 4);
+            sourceRow.CopyTo(patchRow[(borderWidth * 4)..]);
+            for (var b = 1; b <= borderWidth; b++)
             {
-                if (offsetX >= 0 && offsetX < width && offsetY >= 0 && offsetY < height)
-                    continue;
-
-                int sourceX = wrapX ? Mod(offsetX, width) : Math.Clamp(offsetX, 0, width - 1);
-                int sourceY = wrapY ? Mod(offsetY, height) : Math.Clamp(offsetY, 0, height - 1);
-                destination.SetPixel(x + offsetX, y + offsetY, source.GetPixel(sourceX, sourceY).ToArray());
+                var left = wrapX ? Mod(-b, width) : 0;
+                var right = wrapX ? Mod(width - 1 + b, width) : width - 1;
+                sourceRow.Slice(left * 4, 4).CopyTo(patchRow[((borderWidth - b) * 4)..]);
+                sourceRow.Slice(right * 4, 4).CopyTo(patchRow[((borderWidth + width - 1 + b) * 4)..]);
             }
         }
+        using var destinationPixels = textureImage.GetPixels();
+        destinationPixels.SetArea(x - borderWidth, y - borderWidth, (uint)patchWidth, (uint)patchHeight, patch);
     }
 
     private static int Mod(int value, int modulus) => (value % modulus + modulus) % modulus;
@@ -415,20 +436,20 @@ public sealed class TextureGroupPacker
     private static bool TryInsertImage(List<TextureRect> freeRects, int width, int height, out int x, out int y)
     {
         // Find good location to place rectangle, based on how closely the short and long sides of the rectangle fit
-        int bestShortSideFit = int.MaxValue;
-        int bestLongSideFit = int.MaxValue;
+        var bestShortSideFit = int.MaxValue;
+        var bestLongSideFit = int.MaxValue;
         TextureRect bestRect = default;
-        for (int i = 0; i < freeRects.Count; i++)
+        for (var i = 0; i < freeRects.Count; i++)
         {
-            TextureRect rect = freeRects[i];
+            var rect = freeRects[i];
             if (rect.Width >= width && rect.Height >= height)
             {
-                int leftoverHoriz = rect.Width - width;
-                int leftoverVert = rect.Height - height;
-                int shortSideFit = Math.Min(leftoverHoriz, leftoverVert);
-                int longSideFit = Math.Max(leftoverHoriz, leftoverVert);
+                var leftoverHoriz = rect.Width - width;
+                var leftoverVert = rect.Height - height;
+                var shortSideFit = Math.Min(leftoverHoriz, leftoverVert);
+                var longSideFit = Math.Max(leftoverHoriz, leftoverVert);
 
-                if (shortSideFit < bestShortSideFit || (shortSideFit == bestShortSideFit && longSideFit < bestLongSideFit))
+                if (shortSideFit < bestShortSideFit || shortSideFit == bestShortSideFit && longSideFit < bestLongSideFit)
                 {
                     bestRect = rect;
                     bestShortSideFit = shortSideFit;
@@ -446,10 +467,10 @@ public sealed class TextureGroupPacker
         }
 
         // Split all rectangles we intersect with
-        int numRectsToProcess = freeRects.Count;
-        for (int i = 0; i < numRectsToProcess; i++)
+        var numRectsToProcess = freeRects.Count;
+        for (var i = 0; i < numRectsToProcess; i++)
         {
-            TextureRect currRect = freeRects[i];
+            var currRect = freeRects[i];
 
             // If not intersecting, ignore
             if (bestRect.X >= currRect.X + currRect.Width || bestRect.Y >= currRect.Y + currRect.Height)
@@ -498,12 +519,12 @@ public sealed class TextureGroupPacker
         }
 
         // Prune rectangles that are wholly contained within another rectangle
-        for (int i = 0; i < freeRects.Count; i++)
+        for (var i = 0; i < freeRects.Count; i++)
         {
-            for (int j = i + 1; j < freeRects.Count; j++)
+            for (var j = i + 1; j < freeRects.Count; j++)
             {
-                TextureRect a = freeRects[i];
-                TextureRect b = freeRects[j];
+                var a = freeRects[i];
+                var b = freeRects[j];
 
                 if (a.X >= b.X && a.Y >= b.Y &&
                     a.X + a.Width <= b.X + b.Width &&
@@ -622,7 +643,7 @@ public sealed class TextureGroupPacker
         /// </remarks>
         private static long Get7BitsFromPixel(IPixel<byte> pixel)
         {
-            IMagickColor<byte> color = pixel.ToColor();
+            var color = pixel.ToColor();
             return (color.R >> 6) | ((color.G >> 6) << 2) | ((color.B >> 6) << 4) | ((color.A >> 7) << 6);
         }
 
@@ -647,12 +668,12 @@ public sealed class TextureGroupPacker
             }
 
             // Use 7 bits from 5 pixels (corners and center) for most of the rest
-            IUnsafePixelCollection<byte> pixels = Image.GetPixelsUnsafe();
+            using var pixels = Image.GetPixelsUnsafe();
             value |= Get7BitsFromPixel(pixels.GetPixel(0, 0)) << 29;
             value |= Get7BitsFromPixel(pixels.GetPixel((int)width - 1, 0)) << (29 + 7);
-            value |= Get7BitsFromPixel(pixels.GetPixel(0, (int)height - 1)) << (29 + (7 * 2));
-            value |= Get7BitsFromPixel(pixels.GetPixel((int)width - 1, (int)height - 1)) << (29 + (7 * 3));
-            value |= Get7BitsFromPixel(pixels.GetPixel((int)(width >> 1), (int)(height >> 1))) << (29 + (7 * 4));
+            value |= Get7BitsFromPixel(pixels.GetPixel(0, (int)height - 1)) << (29 + 7 * 2);
+            value |= Get7BitsFromPixel(pixels.GetPixel((int)width - 1, (int)height - 1)) << (29 + 7 * 3);
+            value |= Get7BitsFromPixel(pixels.GetPixel((int)(width >> 1), (int)(height >> 1))) << (29 + 7 * 4);
 
             return value;
         }
@@ -682,13 +703,15 @@ public sealed class TextureGroupPacker
             }
 
             // Compare all of the image data
-            ReadOnlySpan<byte> pixelsA = Image.GetPixels().GetReadOnlyArea(0, 0, widthA, heightA);
-            ReadOnlySpan<byte> pixelsB = other.Image.GetPixels().GetReadOnlyArea(0, 0, widthB, heightB);
+            using var collectionA = Image.GetPixels();
+            using var collectionB = other.Image.GetPixels();
+            var pixelsA = collectionA.GetReadOnlyArea(0, 0, widthA, heightA);
+            var pixelsB = collectionB.GetReadOnlyArea(0, 0, widthB, heightB);
             return pixelsA.SequenceEqual(pixelsB);
         }
 
         // Disposal for the image
-        private bool disposedValue = false;
+        private bool disposedValue;
         private void Dispose(bool disposing)
         {
             if (!disposedValue)

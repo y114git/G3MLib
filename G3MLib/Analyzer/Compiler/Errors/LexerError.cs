@@ -31,9 +31,20 @@ public sealed class LexerError : ICompileError
     }
 
     /// <inheritdoc/>
+    public GmlDiagnostic Diagnostic
+    {
+        get
+        {
+            var start = Math.Min(_textPosition, _lexContext.Text.Length);
+            var span = new LineMap(_lexContext.Text).GetSpan(start, start + 1);
+            return new GmlDiagnostic(DiagnosticSeverity.Error, GmlDiagnostic.LexerErrorCode, BaseMessage, span, _lexContext.MacroName);
+        }
+    }
+
+    /// <inheritdoc/>
     public string GenerateMessage()
     {
-        (int line, int column) = _lexContext.GetLineAndColumnFromPos(_textPosition);
+        (var line, var column) = _lexContext.GetLineAndColumnFromPos(_textPosition);
         if (_lexContext.MacroName is string macroName)
         {
             return $"{BaseMessage} on line {line}, column {column} of macro \"{macroName}\"";

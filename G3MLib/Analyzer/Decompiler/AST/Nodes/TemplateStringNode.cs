@@ -4,9 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using G3MLib.Analyzer.Decompiler.GameSpecific;
 
 namespace G3MLib.Analyzer.Decompiler.AST;
@@ -31,7 +28,7 @@ public class TemplateStringNode(IGMString format, List<IExpressionNode> fields)
     public bool Duplicated { get; set; }
 
     /// <inheritdoc/>
-    public bool Group { get; set; } = false;
+    public bool Group { get; set; }
 
     /// <inheritdoc/>
     public IGMInstruction.DataType StackType { get; set; } = IGMInstruction.DataType.Variable;
@@ -43,7 +40,7 @@ public class TemplateStringNode(IGMString format, List<IExpressionNode> fields)
     /// <inheritdoc/>
     public IExpressionNode Clean(ASTCleaner cleaner)
     {
-        for (int i = 0; i < Fields.Count; i++)
+        for (var i = 0; i < Fields.Count; i++)
         {
             Fields[i] = Fields[i].Clean(cleaner);
         }
@@ -57,7 +54,7 @@ public class TemplateStringNode(IGMString format, List<IExpressionNode> fields)
 
     public IExpressionNode PostClean(ASTCleaner cleaner)
     {
-        for (int i = 0; i < Fields.Count; i++)
+        for (var i = 0; i < Fields.Count; i++)
         {
             Fields[i] = Fields[i].PostClean(cleaner);
         }
@@ -66,12 +63,13 @@ public class TemplateStringNode(IGMString format, List<IExpressionNode> fields)
 
     public void Print(ASTPrinter printer)
     {
+        ArgumentNullException.ThrowIfNull(printer);
         printer.Write("$\"");
 
-        string formatText = Format.Content;
-        int nextExpectedFieldIndex = 0;
-        int maxExpectedFieldIndex = Fields.Count - 1;
-        for (int i = 0; i < formatText.Length; i++)
+        var formatText = Format.Content;
+        var nextExpectedFieldIndex = 0;
+        var maxExpectedFieldIndex = Fields.Count - 1;
+        for (var i = 0; i < formatText.Length; i++)
         {
             // Print non-placeholder starting characters normally
             if (formatText[i] != '{')
@@ -81,12 +79,12 @@ public class TemplateStringNode(IGMString format, List<IExpressionNode> fields)
             }
 
             // Parse the placeholder (may not necessarily be valid)
-            int startIndex = i + 1;
-            int j = startIndex;
-            bool invalidCharacter = false;
+            var startIndex = i + 1;
+            var j = startIndex;
+            var invalidCharacter = false;
             while (j < formatText.Length && formatText[j] != '}')
             {
-                if (formatText[j] < '0' || formatText[j] > '9')
+                if (formatText[j] is < '0' or > '9')
                 {
                     invalidCharacter = true;
                     break;
@@ -99,8 +97,8 @@ public class TemplateStringNode(IGMString format, List<IExpressionNode> fields)
                 printer.Write("\\{");
                 continue;
             }
-            ReadOnlySpan<char> placeholderNumberText = formatText.AsSpan()[startIndex..j];
-            if (!int.TryParse(placeholderNumberText, out int fieldIndex))
+            var placeholderNumberText = formatText.AsSpan()[startIndex..j];
+            if (!int.TryParse(placeholderNumberText, out var fieldIndex))
             {
                 // Invalid - escape the starting character!
                 printer.Write("\\{");
@@ -114,7 +112,7 @@ public class TemplateStringNode(IGMString format, List<IExpressionNode> fields)
 
             // Print the actual field
             printer.Write('{');
-            Fields[fieldIndex].Print(printer);
+            printer.PrintNode(Fields[fieldIndex]);
             printer.Write('}');
 
             // Move on to next field - should be in linear order for regular interpolated strings
@@ -125,7 +123,7 @@ public class TemplateStringNode(IGMString format, List<IExpressionNode> fields)
         }
 
         // If we didn't use exactly the number of expected indices, that's a problem... this should've been handled already!
-        if (nextExpectedFieldIndex != (maxExpectedFieldIndex + 1))
+        if (nextExpectedFieldIndex != maxExpectedFieldIndex + 1)
         {
             throw new DecompilerException("Unexpected final string template placeholder index");
         }

@@ -1,8 +1,5 @@
 using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 using G3MLib.Modding.Logging;
-using Xunit;
 
 namespace G3MLib.Tests;
 
@@ -11,7 +8,7 @@ public sealed class ModdingLogTests
     [Fact]
     public async Task ConcurrentScopesKeepTheirMessagesAndProgressSeparate()
     {
-        async Task Check(string name)
+        static async Task Check(string name)
         {
             List<ModdingLogMessage> messages = [];
             List<ModdingProgress> progress = [];

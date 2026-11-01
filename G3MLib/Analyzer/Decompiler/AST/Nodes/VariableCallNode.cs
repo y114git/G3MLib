@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Decompiler.GameSpecific;
 
 namespace G3MLib.Analyzer.Decompiler.AST;
@@ -34,7 +33,7 @@ public class VariableCallNode(IExpressionNode function, IExpressionNode? instanc
     public bool Duplicated { get; set; }
 
     /// <inheritdoc/>
-    public bool Group { get; set; } = false;
+    public bool Group { get; set; }
 
     /// <inheritdoc/>
     public IGMInstruction.DataType StackType { get; set; } = IGMInstruction.DataType.Variable;
@@ -62,7 +61,7 @@ public class VariableCallNode(IExpressionNode function, IExpressionNode? instanc
     {
         Function = Function.Clean(cleaner);
         Instance = Instance?.Clean(cleaner);
-        for (int i = 0; i < Arguments.Count; i++)
+        for (var i = 0; i < Arguments.Count; i++)
         {
             Arguments[i] = Arguments[i].Clean(cleaner);
         }
@@ -75,7 +74,7 @@ public class VariableCallNode(IExpressionNode function, IExpressionNode? instanc
     {
         Function = Function.Clean(cleaner);
         Instance = Instance?.Clean(cleaner);
-        for (int i = 0; i < Arguments.Count; i++)
+        for (var i = 0; i < Arguments.Count; i++)
         {
             Arguments[i] = Arguments[i].Clean(cleaner);
         }
@@ -118,7 +117,7 @@ public class VariableCallNode(IExpressionNode function, IExpressionNode? instanc
                 // Have to also check if we *need* "self." or not, if that's what Instance happens to be.
                 if (Instance is not InstanceTypeNode instType2 || instType2.InstanceType != IGMInstruction.InstanceType.Self || // Awaiting official Underminers resolution: Builtin handling changed in 2024.
                     printer.LocalVariableNames.Contains(variable.Variable.Name.Content) ||
-                    printer.TopFragmentContext!.NamedArguments.Contains(variable.Variable.Name.Content))
+                    printer.TopFragmentContext.NamedArguments.Contains(variable.Variable.Name.Content))
                 {
                     return true;
                 }
@@ -139,26 +138,27 @@ public class VariableCallNode(IExpressionNode function, IExpressionNode? instanc
     /// <inheritdoc/>
     public void Print(ASTPrinter printer)
     {
+        ArgumentNullException.ThrowIfNull(printer);
         if (Group)
         {
             printer.Write('(');
         }
-        bool canGenerateParentheses = true;
+        var canGenerateParentheses = true;
         if (ShouldPrintInstance(printer))
         {
-            Instance!.Print(printer);
+            printer.PrintNode(Instance);
             printer.Write('.');
             canGenerateParentheses = false;
         }
         if (canGenerateParentheses && ShouldGroupFunctionIfNotPrintingInstance())
         {
             printer.Write('(');
-            Function.Print(printer);
+            printer.PrintNode(Function);
             printer.Write(')');
         }
         else
         {
-            Function.Print(printer);
+            printer.PrintNode(Function);
         }
         FunctionCallArguments.Print(printer, Arguments);
         if (Group)
@@ -170,11 +170,12 @@ public class VariableCallNode(IExpressionNode function, IExpressionNode? instanc
     /// <inheritdoc/>
     public bool RequiresMultipleLines(ASTPrinter printer, bool isStatementLHS)
     {
+        ArgumentNullException.ThrowIfNull(printer);
         if (isStatementLHS && Group)
         {
             return true;
         }
-        bool printingInstance = false;
+        var printingInstance = false;
         if (Instance is not null)
         {
             printingInstance = ShouldPrintInstance(printer);
@@ -209,6 +210,7 @@ public class VariableCallNode(IExpressionNode function, IExpressionNode? instanc
     /// </summary>
     public IFunctionCallNode CleanupMacroTypes(ASTCleaner cleaner)
     {
+        ArgumentNullException.ThrowIfNull(cleaner);
         if (Function is VariableNode { Variable.Name.Content: string functionName })
         {
             if (cleaner.GlobalMacroResolver.ResolveFunctionArgumentTypes(cleaner, functionName) is IMacroTypeFunctionArgs argsMacroType)
@@ -231,7 +233,7 @@ public class VariableCallNode(IExpressionNode function, IExpressionNode? instanc
             yield return Instance;
         }
         yield return Function;
-        foreach (IExpressionNode node in Arguments)
+        foreach (var node in Arguments)
         {
             yield return node;
         }

@@ -1,4 +1,3 @@
-using Xunit;
 using G3MLib.DataFile.Util;
 
 namespace G3MLib.Tests;

@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Compiler.Bytecode;
 using G3MLib.Analyzer.Compiler.Lexer;
 using G3MLib.Analyzer.Compiler.Parser;
@@ -108,7 +107,7 @@ internal sealed class LocalVarDeclNode : IASTNode
     /// <inheritdoc/>
     public IASTNode PostProcess(ParseContext context)
     {
-        for (int i = 0; i < AssignedValues.Count; i++)
+        for (var i = 0; i < AssignedValues.Count; i++)
         {
             AssignedValues[i] = AssignedValues[i]?.PostProcess(context);
         }
@@ -118,24 +117,24 @@ internal sealed class LocalVarDeclNode : IASTNode
     /// <inheritdoc/>
     public IASTNode Duplicate(ParseContext context)
     {
-        List<IASTNode?> newAssignedValues = new(AssignedValues);
-        for (int i = 0; i < newAssignedValues.Count; i++)
+        List<IASTNode?> newAssignedValues = [.. AssignedValues];
+        for (var i = 0; i < newAssignedValues.Count; i++)
         {
             newAssignedValues[i] = newAssignedValues[i]?.Duplicate(context);
         }
-        return new LocalVarDeclNode(NearbyToken, new(DeclaredLocals), newAssignedValues);
+        return new LocalVarDeclNode(NearbyToken, [.. DeclaredLocals], newAssignedValues);
     }
 
     /// <inheritdoc/>
     public void GenerateCode(BytecodeContext context)
     {
         // Generate local variable initial assignments (for ones that have them)
-        for (int i = 0; i < AssignedValues.Count; i++)
+        for (var i = 0; i < AssignedValues.Count; i++)
         {
             if (AssignedValues[i] is IASTNode expression)
             {
                 // Handle array copy-on-write
-                bool canGenerateArrayOwners = context.CanGenerateArrayOwners;
+                var canGenerateArrayOwners = context.CanGenerateArrayOwners;
                 if (canGenerateArrayOwners && ArrayOwners.ContainsNewArrayLiteral(expression))
                 {
                     context.CanGenerateArrayOwners = false;
@@ -156,7 +155,7 @@ internal sealed class LocalVarDeclNode : IASTNode
     /// <inheritdoc/>
     public IEnumerable<IASTNode> EnumerateChildren()
     {
-        for (int i = 0; i < AssignedValues.Count; i++)
+        for (var i = 0; i < AssignedValues.Count; i++)
         {
             if (AssignedValues[i] is IASTNode expression)
             {

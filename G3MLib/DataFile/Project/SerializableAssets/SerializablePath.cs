@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -52,12 +51,12 @@ internal sealed class SerializablePath : ISerializableProjectAsset
     }
 
     // Data asset that was located during pre-import.
-    private GameMakerPath _dataAsset = null;
+    private GameMakerPath? _dataAsset;
 
     /// <summary>
     /// Populates this serializable path with data from an actual path.
     /// </summary>
-    internal void PopulateFromData(ProjectContext projectContext, GameMakerPath path)
+    internal void PopulateFromData(GameMakerPath path)
     {
         // Update all main properties
         DataName = path.Name.Content;
@@ -65,7 +64,7 @@ internal sealed class SerializablePath : ISerializableProjectAsset
         IsClosed = path.IsClosed;
         Precision = path.Precision;
         Points = new(path.Points.Count);
-        foreach (GameMakerPath.PathPoint p in path.Points)
+        foreach (var p in path.Points)
         {
             Points.Add(new()
             {
@@ -105,7 +104,7 @@ internal sealed class SerializablePath : ISerializableProjectAsset
     /// <inheritdoc/>
     public IProjectAsset Import(ProjectContext projectContext)
     {
-        GameMakerPath path = _dataAsset;
+        var path = _dataAsset;
 
         // Update all main properties
         path.IsSmooth = IsSmooth;
@@ -113,7 +112,7 @@ internal sealed class SerializablePath : ISerializableProjectAsset
         path.Precision = Precision;
         path.Points.Clear();
         path.Points.SetCapacity(Points?.Count ?? 0);
-        foreach (PathPoint p in Points ?? [])
+        foreach (var p in Points ?? [])
         {
             path.Points.Add(new()
             {

@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Decompiler.AST;
 
 namespace G3MLib.Analyzer.Decompiler.ControlFlow;
@@ -19,14 +18,14 @@ internal sealed class RepeatLoop(int startAddress, int endAddress, int index, IC
     {
         // Get rid of branch (and unneeded logic) from branch into Head
         // The (first) predecessor of Head should always be a Block, as it has logic
-        Block headPred = Head.Predecessors[0] as Block ?? throw new DecompilerException("Expected first predecessor to be block");
+        var headPred = Head.Predecessors[0] as Block ?? throw new DecompilerException("Expected first predecessor to be block");
         headPred.Instructions.RemoveRange(headPred.Instructions.Count - 4, 4);
         IControlFlowNode.DisconnectSuccessor(headPred, 1);
 
         // Get rid of jumps (and unneeded logic) from Tail
         IControlFlowNode.DisconnectSuccessor(Tail, 1);
         IControlFlowNode.DisconnectSuccessor(Tail, 0);
-        Block tailBlock = Tail as Block ?? throw new DecompilerException("Expected Tail to be block");
+        var tailBlock = Tail as Block ?? throw new DecompilerException("Expected Tail to be block");
         if (tailBlock.Instructions is
             [.., { Kind: IGMInstruction.Opcode.Convert }, { Kind: IGMInstruction.Opcode.BranchTrue }])
         {
@@ -40,7 +39,7 @@ internal sealed class RepeatLoop(int startAddress, int endAddress, int index, IC
         }
 
         // Remove unneeded logic from After (should also always be a Block)
-        Block afterBlock = After as Block ?? throw new DecompilerException("Expected After to be block");
+        var afterBlock = After as Block ?? throw new DecompilerException("Expected After to be block");
         afterBlock.Instructions.RemoveAt(0);
 
         After = InsertLoopStructure(Head, After);
@@ -54,14 +53,14 @@ internal sealed class RepeatLoop(int startAddress, int endAddress, int index, IC
     public override void BuildAST(ASTBuilder builder, List<IStatementNode> output)
     {
         // The expression used in the loop header should already be on the stack
-        IExpressionNode timesToRepeat = builder.ExpressionStack.Pop();
+        var timesToRepeat = builder.ExpressionStack.Pop();
 
         // Push this loop context
-        Loop? prevLoop = builder.TopFragmentContext!.SurroundingLoop;
+        var prevLoop = builder.TopFragmentContext.SurroundingLoop;
         builder.TopFragmentContext.SurroundingLoop = this;
 
         // Build loop body, and create statement
-        BlockNode body = builder.BuildBlock(Head);
+        var body = builder.BuildBlock(Head);
         output.Add(new RepeatLoopNode(timesToRepeat, body));
 
         // Pop this loop context

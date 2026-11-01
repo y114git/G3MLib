@@ -4,8 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
-
 namespace G3MLib.Analyzer.Compiler.Bytecode;
 
 /// <summary>
@@ -16,7 +14,7 @@ internal interface IMultiBranchPatch
     /// <summary>
     /// Adds an instruction to be patched, <b>relative to the current bytecode position minus the size of the instruction</b>.
     /// </summary>
-    public void AddInstruction(BytecodeContext context, IGMInstruction instruction);
+    void AddInstruction(BytecodeContext context, IGMInstruction instruction);
 }
 
 /// <summary>
@@ -48,8 +46,8 @@ internal readonly struct MultiForwardBranchPatch() : IMultiBranchPatch
     /// </summary>
     public void Patch(BytecodeContext context)
     {
-        int destAddress = context.Position;
-        foreach ((IGMInstruction instruction, int address) in _instructions)
+        var destAddress = context.Position;
+        foreach ((var instruction, var address) in _instructions)
         {
             context.PatchBranch(instruction, destAddress - address);
         }
@@ -87,7 +85,7 @@ internal class MultiBackwardBranchPatchTracked(BytecodeContext context) : IMulti
     /// <summary>
     /// Number of instructions that have used this patch.
     /// </summary>
-    public int NumberUsed { get; private set; } = 0;
+    public int NumberUsed { get; private set; }
 
     /// <inheritdoc/>
     public void AddInstruction(BytecodeContext context, IGMInstruction instruction)

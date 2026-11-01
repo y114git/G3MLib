@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -33,7 +32,7 @@ internal class GameSpecificRegistryConverter(GameSpecificRegistry existing) : Js
             {
                 throw new JsonException();
             }
-            string propertyName = reader.GetString() ?? throw new JsonException();
+            var propertyName = reader.GetString() ?? throw new JsonException();
 
             // Depending on property name, deserialize that component
             switch (propertyName)
@@ -81,7 +80,7 @@ internal class GameSpecificRegistryConverter(GameSpecificRegistry existing) : Js
             {
                 throw new JsonException();
             }
-            string propertyName = reader.GetString() ?? throw new JsonException();
+            var propertyName = reader.GetString() ?? throw new JsonException();
 
             // Depending on property name, deserialize that component
             switch (propertyName)
@@ -121,7 +120,7 @@ internal class GameSpecificRegistryConverter(GameSpecificRegistry existing) : Js
             throw new JsonException();
         }
 
-        JsonConverter<T> converter = (JsonConverter<T>)options.GetConverter(typeof(T));
+        var converter = (JsonConverter<T>)options.GetConverter(typeof(T));
 
         while (reader.Read())
         {
@@ -135,11 +134,11 @@ internal class GameSpecificRegistryConverter(GameSpecificRegistry existing) : Js
             {
                 throw new JsonException();
             }
-            string propertyName = reader.GetString() ?? throw new JsonException();
+            var propertyName = reader.GetString() ?? throw new JsonException();
 
             // Deserialize macro type
             reader.Read();
-            T macroType = converter.Read(ref reader, typeof(T), options) ?? throw new JsonException();
+            var macroType = converter.Read(ref reader, typeof(T), options) ?? throw new JsonException();
 
             // Register macro type under name
             Registry.RegisterType(propertyName, macroType);
@@ -171,7 +170,7 @@ internal class GameSpecificRegistryConverter(GameSpecificRegistry existing) : Js
             {
                 throw new JsonException();
             }
-            string propertyName = reader.GetString() ?? throw new JsonException();
+            var propertyName = reader.GetString() ?? throw new JsonException();
 
             // Read contents and register under code entry name
             reader.Read();

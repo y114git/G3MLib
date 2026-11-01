@@ -4,8 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System;
-using System.Collections.Generic;
 using G3MLib.Analyzer.Compiler.Bytecode;
 using G3MLib.Analyzer.Compiler.Lexer;
 using G3MLib.Analyzer.Compiler.Parser;
@@ -105,7 +103,7 @@ internal sealed class AssignNode : IASTNode
         }
 
         // Handle array copy-on-write
-        bool canGenerateArrayOwners = context.CanGenerateArrayOwners;
+        var canGenerateArrayOwners = context.CanGenerateArrayOwners;
         if (canGenerateArrayOwners &&
             (ArrayOwners.ContainsArrayAccessor(Destination) || ArrayOwners.ContainsNewArrayLiteral(Expression) ||
              ArrayOwners.IsArraySetFunctionOrContainsSubLiteral(Destination)))
@@ -157,7 +155,7 @@ internal sealed class AssignNode : IASTNode
     public static void PerformCompoundOperation(BytecodeContext context, Opcode operationOpcode)
     {
         // Pull expression type from stack
-        DataType operationDataType = context.PeekDataType();
+        var operationDataType = context.PeekDataType();
         if (operationOpcode is Opcode.And or Opcode.Or or Opcode.Xor)
         {
             // Bitwise operations convert to 64-bit integers (32-bit integers in older versions)

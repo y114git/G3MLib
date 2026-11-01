@@ -15,6 +15,7 @@ public class BooleanMacroType : IMacroTypeInt32
 {
     public IExpressionNode? Resolve(ASTCleaner cleaner, IMacroResolvableNode node, int data)
     {
+        ArgumentNullException.ThrowIfNull(cleaner);
         // Ensure we don't resolve this on newer GameMaker versions where this is unnecessary
         if (cleaner.Context.GameContext.UsingTypedBooleans)
         {

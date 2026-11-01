@@ -4,7 +4,7 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
+using System.Globalization;
 using G3MLib.Analyzer.Decompiler.GameSpecific;
 
 namespace G3MLib.Analyzer.Decompiler.AST;
@@ -16,7 +16,7 @@ public abstract class Int32MacroNode(int value, IGMInstruction.DataType stackTyp
     public bool Group { get; set; }
     public IGMInstruction.DataType StackType { get; set; } = stackType;
     public string ConditionalTypeName => "Integer";
-    public string ConditionalValue => IntegerValue.ToString();
+    public string ConditionalValue => IntegerValue.ToString(CultureInfo.InvariantCulture);
 
     public IExpressionNode Clean(ASTCleaner cleaner)
     {
@@ -30,6 +30,7 @@ public abstract class Int32MacroNode(int value, IGMInstruction.DataType stackTyp
 
     public void Print(ASTPrinter printer)
     {
+        ArgumentNullException.ThrowIfNull(printer);
         printer.Write(IntegerValue);
     }
 

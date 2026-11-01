@@ -4,9 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using G3MLib.Analyzer.Compiler.Bytecode;
 using G3MLib.Analyzer.Compiler.Lexer;
 using G3MLib.Analyzer.Compiler.Parser;
@@ -86,7 +83,7 @@ internal sealed class NullishCoalesceAssignNode : IASTNode
     /// <inheritdoc/>
     public void GenerateCode(BytecodeContext context)
     {
-        bool canGenerateArrayOwners = context.CanGenerateArrayOwners;
+        var canGenerateArrayOwners = context.CanGenerateArrayOwners;
         if (canGenerateArrayOwners &&
             (ArrayOwners.ContainsArrayAccessor(Destination) || ArrayOwners.ContainsNewArrayLiteral(Expression) ||
              ArrayOwners.IsArraySetFunctionOrContainsSubLiteral(Destination)))
@@ -120,7 +117,7 @@ internal sealed class NullishCoalesceAssignNode : IASTNode
         context.Emit(Opcode.PopDelete, DataType.Variable);
         if (SideEffects is not null)
         {
-            foreach (IASTNode sideEffect in SideEffects)
+            foreach (var sideEffect in SideEffects)
             {
                 sideEffect.GenerateCode(context);
             }
@@ -141,7 +138,7 @@ internal sealed class NullishCoalesceAssignNode : IASTNode
         yield return Expression;
         if (SideEffects is not null)
         {
-            foreach (IASTNode sideEffect in SideEffects)
+            foreach (var sideEffect in SideEffects)
             {
                 yield return sideEffect;
             }

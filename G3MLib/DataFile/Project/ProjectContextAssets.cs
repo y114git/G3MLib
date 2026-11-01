@@ -1,7 +1,5 @@
-using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
-using System;
 using G3MLib.DataFile.Compiler;
 using G3MLib.DataFile.Models;
 using G3MLib.DataFile.Project.SerializableAssets;
@@ -9,7 +7,7 @@ using G3MLib.DataFile.Util;
 
 namespace G3MLib.DataFile.Project;
 
-partial class ProjectContext
+public partial class ProjectContext
 {
     /// <summary>
     /// Performs the main project asset import operations.
@@ -23,13 +21,13 @@ partial class ProjectContext
         }
 
         // Load general info and options, if present
-        string generalInfoOptionsPath = Path.Join(MainDirectory, "general-info-options.json");
+        var generalInfoOptionsPath = Path.Join(MainDirectory, "general-info-options.json");
         if (File.Exists(generalInfoOptionsPath))
         {
             try
             {
                 using FileStream fs = new(generalInfoOptionsPath, FileMode.Open, FileAccess.Read, FileShare.Read);
-                SerializableGeneralInfoOptions generalInfoOptions = JsonSerializer.Deserialize<SerializableGeneralInfoOptions>(fs, JsonOptions);
+                var generalInfoOptions = JsonSerializer.Deserialize<SerializableGeneralInfoOptions>(fs, JsonOptions);
                 MainThreadAction(() =>
                 {
                     generalInfoOptions.ImportTo(Data);
@@ -50,7 +48,7 @@ partial class ProjectContext
         List<SerializableCode> loadedCodeAssets = new(64);
         List<ISerializableTextureProjectAsset> loadedTextureAssets = new(64);
         HashSet<string> excludeDirectorySet = [.. _mainOptions.ExcludeDirectories];
-        foreach (string directory in Directory.EnumerateDirectories(MainDirectory))
+        foreach (var directory in Directory.EnumerateDirectories(MainDirectory).Order(StringComparer.Ordinal))
         {
             // Skip directories that are irregular, start with ".", or are excluded based on main options
             DirectoryInfo info = new(directory);
@@ -68,7 +66,7 @@ partial class ProjectContext
             }
 
             // Iterate over all JSON files in this directory
-            foreach (string assetPath in Directory.EnumerateFiles(directory, "*.json", SearchOption.AllDirectories))
+            foreach (var assetPath in Directory.EnumerateFiles(directory, "*.json", SearchOption.AllDirectories).Order(StringComparer.Ordinal))
             {
                 // Read in asset JSON
                 ISerializableProjectAsset asset;
@@ -104,12 +102,12 @@ partial class ProjectContext
             }
 
             // Iterate over all GML files in this directory
-            foreach (string assetPath in Directory.EnumerateFiles(directory, "*.gml", SearchOption.AllDirectories))
+            foreach (var assetPath in Directory.EnumerateFiles(directory, "*.gml", SearchOption.AllDirectories).Order(StringComparer.Ordinal))
             {
                 // If there's already a JSON file with the same filename as this one, ignore this GML file
-                string filename = Path.GetFileNameWithoutExtension(assetPath);
-                string fileDirectory = Path.GetDirectoryName(assetPath);
-                string jsonPath = Path.Join(fileDirectory, $"{filename}.json");
+                var filename = Path.GetFileNameWithoutExtension(assetPath);
+                var fileDirectory = Path.GetDirectoryName(assetPath);
+                var jsonPath = Path.Join(fileDirectory, $"{filename}.json");
                 if (File.Exists(jsonPath))
                 {
                     continue;
@@ -144,7 +142,7 @@ partial class ProjectContext
         // Perform pre-import on all loaded assets
         MainThreadAction(() =>
         {
-            foreach (ISerializableProjectAsset asset in loadedAssets)
+            foreach (var asset in loadedAssets)
             {
                 asset.PreImport(this);
             }
@@ -156,7 +154,7 @@ partial class ProjectContext
             AutoCreateAssets = false,
             MainThreadAction = MainThreadAction
         };
-        foreach (SerializableCode asset in loadedCodeAssets)
+        foreach (var asset in loadedCodeAssets)
         {
             asset.ImportCode(this, importGroup);
         }
@@ -174,7 +172,7 @@ partial class ProjectContext
         // Pack textures
         // Awaiting official Underminers resolution: project assets do not preserve texture-group settings.
         TextureGroupPacker packer = new();
-        foreach (ISerializableTextureProjectAsset asset in loadedTextureAssets)
+        foreach (var asset in loadedTextureAssets)
         {
             asset.ImportTextures(this, packer);
         }
@@ -184,14 +182,14 @@ partial class ProjectContext
         MainThreadAction(() =>
         {
             packer.ImportToData(Data);
-            foreach (ISerializableProjectAsset asset in loadedAssets)
+            foreach (var asset in loadedAssets)
             {
                 asset.Import(this);
             }
         });
 
         // Save all audio groups that were loaded during import
-        foreach ((int groupId, GameMakerData group) in _audioGroups)
+        foreach ((var groupId, var group) in _audioGroups)
         {
             try
             {
@@ -204,7 +202,7 @@ partial class ProjectContext
                 {
                     relativeAudioGroupPath = $"audiogroup{groupId}.dat";
                 }
-                string fullAudioGroupPath = Paths.JoinVerifyWithinDirectory(SaveDirectory, relativeAudioGroupPath);
+                var fullAudioGroupPath = Paths.JoinVerifyWithinDirectory(SaveDirectory, relativeAudioGroupPath);
                 FileBackup.BackupFile(fullAudioGroupPath);
                 using FileStream stream = new(fullAudioGroupPath, FileMode.Create, FileAccess.Write);
                 GameMakerIO.Write(stream, group);
@@ -239,7 +237,7 @@ partial class ProjectContext
         {
             return 1;
         }
-        return a.DataName.CompareTo(b.DataName);
+        return a.DataName.CompareTo(b.DataName, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -298,11 +296,11 @@ partial class ProjectContext
             throw new ProjectException($"No font name specified in property of \"{forAsset.DataName}\"");
         }
 
-        int index = Data.Fonts.IndexOfName(fontNameOrNull);
+        var index = Data.Fonts.IndexOfName(fontNameOrNull);
         if (index < 0)
         {
             // Fallback option: parse integer and use that
-            if (int.TryParse(fontNameOrNull, out int fallbackIndex) && fallbackIndex >= 0 && fallbackIndex < Data.Fonts.Count &&
+            if (int.TryParse(fontNameOrNull, out var fallbackIndex) && fallbackIndex >= 0 && fallbackIndex < Data.Fonts.Count &&
                 Data.Fonts[fallbackIndex] is not null)
             {
                 return fallbackIndex;
@@ -339,11 +337,11 @@ partial class ProjectContext
             throw new ProjectException($"No object name specified in property of \"{forAsset.DataName}\"");
         }
 
-        int index = Data.GameObjects.IndexOfName(gameObjectNameOrNull);
+        var index = Data.GameObjects.IndexOfName(gameObjectNameOrNull);
         if (index < 0)
         {
             // Fallback option: parse integer and use that
-            if (int.TryParse(gameObjectNameOrNull, out int fallbackIndex) && fallbackIndex >= 0 && fallbackIndex < Data.GameObjects.Count &&
+            if (int.TryParse(gameObjectNameOrNull, out var fallbackIndex) && fallbackIndex >= 0 && fallbackIndex < Data.GameObjects.Count &&
                 Data.GameObjects[fallbackIndex] is not null)
             {
                 return fallbackIndex;
@@ -442,7 +440,7 @@ partial class ProjectContext
         if (_stringsByContent is null)
             BuildStringIndex();
 
-        if (_stringsByContent.TryGetValue(contents, out GameMakerString str))
+        if (_stringsByContent.TryGetValue(contents, out var str))
             return str;
 
         str = Data.Strings.MakeString(contents);
@@ -453,7 +451,7 @@ partial class ProjectContext
     private void BuildStringIndex()
     {
         _stringsByContent = new(Data.Strings.Count, StringComparer.Ordinal);
-        foreach (GameMakerString str in Data.Strings)
+        foreach (var str in Data.Strings)
         {
             if (str?.Content is string content)
                 _stringsByContent.TryAdd(content, str);

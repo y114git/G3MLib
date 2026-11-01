@@ -1,7 +1,4 @@
-using System;
-using System.CodeDom.Compiler;
 using System.Text.RegularExpressions;
-using System.Text.RegularExpressions.Generated;
 
 namespace G3MLib.Modding.Internal;
 
@@ -24,13 +21,13 @@ internal static partial class FunctionNameUtil
 
 	public static bool TryGetLocalChildOrdinalFamily(string name, out string family, out int ordinal)
 	{
-		Match structMatch = StructOrdinalFamilyRegex().Match(name);
+		var structMatch = StructOrdinalFamilyRegex().Match(name);
 		if (structMatch.Success && int.TryParse(structMatch.Groups["ordinal"].Value, out ordinal))
 		{
 			family = structMatch.Groups["prefix"].Value + "#" + structMatch.Groups["suffix"].Value;
 			return true;
 		}
-		Match anonymousMatch = AnonymousOrdinalFamilyRegex().Match(name);
+		var anonymousMatch = AnonymousOrdinalFamilyRegex().Match(name);
 		if (anonymousMatch.Success && int.TryParse(anonymousMatch.Groups["ordinal"].Value, out ordinal))
 		{
 			family = anonymousMatch.Groups["prefix"].Value + "_#_" + anonymousMatch.Groups["suffix"].Value;
@@ -47,7 +44,7 @@ internal static partial class FunctionNameUtil
 		{
 			return name;
 		}
-		return "gml_Script_" + name.Substring("gml_Script_gml_GlobalScript_".Length);
+		return "gml_Script_" + name["gml_Script_gml_GlobalScript_".Length..];
 	}
 
 	[GeneratedRegex("____struct___\\d+")]

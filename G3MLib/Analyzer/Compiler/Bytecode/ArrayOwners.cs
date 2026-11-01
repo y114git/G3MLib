@@ -4,8 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Linq;
-using G3MLib.Analyzer.Compiler.Lexer;
 using G3MLib.Analyzer.Compiler.Nodes;
 using static G3MLib.Analyzer.IGMInstruction;
 
@@ -95,7 +93,7 @@ internal static class ArrayOwners
     }
 
     /// <summary>
-    /// Generates a <see cref="IGMInstruction.ExtendedOpcode.SetArrayOwner"/> call, as long as it's necessary.
+    /// Generates a <see cref="ExtendedOpcode.SetArrayOwner"/> call, as long as it's necessary.
     /// </summary>
     /// <returns><see langword="true"/> if a call was generated; <see langword="false"/> otherwise.</returns>
     public static bool GenerateSetArrayOwner(BytecodeContext context, IASTNode expression)
@@ -105,7 +103,7 @@ internal static class ArrayOwners
         if (FindArrayVariable(expression) is IVariableASTNode { VariableName: string variableName } variableNode)
         {
             // Use variable information
-            bool isDot = variableNode is DotVariableNode || (variableNode is SimpleVariableNode { CollapsedFromDot: true });
+            var isDot = variableNode is DotVariableNode or SimpleVariableNode { CollapsedFromDot: true };
             id = context.GenerateArrayOwnerID(variableName, context.CurrentScope.ArrayOwnerID, isDot);
         }
         else

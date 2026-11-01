@@ -4,8 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System;
-using System.Collections.Generic;
 using G3MLib.Analyzer.Compiler.Errors;
 using G3MLib.Analyzer.Compiler.Lexer;
 using G3MLib.Analyzer.Compiler.Parser;
@@ -67,6 +65,11 @@ public sealed class CompileContext(string code, CompileScriptKind scriptKind, st
     public IReadOnlyList<ICompileError> Errors => _errors;
 
     /// <summary>
+    /// The errors of this context as structured diagnostics.
+    /// </summary>
+    public IReadOnlyList<GmlDiagnostic> Diagnostics => _errors.ConvertAll(e => e.Diagnostic);
+
+    /// <summary>
     /// Whether any errors have occurred on this context.
     /// </summary>
     public bool HasErrors => _errors.Count > 0;
@@ -74,12 +77,12 @@ public sealed class CompileContext(string code, CompileScriptKind scriptKind, st
     /// <summary>
     /// List of instructions, set after produced by code generation.
     /// </summary>
-    public IReadOnlyList<IGMInstruction>? OutputInstructions { get; private set; } = null;
+    public IReadOnlyList<IGMInstruction>? OutputInstructions { get; private set; }
 
     /// <summary>
     /// Root function scope, set after code generation.
     /// </summary>
-    public FunctionScope? OutputRootScope { get; private set; } = null;
+    public FunctionScope? OutputRootScope { get; private set; }
 
     /// <summary>
     /// Collection of global function names, only available between parsing and code generation.
@@ -92,24 +95,24 @@ public sealed class CompileContext(string code, CompileScriptKind scriptKind, st
     /// <summary>
     /// List of sub-function entries, set after produced by code generation.
     /// </summary>
-    public IReadOnlyList<FunctionEntry>? OutputFunctionEntries { get; private set; } = null;
+    public IReadOnlyList<FunctionEntry>? OutputFunctionEntries { get; private set; }
 
     /// <summary>
     /// Length of code (in bytes), set after produced by code generation.
     /// </summary>
-    public int OutputLength { get; private set; } = 0;
+    public int OutputLength { get; private set; }
 
     // List of errors
     private readonly List<ICompileError> _errors = new(4);
 
     // State tracking
-    private bool _startedParse = false;
-    private IASTNode? _parseRootNode = null;
-    private FunctionScope? _parseRootScope = null;
-    private HashSet<string>? _parseGlobalFunctions = null;
-    private bool _startedCompile = false;
+    private bool _startedParse;
+    private IASTNode? _parseRootNode;
+    private FunctionScope? _parseRootScope;
+    private HashSet<string>? _parseGlobalFunctions;
+    private bool _startedCompile;
     private InstructionPatches _compilePatches;
-    private bool _startedLink = false;
+    private bool _startedLink;
 
     /// <summary>
     /// Parses the GML code with the given game context.
@@ -255,6 +258,6 @@ public sealed class CompileContext(string code, CompileScriptKind scriptKind, st
     /// </summary>
     internal void PushError(string message, IToken? nearbyToken = null)
     {
-        _errors.Add(new ParserError(message, nearbyToken));
+        _errors.Add(new ParserError(message, Code, nearbyToken));
     }
 }

@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Decompiler.AST;
 
 namespace G3MLib.Analyzer.Decompiler.GameSpecific;
@@ -20,11 +19,12 @@ public class UnionMacroType : IMacroTypeInt32, IMacroTypeInt64, IMacroTypeFuncti
 
     public UnionMacroType(IEnumerable<IMacroType> types)
     {
-        Types = new(types);
+        ArgumentNullException.ThrowIfNull(types);
+        Types = [.. types];
 
         // Set this macro type as required if any sub-macro types are required
         Required = false;
-        foreach (IMacroType type in types)
+        foreach (var type in types)
         {
             if (type is IMacroTypeConditional conditional && conditional.Required)
             {
@@ -36,13 +36,13 @@ public class UnionMacroType : IMacroTypeInt32, IMacroTypeInt64, IMacroTypeFuncti
 
     public IExpressionNode? Resolve(ASTCleaner cleaner, IMacroResolvableNode node, int data)
     {
-        foreach (IMacroType type in Types)
+        foreach (var type in Types)
         {
             if (type is not IMacroTypeInt32 type32)
             {
                 continue;
             }
-            IExpressionNode? result = type32.Resolve(cleaner, node, data);
+            var result = type32.Resolve(cleaner, node, data);
             if (result is not null)
             {
                 return result;
@@ -53,13 +53,13 @@ public class UnionMacroType : IMacroTypeInt32, IMacroTypeInt64, IMacroTypeFuncti
 
     public IExpressionNode? Resolve(ASTCleaner cleaner, IMacroResolvableNode node, long data)
     {
-        foreach (IMacroType type in Types)
+        foreach (var type in Types)
         {
             if (type is not IMacroTypeInt64 type64)
             {
                 continue;
             }
-            IExpressionNode? result = type64.Resolve(cleaner, node, data);
+            var result = type64.Resolve(cleaner, node, data);
             if (result is not null)
             {
                 return result;
@@ -70,13 +70,13 @@ public class UnionMacroType : IMacroTypeInt32, IMacroTypeInt64, IMacroTypeFuncti
 
     public IFunctionCallNode? Resolve(ASTCleaner cleaner, IFunctionCallNode call)
     {
-        foreach (IMacroType type in Types)
+        foreach (var type in Types)
         {
             if (type is not IMacroTypeFunctionArgs typeFuncArgs)
             {
                 continue;
             }
-            IFunctionCallNode? result = typeFuncArgs.Resolve(cleaner, call);
+            var result = typeFuncArgs.Resolve(cleaner, call);
             if (result is not null)
             {
                 return result;
@@ -87,13 +87,13 @@ public class UnionMacroType : IMacroTypeInt32, IMacroTypeInt64, IMacroTypeFuncti
 
     public ArrayInitNode? Resolve(ASTCleaner cleaner, ArrayInitNode arrayInit)
     {
-        foreach (IMacroType type in Types)
+        foreach (var type in Types)
         {
             if (type is not IMacroTypeArrayInit typeArrayInit)
             {
                 continue;
             }
-            ArrayInitNode? result = typeArrayInit.Resolve(cleaner, arrayInit);
+            var result = typeArrayInit.Resolve(cleaner, arrayInit);
             if (result is not null)
             {
                 return result;
@@ -104,13 +104,13 @@ public class UnionMacroType : IMacroTypeInt32, IMacroTypeInt64, IMacroTypeFuncti
 
     public IExpressionNode? Resolve(ASTCleaner cleaner, IConditionalValueNode node)
     {
-        foreach (IMacroType type in Types)
+        foreach (var type in Types)
         {
             if (type is not IMacroTypeConditional typeConditional)
             {
                 continue;
             }
-            IExpressionNode? result = typeConditional.Resolve(cleaner, node);
+            var result = typeConditional.Resolve(cleaner, node);
             if (result is not null)
             {
                 return result;

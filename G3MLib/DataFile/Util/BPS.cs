@@ -1,4 +1,3 @@
-using System;
 using System.Buffers;
 using System.Buffers.Binary;
 using System.IO;
@@ -35,8 +34,8 @@ public static class BPS
     {
         for (uint n = 0; n < 256; n++)
         {
-            uint val = n;
-            for (int k = 0; k < 8; k++)
+            var val = n;
+            for (var k = 0; k < 8; k++)
             {
                 val = (val & 1) != 0 ? (0xedb88320 ^ (val >> 1)) : (val >> 1);
             }
@@ -54,6 +53,9 @@ public static class BPS
     /// </remarks>
     public static void ApplyPatch(Stream baseFile, Stream patchFile, Stream outputFile)
     {
+        ArgumentNullException.ThrowIfNull(patchFile);
+        ArgumentNullException.ThrowIfNull(baseFile);
+        ArgumentNullException.ThrowIfNull(outputFile);
         // Seek input streams to beginning, just in case
         baseFile.Seek(0, SeekOrigin.Begin);
         patchFile.Seek(0, SeekOrigin.Begin);
@@ -67,10 +69,10 @@ public static class BPS
         }
 
         // Read header of patch file
-        long sourceSize = DecodeNumber(patchFile);
-        long targetSize = DecodeNumber(patchFile);
-        long metadataSize = DecodeNumber(patchFile);
-        long metadataPosition = patchFile.Position;
+        var sourceSize = DecodeNumber(patchFile);
+        var targetSize = DecodeNumber(patchFile);
+        var metadataSize = DecodeNumber(patchFile);
+        var metadataPosition = patchFile.Position;
         if (sourceSize > MaxFilesize)
         {
             throw new IOException("Base filesize is too large");
@@ -91,17 +93,17 @@ public static class BPS
 
         // Rent buffer for use in file I/O operations.
         // Size is based on the internal size used for Stream copies in the official .NET library implementation.
-        byte[] sharedBuffer = ArrayPool<byte>.Shared.Rent(81920);
+        var sharedBuffer = ArrayPool<byte>.Shared.Rent(81920);
         try
         {
             // Verify patch file CRC based on the number at the end of the patch stream.
             // We do this now to prevent most cases of erroneous patch applications due to corrupt files.
-            long patchLength = patchFile.Length;
-            long patchDataLength = patchLength - 12;
+            var patchLength = patchFile.Length;
+            var patchDataLength = patchLength - 12;
             patchFile.Seek(0, SeekOrigin.Begin);
-            uint actualPatchCRC = CalculateCRC(patchFile, patchLength - 4, sharedBuffer);
+            var actualPatchCRC = CalculateCRC(patchFile, patchLength - 4, sharedBuffer);
             patchFile.ReadExactly(readBuffer);
-            uint expectedPatchCRC = BinaryPrimitives.ReadUInt32LittleEndian(readBuffer);
+            var expectedPatchCRC = BinaryPrimitives.ReadUInt32LittleEndian(readBuffer);
             if (actualPatchCRC != expectedPatchCRC)
             {
                 throw new IOException("Patch file has been corrupted (CRC32 checksum mismatch)");
@@ -110,9 +112,9 @@ public static class BPS
             // Verify base file CRC based on the number at the end of the patch stream.
             // Similar to the last check, we do this now to prevent most cases of erroneous patch applications.
             patchFile.Seek(patchDataLength, SeekOrigin.Begin);
-            uint actualBaseCRC = CalculateCRC(baseFile, baseFile.Length, sharedBuffer);
+            var actualBaseCRC = CalculateCRC(baseFile, baseFile.Length, sharedBuffer);
             patchFile.ReadExactly(readBuffer);
-            uint expectedBaseCRC = BinaryPrimitives.ReadUInt32LittleEndian(readBuffer);
+            var expectedBaseCRC = BinaryPrimitives.ReadUInt32LittleEndian(readBuffer);
             if (actualBaseCRC != expectedBaseCRC)
             {
                 throw new IOException("Input (base) file is invalid for the patch, or has been corrupted (CRC32 checksum mismatch)");
@@ -120,7 +122,7 @@ public static class BPS
 
             // Also read the CRC for the output file while we're right here (will be checked later)
             patchFile.ReadExactly(readBuffer);
-            uint expectedOutputCRC = BinaryPrimitives.ReadUInt32LittleEndian(readBuffer);
+            var expectedOutputCRC = BinaryPrimitives.ReadUInt32LittleEndian(readBuffer);
 
             // Initialize output file size
             outputFile.SetLength(targetSize);
@@ -133,9 +135,9 @@ public static class BPS
             while (patchFile.Position < patchDataLength)
             {
                 // Decode next command and length
-                long data = DecodeNumber(patchFile);
-                long command = data & 0b11;
-                long length = (data >> 2) + 1;
+                var data = DecodeNumber(patchFile);
+                var command = data & 0b11;
+                var length = (data >> 2) + 1;
 
                 // Make sure output filesize is within expectation
                 if (outputOffset + length > targetSize)
@@ -155,7 +157,7 @@ public static class BPS
                             // Copy bytes in chunks
                             do
                             {
-                                int numBytesToCopy = (int)Math.Min(sharedBuffer.Length, length);
+                                var numBytesToCopy = (int)Math.Min(sharedBuffer.Length, length);
                                 baseFile.ReadExactly(sharedBuffer, 0, numBytesToCopy);
                                 outputFile.Write(sharedBuffer, 0, numBytesToCopy);
                                 length -= numBytesToCopy;
@@ -171,7 +173,7 @@ public static class BPS
                             // Copy bytes in chunks
                             do
                             {
-                                int numBytesToCopy = (int)Math.Min(sharedBuffer.Length, length);
+                                var numBytesToCopy = (int)Math.Min(sharedBuffer.Length, length);
                                 patchFile.ReadExactly(sharedBuffer, 0, numBytesToCopy);
                                 outputFile.Write(sharedBuffer, 0, numBytesToCopy);
                                 length -= numBytesToCopy;
@@ -182,7 +184,7 @@ public static class BPS
                     case 2:
                         {
                             // Source copy (copy data from an arbitrary location in the base file)
-                            long sourceOffsetData = DecodeNumber(patchFile);
+                            var sourceOffsetData = DecodeNumber(patchFile);
                             sourceRelativeOffset += ((sourceOffsetData & 1) != 0 ? -1 : 1) * (sourceOffsetData >> 1);
                             baseFile.Seek(sourceRelativeOffset, SeekOrigin.Begin);
                             sourceRelativeOffset += length;
@@ -191,7 +193,7 @@ public static class BPS
                             // Copy bytes in chunks
                             do
                             {
-                                int numBytesToCopy = (int)Math.Min(sharedBuffer.Length, length);
+                                var numBytesToCopy = (int)Math.Min(sharedBuffer.Length, length);
                                 baseFile.ReadExactly(sharedBuffer, 0, numBytesToCopy);
                                 outputFile.Write(sharedBuffer, 0, numBytesToCopy);
                                 length -= numBytesToCopy;
@@ -202,12 +204,12 @@ public static class BPS
                     case 3:
                         {
                             // Target copy (copy data from an arbitrary location in the data already written to the output file)
-                            long targetOffsetData = DecodeNumber(patchFile);
+                            var targetOffsetData = DecodeNumber(patchFile);
                             targetRelativeOffset += ((targetOffsetData & 1) != 0 ? -1 : 1) * (targetOffsetData >> 1);
 
                             // Copy bytes in chunks while possible
-                            long possibleChunkedLength = Math.Min(length, outputOffset - targetRelativeOffset);
-                            long totalChunkedLength = possibleChunkedLength;
+                            var possibleChunkedLength = Math.Min(length, outputOffset - targetRelativeOffset);
+                            var totalChunkedLength = possibleChunkedLength;
                             length -= possibleChunkedLength;
 
                             // Copy in chunks
@@ -273,7 +275,7 @@ public static class BPS
             // Verify output file CRC based on the number at the end of the patch stream.
             // Similar to the last check, we do this now to prevent most cases of erroneous patch applications.
             outputFile.Seek(0, SeekOrigin.Begin);
-            uint actualOutputCRC = CalculateCRC(outputFile, outputFile.Length, sharedBuffer);
+            var actualOutputCRC = CalculateCRC(outputFile, outputFile.Length, sharedBuffer);
             if (actualOutputCRC != expectedOutputCRC)
             {
                 throw new IOException("Output file was produced incorrectly (CRC32 checksum mismatch)");
@@ -295,7 +297,7 @@ public static class BPS
         ulong data = 0;
         ulong shift = 1;
         Span<byte> currentByte = stackalloc byte[1];
-        for (int i = 0; i < 9; i++)
+        for (var i = 0; i < 9; i++)
         {
             stream.ReadExactly(currentByte);
             data += (ulong)(currentByte[0] & 0x7f) * shift;
@@ -318,7 +320,7 @@ public static class BPS
     /// </summary>
     private static uint CalculateCRC(Stream stream, long length, Span<byte> sharedBuffer)
     {
-        uint crc = 0xffffffff;
+        var crc = 0xffffffff;
 
         // Read the stream in chunks of up to 1024
         long position = 0;
@@ -326,12 +328,12 @@ public static class BPS
         do
         {
             // Read next chunk
-            int maxChunkSize = (int)Math.Min(sharedBuffer.Length, length - position);
+            var maxChunkSize = (int)Math.Min(sharedBuffer.Length, length - position);
             bytesRead = stream.Read(sharedBuffer[0..maxChunkSize]);
             position += bytesRead;
 
             // Update CRC
-            for (int i = 0; i < bytesRead; i++)
+            for (var i = 0; i < bytesRead; i++)
             {
                 crc = (crc >> 8) ^ _crcTable[(crc ^ sharedBuffer[i]) & 0xff];
             }

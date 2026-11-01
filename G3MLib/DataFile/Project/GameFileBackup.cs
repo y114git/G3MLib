@@ -1,11 +1,8 @@
-using System;
-using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Linq;
 using G3MLib.DataFile.Util;
 
 namespace G3MLib.DataFile.Project;
@@ -22,7 +19,7 @@ public interface IGameFileBackup
     /// Throws a <see cref="GameFileBackupException"/> if a recoverable error occurs (i.e., game files are
     /// not potentially left in a corrupted state). Any other exception could imply game file corruption.
     /// </remarks>
-    public void RestoreFiles();
+    void RestoreFiles();
 
     /// <summary>
     /// Backs up a file at the given absolute path, whether or not it actually exists currently.
@@ -32,19 +29,19 @@ public interface IGameFileBackup
     /// Throws an exception if the backup fails for any reason; this should disallow all further game modifications.
     /// After all files in a mod are backed up, the manifest will need to be saved via <see cref="SaveManifest()"/> to release its lock.
     /// </remarks>
-    public void BackupFile(string path);
+    void BackupFile(string path);
 
     /// <summary>
     /// Backs up a directory's existence (no contents) at the given absolute path, whether it is/was being created or otherwise deleted.
     /// </summary>
     /// <param name="path">Absolute path of the directory to be backed up.</param>
     /// <param name="creating">Whether the directory is/was newly-created (and thus should be removed during restoration); otherwise, will be assumed as deleted.</param>
-    public void BackupDirectory(string path, bool creating);
+    void BackupDirectory(string path, bool creating);
 
     /// <summary>
     /// Saves the manifest that has been built using <see cref="BackupFile(string)"/>, or does nothing if no manifest has been built.
     /// </summary>
-    public void SaveManifest();
+    void SaveManifest();
 }
 
 /// <summary>
@@ -72,7 +69,7 @@ public sealed class GameFileNoOpBackup() : IGameFileBackup
 /// <summary>
 /// Default implementation of game file backups and restoration.
 /// </summary>
-public sealed class GameFileBackup(string gameDirectory) : IGameFileBackup
+public sealed class GameFileBackup(string gameDirectory) : IGameFileBackup, IDisposable
 {
     /// <summary>
     /// Directory of the game files.
@@ -105,22 +102,22 @@ public sealed class GameFileBackup(string gameDirectory) : IGameFileBackup
     /// <summary>
     /// Backup manifest currently being built as part of mod installation.
     /// </summary>
-    private BackupManifest _buildingBackupManifest = null;
+    private BackupManifest? _buildingBackupManifest;
 
     /// <summary>
     /// FileStream used to hold a lock on the backup manifest.
     /// </summary>
-    private FileStream _buildingBackupManifestStream = null;
+    private FileStream? _buildingBackupManifestStream;
 
     /// <summary>
     /// Set of relative paths to all files that are in the building backup manifest.
     /// </summary>
-    private HashSet<string> _buildingBackupFilePaths = null;
+    private HashSet<string>? _buildingBackupFilePaths;
 
     /// <summary>
     /// Set of relative paths to all directories that are in the building backup manifest.
     /// </summary>
-    private HashSet<string> _buildingBackupDirectoryPaths = null;
+    private HashSet<string>? _buildingBackupDirectoryPaths;
 
     /// <inheritdoc/>
     public void RestoreFiles()
@@ -132,7 +129,7 @@ public sealed class GameFileBackup(string gameDirectory) : IGameFileBackup
         }
 
         // Load manifest JSON
-        string manifestPath = Path.Join(GameDirectory, ManifestFilename);
+        var manifestPath = Path.Join(GameDirectory, ManifestFilename);
         if (!File.Exists(manifestPath))
         {
             // Nothing to restore
@@ -156,14 +153,14 @@ public sealed class GameFileBackup(string gameDirectory) : IGameFileBackup
         }
 
         // Verify backup directory exists
-        string backupDirPath = Paths.JoinVerifyWithinDirectory(GameDirectory, manifest.Path);
+        var backupDirPath = Paths.JoinVerifyWithinDirectory(GameDirectory, manifest.Path);
         if (!Directory.Exists(backupDirPath))
         {
             throw new GameFileBackupException($"Mod backup directory is missing (as defined in {ManifestFilename})");
         }
 
         // For all backup files that exist, verify integrity
-        foreach (BackupFileEntry file in manifest.Files)
+        foreach (var file in manifest.Files)
         {
             // Ignore files with no backup
             if (string.IsNullOrWhiteSpace(file.BackupPath))
@@ -172,14 +169,14 @@ public sealed class GameFileBackup(string gameDirectory) : IGameFileBackup
             }
 
             // Ensure backup file exists
-            string backupFilePath = Paths.JoinVerifyWithinDirectory(backupDirPath, file.BackupPath);
+            var backupFilePath = Paths.JoinVerifyWithinDirectory(backupDirPath, file.BackupPath);
             if (!File.Exists(backupFilePath))
             {
                 throw new GameFileBackupException($"Missing backup file for \"{file.Path}\" (missing \"{file.BackupPath}\")");
             }
 
             // Verify file hash, if stored
-            string expectedHash = file.HashSHA256;
+            var expectedHash = file.HashSHA256;
             if (string.IsNullOrWhiteSpace(expectedHash))
             {
                 expectedHash = file.HashSHA1;
@@ -189,7 +186,7 @@ public sealed class GameFileBackup(string gameDirectory) : IGameFileBackup
                 continue;
             }
             using FileStream fs = new(backupFilePath, FileMode.Open, FileAccess.Read, FileShare.Read);
-            string hashString = HashBytesToHex(string.IsNullOrWhiteSpace(file.HashSHA256) ? GetLegacySha1Hash(fs) : SHA256.HashData(fs));
+            var hashString = HashBytesToHex(string.IsNullOrWhiteSpace(file.HashSHA256) ? GetLegacySha1Hash(fs) : SHA256.HashData(fs));
             if (!string.Equals(hashString, expectedHash, StringComparison.Ordinal))
             {
                 throw new GameFileBackupException($"Backup file corrupted: checksum mismatch for file \"{file.Path}\" (stored at \"{file.BackupPath}\")");
@@ -197,10 +194,10 @@ public sealed class GameFileBackup(string gameDirectory) : IGameFileBackup
         }
 
         // Perform sanity checks before beginning full restoration
-        foreach (BackupFileEntry file in manifest.Files)
+        foreach (var file in manifest.Files)
         {
             // Sanity check that the corresponding file can be written to or deleted (for basic cases - this is not secure and has race conditions)
-            string gameDataLocation = Paths.JoinVerifyWithinDirectory(GameDirectory, file.Path);
+            var gameDataLocation = Paths.JoinVerifyWithinDirectory(GameDirectory, file.Path);
             if (!File.Exists(gameDataLocation))
             {
                 continue;
@@ -216,7 +213,7 @@ public sealed class GameFileBackup(string gameDirectory) : IGameFileBackup
         }
 
         // Restore deleted directories
-        foreach (BackupDirectoryEntry dir in manifest.Directories)
+        foreach (var dir in manifest.Directories)
         {
             // Only process if the directory was not created by a mod
             if (dir.WasCreated)
@@ -225,15 +222,15 @@ public sealed class GameFileBackup(string gameDirectory) : IGameFileBackup
             }
 
             // Try to create directories
-            string gameDataLocation = Paths.JoinVerifyWithinDirectory(GameDirectory, dir.Path);
+            var gameDataLocation = Paths.JoinVerifyWithinDirectory(GameDirectory, dir.Path);
             Directory.CreateDirectory(gameDataLocation);
         }
 
         // Restore all files
-        foreach (BackupFileEntry file in manifest.Files)
+        foreach (var file in manifest.Files)
         {
             // If a backup file exists, move it to original location. Otherwise, delete file at given location.
-            string gameDataLocation = Paths.JoinVerifyWithinDirectory(GameDirectory, file.Path);
+            var gameDataLocation = Paths.JoinVerifyWithinDirectory(GameDirectory, file.Path);
             if (string.IsNullOrWhiteSpace(file.BackupPath))
             {
                 // Delete mod-specific file, as long as it still exists
@@ -246,7 +243,7 @@ public sealed class GameFileBackup(string gameDirectory) : IGameFileBackup
             {
                 // Move backup file and potentially overwrite original file.
                 // Make directories along the path, just in case the user or modder did nefarious things with the structure.
-                string backupFilePath = Paths.JoinVerifyWithinDirectory(backupDirPath, file.BackupPath);
+                var backupFilePath = Paths.JoinVerifyWithinDirectory(backupDirPath, file.BackupPath);
                 Directory.CreateDirectory(Path.GetDirectoryName(gameDataLocation));
                 File.Move(backupFilePath, gameDataLocation, true);
             }
@@ -255,18 +252,18 @@ public sealed class GameFileBackup(string gameDirectory) : IGameFileBackup
         // Remove mod-created directories, if possible.
         // First, sort directories by path length as a simple heuristic to remove inner directories first...
         List<string> directoriesToDelete = [];
-        foreach (BackupDirectoryEntry dir in manifest.Directories)
+        foreach (var dir in manifest.Directories)
         {
             // Only process if the directory was created by a mod
             if (!dir.WasCreated)
             {
                 continue;
             }
-            string gameDataLocation = Paths.JoinVerifyWithinDirectory(GameDirectory, dir.Path);
+            var gameDataLocation = Paths.JoinVerifyWithinDirectory(GameDirectory, dir.Path);
             directoriesToDelete.Add(gameDataLocation);
         }
         directoriesToDelete.Sort((a, b) => b.Length - a.Length);
-        foreach (string directory in directoriesToDelete)
+        foreach (var directory in directoriesToDelete)
         {
             // Try to remove directory (does NOT work recursively - ignore exceptions for this reason, besides being mostly harmless).
             // This also loosely compensates for duplicate directories
@@ -303,7 +300,7 @@ public sealed class GameFileBackup(string gameDirectory) : IGameFileBackup
         }
 
         // Make sure there's no existing backup manifest, and create a lock on a new one
-        string manifestPath = Path.Join(GameDirectory, ManifestFilename);
+        var manifestPath = Path.Join(GameDirectory, ManifestFilename);
         if (File.Exists(manifestPath))
         {
             throw new GameFileBackupException("Mod backup manifest still exists when trying to make a new backup");
@@ -313,9 +310,9 @@ public sealed class GameFileBackup(string gameDirectory) : IGameFileBackup
         try
         {
             // Choose and create a directory for backup, choosing alternatives just in case
-            string backupDirName = DefaultBackupDirectoryName;
-            string backupDirPath = Path.Join(GameDirectory, backupDirName);
-            int loopCounter = 0;
+            var backupDirName = DefaultBackupDirectoryName;
+            var backupDirPath = Path.Join(GameDirectory, backupDirName);
+            var loopCounter = 0;
             while (Directory.Exists(backupDirName))
             {
                 if (loopCounter >= 50)
@@ -360,7 +357,7 @@ public sealed class GameFileBackup(string gameDirectory) : IGameFileBackup
         }
 
         // If the file exists, hash and make a copy of it. Otherwise, just declare it in the manifest (so it gets deleted when restoring, if necessary).
-        string relativePath = Path.GetRelativePath(GameDirectory, path);
+        var relativePath = Path.GetRelativePath(GameDirectory, path);
         if (File.Exists(path))
         {
             // Hash file
@@ -371,11 +368,11 @@ public sealed class GameFileBackup(string gameDirectory) : IGameFileBackup
             }
 
             // Determine an unused filename based on hash and relative path
-            string backupFileNameBase = $"backup_{MurmurHash.Hash(relativePath)}_{hashString}";
-            string backupFileName = backupFileNameBase;
-            string backupDirPath = Paths.JoinVerifyWithinDirectory(GameDirectory, _buildingBackupManifest.Path);
-            string backupFilePath = Path.Join(backupDirPath, backupFileName);
-            int loopCounter = 0;
+            var backupFileNameBase = $"backup_{MurmurHash.Hash(relativePath)}_{hashString}";
+            var backupFileName = backupFileNameBase;
+            var backupDirPath = Paths.JoinVerifyWithinDirectory(GameDirectory, _buildingBackupManifest.Path);
+            var backupFilePath = Path.Join(backupDirPath, backupFileName);
+            var loopCounter = 0;
             while (File.Exists(backupFilePath))
             {
                 if (loopCounter >= 50)
@@ -421,7 +418,7 @@ public sealed class GameFileBackup(string gameDirectory) : IGameFileBackup
         }
 
         // Add entry based on relative path
-        string relativePath = Path.GetRelativePath(GameDirectory, path);
+        var relativePath = Path.GetRelativePath(GameDirectory, path);
         _buildingBackupManifest.Directories.Add(new BackupDirectoryEntry()
         {
             Path = relativePath,
@@ -522,5 +519,12 @@ public sealed class GameFileBackup(string gameDirectory) : IGameFileBackup
         /// Otherwise, the directory is assumed to have been deleted and will be re-created upon restoration.
         /// </summary>
         public bool WasCreated { get; set; }
+    }
+
+    /// <summary>Closes the manifest of a backup that was started and not finished.</summary>
+    public void Dispose()
+    {
+        _buildingBackupManifestStream?.Dispose();
+        _buildingBackupManifestStream = null;
     }
 }

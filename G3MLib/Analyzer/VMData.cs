@@ -4,8 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System;
-
 namespace G3MLib.Analyzer;
 
 /// <summary>
@@ -16,52 +14,52 @@ public interface IGMCode
     /// <summary>
     /// Name of the code entry.
     /// </summary>
-    public IGMString Name { get; }
+    IGMString Name { get; }
 
     /// <summary>
     /// Length of the code entry's VM instructions, in bytes.
     /// </summary>
-    public int Length { get; }
+    int Length { get; }
 
     /// <summary>
     /// Gets an instruction at the specified index, in this code entry.
     /// </summary>
-    public IGMInstruction GetInstruction(int index);
+    IGMInstruction GetInstruction(int index);
 
     /// <summary>
     /// Returns the number of instructions in this code entry.
     /// </summary>
-    public int InstructionCount { get; }
+    int InstructionCount { get; }
 
     /// <summary>
     /// Returns the offset within the instructions (in bytes) from which this code entry begins.
     /// </summary>
-    public int StartOffset { get; }
+    int StartOffset { get; }
 
     /// <summary>
     /// Parent code entry, if this is a sub-function entry. Otherwise, if a root code entry, this is <see langword="null"/>.
     /// </summary>
-    public IGMCode? Parent { get; }
+    IGMCode? Parent { get; }
 
     /// <summary>
     /// Gets a child code entry at the specified index.
     /// </summary>
-    public IGMCode GetChild(int index);
+    IGMCode GetChild(int index);
 
     /// <summary>
     /// Returns the number of children of this code entry. If this is a sub-function entry, this is <c>0</c>.
     /// </summary>
-    public int ChildCount { get; }
+    int ChildCount { get; }
 
     /// <summary>
     /// The number of arguments this code entry takes in. Expected to be <c>0</c> for root entries.
     /// </summary>
-    public int ArgumentCount { get; }
+    int ArgumentCount { get; }
 
     /// <summary>
     /// The number of local variables this code entry uses. Root entries tend to include an additional 1 for <c>arguments</c>.
     /// </summary>
-    public int LocalCount { get; }
+    int LocalCount { get; }
 }
 
 /// <summary>
@@ -74,7 +72,7 @@ public interface IGMInstruction
     /// </summary>
     /// <param name="mnemonic">A unique shorthand identifier.</param>
     [AttributeUsage(AttributeTargets.Field)]
-    public class OpcodeInfo(string mnemonic) : Attribute
+    sealed class OpcodeInfo(string mnemonic) : Attribute
     {
         /// <summary>
         /// Unique shorthand identifier used for this opcode.
@@ -88,7 +86,7 @@ public interface IGMInstruction
     /// <param name="mnemonic">A unique character to represent this type.</param>
     /// <param name="size">How many bytes the type takes on the VM stack.</param>
     [AttributeUsage(AttributeTargets.Field)]
-    public class DataTypeInfo(char mnemonic, int size) : Attribute
+    sealed class DataTypeInfo(char mnemonic, int size) : Attribute
     {
         /// <summary>
         /// Unique character used to represent this data type.
@@ -104,7 +102,7 @@ public interface IGMInstruction
     /// <summary>
     /// The opcode types used by an instruction.
     /// </summary>
-    public enum Opcode : byte
+    enum Opcode : byte
     {
         /// <summary>
         /// Converts the top of the stack from one type to another.
@@ -357,7 +355,7 @@ public interface IGMInstruction
     /// <summary>
     /// Represents multiple extended opcodes used by instructions with the Extended opcode.
     /// </summary>
-    public enum ExtendedOpcode : short
+    enum ExtendedOpcode : short
     {
         /// <summary>
         /// Verifies an array index is within proper bounds, typically for multi-dimensional arrays.
@@ -453,7 +451,7 @@ public interface IGMInstruction
     /// <summary>
     /// Basic logical comparison types used in the VM.
     /// </summary>
-    public enum ComparisonType : byte
+    enum ComparisonType : byte
     {
         LesserThan = 1,
         LesserEqualThan = 2,
@@ -466,7 +464,7 @@ public interface IGMInstruction
     /// <summary>
     /// Different value data types used in the VM. Multiple are unused in VM bytecode, and are omitted here.
     /// </summary>
-    public enum DataType : byte
+    enum DataType : byte
     {
         /// <summary>
         /// 64-bit floating point number.
@@ -516,7 +514,7 @@ public interface IGMInstruction
     /// Represents the special types of instance IDs used in VM bytecode, as well as in GML overall.
     /// Values greater than or equal to 0 can also be object asset IDs, depending on the version.
     /// </summary>
-    public enum InstanceType : short
+    enum InstanceType : short
     {
         /// <summary>
         /// Represents the current <c>self</c> instance.
@@ -572,7 +570,7 @@ public interface IGMInstruction
     /// <summary>
     /// Encoded variable type, used when referencing variables and functions in an instruction.
     /// </summary>
-    public enum VariableType : byte
+    enum VariableType : byte
     {
         /// <summary>
         /// Used for normal single-dimension array variables.
@@ -608,118 +606,118 @@ public interface IGMInstruction
     /// <summary>
     /// The opcode of this instruction. Generally indicates what operation the instruction will perform.
     /// </summary>
-    public Opcode Kind { get; }
+    Opcode Kind { get; }
 
     /// <summary>
     /// The extended opcode of this instruction, if <see cref="Kind"/> is <see cref="Opcode.Extended"/>.
     /// </summary>
-    public ExtendedOpcode ExtKind { get; }
+    ExtendedOpcode ExtKind { get; }
 
     /// <summary>
     /// For comparison instructions, represents the comparison kind.
     /// </summary>
-    public ComparisonType ComparisonKind { get; }
+    ComparisonType ComparisonKind { get; }
 
     /// <summary>
     /// Represents the first data type argument of the instruction. This is encoded for every instruction.
     /// </summary>
-    public DataType Type1 { get; }
+    DataType Type1 { get; }
 
     /// <summary>
     /// Represents the second data type argument of the instruction. This is encoded for every instruction.
     /// </summary>
-    public DataType Type2 { get; }
+    DataType Type2 { get; }
 
     /// <summary>
     /// For instructions that have an instance type, represents the kind of instance or object ID.
     /// </summary>
-    public InstanceType InstType { get; }
+    InstanceType InstType { get; }
 
     /// <summary>
     /// For instructions that reference a variable, represents the variable being referenced,
     /// if it has been resolved as part of a reference chain directly.
     /// </summary>
-    public IGMVariable? ResolvedVariable { get; }
+    IGMVariable? ResolvedVariable { get; }
 
     /// <summary>
     /// For instructions that reference a function, represents the function being referenced,
     /// if it has been resolved as part of a reference chain directly.
     /// </summary>
-    public IGMFunction? ResolvedFunction { get; }
+    IGMFunction? ResolvedFunction { get; }
 
     /// <summary>
     /// For instructions that reference a variable or function, this represents the variable type.
     /// </summary>
-    public VariableType ReferenceVarType { get; }
+    VariableType ReferenceVarType { get; }
 
     /// <summary>
     /// Represents a 64-bit floating point value for instructions that use it.
     /// </summary>
-    public double ValueDouble { get; }
+    double ValueDouble { get; }
 
     /// <summary>
     /// Represents a 16-bit integer value for instructions that use it.
     /// </summary>
-    public short ValueShort { get; }
+    short ValueShort { get; }
 
     /// <summary>
     /// Represents a 32-bit integer value for instructions that use it.
     /// </summary>
-    public int ValueInt { get; }
+    int ValueInt { get; }
 
     /// <summary>
     /// Represents a 64-bit integer value for instructions that use it.
     /// </summary>
-    public long ValueLong { get; }
+    long ValueLong { get; }
 
     /// <summary>
     /// Represents a string value for instructions that push strings.
     /// </summary>
-    public IGMString? ValueString { get; }
+    IGMString? ValueString { get; }
 
     /// <summary>
     /// Represents a branch offset for branch instructions, in bytes.
     /// </summary>
-    public int BranchOffset { get; }
+    int BranchOffset { get; }
 
     /// <summary>
     /// For <see cref="Opcode.PopWithContext"/> instructions, represents whether the flag is set to exit the <c>with</c> loop early.
     /// </summary>
-    public bool PopWithContextExit { get; }
+    bool PopWithContextExit { get; }
 
     /// <summary>
     /// For duplication instructions, represents the size of the data to duplicate by (before considering data type).
     /// </summary>
-    public byte DuplicationSize { get; }
+    byte DuplicationSize { get; }
 
     /// <summary>
     /// For duplication instructions, this is nonzero only when in "dup swap" mode.
     /// When nonzero, the value is in the same location as the comparison type, for basic single-type instructions.
     /// This value should be that byte, but bitwise AND'd against 0x7F, and then shifted to the right 3 bits.
     /// </summary>
-    public byte DuplicationSize2 { get; }
+    byte DuplicationSize2 { get; }
 
     /// <summary>
     /// Returns the number of arguments encoded in this instruction, for <see cref="Opcode.Call"/> and <see cref="Opcode.CallVariable"/> instructions.
     /// </summary>
-    public int ArgumentCount { get; }
+    int ArgumentCount { get; }
 
     /// <summary>
     /// For <c>pop.e.v</c> instructions, this should return either 5 or 6, depending on the "pop swap" size.
     /// </summary>
-    public int PopSwapSize { get; }
+    int PopSwapSize { get; }
 
     /// <summary>
     /// For <see cref="Opcode.Extended"/> instructions with <see cref="ExtendedOpcode.PushReference"/> opcode,
     /// this is the ID of the asset supplied with the instruction, if <see cref="TryFindFunction(IGameContext?)"/> returns <see langword="null"/>.
     /// </summary>
-    public int AssetReferenceId { get; }
+    int AssetReferenceId { get; }
 
     /// <summary>
     /// For <see cref="Opcode.Extended"/> instructions with <see cref="ExtendedOpcode.PushReference"/> opcode,
     /// this returns the type of the asset supplied with the instruction, if <see cref="TryFindFunction(IGameContext?)"/> returns <see langword="null"/>.
     /// </summary>
-    public AssetType GetAssetReferenceType(IGameContext context);
+    AssetType GetAssetReferenceType(IGameContext context);
 
     /// <summary>
     /// Returns size of an instruction, in bytes.
@@ -754,14 +752,14 @@ public interface IGMInstruction
     /// even if the variable has not been resolved as part of a reference chain.
     /// (Generally, if the variable is not resolved, this means using the raw reference value as a string ID.)
     /// </summary>
-    public IGMVariable? TryFindVariable(IGameContext? context);
+    IGMVariable? TryFindVariable(IGameContext? context);
 
     /// <summary>
     /// For instructions that reference a function, this is used to attempt retrieve the function,
     /// even if the function has not been resolved as part of a reference chain.
     /// (Generally, if the function is not resolved, this means using the raw reference value as a string ID.)
     /// </summary>
-    public IGMFunction? TryFindFunction(IGameContext? context);
+    IGMFunction? TryFindFunction(IGameContext? context);
 }
 
 /// <summary>
@@ -772,18 +770,18 @@ public interface IGMVariable
     /// <summary>
     /// The name of the variable.
     /// </summary>
-    public IGMString Name { get; }
+    IGMString Name { get; }
 
     /// <summary>
     /// Represents the type of instance used for the variable.
     /// </summary>
-    public IGMInstruction.InstanceType InstanceType { get; }
+    IGMInstruction.InstanceType InstanceType { get; }
 
     /// <summary>
     /// The ID of the variable in the game's data file.
     /// This can sometimes be -6, representing the instance type of a built-in variable.
     /// </summary>
-    public int VariableID { get; }
+    int VariableID { get; }
 }
 
 /// <summary>
@@ -794,7 +792,7 @@ public interface IGMFunction
     /// <summary>
     /// The name of the function.
     /// </summary>
-    public IGMString Name { get; }
+    IGMString Name { get; }
 }
 
 /// <summary>
@@ -806,5 +804,5 @@ public interface IGMString
     /// <summary>
     /// The actual content of the string.
     /// </summary>
-    public string Content { get; }
+    string Content { get; }
 }

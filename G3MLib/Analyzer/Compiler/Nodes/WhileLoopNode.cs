@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Compiler.Bytecode;
 using G3MLib.Analyzer.Compiler.Lexer;
 using G3MLib.Analyzer.Compiler.Parser;
@@ -74,7 +73,7 @@ internal sealed class WhileLoopNode : IASTNode
     public IASTNode PostProcess(ParseContext context)
     {
         // Enter while context
-        bool previousProcessingSwitch = context.ProcessingSwitch;
+        var previousProcessingSwitch = context.ProcessingSwitch;
         context.ProcessingSwitch = false;
         if (context.TryStatementContext is TryStatementContext tryContext)
         {
@@ -114,7 +113,7 @@ internal sealed class WhileLoopNode : IASTNode
         tailPatch.AddInstruction(context, context.Emit(Opcode.BranchFalse));
 
         // Store current last array owner ID
-        long lastArrayOwnerID = context.LastArrayOwnerID;
+        var lastArrayOwnerID = context.LastArrayOwnerID;
 
         // Enter loop context, and generate body
         context.PushControlFlowContext(new BasicLoopContext(tailPatch, headPatch));

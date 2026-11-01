@@ -16,32 +16,32 @@ internal interface IControlFlowContext
     /// <summary>
     /// Whether this control flow context requires cleanup upon exiting early.
     /// </summary>
-    public bool RequiresCleanup { get; }
+    bool RequiresCleanup { get; }
 
     /// <summary>
     /// Whether this control flow context is for a loop.
     /// </summary>
-    public bool IsLoop { get; }
+    bool IsLoop { get; }
 
     /// <summary>
     /// Whether "continue" is allowed to be used (this can change).
     /// </summary>
-    public bool CanContinueBeUsed { get; set; }
+    bool CanContinueBeUsed { get; set; }
 
     /// <summary>
     /// Generates cleanup code for the control flow context, using the given bytecode context.
     /// </summary>
-    public void GenerateCleanupCode(BytecodeContext context);
+    void GenerateCleanupCode(BytecodeContext context);
 
     /// <summary>
     /// Uses a break statement branch on this control flow context, for the provided instruction.
     /// </summary>
-    public void UseBreak(BytecodeContext context, IGMInstruction instruction);
+    void UseBreak(BytecodeContext context, IGMInstruction instruction);
 
     /// <summary>
     /// Uses a continue statement branch on this control flow context, for the provided instruction.
     /// </summary>
-    public void UseContinue(BytecodeContext context, IGMInstruction instruction);
+    void UseContinue(BytecodeContext context, IGMInstruction instruction);
 }
 
 /// <summary>

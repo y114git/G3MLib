@@ -1,7 +1,4 @@
-using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using G3MLib.DataFile.Models;
@@ -171,13 +168,13 @@ internal sealed class SerializableSprite : ISerializableTextureProjectAsset
     public int OverrideOrder { get; set; }
 
     // Data asset that was located during pre-import.
-    private GameMakerSprite _dataAsset = null;
+    private GameMakerSprite? _dataAsset;
 
     // Texture images created for the asset during texture import.
-    private List<GameMakerTexturePageItem> _textureImages = null;
+    private List<GameMakerTexturePageItem>? _textureImages;
 
     // Mask blobs created for the asset during texture import.
-    private List<byte[]> _maskData = null;
+    private List<byte[]>? _maskData;
 
     /// <inheritdoc cref="GameMakerSprite.SepMaskType"/>
     public enum CollisionKinds : uint
@@ -276,17 +273,17 @@ internal sealed class SerializableSprite : ISerializableTextureProjectAsset
         }
 
         // Write images and masks as PNGs
-        string directory = Path.GetDirectoryName(destinationFile);
-        string baseFilename = Path.GetFileNameWithoutExtension(destinationFile);
-        for (int i = 0; i < TextureCount; i++)
+        var directory = Path.GetDirectoryName(destinationFile);
+        var baseFilename = Path.GetFileNameWithoutExtension(destinationFile);
+        for (var i = 0; i < TextureCount; i++)
         {
-            string filename = $"{baseFilename}_{i}.png";
+            var filename = $"{baseFilename}_{i}.png";
             projectContext.TextureWorker.ExportAsPNG(_dataAsset.Textures[i].Texture, Path.Join(directory, filename), DataName, true);
         }
-        (int maskWidth, int maskHeight) = _dataAsset.CalculateMaskDimensions(projectContext.Data);
-        for (int i = 0; i < MaskCount; i++)
+        (var maskWidth, var maskHeight) = _dataAsset.CalculateMaskDimensions(projectContext.Data);
+        for (var i = 0; i < MaskCount; i++)
         {
-            string filename = $"{baseFilename}_{i}.mask.png";
+            var filename = $"{baseFilename}_{i}.mask.png";
             TextureWorker.ExportCollisionMaskPNG(_dataAsset.CollisionMasks[i], Path.Join(directory, filename), maskWidth, maskHeight);
         }
     }
@@ -309,7 +306,7 @@ internal sealed class SerializableSprite : ISerializableTextureProjectAsset
             projectContext.Data.Sprites.Add(_dataAsset);
         }
 
-        GameMakerSprite spr = _dataAsset;
+        var spr = _dataAsset;
 
         // Update all main properties
         spr.Width = Width;
@@ -330,7 +327,7 @@ internal sealed class SerializableSprite : ISerializableTextureProjectAsset
     /// <inheritdoc/>
     public IProjectAsset Import(ProjectContext projectContext)
     {
-        GameMakerSprite spr = _dataAsset;
+        var spr = _dataAsset;
 
         // Update extra properties, if they exist
         if (!Extra.Equals(default(ExtraProperties)))
@@ -373,14 +370,14 @@ internal sealed class SerializableSprite : ISerializableTextureProjectAsset
 
         // Assign texture images and collision masks
         spr.Textures.Clear();
-        foreach (GameMakerTexturePageItem textureImage in _textureImages)
+        foreach (var textureImage in _textureImages)
         {
             spr.Textures.Add(new() { Texture = textureImage });
         }
         spr.CollisionMasks.Clear();
-        foreach (byte[] mask in _maskData)
+        foreach (var mask in _maskData)
         {
-            GameMakerSprite.MaskEntry maskEntry = spr.NewMaskEntry(projectContext.Data);
+            var maskEntry = spr.NewMaskEntry(projectContext.Data);
             maskEntry.Data = mask;
             spr.CollisionMasks.Add(maskEntry);
         }
@@ -392,27 +389,27 @@ internal sealed class SerializableSprite : ISerializableTextureProjectAsset
     public void ImportTextures(ProjectContext projectContext, TextureGroupPacker texturePacker)
     {
         // Get JSON filename (of main asset file)
-        if (!projectContext.AssetDataNamesToPaths.TryGetValue(new(DataName, AssetType), out string jsonFilename))
+        if (!projectContext.AssetDataNamesToPaths.TryGetValue(new(DataName, AssetType), out var jsonFilename))
         {
             throw new ProjectException("Failed to get sprite asset path");
         }
 
         // Awaiting official Underminers resolution: project assets do not preserve texture-group or external-page metadata.
 
-        bool allowCrop = true;
+        var allowCrop = true;
         if (TextureImport.DisableCrop)
         {
             allowCrop = false;
         }
 
-        string baseFilename = Path.GetFileNameWithoutExtension(jsonFilename);
-        string directory = Path.GetDirectoryName(jsonFilename);
+        var baseFilename = Path.GetFileNameWithoutExtension(jsonFilename);
+        var directory = Path.GetDirectoryName(jsonFilename);
 
         // Load PNGs from disk, to be imported
         _textureImages = new(TextureCount);
-        for (int i = 0; i < TextureCount; i++)
+        for (var i = 0; i < TextureCount; i++)
         {
-            string filename = TextureWorker.FindImageFile(directory, $"{baseFilename}_{i}");
+            var filename = TextureWorker.FindImageFile(directory, $"{baseFilename}_{i}");
             try
             {
                 // Add image to packer
@@ -426,11 +423,11 @@ internal sealed class SerializableSprite : ISerializableTextureProjectAsset
         }
 
         // Load collision masks from disk, to be imported
-        (int maskWidth, int maskHeight) = _dataAsset.CalculateMaskDimensions(projectContext.Data);
+        (var maskWidth, var maskHeight) = _dataAsset.CalculateMaskDimensions(projectContext.Data);
         _maskData = new(MaskCount);
-        for (int i = 0; i < MaskCount; i++)
+        for (var i = 0; i < MaskCount; i++)
         {
-            string filename = $"{baseFilename}_{i}.mask.png";
+            var filename = $"{baseFilename}_{i}.mask.png";
             try
             {
                 // Add image to packer

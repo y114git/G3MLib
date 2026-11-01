@@ -1,8 +1,5 @@
-using System;
-using System.IO;
 using System.Text;
 using G3MLib.DataFile.Util;
-using Xunit;
 
 namespace G3MLib.Tests;
 
@@ -12,23 +9,23 @@ public sealed class QoiConverterTests
     public void QoiRoundTripPreservesRunsColorsAndSmallDeltas()
     {
         GMImage image = new(80, 1);
-        Span<byte> pixels = image.GetRawImageData();
+        var pixels = image.GetRawImageData();
         SetPixel(pixels, 0, 0, 0, 0, 255);
         SetPixel(pixels, 1, 1, 1, 1, 255);
         SetPixel(pixels, 2, 17, 1, 1, 255);
         SetPixel(pixels, 3, 20, 4, 4, 255);
         SetPixel(pixels, 4, 20, 4, 4, 254);
         SetPixel(pixels, 5, 0, 0, 0, 255);
-        for (int index = 6; index < 80; index++)
+        for (var index = 6; index < 80; index++)
         {
             SetPixel(pixels, index, 0, 0, 0, 255);
         }
-        byte[] expected = pixels.ToArray();
+        var expected = pixels.ToArray();
 
-        byte[] encoded = QoiConverter.GetArrayFromImage(image);
+        var encoded = QoiConverter.GetArrayFromImage(image);
         using MemoryStream stream = new(encoded);
-        GMImage decodedFromStream = QoiConverter.GetImageFromStream(stream);
-        GMImage decodedFromSpan = QoiConverter.GetImageFromSpan(encoded, out int length);
+        var decodedFromStream = QoiConverter.GetImageFromStream(stream);
+        var decodedFromSpan = QoiConverter.GetImageFromSpan(encoded, out var length);
 
         Assert.Equal(encoded.Length, length);
         Assert.Equal(expected, decodedFromStream.GetRawImageData().ToArray());
@@ -42,10 +39,10 @@ public sealed class QoiConverterTests
     {
         Assert.Throws<IOException>(() => QoiConverter.GetImageFromSpan(new byte[QoiConverter.HeaderSize - 1]));
 
-        byte[] invalidMagic = new byte[QoiConverter.HeaderSize];
+        var invalidMagic = new byte[QoiConverter.HeaderSize];
         Assert.Throws<InvalidDataException>(() => QoiConverter.GetImageFromSpan(invalidMagic));
 
-        byte[] invalidLength = "fioq\x01\x00\x01\x00\x01\x00\x00\x00"u8.ToArray();
+        var invalidLength = "fioq\x01\x00\x01\x00\x01\x00\x00\x00"u8.ToArray();
         Assert.Throws<IOException>(() => QoiConverter.GetImageFromSpan(invalidLength));
     }
 
@@ -53,15 +50,15 @@ public sealed class QoiConverterTests
     public void ImageFormatConversionsPreservePixelsAndSerializedBytes()
     {
         GMImage source = new(2, 2);
-        Span<byte> pixels = source.GetRawImageData();
+        var pixels = source.GetRawImageData();
         SetPixel(pixels, 0, 1, 2, 3, 4);
         SetPixel(pixels, 1, 5, 6, 7, 8);
         SetPixel(pixels, 2, 9, 10, 11, 12);
         SetPixel(pixels, 3, 13, 14, 15, 16);
-        byte[] expected = pixels.ToArray();
+        var expected = pixels.ToArray();
 
-        GMImage png = source.ConvertToPng();
-        GMImage bz2Qoi = source.ConvertToBz2Qoi();
+        var png = source.ConvertToPng();
+        var bz2Qoi = source.ConvertToBz2Qoi();
         Assert.Equal(GMImage.ImageFormat.Png, png.Format);
         Assert.Equal(GMImage.ImageFormat.Bz2Qoi, bz2Qoi.Format);
         Assert.Equal(expected, png.ConvertToRawBgra().GetRawImageData().ToArray());
@@ -76,7 +73,7 @@ public sealed class QoiConverterTests
 
         using MemoryStream pngStream = new();
         png.SavePng(pngStream);
-        GMImage parsedPng = GMImage.FromPng(pngStream.ToArray(), verifyHeader: true);
+        var parsedPng = GMImage.FromPng(pngStream.ToArray(), verifyHeader: true);
         Assert.Equal(expected, parsedPng.ConvertToRawBgra().GetRawImageData().ToArray());
     }
 
@@ -84,10 +81,10 @@ public sealed class QoiConverterTests
     public void BinaryImageReaderRecognizesGameMakerStoredFormats()
     {
         GMImage source = new(2, 2);
-        GMImage png = source.ConvertToPng();
-        GMImage qoi = source.ConvertToQoi();
-        GMImage bz2Qoi = source.ConvertToBz2Qoi();
-        GMImage dds = source.ConvertToDds();
+        var png = source.ConvertToPng();
+        var qoi = source.ConvertToQoi();
+        var bz2Qoi = source.ConvertToBz2Qoi();
+        var dds = source.ConvertToDds();
 
         Assert.Equal(GMImage.ImageFormat.Png, ReadStoredImage(png.ToSpan().ToArray()).Format);
         Assert.Equal(GMImage.ImageFormat.Qoi, ReadStoredImage(qoi.ToSpan().ToArray()).Format);
@@ -105,7 +102,7 @@ public sealed class QoiConverterTests
 
     private static void SetPixel(Span<byte> pixels, int index, byte blue, byte green, byte red, byte alpha)
     {
-        int offset = index * 4;
+        var offset = index * 4;
         pixels[offset] = blue;
         pixels[offset + 1] = green;
         pixels[offset + 2] = red;

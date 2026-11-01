@@ -1,0 +1,177 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = crlf
+indent_style = space
+indent_size = 4
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# The patching and resource services are written with tabs; the rest of the library uses spaces.
+[**/Modding/**.cs]
+indent_style = tab
+
+[*.{csproj,props,xml,json,yml,yaml}]
+indent_size = 2
+
+[*.cs]
+# Every rule is a warning unless it is turned off below with a reason.
+dotnet_analyzer_diagnostic.severity = warning
+
+# The way this library is written.
+csharp_style_namespace_declarations = file_scoped:warning
+csharp_style_var_for_built_in_types = true:silent
+csharp_style_var_when_type_is_apparent = true:silent
+csharp_style_var_elsewhere = true:silent
+csharp_prefer_braces = false:silent
+csharp_style_expression_bodied_methods = when_on_single_line:silent
+csharp_style_expression_bodied_constructors = false:silent
+csharp_style_expression_bodied_operators = when_on_single_line:silent
+csharp_style_expression_bodied_properties = true:silent
+csharp_style_expression_bodied_accessors = true:silent
+csharp_style_expression_bodied_lambdas = true:silent
+csharp_style_expression_bodied_local_functions = when_on_single_line:silent
+dotnet_style_parentheses_in_arithmetic_binary_operators = never_if_unnecessary:silent
+dotnet_style_parentheses_in_relational_binary_operators = never_if_unnecessary:silent
+dotnet_style_parentheses_in_other_binary_operators = never_if_unnecessary:silent
+dotnet_style_parentheses_in_other_operators = never_if_unnecessary:silent
+csharp_style_prefer_primary_constructors = false:silent
+csharp_style_unused_value_expression_statement_preference = discard_variable:silent
+csharp_style_unused_value_assignment_preference = discard_variable:silent
+csharp_prefer_simple_using_statement = true:silent
+dotnet_style_require_accessibility_modifiers = for_non_interface_members:silent
+
+# Style rules that only ask for another way of writing the same thing, where the library already reads one way throughout.
+# IDE0058: calls whose result is ignored on purpose (collection Add, StringBuilder.Append) would all need a discard.
+dotnet_diagnostic.IDE0058.severity = none
+# IDE0046/IDE0045: turning if/else into a conditional expression makes long branches harder to read.
+dotnet_diagnostic.IDE0046.severity = none
+dotnet_diagnostic.IDE0045.severity = none
+# IDE0010/IDE0072: a switch that lists the cases it handles and leaves the rest alone is intended.
+dotnet_diagnostic.IDE0010.severity = none
+dotnet_diagnostic.IDE0072.severity = none
+# IDE0022: a method with a block body is not wrong; the choice follows the member's length.
+dotnet_diagnostic.IDE0022.severity = none
+dotnet_diagnostic.IDE0021.severity = none
+dotnet_diagnostic.IDE0061.severity = none
+dotnet_diagnostic.IDE0024.severity = none
+
+# Public API shape. Version 1.0.1 is published and G3MTool and G3M compile against these names and types, so fixing
+# these rules would be a breaking change to the library, not a cleanup.
+dotnet_diagnostic.CA1707.severity = none
+dotnet_diagnostic.CA1034.severity = none
+dotnet_diagnostic.CA1002.severity = none
+dotnet_diagnostic.CA2227.severity = none
+dotnet_diagnostic.CA1819.severity = none
+dotnet_diagnostic.CA1720.severity = none
+dotnet_diagnostic.CA1711.severity = none
+dotnet_diagnostic.CA1715.severity = none
+dotnet_diagnostic.CA1008.severity = none
+dotnet_diagnostic.CA1028.severity = none
+dotnet_diagnostic.CA1033.severity = none
+dotnet_diagnostic.CA1815.severity = none
+dotnet_diagnostic.CA1068.severity = none
+dotnet_diagnostic.CA1003.severity = none
+dotnet_diagnostic.CA1032.severity = none
+dotnet_diagnostic.CA1716.severity = none
+dotnet_diagnostic.CA1724.severity = none
+dotnet_diagnostic.CA1054.severity = none
+dotnet_diagnostic.CA1056.severity = none
+dotnet_diagnostic.CA1812.severity = none
+dotnet_diagnostic.CA1303.severity = none
+dotnet_diagnostic.CA1515.severity = none
+
+# More public API shape, plus formats the library must keep reading and writing as they are.
+# IDE0130: the public namespaces (G3MLib.DataFile, G3MLib.Analyzer.Decompiler and so on) span several folders; moving types changes their names for every caller.
+dotnet_diagnostic.IDE0130.severity = none
+# IDE1006: the public interfaces (GameMakerObject, GameMakerResource) and a few public members are named without the I prefix or in lower case; callers use these names.
+dotnet_diagnostic.IDE1006.severity = none
+# CA1308: resource names, hashes and keys are stored in lower case in the patch and project formats; converting to upper case would change stored data.
+dotnet_diagnostic.CA1308.severity = none
+# CA5351: MD5 identifies a data file in the patch format and the cache. It is a fingerprint, not a security check, and the format names it.
+dotnet_diagnostic.CA5351.severity = none
+# CA1024, CA1000, CA1721, CA1027, CA1051, CA1710, CA1052: public members, enums, fields and attribute names that existing callers use.
+dotnet_diagnostic.CA1024.severity = none
+dotnet_diagnostic.CA1000.severity = none
+dotnet_diagnostic.CA1721.severity = none
+dotnet_diagnostic.CA1027.severity = none
+dotnet_diagnostic.CA1051.severity = none
+dotnet_diagnostic.CA1710.severity = none
+
+# CA1052: DebugUtil, GameSpecificResolver and PatchService have only static members but are public classes with a constructor; upstream compatible code and existing callers create or derive from them (a test checks the DebugUtil constructor).
+dotnet_diagnostic.CA1052.severity = none
+# IDE0060: public methods keep the parameters of the API they belong to (script API stubs, upstream signatures).
+dotnet_code_quality_unused_parameters = non_public
+# CA5394: GameMaker derives the game id from its own seeded random sequence; the same generator is needed to produce the same ids.
+dotnet_diagnostic.CA5394.severity = none
+# CA1031: batch operations report a failure per item in their result objects and go on, and cache and cleanup steps are best effort by design;
+# narrowing the catch would let an unexpected error abort a whole batch or the main operation.
+dotnet_diagnostic.CA1031.severity = none
+# CA1063: the model classes hold no unmanaged resources and have no finalizer; their Dispose only drops references. A Dispose(bool) overload on each of the
+# public classes would add API surface and no behavior.
+dotnet_diagnostic.CA1063.severity = none
+
+# CA1040, CA1043, CA1069, CA2217: the macro type marker interface, the indexer by Type, the vk_ names that repeat a key code and the audio flags enum are public API.
+dotnet_diagnostic.CA1040.severity = none
+dotnet_diagnostic.CA1043.severity = none
+dotnet_diagnostic.CA1069.severity = none
+dotnet_diagnostic.CA2217.severity = none
+# CA5350: backups made by earlier versions are recognised by their SHA-1; it is only compared, never used to protect anything.
+dotnet_diagnostic.CA5350.severity = none
+
+# The serializable project assets hand the asset they build to the game data, which owns it from then on.
+[**/SerializableAssets/*.cs]
+dotnet_diagnostic.CA1001.severity = none
+
+[*.cs]
+# CA1508 (dead conditional code) did not finish in 25 minutes on the very large methods in the patch, merge and import services, so it cannot run.
+dotnet_diagnostic.CA1508.severity = none
+# CA2000: objects created here are added to the game data, which owns and disposes them, and lookups return objects the data owns; the rule cannot see the ownership.
+dotnet_diagnostic.CA2000.severity = none
+
+# Places where the rule does not fit, with the reason.
+# A DataType without its info attribute is a programming error that must fail when the type loads.
+[**/Analyzer/Decompiler/AST/BlockSimulator.cs]
+dotnet_diagnostic.CA1065.severity = none
+
+# The indexers by resource type name throw MissingMemberException for a type the data does not hold; that is their documented contract.
+[**/DataFile/GameMakerData.cs]
+dotnet_diagnostic.CA1065.severity = none
+
+# The releaser only gives the lock back; the lock belongs to the model and outlives it.
+[**/DataFile/ModelLock.cs]
+dotnet_diagnostic.CA2213.severity = none
+
+# The reader works on a data object that its caller owns.
+[**/DataFile/GameMakerIO.cs]
+dotnet_diagnostic.CA2213.severity = none
+
+# The resource reference wrapper holds a model object that the data owns.
+[**/DataFile/Models/GameMakerBackground.cs]
+dotnet_diagnostic.CA2213.severity = none
+
+# The constructor keeps the upstream signature, and the project asset interface fixes this method's parameter.
+[**/Analyzer/Compiler/Bytecode/BytecodeContext.cs]
+dotnet_diagnostic.IDE0060.severity = none
+
+[**/DataFile/Models/GameMakerAnimationCurve.cs]
+dotnet_diagnostic.IDE0060.severity = none
+
+# Tests and benchmarks run without a synchronization context, and xUnit asks tests not to configure awaits.
+[{G3MLib.Tests,G3MLib.Benchmarks}/**.cs]
+dotnet_diagnostic.CA2007.severity = none
+
+# Test and benchmark code runs each line once and compares the synchronous and asynchronous paths on purpose, so the rules that
+# help code that runs repeatedly or in a UI thread do not apply: sync file calls inside async tests (CA1849), constant arrays (CA1861)
+# and one-off regular expressions (SYSLIB1045).
+[{G3MLib.Tests,G3MLib.Benchmarks,G3MLib.ScriptCompat}/**.cs]
+dotnet_diagnostic.CA1849.severity = none
+dotnet_diagnostic.CA1861.severity = none
+dotnet_diagnostic.SYSLIB1045.severity = none
+# CA1062: test methods get their arguments from the test data, not from callers.
+dotnet_diagnostic.CA1062.severity = none
+
+# These tests exercise the model lock and the thread model, so blocking on tasks is what they test.
+[G3MLib.Tests/ThreadModelTests.cs]
+dotnet_diagnostic.xUnit1031.severity = none

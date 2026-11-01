@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Compiler.Lexer;
 using G3MLib.Analyzer.Compiler.Parser;
 
@@ -61,7 +60,7 @@ internal sealed class EnumDeclaration
             context.CompileContext.PushError("Unexpected end of code (expected name for enum)");
             return;
         }
-        IToken tokenEnumName = context.Tokens[context.Position++];
+        var tokenEnumName = context.Tokens[context.Position++];
         if (tokenEnumName is not TokenVariable tokenEnumNameVar)
         {
             context.CompileContext.PushError($"Expected name for enum, got '{tokenEnumName}'", tokenEnumName);
@@ -69,7 +68,7 @@ internal sealed class EnumDeclaration
         }
 
         // Check if overriding a builtin variable
-        string enumNameStr = tokenEnumNameVar.Text;
+        var enumNameStr = tokenEnumNameVar.Text;
         if (tokenEnumNameVar.BuiltinVariable is not null)
         {
             context.CompileContext.PushError($"Declaring enum name over builtin variable '{enumNameStr}'", tokenEnumNameVar);
@@ -77,7 +76,7 @@ internal sealed class EnumDeclaration
         }
 
         // Check if declared already
-        bool shouldAdd = true;
+        var shouldAdd = true;
         if (context.CompileContext.Enums.ContainsKey(enumNameStr) || context.ParseEnums.ContainsKey(enumNameStr))
         {
             context.CompileContext.PushError($"Enum name '{enumNameStr}' declared more than once", tokenEnumNameVar);
@@ -96,7 +95,7 @@ internal sealed class EnumDeclaration
         while (!context.EndOfCode && !context.IsCurrentToken(SeparatorKind.BlockClose))
         {
             // Parse name of enum value
-            IToken valueName = context.Tokens[context.Position++];
+            var valueName = context.Tokens[context.Position++];
             if (valueName is not TokenVariable valueNameVar)
             {
                 context.CompileContext.PushError($"Expected name for enum value, got '{valueName}'", valueName);
@@ -104,8 +103,8 @@ internal sealed class EnumDeclaration
             }
 
             // Check for duplicates
-            bool shouldAddValue = true;
-            string valueNameStr = valueNameVar.Text;
+            var shouldAddValue = true;
+            var valueNameStr = valueNameVar.Text;
             if (values.ContainsKey(valueNameStr))
             {
                 context.CompileContext.PushError($"Duplicate enum value name '{valueNameStr}'", valueNameVar);
@@ -159,11 +158,11 @@ internal sealed class EnumDeclaration
     public static void ResolveValues(ParseContext context)
     {
         // First pass: resolve all direct values
-        foreach (EnumDeclaration decl in context.ParseEnums.Values)
+        foreach (var decl in context.ParseEnums.Values)
         {
             long currentValue = 0;
-            bool currentValueValid = true;
-            foreach (string name in decl.ValueNames)
+            var currentValueValid = true;
+            foreach (var name in decl.ValueNames)
             {
                 // Process expression, and resolve constant if possible
                 if (decl.Values[name]?.PostProcess(context) is IASTNode processed)
@@ -188,14 +187,14 @@ internal sealed class EnumDeclaration
         }
 
         // Second pass: resolve all indirect values
-        foreach (EnumDeclaration decl in context.ParseEnums.Values)
+        foreach (var decl in context.ParseEnums.Values)
         {
             long currentValue = 0;
-            bool currentValueValid = true;
-            foreach (string name in decl.ValueNames)
+            var currentValueValid = true;
+            foreach (var name in decl.ValueNames)
             {
                 // If resolved in first pass, use that value and increment it
-                if (decl.IntegerValues.TryGetValue(name, out long alreadyResolved))
+                if (decl.IntegerValues.TryGetValue(name, out var alreadyResolved))
                 {
                     currentValue = alreadyResolved + 1;
                     currentValueValid = true;
@@ -234,12 +233,12 @@ internal sealed class EnumDeclaration
         }
 
         // Convert parse enums to GMEnum form
-        foreach (EnumDeclaration decl in context.ParseEnums.Values)
+        foreach (var decl in context.ParseEnums.Values)
         {
             List<GMEnumValue> values = new(decl.ValueNames.Count);
-            foreach (string valueName in decl.ValueNames)
+            foreach (var valueName in decl.ValueNames)
             {
-                decl.IntegerValues.TryGetValue(valueName, out long value);
+                decl.IntegerValues.TryGetValue(valueName, out var value);
                 values.Add(new(valueName, value));
             }
             context.CompileContext.Enums.Add(decl.Name, new(decl.Name, values));

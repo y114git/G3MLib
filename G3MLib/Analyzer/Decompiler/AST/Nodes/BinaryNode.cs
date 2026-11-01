@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Decompiler.GameSpecific;
 using static G3MLib.Analyzer.IGMInstruction;
 
@@ -31,10 +30,10 @@ public class BinaryNode : IMultiExpressionNode, IConditionalValueNode
     public IGMInstruction Instruction { get; }
 
     /// <inheritdoc/>
-    public bool Duplicated { get; set; } = false;
+    public bool Duplicated { get; set; }
 
     /// <inheritdoc/>
-    public bool Group { get; set; } = false;
+    public bool Group { get; set; }
 
     /// <inheritdoc/>
     public DataType StackType { get; set; }
@@ -47,6 +46,7 @@ public class BinaryNode : IMultiExpressionNode, IConditionalValueNode
 
     public BinaryNode(IExpressionNode left, IExpressionNode right, IGMInstruction instruction)
     {
+        ArgumentNullException.ThrowIfNull(instruction);
         Left = left;
         Right = right;
         Instruction = instruction;
@@ -130,14 +130,15 @@ public class BinaryNode : IMultiExpressionNode, IConditionalValueNode
     /// <inheritdoc/>
     public void Print(ASTPrinter printer)
     {
+        ArgumentNullException.ThrowIfNull(printer);
         if (Group)
         {
             printer.Write('(');
         }
 
-        Left.Print(printer);
+        printer.PrintNode(Left);
 
-        string op = Instruction switch
+        var op = Instruction switch
         {
             { Kind: Opcode.Add } => " + ",
             { Kind: Opcode.Subtract } => " - ",
@@ -163,7 +164,7 @@ public class BinaryNode : IMultiExpressionNode, IConditionalValueNode
         };
         printer.Write(op);
 
-        Right.Print(printer);
+        printer.PrintNode(Right);
 
         if (Group)
         {
@@ -184,7 +185,7 @@ public class BinaryNode : IMultiExpressionNode, IConditionalValueNode
     /// <inheritdoc/>
     public IExpressionNode? ResolveMacroType(ASTCleaner cleaner, IMacroType type)
     {
-        bool didAnything = false;
+        var didAnything = false;
 
         if (Left is IMacroResolvableNode leftResolvable &&
             leftResolvable.ResolveMacroType(cleaner, type) is IExpressionNode leftResolved)

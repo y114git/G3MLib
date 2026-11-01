@@ -1,4 +1,3 @@
-using System;
 using System.ComponentModel;
 
 namespace G3MLib.DataFile.Models;

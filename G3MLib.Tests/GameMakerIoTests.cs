@@ -1,10 +1,6 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
 using System.Runtime.InteropServices;
 using G3MLib.DataFile;
 using G3MLib.DataFile.Models;
-using Xunit;
 
 namespace G3MLib.Tests;
 
@@ -98,8 +94,8 @@ public sealed class GameMakerIoTests
     [MemberData(nameof(DataFixtures))]
     public void ReadDataFixture(string fileName)
     {
-        using FileStream stream = OpenFixture(fileName);
-        using GameMakerData data = GameMakerIO.Read(stream);
+        using var stream = OpenFixture(fileName);
+        using var data = GameMakerIO.Read(stream);
         Assert.NotNull(data.FORM);
         Assert.NotNull(data.GeneralInfo);
         Assert.NotNull(data.Strings);
@@ -108,7 +104,7 @@ public sealed class GameMakerIoTests
     [Fact("GameMakerIoTests.cs", 65)]
     public void ShaderRoundTripsSourceAndAttributes()
     {
-        using GameMakerData data = GameMakerData.CreateNew2026LTS();
+        using var data = GameMakerData.CreateNew2026LTS();
         data.Shaders.Add(new GameMakerShader
         {
             Name = data.Strings.MakeString("sh_probe"),
@@ -124,8 +120,8 @@ public sealed class GameMakerIoTests
         using MemoryStream stream = new();
         GameMakerIO.Write(stream, data);
         stream.Position = 0;
-        using GameMakerData output = GameMakerIO.Read(stream);
-        GameMakerShader shader = output.Shaders.ByName("sh_probe");
+        using var output = GameMakerIO.Read(stream);
+        var shader = output.Shaders.ByName("sh_probe");
         Assert.Equal("void main() {}", shader.GLSL_ES_Vertex.Content);
         Assert.Equal("in_Position", Assert.Single(shader.VertexShaderAttributes).Name.Content);
         Assert.Equal([1, 2], shader.HLSL11_VertexData.Data[..2]);
@@ -136,8 +132,8 @@ public sealed class GameMakerIoTests
     [MemberData(nameof(DataFixtures))]
     public void ReadRejectsRepresentativeTruncations(string fileName)
     {
-        byte[] original = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", fileName));
-        foreach (int length in new HashSet<int> { 0, 4, 8, original.Length / 4, original.Length / 2, original.Length - 1 })
+        var original = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", fileName));
+        foreach (var length in new HashSet<int> { 0, 4, 8, original.Length / 4, original.Length / 2, original.Length - 1 })
         {
             using MemoryStream stream = new(original[..length]);
             Assert.Throws<IOException>(() => GameMakerIO.Read(stream));
@@ -148,8 +144,8 @@ public sealed class GameMakerIoTests
     [MemberData(nameof(DataFixtures))]
     public void ReadDataFixtureGeneralInfoOnly(string fileName)
     {
-        using FileStream stream = OpenFixture(fileName);
-        using GameMakerData data = GameMakerIO.Read(stream, null, null, onlyGeneralInfo: true);
+        using var stream = OpenFixture(fileName);
+        using var data = GameMakerIO.Read(stream, null, null, onlyGeneralInfo: true);
         Assert.NotNull(data.FORM);
         Assert.NotNull(data.GeneralInfo);
         Assert.Null(data.Strings);
@@ -159,14 +155,14 @@ public sealed class GameMakerIoTests
     [MemberData(nameof(DataFixtures))]
     public void ReadWriteReadDataFixture(string fileName)
     {
-        byte[] original = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", fileName));
+        var original = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", fileName));
         using MemoryStream input = new(original);
-        using GameMakerData data = GameMakerIO.Read(input);
+        using var data = GameMakerIO.Read(input);
         using MemoryStream output = new();
         GameMakerIO.Write(output, data);
         Assert.Equal(original, output.ToArray());
         output.Position = 0L;
-        using GameMakerData writtenData = GameMakerIO.Read(output);
+        using var writtenData = GameMakerIO.Read(output);
         Assert.Equal(data.GeneralInfo.BytecodeVersion, writtenData.GeneralInfo.BytecodeVersion);
         Assert.Equal(data.Strings.Count, writtenData.Strings.Count);
     }
@@ -175,10 +171,10 @@ public sealed class GameMakerIoTests
     [MemberData(nameof(DataFixtures))]
     public void GenerateOffsetMapForDataFixture(string fileName)
     {
-        using FileStream stream = OpenFixture(fileName);
-        Dictionary<uint, GameMakerObject> collection = GameMakerIO.GenerateOffsetMap(stream);
+        using var stream = OpenFixture(fileName);
+        var collection = GameMakerIO.GenerateOffsetMap(stream);
         Assert.NotEmpty(collection);
-        Assert.All<KeyValuePair<uint, GameMakerObject>>(collection, delegate (KeyValuePair<uint, GameMakerObject> entry)
+        Assert.All(collection, delegate (KeyValuePair<uint, GameMakerObject> entry)
         {
             Assert.NotNull(entry.Value);
         });
@@ -188,8 +184,8 @@ public sealed class GameMakerIoTests
     [MemberData(nameof(DebugFixtures))]
     public void ReadDebugFixture(string fileName)
     {
-        using FileStream stream = OpenFixture(fileName);
-        GameMakerDebugData gameMakerDebugData = GameMakerDebugIO.Read(stream);
+        using var stream = OpenFixture(fileName);
+        var gameMakerDebugData = GameMakerDebugIO.Read(stream);
         Assert.NotNull(gameMakerDebugData.FORM);
         Assert.NotNull(gameMakerDebugData.Strings);
         Assert.NotNull(gameMakerDebugData.SourceCode);
@@ -199,8 +195,8 @@ public sealed class GameMakerIoTests
     [MemberData(nameof(DebugFixtures))]
     public void ReadDebugRejectsRepresentativeTruncations(string fileName)
     {
-        byte[] original = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", fileName));
-        foreach (int length in new HashSet<int> { 0, 4, 8, original.Length / 4, original.Length / 2, original.Length - 1 })
+        var original = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", fileName));
+        foreach (var length in new HashSet<int> { 0, 4, 8, original.Length / 4, original.Length / 2, original.Length - 1 })
         {
             using MemoryStream stream = new(original[..length]);
             Assert.Throws<IOException>(() => GameMakerDebugIO.Read(stream));
@@ -211,21 +207,21 @@ public sealed class GameMakerIoTests
     [MemberData(nameof(DebugFixtures))]
     public void ReadWriteReadDebugFixture(string fileName)
     {
-        byte[] original = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", fileName));
+        var original = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", fileName));
         using MemoryStream input = new(original);
-        GameMakerDebugData data = GameMakerDebugIO.Read(input);
+        var data = GameMakerDebugIO.Read(input);
         using MemoryStream output = new();
         GameMakerDebugIO.Write(output, data);
         Assert.Equal(original, output.ToArray());
         output.Position = 0L;
-        GameMakerDebugData writtenData = GameMakerDebugIO.Read(output);
+        var writtenData = GameMakerDebugIO.Read(output);
         Assert.Equal(data.Strings.Count, writtenData.Strings.Count);
     }
 
     [Fact("GameMakerIoTests.cs", 137)]
     public void CreateNewDataRoundTrips()
     {
-        using GameMakerData data = GameMakerData.CreateNew2026LTS();
+        using var data = GameMakerData.CreateNew2026LTS();
         using MemoryStream stream = new();
         Assert.True(data.IsLTSBranch());
         data.SetLTS(isLTS: false);
@@ -234,7 +230,7 @@ public sealed class GameMakerIoTests
         data.SetLTS(isLTS: true);
         GameMakerIO.Write(stream, data);
         stream.Position = 0L;
-        using GameMakerData readData = GameMakerIO.Read(stream);
+        using var readData = GameMakerIO.Read(stream);
         Assert.Equal(data.GeneralInfo.BytecodeVersion, readData.GeneralInfo.BytecodeVersion);
         Assert.Equal(data.Options.LoadAlpha, readData.Options.LoadAlpha);
         Assert.True(readData.IsGameMaker2());
@@ -271,7 +267,7 @@ public sealed class GameMakerIoTests
             GameMakerOptions.OptionsFlags.AbortErrors |
             GameMakerOptions.OptionsFlags.VariableErrors |
             GameMakerOptions.OptionsFlags.CreationEventOrder;
-        using GameMakerData data = GameMakerData.CreateNew2026LTS();
+        using var data = GameMakerData.CreateNew2026LTS();
         data.Options.NewFormat = newFormat;
         data.Options.Info = optionFlags;
         data.Options.Scale = 2;
@@ -291,7 +287,7 @@ public sealed class GameMakerIoTests
         using MemoryStream stream = new();
         GameMakerIO.Write(stream, data);
         stream.Position = 0;
-        using GameMakerData readData = GameMakerIO.Read(stream);
+        using var readData = GameMakerIO.Read(stream);
 
         Assert.Equal(newFormat, readData.Options.NewFormat);
         Assert.Equal(optionFlags, readData.Options.Info);
@@ -304,18 +300,18 @@ public sealed class GameMakerIoTests
     [Fact("GameMakerIoTests.cs", 158)]
     public void CreateNewDebugDataRoundTrips()
     {
-        GameMakerDebugData data = GameMakerDebugData.CreateNew();
+        var data = GameMakerDebugData.CreateNew();
         using MemoryStream stream = new();
         Assert.Empty(data.SourceCode);
         Assert.Empty(data.DebugInfo);
-        int num = 1;
+        var num = 1;
         List<uint> list = new(num);
         CollectionsMarshal.SetCount(list, num);
         CollectionsMarshal.AsSpan(list)[0] = 0u;
-        Assert.Equal<List<uint>>(list, data.FORM.DBGI.CodeEntryIndices);
+        Assert.Equal(list, data.FORM.DBGI.CodeEntryIndices);
         GameMakerDebugIO.Write(stream, data);
         stream.Position = 0L;
-        GameMakerDebugData readData = GameMakerDebugIO.Read(stream);
+        var readData = GameMakerDebugIO.Read(stream);
         Assert.Empty(readData.SourceCode);
         Assert.Empty(readData.DebugInfo);
         Assert.Empty(readData.InstanceVars);
@@ -325,7 +321,7 @@ public sealed class GameMakerIoTests
         List<uint> list2 = new(num);
         CollectionsMarshal.SetCount(list2, num);
         CollectionsMarshal.AsSpan(list2)[0] = 0u;
-        Assert.Equal<List<uint>>(list2, readData.FORM.DBGI.CodeEntryIndices);
+        Assert.Equal(list2, readData.FORM.DBGI.CodeEntryIndices);
     }
 
     private static FileStream OpenFixture(string fileName)

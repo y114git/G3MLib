@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Compiler.Bytecode;
 using G3MLib.Analyzer.Compiler.Lexer;
 using G3MLib.Analyzer.Compiler.Parser;
@@ -26,7 +25,7 @@ internal sealed class SimpleVariableNode : IAssignableASTNode, IVariableASTNode
     /// <summary>
     /// Whether this variable node has an explicit instance type set on it.
     /// </summary>
-    public bool HasExplicitInstanceType { get; private set; } = false;
+    public bool HasExplicitInstanceType { get; private set; }
 
     /// <summary>
     /// The explicit instance type set on this variable node, if <see cref="HasExplicitInstanceType"/> is <see langword="true"/>.
@@ -36,27 +35,27 @@ internal sealed class SimpleVariableNode : IAssignableASTNode, IVariableASTNode
     /// <summary>
     /// Whether this is a variable node as used in a function call.
     /// </summary>
-    public bool IsFunctionCall { get; set; } = false;
+    public bool IsFunctionCall { get; set; }
 
     /// <summary>
     /// Whether this is a variable node that was collapsed from a <see cref="DotVariableNode"/>.
     /// </summary>
-    public bool CollapsedFromDot { get; set; } = false;
+    public bool CollapsedFromDot { get; set; }
 
     /// <summary>
     /// Whether this is a variable node currently on the leftmost side of a <see cref="DotVariableNode"/>.
     /// </summary>
-    public bool LeftmostSideOfDot { get; set; } = false;
+    public bool LeftmostSideOfDot { get; set; }
 
     /// <summary>
     /// Whether this is a variable node that is assigned to as part of a struct instantiation.
     /// </summary>
-    public bool StructVariable { get; set; } = false;
+    public bool StructVariable { get; set; }
 
     /// <summary>
     /// Whether this is a variable node that was collapsed from a <see cref="DotVariableNode"/> with a room instance ID on the left side.
     /// </summary>
-    public bool RoomInstanceVariable { get; set; } = false;
+    public bool RoomInstanceVariable { get; set; }
 
     /// <inheritdoc/>
     public IToken? NearbyToken { get; init; }
@@ -141,7 +140,7 @@ internal sealed class SimpleVariableNode : IAssignableASTNode, IVariableASTNode
         );
 
         if (ExplicitInstanceType == InstanceType.Self && !StructVariable &&
-            (IsFunctionCall || (!CollapsedFromDot && context.CompileContext.GameContext.UsingSelfToBuiltin)))
+            (IsFunctionCall || !CollapsedFromDot && context.CompileContext.GameContext.UsingSelfToBuiltin))
         {
             // Change instruction encoding to builtin (weird compiler quirk), when either a function call,
             // or in newer GML versions when not on the RHS of a dot variable.
@@ -155,14 +154,14 @@ internal sealed class SimpleVariableNode : IAssignableASTNode, IVariableASTNode
     public void GenerateCode(BytecodeContext context)
     {
         // Check if this is a function and generate code accordingly
-        IGameContext gameContext = context.CompileContext.GameContext;
-        bool isGlobalFunction = context.IsGlobalFunctionName(VariableName);
-        bool isLocalGlobalFunction = context.CompileContext.ScriptKind == CompileScriptKind.GlobalScript && context.RootScope.IsFunctionDeclaredImmediately(VariableName);
+        var gameContext = context.CompileContext.GameContext;
+        var isGlobalFunction = context.IsGlobalFunctionName(VariableName);
+        var isLocalGlobalFunction = context.CompileContext.ScriptKind == CompileScriptKind.GlobalScript && context.RootScope.IsFunctionDeclaredImmediately(VariableName);
         if (ExplicitInstanceType == InstanceType.Self && !CollapsedFromDot && (isGlobalFunction || isLocalGlobalFunction || context.IsFunctionDeclaredInCurrentScope(VariableName)))
         {
             // If currently generating a function declaration header (arguments, inheritance calls),
             // use the outer scope for function resolution. Otherwise, use current scope.
-            FunctionScope resolveScope = context.CurrentScope.GeneratingFunctionDeclHeader ? context.CurrentScope.Parent! : context.CurrentScope;
+            var resolveScope = context.CurrentScope.GeneratingFunctionDeclHeader ? context.CurrentScope.Parent : context.CurrentScope;
 
             // Push actual function reference
             if (!LeftmostSideOfDot && gameContext.UsingFunctionScriptReferences)
@@ -195,7 +194,7 @@ internal sealed class SimpleVariableNode : IAssignableASTNode, IVariableASTNode
                         context.PushDataType(DataType.Int32);
                     }
                 }
-                else if (gameContext.GetScriptIdByFunctionName(VariableName, out int _) || gameContext.GetScriptId(VariableName, out int _))
+                else if (gameContext.GetScriptIdByFunctionName(VariableName, out var _) || gameContext.GetScriptId(VariableName, out var _))
                 {
                     // Push reference for all global functions defined in global scripts
                     if (!context.CurrentScope.GeneratingDotVariableCall || gameContext.UsingNewFunctionResolution)
@@ -226,7 +225,7 @@ internal sealed class SimpleVariableNode : IAssignableASTNode, IVariableASTNode
             else
             {
                 // Push script ID
-                if (gameContext.GetScriptId(VariableName, out int scriptId))
+                if (gameContext.GetScriptId(VariableName, out var scriptId))
                 {
                     NumberNode.GenerateCode(context, scriptId);
                 }
@@ -248,10 +247,10 @@ internal sealed class SimpleVariableNode : IAssignableASTNode, IVariableASTNode
         }
 
         // Get correct opcode to generate
-        Opcode opcode = ExplicitInstanceType switch
+        var opcode = ExplicitInstanceType switch
         {
-            InstanceType.Local =>   Opcode.PushLocal,
-            InstanceType.Global =>  Opcode.PushGlobal,
+            InstanceType.Local => Opcode.PushLocal,
+            InstanceType.Global => Opcode.PushGlobal,
             InstanceType.Builtin => Opcode.PushBuiltin,
             InstanceType.Argument => Opcode.Push,
             _ => (BuiltinVariable is null || !BuiltinVariable.IsGlobal) ? Opcode.Push : Opcode.PushBuiltin,
@@ -273,7 +272,7 @@ internal sealed class SimpleVariableNode : IAssignableASTNode, IVariableASTNode
     public void GenerateCompoundAssignCode(BytecodeContext context, IASTNode expression, Opcode operationOpcode)
     {
         // Push this variable
-        VariablePatch varPatch = CreateVariablePatch(context);
+        var varPatch = CreateVariablePatch(context);
         context.Emit(Opcode.Push, varPatch, DataType.Variable);
 
         // Push the expression
@@ -290,7 +289,7 @@ internal sealed class SimpleVariableNode : IAssignableASTNode, IVariableASTNode
     public void GeneratePrePostAssignCode(BytecodeContext context, bool isIncrement, bool isPre, bool isStatement)
     {
         // Push this variable
-        VariablePatch varPatch = CreateVariablePatch(context);
+        var varPatch = CreateVariablePatch(context);
         context.Emit(Opcode.Push, varPatch, DataType.Variable);
 
         // Postfix expression: duplicate original value
@@ -331,7 +330,7 @@ internal sealed class SimpleVariableNode : IAssignableASTNode, IVariableASTNode
         if (argumentIndex < 16)
         {
             // Arguments 0 through 15 have unique variable names
-            string argName = $"argument{argumentIndex}";
+            var argName = $"argument{argumentIndex}";
             SimpleVariableNode argVar = new(argName, context.CompileContext.GameContext.Builtins.LookupBuiltinVariable(argName));
             argVar.SetExplicitInstanceType(useBuiltinInstanceType ? InstanceType.Builtin : InstanceType.Argument);
             return argVar;
@@ -378,7 +377,7 @@ internal sealed class SimpleVariableNode : IAssignableASTNode, IVariableASTNode
             }
 
             // Resolve argument names
-            if (context.CurrentScope.TryGetArgumentIndex(VariableName, out int argumentIndex))
+            if (context.CurrentScope.TryGetArgumentIndex(VariableName, out var argumentIndex))
             {
                 // Create new variable node altogether in this case
                 return CreateArgumentVariable(context, NearbyToken, argumentIndex);

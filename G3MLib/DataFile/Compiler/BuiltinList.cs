@@ -1,7 +1,4 @@
-using System;
-using System.Collections.Generic;
 using G3MLib.Analyzer.Compiler;
-using G3MLib.DataFile.Models;
 using static G3MLib.DataFile.Models.GameMakerGeneralInfo;
 
 namespace G3MLib.DataFile.Compiler;
@@ -86,12 +83,12 @@ public record FunctionInfo : IBuiltinFunction
 /// </summary>
 public class BuiltinList : IBuiltins
 {
-    public Dictionary<string, FunctionInfo> Functions { get; private set; } = null;
-    public Dictionary<string, double> Constants { get; private set; } = null;
-    public Dictionary<string, VariableInfo> GlobalVars { get; private set; } = null;
-    public Dictionary<string, VariableInfo> GlobalArrayVars { get; private set; } = null;
-    public Dictionary<string, VariableInfo> InstanceVars { get; private set; } = null;
-    public Dictionary<string, VariableInfo> InstanceLimitedVars { get; private set; } = null;
+    public Dictionary<string, FunctionInfo> Functions { get; private set; }
+    public Dictionary<string, double> Constants { get; private set; }
+    public Dictionary<string, VariableInfo> GlobalVars { get; private set; }
+    public Dictionary<string, VariableInfo> GlobalArrayVars { get; private set; }
+    public Dictionary<string, VariableInfo> InstanceVars { get; private set; }
+    public Dictionary<string, VariableInfo> InstanceLimitedVars { get; private set; }
 
     public BuiltinList()
     {
@@ -117,9 +114,9 @@ public class BuiltinList : IBuiltins
 
         // First, make script lookup to avoid script names being marked as builtin
         HashSet<string> scriptLookup = new(data.Scripts.Count);
-        foreach (GameMakerScript script in data.Scripts)
+        foreach (var script in data.Scripts)
         {
-            string name = script?.Name?.Content;
+            var name = script?.Name?.Content;
             if (name is null)
                 continue;
             if (name.StartsWith("gml_Script_", StringComparison.Ordinal))
@@ -129,9 +126,9 @@ public class BuiltinList : IBuiltins
 
         // Load in all functions that aren't detected as scripts, and which aren't already builtin functions
         Functions ??= new(data.Functions.Count);
-        foreach (GameMakerFunction function in data.Functions)
+        foreach (var function in data.Functions)
         {
-            string name = function?.Name?.Content;
+            var name = function?.Name?.Content;
             if (name is null)
                 continue;
             if (name.StartsWith("gml_Script_", StringComparison.Ordinal))
@@ -147,7 +144,7 @@ public class BuiltinList : IBuiltins
     /// <inheritdoc/>
     public IBuiltinFunction LookupBuiltinFunction(string name)
     {
-        if (Functions.TryGetValue(name, out FunctionInfo function))
+        if (Functions.TryGetValue(name, out var function))
         {
             return function;
         }
@@ -157,19 +154,19 @@ public class BuiltinList : IBuiltins
     /// <inheritdoc/>
     public IBuiltinVariable LookupBuiltinVariable(string name)
     {
-        if (InstanceVars.TryGetValue(name, out VariableInfo instanceVar))
+        if (InstanceVars.TryGetValue(name, out var instanceVar))
         {
             return instanceVar;
         }
-        if (GlobalVars.TryGetValue(name, out VariableInfo globalVar))
+        if (GlobalVars.TryGetValue(name, out var globalVar))
         {
             return globalVar;
         }
-        if (GlobalArrayVars.TryGetValue(name, out VariableInfo globalArrayVar))
+        if (GlobalArrayVars.TryGetValue(name, out var globalArrayVar))
         {
             return globalArrayVar;
         }
-        if (InstanceLimitedVars.TryGetValue(name, out VariableInfo instanceLimitedVar))
+        if (InstanceLimitedVars.TryGetValue(name, out var instanceLimitedVar))
         {
             return instanceLimitedVar;
         }
@@ -236,13 +233,13 @@ public class BuiltinList : IBuiltins
     private void InitializeMain(GameMakerData data)
     {
         var gen8 = data?.GeneralInfo;
-        uint major = gen8?.Major ?? 0;
-        uint minor = gen8?.Minor ?? 0;
-        uint release = gen8?.Release ?? 0;
-        uint build = gen8?.Build ?? 0;
+        var major = gen8?.Major ?? 0;
+        var minor = gen8?.Minor ?? 0;
+        var release = gen8?.Release ?? 0;
+        var build = gen8?.Build ?? 0;
 
-        bool gms2 = major >= 2;
-        bool gms2_3 = major > 2 || (gms2 && minor >= 3);
+        var gms2 = major >= 2;
+        var gms2_3 = major > 2 || gms2 && minor >= 3;
 
         // Functions
         Functions = new(4096);
@@ -975,7 +972,7 @@ public class BuiltinList : IBuiltins
             DefineFunction("texturegroup_get_fonts", 1);
             DefineFunction("texturegroup_get_tilesets", 1);
         }
-        if (gms2 || (major == 1 && minor >= 3))
+        if (gms2 || major == 1 && minor >= 3)
         {
             DefineFunction("draw_enable_swf_aa", 1);
             DefineFunction("draw_set_swf_aa_level", 1);
@@ -2290,7 +2287,7 @@ public class BuiltinList : IBuiltins
         DefineFunction("buffer_async_group_begin", 1);
         DefineFunction("buffer_async_group_end", 0);
         DefineFunction("buffer_async_group_option", 2);
-        if (major > 2 || (gms2_3 && release >= 1) || (gms2 && minor > 3))
+        if (major > 2 || gms2_3 && release >= 1 || gms2 && minor > 3)
             DefineFunction("buffer_get_surface", 3);
         else
             DefineFunction("buffer_get_surface", 5);
@@ -2999,7 +2996,7 @@ public class BuiltinList : IBuiltins
         }
 
         // These functions are present in the 2023.11 function-name table.
-        if (major > 2023 || (major == 2023 && minor >= 11))
+        if (major > 2023 || major == 2023 && minor >= 11)
         {
             DefineFunction("move_and_collide", 3);
             DefineFunction("game_change", 2);
@@ -3330,38 +3327,40 @@ public class BuiltinList : IBuiltins
         }
 
         // Constants
-        Constants = new(1024);
-        Constants["self"] = -1.0;
-        Constants["other"] = -2.0;
-        Constants["all"] = -3.0;
-        Constants["noone"] = -4.0;
-        Constants["global"] = -5.0;
-        Constants["pi"] = 3.1415926535897931;
-        Constants["pr_pointlist"] = 1.0;
-        Constants["pr_linelist"] = 2.0;
-        Constants["pr_linestrip"] = 3.0;
-        Constants["pr_trianglelist"] = 4.0;
-        Constants["pr_trianglestrip"] = 5.0;
-        Constants["pr_trianglefan"] = 6.0;
-        Constants["c_aqua"] = 16776960.0;
-        Constants["c_black"] = 0.0;
-        Constants["c_blue"] = 16711680.0;
-        Constants["c_dkgray"] = 4210752.0;
-        Constants["c_fuchsia"] = 16711935.0;
-        Constants["c_gray"] = 8421504.0;
-        Constants["c_green"] = 32768.0;
-        Constants["c_lime"] = 65280.0;
-        Constants["c_ltgray"] = 12632256.0;
-        Constants["c_maroon"] = 128.0;
-        Constants["c_navy"] = 8388608.0;
-        Constants["c_olive"] = 32896.0;
-        Constants["c_purple"] = 8388736.0;
-        Constants["c_red"] = 255.0;
-        Constants["c_silver"] = 12632256.0;
-        Constants["c_teal"] = 8421376.0;
-        Constants["c_white"] = 16777215.0;
-        Constants["c_yellow"] = 65535.0;
-        Constants["c_orange"] = 4235519.0;
+        Constants = new(1024)
+        {
+            ["self"] = -1.0,
+            ["other"] = -2.0,
+            ["all"] = -3.0,
+            ["noone"] = -4.0,
+            ["global"] = -5.0,
+            ["pi"] = 3.1415926535897931,
+            ["pr_pointlist"] = 1.0,
+            ["pr_linelist"] = 2.0,
+            ["pr_linestrip"] = 3.0,
+            ["pr_trianglelist"] = 4.0,
+            ["pr_trianglestrip"] = 5.0,
+            ["pr_trianglefan"] = 6.0,
+            ["c_aqua"] = 16776960.0,
+            ["c_black"] = 0.0,
+            ["c_blue"] = 16711680.0,
+            ["c_dkgray"] = 4210752.0,
+            ["c_fuchsia"] = 16711935.0,
+            ["c_gray"] = 8421504.0,
+            ["c_green"] = 32768.0,
+            ["c_lime"] = 65280.0,
+            ["c_ltgray"] = 12632256.0,
+            ["c_maroon"] = 128.0,
+            ["c_navy"] = 8388608.0,
+            ["c_olive"] = 32896.0,
+            ["c_purple"] = 8388736.0,
+            ["c_red"] = 255.0,
+            ["c_silver"] = 12632256.0,
+            ["c_teal"] = 8421376.0,
+            ["c_white"] = 16777215.0,
+            ["c_yellow"] = 65535.0,
+            ["c_orange"] = 4235519.0
+        };
         if (!gms2)
             Constants["bm_complex"] = -1.0;
         Constants["bm_normal"] = 0.0;
@@ -4482,7 +4481,7 @@ public class BuiltinList : IBuiltins
         if (gms2)
             DefineGlobal("font_texture_page_size", true);
 
-        if (major > 2022 || (major == 2022 && minor >= 11))
+        if (major > 2022 || major == 2022 && minor >= 11)
             DefineGlobal("audio_bus_main", true);
         DefineGlobal("os_type", false);
         DefineGlobal("os_device", false);

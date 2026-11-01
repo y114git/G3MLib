@@ -1,8 +1,5 @@
-using System;
-using System.IO;
 using System.Text;
 using G3MLib.DataFile.Util;
-using Xunit;
 
 namespace G3MLib.Tests;
 
@@ -28,7 +25,7 @@ public sealed class BpsTests
     [Fact("BpsTests.cs", 27)]
     public void ApplyPatchRejectsCorruptPatch()
     {
-        byte[] corruptPatch = (byte[])Patch.Clone();
+        var corruptPatch = (byte[])Patch.Clone();
         corruptPatch[^1] ^= 1;
         MemoryStream source = new(Encoding.ASCII.GetBytes("abcde"));
         try

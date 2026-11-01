@@ -1,29 +1,14 @@
-using Microsoft.CodeAnalysis.CSharp.Scripting;
-using Microsoft.CodeAnalysis.Scripting;
-using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Text;
-using System.Threading.Tasks;
 using G3MLib.DataFile.Scripting;
 using G3MLib.DataFile.Util;
 
 namespace G3MLib.DataFile.Project;
 
-partial class ProjectContext
+public partial class ProjectContext
 {
-    /// <summary>
-    /// Script options for the project context, when initialized.
-    /// </summary>
-    private ScriptOptions _scriptOptions = null;
 
     /// <summary>
-    /// Full path to currently-executing script, or <see langword="null"/> if no script is executing.
-    /// </summary>
-    private string _scriptPath = null;
-
-    /// <summary>
-    /// Initializes scripting for this context, if not already done.
+    /// Throws if this context does not allow running scripts.
     /// </summary>
     private void InitializeScripting()
     {
@@ -31,19 +16,6 @@ partial class ProjectContext
         {
             throw new ProjectException("Attempted to run scripts, which has been disallowed");
         }
-        if (_scriptOptions is not null)
-        {
-            return;
-        }
-        _scriptOptions = ScriptingUtil.CreateDefaultScriptOptions();
-    }
-
-    /// <summary>
-    /// Deinitializes scripting for this context, if necessary.
-    /// </summary>
-    private void DeinitializeScripting()
-    {
-        _scriptOptions = null;
     }
 
     /// <summary>
@@ -56,56 +28,41 @@ partial class ProjectContext
             return;
         }
         InitializeScripting();
-        foreach (string relativePath in relativePathList)
+        foreach (var relativePath in relativePathList)
         {
             // Get path to script file
-            string path = Path.GetFullPath(Path.Join(MainDirectory, relativePath));
+            var path = Path.GetFullPath(Path.Join(MainDirectory, relativePath));
             Paths.VerifyWithinDirectory(MainDirectory, path);
 
-            // Load script contents
-            string scriptText;
+            ScriptRunResult result;
             try
             {
-                scriptText = $"#line 1 \"{path}\"\n" + File.ReadAllText(path, Encoding.UTF8);
+                ScriptPath = path;
+                result = ScriptRunner.RunAsync(path, CreateScriptGlobals()).GetAwaiter().GetResult();
             }
-            catch (Exception e)
+            finally
             {
-                throw new ProjectException($"Failed to read script \"{relativePath}\": {e}", e);
+                ScriptPath = null;
             }
-
-            // Evaluate script
-            MainThreadAction(() =>
+            if (!result.Success)
             {
-                _scriptPath = path;
-                try
-                {
-                    Task<object> task = CSharpScript.EvaluateAsync(scriptText, _scriptOptions.WithFilePath(path).WithFileEncoding(Encoding.UTF8), this, typeof(IScriptInterface));
-                    task.Wait();
-                }
-                catch (CompilationErrorException e)
-                {
-                    throw new ProjectException($"Script \"{relativePath}\" failed to compile: {e}", e);
-                }
-                catch (AggregateException e)
-                {
-                    if (e.InnerExceptions is [Exception inner])
-                    {
-                        throw new ProjectException($"Script \"{relativePath}\" failed to run: {ScriptingUtil.PrettifyException(in inner)}", e);
-                    }
-                    Exception generalEx = e;
-                    throw new ProjectException($"Script \"{relativePath}\" failed to run: {ScriptingUtil.PrettifyException(in generalEx)}", e);
-                }
-                catch (Exception e)
-                {
-                    throw new ProjectException($"Script \"{relativePath}\" failed to run: {ScriptingUtil.PrettifyException(in e)}", e);
-                }
-                finally
-                {
-                    _scriptPath = null;
-                }
-            });
+                throw new ProjectException($"Script \"{relativePath}\" failed: {result.Error}");
+            }
         }
     }
+
+    /// <summary>
+    /// Globals for a script started from this project: the project's data and host callbacks behind the shared script host.
+    /// </summary>
+    private ScriptGlobals CreateScriptGlobals() => new(Data, LoadDataPath)
+    {
+        Project = this,
+        CanSave = CanSave,
+        MainThreadAction = MainThreadAction,
+        MessageHandler = ScriptMessageHandler,
+        WarningHandler = ScriptWarningHandler,
+        ScriptRootPath = MainDirectory
+    };
 
     /// <summary>
     /// Executes all pre-import scripts, as defined in the project options.

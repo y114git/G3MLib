@@ -6,7 +6,6 @@
 
 using G3MLib.Analyzer.Decompiler;
 using G3MLib.Analyzer.Decompiler.ControlFlow;
-using G3MLib.Analyzer.Mock;
 
 namespace G3MLib.Tests;
 
@@ -15,7 +14,7 @@ public class ShortCircuit_FindShortCircuits
     [Fact]
     public void TestBasicAnd()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             push.v self.a
@@ -34,13 +33,13 @@ public class ShortCircuit_FindShortCircuits
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
         ShortCircuit.FindShortCircuits(ctx);
-        List<ShortCircuit> scs = ShortCircuit.InsertShortCircuits(ctx);
+        var scs = ShortCircuit.InsertShortCircuits(ctx);
 
-        Assert.Single(scs);
-        Assert.Equal(ShortCircuitType.And, scs[0].LogicKind);
+        var item = Assert.Single(scs);
+        Assert.Equal(ShortCircuitType.And, item.LogicKind);
         Assert.Equal(fragments[0], scs[0].Parent);
         Assert.Equal([blocks[0], blocks[1]], scs[0].Children);
         Assert.Equal(2, blocks[0].Instructions.Count);
@@ -63,7 +62,7 @@ public class ShortCircuit_FindShortCircuits
     [Fact]
     public void TestBasicOr()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             push.v self.a
@@ -82,13 +81,13 @@ public class ShortCircuit_FindShortCircuits
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
         ShortCircuit.FindShortCircuits(ctx);
-        List<ShortCircuit> scs = ShortCircuit.InsertShortCircuits(ctx);
+        var scs = ShortCircuit.InsertShortCircuits(ctx);
 
-        Assert.Single(scs);
-        Assert.Equal(ShortCircuitType.Or, scs[0].LogicKind);
+        var item = Assert.Single(scs);
+        Assert.Equal(ShortCircuitType.Or, item.LogicKind);
         Assert.Equal(fragments[0], scs[0].Parent);
         Assert.Equal([blocks[0], blocks[1]], scs[0].Children);
         Assert.Equal(2, blocks[0].Instructions.Count);
@@ -111,7 +110,7 @@ public class ShortCircuit_FindShortCircuits
     [Fact]
     public void TestTripleAnd()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             push.v self.a
@@ -135,13 +134,13 @@ public class ShortCircuit_FindShortCircuits
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
         ShortCircuit.FindShortCircuits(ctx);
-        List<ShortCircuit> scs = ShortCircuit.InsertShortCircuits(ctx);
+        var scs = ShortCircuit.InsertShortCircuits(ctx);
 
-        Assert.Single(scs);
-        Assert.Equal(ShortCircuitType.And, scs[0].LogicKind);
+        var item = Assert.Single(scs);
+        Assert.Equal(ShortCircuitType.And, item.LogicKind);
         Assert.Equal(fragments[0], scs[0].Parent);
         Assert.Equal([blocks[0], blocks[1], blocks[2]], scs[0].Children);
         Assert.Equal(2, blocks[0].Instructions.Count);
@@ -165,7 +164,7 @@ public class ShortCircuit_FindShortCircuits
     [Fact]
     public void TestNestedStart()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             push.v self.a
@@ -200,10 +199,10 @@ public class ShortCircuit_FindShortCircuits
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
         ShortCircuit.FindShortCircuits(ctx);
-        List<ShortCircuit> scs = ShortCircuit.InsertShortCircuits(ctx);
+        var scs = ShortCircuit.InsertShortCircuits(ctx);
 
         Assert.Equal(2, scs.Count);
         Assert.Equal(ShortCircuitType.Or, scs[0].LogicKind);
@@ -218,7 +217,7 @@ public class ShortCircuit_FindShortCircuits
         Assert.Equal(2, blocks[4].Instructions.Count);
         Assert.Equal(2, blocks[5].Instructions.Count);
         Assert.Empty(blocks[6].Instructions);
-        for (int i = 0; i <= 6; i++)
+        for (var i = 0; i <= 6; i++)
         {
             Assert.Empty(blocks[i].Predecessors);
             Assert.Empty(blocks[i].Successors);
@@ -235,7 +234,7 @@ public class ShortCircuit_FindShortCircuits
     [Fact]
     public void TestNestedMiddle()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             push.v self.a
@@ -270,10 +269,10 @@ public class ShortCircuit_FindShortCircuits
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
         ShortCircuit.FindShortCircuits(ctx);
-        List<ShortCircuit> scs = ShortCircuit.InsertShortCircuits(ctx);
+        var scs = ShortCircuit.InsertShortCircuits(ctx);
 
         Assert.Equal(2, scs.Count);
         Assert.Equal(ShortCircuitType.Or, scs[0].LogicKind);
@@ -289,7 +288,7 @@ public class ShortCircuit_FindShortCircuits
         Assert.Empty(blocks[4].Instructions);
         Assert.Equal(2, blocks[5].Instructions.Count);
         Assert.Empty(blocks[6].Instructions);
-        for (int i = 0; i <= 6; i++)
+        for (var i = 0; i <= 6; i++)
         {
             if (i != 4)
             {
@@ -310,7 +309,7 @@ public class ShortCircuit_FindShortCircuits
     [Fact]
     public void TestNestedEnd()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             push.v self.a
@@ -345,10 +344,10 @@ public class ShortCircuit_FindShortCircuits
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
         ShortCircuit.FindShortCircuits(ctx);
-        List<ShortCircuit> scs = ShortCircuit.InsertShortCircuits(ctx);
+        var scs = ShortCircuit.InsertShortCircuits(ctx);
 
         Assert.Equal(2, scs.Count);
         Assert.Equal(ShortCircuitType.Or, scs[0].LogicKind);
@@ -364,7 +363,7 @@ public class ShortCircuit_FindShortCircuits
         Assert.Empty(blocks[4].Instructions);
         Assert.Empty(blocks[5].Instructions);
         Assert.Empty(blocks[6].Instructions);
-        for (int i = 0; i <= 6; i++)
+        for (var i = 0; i <= 6; i++)
         {
             if (i != 5)
             {
@@ -385,7 +384,7 @@ public class ShortCircuit_FindShortCircuits
     [Fact]
     public void TestNestedAll()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             push.v self.a
@@ -442,10 +441,10 @@ public class ShortCircuit_FindShortCircuits
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
         ShortCircuit.FindShortCircuits(ctx);
-        List<ShortCircuit> scs = ShortCircuit.InsertShortCircuits(ctx);
+        var scs = ShortCircuit.InsertShortCircuits(ctx);
 
         Assert.Equal(4, scs.Count);
         Assert.Equal(ShortCircuitType.Or, scs[0].LogicKind);
@@ -472,9 +471,9 @@ public class ShortCircuit_FindShortCircuits
         Assert.Empty(blocks[10].Instructions);
         Assert.Empty(blocks[11].Instructions);
         Assert.Empty(blocks[12].Instructions);
-        for (int i = 0; i <= 12; i++)
+        for (var i = 0; i <= 12; i++)
         {
-            if (i != 7 && i != 11)
+            if (i is not 7 and not 11)
             {
                 Assert.Empty(blocks[i].Predecessors);
             }

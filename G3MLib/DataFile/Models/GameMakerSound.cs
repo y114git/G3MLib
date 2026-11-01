@@ -1,4 +1,3 @@
-using System;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using G3MLib.DataFile.Project;
@@ -152,7 +151,7 @@ public class GameMakerSound : GameMakerNamedResource, IProjectAsset, INotifyProp
     /// <summary>
     /// Invoked whenever the effective value of any dependency property has been updated.
     /// </summary>
-    protected void OnPropertyChanged([CallerMemberName] string name = null)
+    protected void OnPropertyChanged([CallerMemberName] string? name = null)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
     }
@@ -160,6 +159,7 @@ public class GameMakerSound : GameMakerNamedResource, IProjectAsset, INotifyProp
     /// <inheritdoc />
     public void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         writer.WriteGameMakerString(Name);
         writer.Write((uint)Flags);
         writer.WriteGameMakerString(Type);
@@ -177,13 +177,14 @@ public class GameMakerSound : GameMakerNamedResource, IProjectAsset, INotifyProp
         else
             writer.Write(_audioFile.CachedId);
 
-        if (writer.gameMakerData.IsNonLTSVersionAtLeast(2024, 6))
+        if (writer.gameMakerData.IsVersionAtLeast(2024, 6))
             writer.Write(AudioLength);
     }
 
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         Name = reader.ReadGameMakerString();
         Flags = (AudioEntryFlags)reader.ReadUInt32();
         Type = reader.ReadGameMakerString();
@@ -216,7 +217,7 @@ public class GameMakerSound : GameMakerNamedResource, IProjectAsset, INotifyProp
             _audioFile.CachedId = reader.ReadInt32();
         }
 
-        if (reader.gameMakerData.IsNonLTSVersionAtLeast(2024, 6))
+        if (reader.gameMakerData.IsVersionAtLeast(2024, 6))
             AudioLength = reader.ReadSingle();
         else
             AudioLength = 0;
@@ -225,10 +226,11 @@ public class GameMakerSound : GameMakerNamedResource, IProjectAsset, INotifyProp
     /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
     public static uint UnserializeChildObjectCount(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         uint count = 0;
 
         reader.Position += 4;
-        AudioEntryFlags flags = (AudioEntryFlags)reader.ReadUInt32();
+        var flags = (AudioEntryFlags)reader.ReadUInt32();
         reader.Position += 20;
 
         int audioGroupID;
@@ -277,7 +279,7 @@ public class GameMakerSound : GameMakerNamedResource, IProjectAsset, INotifyProp
     ISerializableProjectAsset IProjectAsset.GenerateSerializableProjectAsset(ProjectContext projectContext)
     {
         SerializableSound serializable = new();
-        serializable.PopulateFromData(projectContext, this);
+        serializable.PopulateFromData(this);
         return serializable;
     }
 

@@ -4,9 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System;
-using System.Collections.Generic;
-
 namespace G3MLib.Analyzer.Compiler.Lexer;
 
 /// <summary>
@@ -49,7 +46,7 @@ internal sealed class LexContext : ISubCompileContext
     /// <summary>
     /// Computed indices of lines in the text, used primarily for error messages.
     /// </summary>
-    private List<int>? _lineIndices = null;
+    private List<int>? _lineIndices;
 
     public LexContext(CompileContext context, string text)
     {
@@ -73,11 +70,11 @@ internal sealed class LexContext : ISubCompileContext
     public int Tokenize(int startPosition = 0, bool inTemplateString = false)
     {
         ReadOnlySpan<char> text = Text;
-        int pos = startPosition;
-        bool newStrings = CompileContext.GameContext.UsingGMS2OrLater;
+        var pos = startPosition;
+        var newStrings = CompileContext.GameContext.UsingGMS2OrLater;
 
         // Store brace nesting level for template string fields, e.g. $"{{}}"
-        int templateBraceLevel = 0;
+        var templateBraceLevel = 0;
 
         while (pos < text.Length)
         {
@@ -91,15 +88,15 @@ internal sealed class LexContext : ISubCompileContext
             }
 
             // If not at end of text, get next two characters (if available)
-            char currChar = text[pos];
-            char nextChar = (pos + 1 < text.Length) ? text[pos + 1] : '\0';
+            var currChar = text[pos];
+            var nextChar = (pos + 1 < text.Length) ? text[pos + 1] : '\0';
 
             // Delegate tokenizing based on these two characters
             if (currChar == '#' && nextChar != '\0')
             {
                 pos = Tags.Parse(this, pos);
             }
-            else if ((currChar >= 'a' && currChar <= 'z') || (currChar >= 'A' && currChar <= 'Z') || currChar == '_')
+            else if (currChar is >= 'a' and <= 'z' or >= 'A' and <= 'Z' or '_')
             {
                 pos = Identifiers.Parse(this, pos);
             }
@@ -118,7 +115,7 @@ internal sealed class LexContext : ISubCompileContext
             {
                 pos = Numbers.ParseHex(this, pos, false);
             }
-            else if (char.IsDigit(currChar) || (currChar == '.' && char.IsDigit(nextChar)))
+            else if (char.IsDigit(currChar) || currChar == '.' && char.IsDigit(nextChar))
             {
                 pos = Numbers.ParseDecimal(this, pos);
             }
@@ -147,7 +144,7 @@ internal sealed class LexContext : ISubCompileContext
             }
             else
             {
-                pos = Symbols.Parse(this, pos, currChar, nextChar, out bool success);
+                pos = Symbols.Parse(this, pos, currChar, nextChar, out var success);
 
                 // If failed to match against anything, push an error
                 if (!success)
@@ -191,7 +188,7 @@ internal sealed class LexContext : ISubCompileContext
     public void PostProcessTokens()
     {
         List<int> macroExpansionEnd = new(4);
-        for (int i = 0; i < Tokens.Count; i++)
+        for (var i = 0; i < Tokens.Count; i++)
         {
             // Track end of macro expansions
             if (macroExpansionEnd.Count >= 128)
@@ -208,10 +205,10 @@ internal sealed class LexContext : ISubCompileContext
             if (Tokens[i] is TokenIdentifier { Text: string text } identifier)
             {
                 // Check if this identifier references a macro name
-                if (CompileContext.Macros.TryGetValue(text, out Macro? macro))
+                if (CompileContext.Macros.TryGetValue(text, out var macro))
                 {
                     // Replace this token with the tokens of the macro
-                    List<IToken> tokensToInsert = macro.LexContext.Tokens;
+                    var tokensToInsert = macro.LexContext.Tokens;
                     Tokens.RemoveAt(i);
                     Tokens.InsertRange(i, tokensToInsert);
 
@@ -221,7 +218,7 @@ internal sealed class LexContext : ISubCompileContext
                         i--;
 
                         // Push existing macro expansion endings back by however many tokens we just added
-                        for (int j = 0; j < macroExpansionEnd.Count; j++)
+                        for (var j = 0; j < macroExpansionEnd.Count; j++)
                         {
                             macroExpansionEnd[j] += tokensToInsert.Count - 1;
                         }
@@ -237,14 +234,14 @@ internal sealed class LexContext : ISubCompileContext
                 if (i + 1 < Tokens.Count && Tokens[i + 1] is TokenSeparator { Kind: SeparatorKind.GroupOpen })
                 {
                     // Lookup builtin function, and transform to function token
-                    IBuiltinFunction? builtinFunction = CompileContext.GameContext.Builtins.LookupBuiltinFunction(text);
+                    var builtinFunction = CompileContext.GameContext.Builtins.LookupBuiltinFunction(text);
                     Tokens[i] = new TokenFunction(identifier.Context, identifier.TextPosition, identifier.Text, builtinFunction);
                     continue;
                 }
 
                 // Check if this identifier is a game asset (but not a script)
-                bool isAsset = CompileContext.GameContext.GetAssetId(text, out int assetId);
-                bool isRoomInstanceAsset = false;
+                var isAsset = CompileContext.GameContext.GetAssetId(text, out var assetId);
+                var isRoomInstanceAsset = false;
                 if (!isAsset)
                 {
                     isRoomInstanceAsset = CompileContext.GameContext.GetRoomInstanceId(text, out assetId);
@@ -263,14 +260,14 @@ internal sealed class LexContext : ISubCompileContext
                 }
 
                 // Check if the identifier is a builtin constant double
-                if (CompileContext.GameContext.Builtins.LookupConstantDouble(text, out double constantDouble))
+                if (CompileContext.GameContext.Builtins.LookupConstantDouble(text, out var constantDouble))
                 {
                     Tokens[i] = new TokenNumber(identifier.Context, identifier.TextPosition, text, constantDouble, true);
                     continue;
                 }
 
                 // Otherwise, rewrite this identifier as a generic variable (but look up builtin variables as well)
-                IBuiltinVariable? builtinVariable = CompileContext.GameContext.Builtins.LookupBuiltinVariable(text);
+                var builtinVariable = CompileContext.GameContext.Builtins.LookupBuiltinVariable(text);
                 CompileContext.GameContext.CodeBuilder.OnParseNameIdentifier(text);
                 Tokens[i] = new TokenVariable(identifier.Context, identifier.TextPosition, text, builtinVariable);
                 continue;
@@ -290,7 +287,7 @@ internal sealed class LexContext : ISubCompileContext
 
             // Add indices of each newline character
             ReadOnlySpan<char> text = Text;
-            for (int i = 0; i < text.Length; i++)
+            for (var i = 0; i < text.Length; i++)
             {
                 if (text[i] == '\n')
                 {
@@ -300,7 +297,7 @@ internal sealed class LexContext : ISubCompileContext
         }
 
         // Binary search for the line number
-        int lineIndex = _lineIndices.BinarySearch(textPosition);
+        var lineIndex = _lineIndices.BinarySearch(textPosition);
         if (lineIndex >= 0)
         {
             // Exact match of the newline character itself (this is rare).
@@ -310,7 +307,7 @@ internal sealed class LexContext : ISubCompileContext
 
         // Usually, lineIndex will be negative, which is the bitwise complement of the next line index.
         lineIndex = ~lineIndex - 1;
-        int column = textPosition - (lineIndex == -1 ? -1 : _lineIndices[lineIndex]) - 1;
+        var column = textPosition - (lineIndex == -1 ? -1 : _lineIndices[lineIndex]) - 1;
         return (lineIndex + 2, column);
     }
 }

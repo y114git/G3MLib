@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Decompiler.GameSpecific;
 
 namespace G3MLib.Analyzer.Decompiler.AST;
@@ -25,10 +24,10 @@ public class AssetReferenceNode(int assetId, AssetType assetType) : IConditional
     public AssetType AssetType { get; } = assetType;
 
     /// <inheritdoc/>
-    public bool Duplicated { get; set; } = false;
+    public bool Duplicated { get; set; }
 
     /// <inheritdoc/>
-    public bool Group { get; set; } = false;
+    public bool Group { get; set; }
 
     /// <inheritdoc/>
     public IGMInstruction.DataType StackType { get; set; } = IGMInstruction.DataType.Variable;
@@ -60,7 +59,8 @@ public class AssetReferenceNode(int assetId, AssetType assetType) : IConditional
     /// <inheritdoc/>
     public void Print(ASTPrinter printer)
     {
-        string? assetName = printer.Context.GameContext.GetAssetName(AssetType, AssetId);
+        ArgumentNullException.ThrowIfNull(printer);
+        var assetName = printer.Context.GameContext.GetAssetName(AssetType, AssetId);
         if (assetName is not null)
         {
             printer.Write(assetName);

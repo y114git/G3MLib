@@ -1,6 +1,4 @@
-using System;
 using G3MLib.DataFile.Legacy;
-using Xunit;
 
 namespace G3MLib.Tests;
 
@@ -15,7 +13,7 @@ public sealed class UTMTScriptTranslatorTests
     [Fact("UTMTScriptTranslatorTests.cs", 16)]
     public void TranslateReturnsCurrentScriptsUnchanged()
     {
-        string source = "using G3MLib.DataFile; GameMakerData data = new();";
+        var source = "using G3MLib.DataFile; GameMakerData data = new();";
         Assert.Same(source, UTMTScriptTranslator.Translate(source));
     }
 

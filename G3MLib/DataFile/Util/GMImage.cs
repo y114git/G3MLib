@@ -1,4 +1,3 @@
-using System;
 using System.Buffers.Binary;
 using System.IO;
 using ICSharpCode.SharpZipLib.BZip2;
@@ -73,7 +72,7 @@ public class GMImage
     /// <summary>
     /// PNG file format magic.
     /// </summary>
-    public static ReadOnlySpan<byte> MagicPng => new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 };
+    public static ReadOnlySpan<byte> MagicPng => [137, 80, 78, 71, 13, 10, 26, 10];
 
     /// <summary>
     /// QOI file format magic.
@@ -88,7 +87,7 @@ public class GMImage
     /// <summary>
     /// Magic value found near the end of a BZip2 stream (square root of pi).
     /// </summary>
-    private static ReadOnlySpan<byte> MagicBz2Footer => new byte[] { 0x17, 0x72, 0x45, 0x38, 0x50, 0x90 };
+    private static ReadOnlySpan<byte> MagicBz2Footer => [0x17, 0x72, 0x45, 0x38, 0x50, 0x90];
 
     /// <summary>
     /// DDS file format magic.
@@ -98,7 +97,7 @@ public class GMImage
     /// <summary>
     /// Backing data for the image, whether compressed or not.
     /// </summary>
-    private readonly byte[] _data = null;
+    private readonly byte[]? _data;
 
     /// <summary>
     /// If this is a Bz2Qoi image in GameMaker 2022.5 and above, then this is
@@ -154,25 +153,25 @@ public class GMImage
         // Read 16 bytes from the end of the BZ2 stream
         Span<byte> data = stackalloc byte[16];
         reader.Position = endDataPosition - data.Length;
-        int numBytesRead = reader.Stream.Read(data);
+        var numBytesRead = reader.Stream.Read(data);
 
         // Start searching for magic, bit by bit (it is not always byte-aligned)
-        ReadOnlySpan<byte> footerMagic = MagicBz2Footer;
-        int searchStartPosition = numBytesRead - 1;
-        int searchStartBitPosition = 0;
+        var footerMagic = MagicBz2Footer;
+        var searchStartPosition = numBytesRead - 1;
+        var searchStartBitPosition = 0;
         while (searchStartPosition >= 0)
         {
             // Perform search starting from the current search start position
-            bool foundMatch = false;
-            int bitPosition = searchStartBitPosition;
-            int searchPosition = searchStartPosition;
-            int magicBitPosition = 0;
-            int magicPosition = footerMagic.Length - 1;
+            var foundMatch = false;
+            var bitPosition = searchStartBitPosition;
+            var searchPosition = searchStartPosition;
+            var magicBitPosition = 0;
+            var magicPosition = footerMagic.Length - 1;
             while (searchPosition >= 0)
             {
                 // Get bits at search position and corresponding magic position
-                bool currentBit = (data[searchPosition] & (1 << bitPosition)) != 0;
-                bool magicCurrentBit = (footerMagic[magicPosition] & (1 << magicBitPosition)) != 0;
+                var currentBit = (data[searchPosition] & (1 << bitPosition)) != 0;
+                var magicCurrentBit = (footerMagic[magicPosition] & (1 << magicBitPosition)) != 0;
 
                 // If bits mismatch, terminate the current search
                 if (currentBit != magicCurrentBit)
@@ -218,7 +217,7 @@ public class GMImage
                 }
 
                 // Return position relative to the start of the data we read
-                return (endDataPosition - data.Length) + endOfBZ2StreamPosition;
+                return endDataPosition - data.Length + endOfBZ2StreamPosition;
             }
 
             // Current search failed to make a full match, so progress to next bit, to search starting from there
@@ -244,8 +243,8 @@ public class GMImage
         // We want to find the end of nonzero data.
         const int maxChunkSize = 256;
         Span<byte> chunkData = stackalloc byte[maxChunkSize];
-        long chunkStartPosition = Math.Max(startOfStreamPosition, maxEndOfStreamPosition - maxChunkSize);
-        int chunkSize = (int)(maxEndOfStreamPosition - chunkStartPosition);
+        var chunkStartPosition = Math.Max(startOfStreamPosition, maxEndOfStreamPosition - maxChunkSize);
+        var chunkSize = (int)(maxEndOfStreamPosition - chunkStartPosition);
         do
         {
             // Read chunk from stream
@@ -253,7 +252,7 @@ public class GMImage
             reader.Stream.ReadExactly(chunkData[..chunkSize]);
 
             // Find first nonzero byte at end of stream
-            int position = chunkSize - 1;
+            var position = chunkSize - 1;
             while (position >= 0 && chunkData[position] == 0)
             {
                 position--;
@@ -289,7 +288,7 @@ public class GMImage
         ArgumentNullException.ThrowIfNull(reader);
 
         // Determine type of image by reading the first 8 bytes
-        long startAddress = reader.Position;
+        var startAddress = reader.Position;
         Span<byte> header = stackalloc byte[8];
         reader.Stream.ReadExactly(header);
 
@@ -301,18 +300,18 @@ public class GMImage
             while (true)
             {
                 // PNG is big endian, so swap endianness here manually
-                uint len = reader.ReadUInt32();
+                var len = reader.ReadUInt32();
                 len = (len >> 16) | (len << 16);
                 len = ((len & 0xFF00FF00) >> 8) | ((len & 0x00FF00FF) << 8);
 
-                uint type = reader.ReadUInt32();
+                var type = reader.ReadUInt32();
                 reader.Position += len + 4;
                 if (type == 0x444e4549) // 0x444e4549 -> "IEND"
                     break;
             }
 
             // Calculate length, read entire image to byte array
-            long length = reader.Position - startAddress;
+            var length = reader.Position - startAddress;
             reader.Position = startAddress;
             return FromPng(reader.ReadBytes((int)length));
         }
@@ -324,8 +323,8 @@ public class GMImage
             reader.Position = startAddress + 8;
 
             // Read uncompressed data size, if it exists
-            int serializedUncompressedLength = -1;
-            int headerSize = 8;
+            var serializedUncompressedLength = -1;
+            var headerSize = 8;
             if (gm2022_5)
             {
                 serializedUncompressedLength = reader.ReadInt32();
@@ -333,12 +332,12 @@ public class GMImage
             }
 
             // Find compressed data length, by finding end of BZip2 stream
-            long endOfBZ2Stream = FindEndOfBZ2Stream(reader, reader.Position, maxEndOfStreamPosition);
-            int compressedLength = (int)(endOfBZ2Stream - (startAddress + headerSize));
+            var endOfBZ2Stream = FindEndOfBZ2Stream(reader, reader.Position, maxEndOfStreamPosition);
+            var compressedLength = (int)(endOfBZ2Stream - (startAddress + headerSize));
 
             // Get width/height of image from BZ2 header
-            int width = header[4] | (header[5] << 8);
-            int height = header[6] | (header[7] << 8);
+            var width = header[4] | (header[5] << 8);
+            var height = header[6] | (header[7] << 8);
 
             // Read entire image, *EXCLUDING BZ2 HEADER*, to byte array
             reader.Position = startAddress + headerSize;
@@ -349,7 +348,7 @@ public class GMImage
         if (header.StartsWith(MagicQoi))
         {
             // Read length of data
-            uint compressedLength = reader.ReadUInt32();
+            var compressedLength = reader.ReadUInt32();
 
             // Read entire image to byte array
             reader.Position = startAddress;
@@ -360,20 +359,20 @@ public class GMImage
         if (header.StartsWith(MagicDds))
         {
             // Size int skipped because 8 bytes were already read
-            uint flags = reader.ReadUInt32();
-            uint height = reader.ReadUInt32();
-            uint width = reader.ReadUInt32();
+            var flags = reader.ReadUInt32();
+            var height = reader.ReadUInt32();
+            var width = reader.ReadUInt32();
 
-            uint pitchOrLinearSize = reader.ReadUInt32();
+            var pitchOrLinearSize = reader.ReadUInt32();
 
             reader.Position += 4;
 
-            uint mipMapCount = reader.ReadUInt32();
+            var mipMapCount = reader.ReadUInt32();
 
             reader.Position += 48;
 
-            uint pixelFormatFlags = reader.ReadUInt32();
-            uint pixelFormatFourCC = reader.ReadUInt32();
+            var pixelFormatFlags = reader.ReadUInt32();
+            var pixelFormatFourCC = reader.ReadUInt32();
 
             // Skip to end of header
             reader.Position += 40;
@@ -386,7 +385,7 @@ public class GMImage
 
             // Check if that int is the size or pitch
             // DDSD_LINEARSIZE == 0x80000
-            int size = (int)(reader.Position - startAddress);
+            var size = (int)(reader.Position - startAddress);
             if ((flags & 0x80000) != 0)
                 size += (int)pitchOrLinearSize;
             else
@@ -398,26 +397,26 @@ public class GMImage
             if (mipMapCount > 0)
             {
                 // DXT1 == 0x31545844
-                int pixelSize = (pixelFormatFourCC == 0x31545844) ? 8 : 16;
+                var pixelSize = (pixelFormatFourCC == 0x31545844) ? 8 : 16;
 
-                int w = (int)width;
-                int h = (int)height;
+                var w = (int)width;
+                var h = (int)height;
 
                 // Starting at 1 because the mipmap count includes the main texture
-                for (int i = 1; i < mipMapCount; i++)
+                for (var i = 1; i < mipMapCount; i++)
                 {
                     w /= 2;
                     h /= 2;
                     if (w == 0) w = 1;
                     if (h == 0) h = 1;
-                    size += ((w + 3) / 4) * ((h + 3) / 4) * pixelSize;
+                    size += (w + 3) / 4 * ((h + 3) / 4) * pixelSize;
                 }
             }
 
             // Before reading data, check if our padding is correct (since we don't support the full DDS format...)
-            long paddingStartAddress = startAddress + size;
-            long paddingSize = maxEndOfStreamPosition - paddingStartAddress;
-            bool paddingError = false;
+            var paddingStartAddress = startAddress + size;
+            var paddingSize = maxEndOfStreamPosition - paddingStartAddress;
+            var paddingError = false;
             const int maxPaddingSize = 127;
             if (paddingSize > maxPaddingSize)
             {
@@ -430,7 +429,7 @@ public class GMImage
                 Span<byte> paddingData = stackalloc byte[maxPaddingSize];
                 reader.Position = paddingStartAddress;
                 reader.Stream.ReadExactly(paddingData[..(int)paddingSize]);
-                for (int i = 0; i < paddingSize; i++)
+                for (var i = 0; i < paddingSize; i++)
                 {
                     if (paddingData[i] != 0)
                     {
@@ -449,7 +448,7 @@ public class GMImage
 
             // Read entire data
             reader.Position = startAddress;
-            byte[] bytes = reader.ReadBytes(size);
+            var bytes = reader.ReadBytes(size);
 
             return FromDds(bytes);
         }
@@ -496,8 +495,8 @@ public class GMImage
         }
 
         // Calculate width/height from data
-        int width = BinaryPrimitives.ReadInt32BigEndian(span[16..20]);
-        int height = BinaryPrimitives.ReadInt32BigEndian(span[20..24]);
+        var width = BinaryPrimitives.ReadInt32BigEndian(span[16..20]);
+        var height = BinaryPrimitives.ReadInt32BigEndian(span[20..24]);
 
         // Ensure dimensions are valid
         if (width is < 0 or > MaxImageDimension)
@@ -584,8 +583,8 @@ public class GMImage
         ReadOnlySpan<byte> span = data.AsSpan();
 
         // Get height and width
-        int height = (int)BinaryPrimitives.ReadUInt32LittleEndian(span[12..16]);
-        int width = (int)BinaryPrimitives.ReadUInt32LittleEndian(span[16..20]);
+        var height = (int)BinaryPrimitives.ReadUInt32LittleEndian(span[12..16]);
+        var width = (int)BinaryPrimitives.ReadUInt32LittleEndian(span[16..20]);
 
         // Create wrapper image
         return new GMImage(ImageFormat.Dds, width, height, data);
@@ -640,6 +639,7 @@ public class GMImage
     /// </summary>
     public void SavePng(Stream stream)
     {
+        ArgumentNullException.ThrowIfNull(stream);
         switch (Format)
         {
             case ImageFormat.RawBgra:
@@ -660,7 +660,7 @@ public class GMImage
             case ImageFormat.Qoi:
                 {
                     // Convert to raw image data, and then save that to a PNG
-                    GMImage rawImage = QoiConverter.GetImageFromSpan(_data);
+                    var rawImage = QoiConverter.GetImageFromSpan(_data);
                     rawImage.SavePng(stream);
                     break;
                 }
@@ -705,7 +705,7 @@ public class GMImage
     /// </summary>
     /// <param name="format">Format to convert to</param>
     /// <param name="sharedStream">Reusable shared <see cref="MemoryStream"/> to be used when compressing with BZ2, as required.</param>
-    public GMImage ConvertToFormat(ImageFormat format, MemoryStream sharedStream = null)
+    public GMImage ConvertToFormat(ImageFormat format, MemoryStream? sharedStream = null)
     {
         return format switch
         {
@@ -749,17 +749,15 @@ public class GMImage
                 }
             case ImageFormat.Bz2Qoi:
                 {
-                    using (MemoryStream uncompressedData = new(GetInitialUncompressedBufferCapacity()))
+                    using MemoryStream uncompressedData = new(GetInitialUncompressedBufferCapacity());
+                    // Decompress BZ2 data
+                    using (MemoryStream compressedData = new(_data))
                     {
-                        // Decompress BZ2 data
-                        using (MemoryStream compressedData = new(_data))
-                        {
-                            BZip2.Decompress(compressedData, uncompressedData, false);
-                        }
-
-                        // Convert to raw image data
-                        return QoiConverter.GetImageFromSpan(uncompressedData.GetBuffer().AsSpan(0, (int)uncompressedData.Length));
+                        BZip2.Decompress(compressedData, uncompressedData, false);
                     }
+
+                    // Convert to raw image data
+                    return QoiConverter.GetImageFromSpan(uncompressedData.GetBuffer().AsSpan(0, (int)uncompressedData.Length));
                 }
             case ImageFormat.Unknown:
                 throw new InvalidOperationException("Cannot convert unknown image format to raw BGRA");
@@ -791,7 +789,7 @@ public class GMImage
             case ImageFormat.Qoi:
                 {
                     // Convert to raw image data, and then convert that to a PNG
-                    GMImage rawImage = QoiConverter.GetImageFromSpan(_data);
+                    var rawImage = QoiConverter.GetImageFromSpan(_data);
                     return rawImage.ConvertToPng();
                 }
             case ImageFormat.Bz2Qoi:
@@ -894,7 +892,7 @@ public class GMImage
     /// Returns the same or a new <see cref="GMImage"/>; the result of converting this image to <see cref="ImageFormat.Bz2Qoi"/> format.
     /// </summary>
     /// <param name="sharedStream">Shared <see cref="MemoryStream"/> to be reused for BZ2 compression, if required.</param>
-    public GMImage ConvertToBz2Qoi(MemoryStream sharedStream = null)
+    public GMImage ConvertToBz2Qoi(MemoryStream? sharedStream = null)
     {
         switch (Format)
         {
@@ -903,7 +901,7 @@ public class GMImage
             case ImageFormat.Dds:
                 {
                     // Encode image as QOI, first
-                    byte[] data = QoiConverter.GetArrayFromImage(this);
+                    var data = QoiConverter.GetArrayFromImage(this);
                     return CompressQoiData(Width, Height, data, sharedStream);
                 }
             case ImageFormat.Qoi:
@@ -933,7 +931,7 @@ public class GMImage
             return this;
         }
 
-        using MagickImage image = GetMagickImage();
+        using var image = GetMagickImage();
         image.Alpha(AlphaOption.Set);
         image.Format = MagickFormat.Dds;
         return new GMImage(ImageFormat.Dds, Width, Height, image.ToByteArray());
@@ -964,6 +962,7 @@ public class GMImage
     /// <param name="gm2022_5">True if using GameMaker 2022.5 format or above; false otherwise.</param>
     public void WriteToBinaryWriter(BinaryWriter writer, bool gm2022_5)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         switch (Format)
         {
             case ImageFormat.RawBgra:
@@ -1007,8 +1006,8 @@ public class GMImage
             return _data.AsSpan();
         }
 
-        int headerSize = gm2022_5 ? 12 : 8;
-        byte[] bytes = new byte[headerSize + _data.Length];
+        var headerSize = gm2022_5 ? 12 : 8;
+        var bytes = new byte[headerSize + _data.Length];
         MagicBz2Qoi.CopyTo(bytes);
         BinaryPrimitives.WriteInt16LittleEndian(bytes.AsSpan(4, 2), (short)Width);
         BinaryPrimitives.WriteInt16LittleEndian(bytes.AsSpan(6, 2), (short)Height);
@@ -1090,6 +1089,7 @@ public class GMImage
     /// </remarks>
     public static GMImage FromMagickImage(IMagickImage<byte> image)
     {
+        ArgumentNullException.ThrowIfNull(image);
         image.Format = MagickFormat.Bgra;
         image.Depth = 8;
         image.SetCompression(CompressionMethod.NoCompression);

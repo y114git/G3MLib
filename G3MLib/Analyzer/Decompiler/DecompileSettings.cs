@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
 namespace G3MLib.Analyzer.Decompiler;
@@ -17,40 +16,40 @@ public interface IDecompileSettings
     /// <summary>
     /// String used to indent, e.g. tabs or some amount of spaces generally.
     /// </summary>
-    public string IndentString { get; }
+    string IndentString { get; }
 
     /// <summary>
     /// If true, semicolons are emitted after statements that generally have them.
     /// If false, some statements may still use semicolons to prevent ambiguity.
     /// </summary>
-    public bool UseSemicolon { get; }
+    bool UseSemicolon { get; }
 
     /// <summary>
     /// If true, color constants are written in "#RRGGBB" notation, rather than the normal BGR ordering.
     /// Only applicable if "Constant.Color" is resolved as a macro type.
     /// </summary>
-    public bool UseCSSColors { get; }
+    bool UseCSSColors { get; }
 
     /// <summary>
     /// If true, decompiler warnings will be printed as comments in the code.
     /// </summary>
-    public bool PrintWarnings { get; }
+    bool PrintWarnings { get; }
 
     /// <summary>
     /// If true, macro declarations (such as enums) will be placed at the top of the code output, rather than the bottom.
     /// </summary>
-    public bool MacroDeclarationsAtTop { get; }
+    bool MacroDeclarationsAtTop { get; }
 
     /// <summary>
     /// If true, an empty line will be inserted after local variable declarations belonging to a block.
     /// </summary>
-    public bool EmptyLineAfterBlockLocals { get; }
+    bool EmptyLineAfterBlockLocals { get; }
 
     /// <summary>
     /// If true, an empty line will be inserted either before/after enum declarations,
     /// depending on if placed at the top or bottom of the code.
     /// </summary>
-    public bool EmptyLineAroundEnums { get; }
+    bool EmptyLineAroundEnums { get; }
 
     /// <summary>
     /// If true, empty lines will be inserted before and/or after branch statements, unless at the start/end of a block.
@@ -58,113 +57,113 @@ public interface IDecompileSettings
     /// <remarks>
     /// This applies to <c>if</c>/<c>else</c>, <c>switch</c>, <c>try</c>/<c>catch</c>/<c>finally</c>, as well as all loops.
     /// </remarks>
-    public bool EmptyLineAroundBranchStatements { get; }
+    bool EmptyLineAroundBranchStatements { get; }
 
     /// <summary>
     /// If true, empty lines will be inserted before case statements, unless at the start of a block.
     /// </summary>
-    public bool EmptyLineBeforeSwitchCases { get; }
+    bool EmptyLineBeforeSwitchCases { get; }
 
     /// <summary>
     /// If true, empty lines will be inserted after case statements, unless at the end of a block.
     /// </summary>
-    public bool EmptyLineAfterSwitchCases { get; }
+    bool EmptyLineAfterSwitchCases { get; }
 
     /// <summary>
     /// If true, empty lines will be inserted before and/or after function declarations, unless at the start/end of a block,
     /// or in an expression (with the exception of in the right side of assignment statements).
     /// </summary>
-    public bool EmptyLineAroundFunctionDeclarations { get; }
+    bool EmptyLineAroundFunctionDeclarations { get; }
 
     /// <summary>
     /// If true, empty lines will be inserted before and/or after static initialization blocks, unless at the start/end of a block.
     /// </summary>
-    public bool EmptyLineAroundStaticInitialization { get; }
+    bool EmptyLineAroundStaticInitialization { get; }
 
     /// <summary>
     /// If true, opening curly braces at the start of blocks will be placed on the same line as the
     /// current code, rather than on the next line.
     /// </summary>
-    public bool OpenBlockBraceOnSameLine { get; }
+    bool OpenBlockBraceOnSameLine { get; }
 
     /// <summary>
     /// If true, blocks with single-line contents in certain statements (e.g. if and loops) will have their braces removed.
     /// For if statements specifically, both the if and else branches must take a single line.
     /// </summary>
-    public bool RemoveSingleLineBlockBraces { get; }
+    bool RemoveSingleLineBlockBraces { get; }
 
     /// <summary>
     /// True if try/catch/finally statements should have their compiler-generated control flow cleaned up.
     /// This cleanup can occasionally be inaccurate to the code that actually executes, due to multiple compiler bugs.
     /// </summary>
-    public bool CleanupTry { get; }
+    bool CleanupTry { get; }
 
     /// <summary>
     /// True if empty if/else chains at the end of a loop body should be rewritten as continue statements, when possible.
     /// </summary>
-    public bool CleanupElseToContinue { get; }
+    bool CleanupElseToContinue { get; }
 
     /// <summary>
     /// True if GMLv2 default argument values in functions should be detected and cleaned up.
     /// </summary>
-    public bool CleanupDefaultArgumentValues { get; }
+    bool CleanupDefaultArgumentValues { get; }
 
     /// <summary>
     /// True if built-in array variables used without an array accessor should be rewritten as such,
     /// rather than using the compiler-generated array accessor at index 0.
     /// </summary>
-    public bool CleanupBuiltinArrayVariables { get; }
+    bool CleanupBuiltinArrayVariables { get; }
 
     /// <summary>
     /// True if canonical data structure getter and setter calls should be written with accessor syntax.
     /// </summary>
-    public bool CleanupDataStructureAccessors { get; }
+    bool CleanupDataStructureAccessors { get; }
 
     /// <summary>
     /// True if canonical <c>variable_struct_get</c> and <c>variable_struct_set</c> calls should be written with struct accessor syntax.
     /// </summary>
-    public bool CleanupStructVariableAccessors { get; }
+    bool CleanupStructVariableAccessors { get; }
 
     /// <summary>
     /// True if local variable declarations should be rewritten to be as readable as possible.
     /// </summary>
-    public bool CleanupLocalVarDeclarations { get; }
+    bool CleanupLocalVarDeclarations { get; }
 
     /// <summary>
     /// If true, the decompiler will make an attempt to rewrite calls to <tt>string</tt>/<tt>@@string@@</tt> as template strings,
     /// as it pertains to the game context and its GameMaker version.
     /// </summary>
-    public bool CleanupTemplateStrings { get; }
+    bool CleanupTemplateStrings { get; }
 
     /// <summary>
     /// If true, enum values that are detected in a code entry (including any unknown ones) will
     /// be given declarations at the top of the code.
     /// </summary>
-    public bool CreateEnumDeclarations { get; }
+    bool CreateEnumDeclarations { get; }
 
     /// <summary>
     /// Base type name for the enum representing all unknown enum values.
     /// Should be a valid enum name in GML, or <see langword="null"/> if the unknown enum should not be generated/used at all.
     /// </summary>
-    public string UnknownEnumName { get; }
+    string UnknownEnumName { get; }
 
     /// <summary>
     /// Format string for the values in the enum representing all unknown enum values.
     /// Should be a valid enum value name in GML.
     /// </summary>
-    public string UnknownEnumValuePattern { get; }
+    string UnknownEnumValuePattern { get; }
 
     /// <summary>
     /// Format string for any arguments with an unknown name, in GMLv2 functions.
     /// </summary>
-    public string UnknownArgumentNamePattern { get; }
+    string UnknownArgumentNamePattern { get; }
 
     /// <summary>
     /// Whether leftover data on the simulated VM stack will be allowed in decompilation output.
     /// If false, an exception is thrown when data is left over on the stack at the end of a fragment.
     /// If true, a warning is added to the decompile context.
     /// </summary>
-    public bool AllowLeftoverDataOnStack { get; }
+    bool AllowLeftoverDataOnStack { get; }
 
     /// <summary>
     /// Attempts to retrieve a predefined double value (such as <c>pi</c>), given its double form.
@@ -173,7 +172,7 @@ public interface IDecompileSettings
     /// <param name="result">The resulting value to be printed</param>
     /// <param name="isResultMultiPart">True if parentheses may be needed around the value when printed (due to spaces or operations)</param>
     /// <returns>True if a predefined double value is found; false otherwise.</returns>
-    public bool TryGetPredefinedDouble(double value, [MaybeNullWhen(false)] out string result, out bool isResultMultiPart);
+    bool TryGetPredefinedDouble(double value, [MaybeNullWhen(false)] out string result, out bool isResultMultiPart);
 }
 
 /// <summary>
@@ -185,16 +184,16 @@ public class DecompileSettings : IDecompileSettings
     public bool UseSemicolon { get; set; } = true;
     public bool UseCSSColors { get; set; } = true;
     public bool PrintWarnings { get; set; } = true;
-    public bool MacroDeclarationsAtTop { get; set; } = false;
+    public bool MacroDeclarationsAtTop { get; set; }
     public bool EmptyLineAfterBlockLocals { get; set; } = true;
     public bool EmptyLineAroundEnums { get; set; } = true;
-    public bool EmptyLineAroundBranchStatements { get; set; } = false;
-    public bool EmptyLineBeforeSwitchCases { get; set; } = false;
-    public bool EmptyLineAfterSwitchCases { get; set; } = false;
+    public bool EmptyLineAroundBranchStatements { get; set; }
+    public bool EmptyLineBeforeSwitchCases { get; set; }
+    public bool EmptyLineAfterSwitchCases { get; set; }
     public bool EmptyLineAroundFunctionDeclarations { get; set; } = true;
     public bool EmptyLineAroundStaticInitialization { get; set; } = true;
-    public bool OpenBlockBraceOnSameLine { get; set; } = false;
-    public bool RemoveSingleLineBlockBraces { get; set; } = false;
+    public bool OpenBlockBraceOnSameLine { get; set; }
+    public bool RemoveSingleLineBlockBraces { get; set; }
     public bool CleanupTry { get; set; } = true;
     public bool CleanupElseToContinue { get; set; } = true;
     public bool CleanupDefaultArgumentValues { get; set; } = true;

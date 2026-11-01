@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Compiler.Bytecode;
 using G3MLib.Analyzer.Compiler.Lexer;
 using G3MLib.Analyzer.Compiler.Parser;
@@ -40,8 +39,8 @@ internal sealed class ReturnNode(IToken? token, IASTNode returnValue) : IASTNode
         if (context.TryStatementContext is { HasFinally: true })
         {
             // Reserve block with enough space for all finally nodes
-            List<IASTNode> finallyNodes = context.CurrentScope.TryFinallyNodes;
-            BlockNode newBlock = BlockNode.CreateEmpty(NearbyToken, 2 + finallyNodes.Count);
+            var finallyNodes = context.CurrentScope.TryFinallyNodes;
+            var newBlock = BlockNode.CreateEmpty(NearbyToken, 2 + finallyNodes.Count);
 
             // Generate new local variable to store return value temporarily
             context.CurrentScope.DeclareLocal(VMConstants.TryCopyVariable);
@@ -49,7 +48,7 @@ internal sealed class ReturnNode(IToken? token, IASTNode returnValue) : IASTNode
 
             // Store return value, generate finally code, then return with stored value
             newBlock.Children.Add(new AssignNode(AssignNode.AssignKind.Normal, variable, ReturnValue));
-            for (int i = finallyNodes.Count - 1; i >= 0; i--)
+            for (var i = finallyNodes.Count - 1; i >= 0; i--)
             {
                 newBlock.Children.Add(finallyNodes[i].Duplicate(context));
             }

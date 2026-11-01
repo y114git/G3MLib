@@ -1,11 +1,7 @@
-using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using System.Threading;
 using G3MLib.DataFile.Util;
 
 namespace G3MLib.DataFile.Decompiler;
@@ -20,12 +16,14 @@ public class GameSpecificResolver
     /// <summary>
     /// Base app directory used for locating the "GameSpecificData" directory, which should be immediately inside.
     /// </summary>
-    public static string BaseDirectory { get; set; } = AppContext.BaseDirectory;
+    public static string BaseDirectory { get => _baseDirectory; set => _baseDirectory = value; }
+    private static volatile string _baseDirectory = AppContext.BaseDirectory;
 
     /// <summary>
     /// Assembly containing embedded game-specific data. When set, definitions and analyzer data are read from it instead of disk.
     /// </summary>
-    public static Assembly? EmbeddedDataAssembly { get; set; }
+    public static Assembly? EmbeddedDataAssembly { get => _embeddedDataAssembly; set => _embeddedDataAssembly = value; }
+    private static volatile Assembly? _embeddedDataAssembly;
 
     private enum ConditionResult
     {
@@ -36,14 +34,14 @@ public class GameSpecificResolver
 
     private static readonly Dictionary<string, Func<GameMakerData, string, ConditionResult>> _conditionEvaluators = new()
     {
-        ["Always"] = (GameMakerData _, string _) =>
+        ["Always"] = (_, _) =>
         {
             return ConditionResult.Accept;
         },
 
-        ["Name.Regex"] = (GameMakerData data, string value) =>
+        ["Name.Regex"] = (data, value) =>
         {
-            string name = data?.GeneralInfo?.Name?.Content;
+            var name = data?.GeneralInfo?.Name?.Content;
             if (name is null)
             {
                 return ConditionResult.Ignore;
@@ -54,15 +52,15 @@ public class GameSpecificResolver
                 : ConditionResult.Ignore;
         },
 
-        ["DisplayName.Regex"] = (GameMakerData data, string value) =>
+        ["DisplayName.Regex"] = (data, value) =>
         {
-            string displayName = data?.GeneralInfo?.DisplayName?.Content;
+            var displayName = data?.GeneralInfo?.DisplayName?.Content;
             if (displayName is null)
             {
                 return ConditionResult.Ignore;
             }
 
-            Match m = Regex.Match(displayName, value, RegexOptions.CultureInvariant, RegexTimeout);
+            var m = Regex.Match(displayName, value, RegexOptions.CultureInvariant, RegexTimeout);
             if (m.Success)
             {
                 return ConditionResult.Accept;
@@ -72,8 +70,8 @@ public class GameSpecificResolver
         },
     };
     private static readonly Lock _lock = new();
-    private static readonly List<GameSpecificDefinition> _definitions = new();
-    private static bool _loadedDefinitions = false;
+    private static readonly List<GameSpecificDefinition> _definitions = [];
+    private static bool _loadedDefinitions;
 
     public class GameSpecificCondition
     {
@@ -150,9 +148,10 @@ public class GameSpecificResolver
         /// </summary>
         public void Load(GameMakerData data)
         {
+            ArgumentNullException.ThrowIfNull(data);
             if (!string.IsNullOrEmpty(AnalyzerFilename))
             {
-                string? analyzerData = ReadGameSpecificDataFile("Analyzer", AnalyzerFilename);
+                var analyzerData = ReadGameSpecificDataFile("Analyzer", AnalyzerFilename);
                 if (analyzerData is not null)
                 {
                     data.GameSpecificRegistry.DeserializeFromJson(analyzerData);
@@ -172,7 +171,7 @@ public class GameSpecificResolver
             _loadedDefinitions = true;
             _definitions.Clear();
 
-            foreach (string definition in ReadGameSpecificDefinitionFiles())
+            foreach (var definition in ReadGameSpecificDefinitionFiles())
             {
                 _definitions.Add(JsonSerializer.Deserialize<GameSpecificDefinition>(definition));
             }
@@ -203,6 +202,7 @@ public class GameSpecificResolver
     /// </summary>
     public static void Initialize(GameMakerData data)
     {
+        ArgumentNullException.ThrowIfNull(data);
         // Ensure all definitions are loaded
         LoadDefinitions();
 
@@ -224,8 +224,8 @@ public class GameSpecificResolver
             return ReadEmbeddedDataFile(assembly, directory, fileName);
         }
 
-        string dataDirectory = Path.Join(BaseDirectory, "GameSpecificData", directory);
-        string? dataPath = Paths.TryJoinVerifyWithinDirectory(dataDirectory, fileName);
+        var dataDirectory = Path.Join(BaseDirectory, "GameSpecificData", directory);
+        var dataPath = Paths.TryJoinVerifyWithinDirectory(dataDirectory, fileName);
         return dataPath is not null && File.Exists(dataPath)
             ? File.ReadAllText(dataPath)
             : ReadEmbeddedDataFile(typeof(GameSpecificResolver).Assembly, directory, fileName);
@@ -235,20 +235,20 @@ public class GameSpecificResolver
     {
         if (EmbeddedDataAssembly is Assembly assembly)
         {
-            foreach (string definition in ReadEmbeddedDefinitionFiles(assembly))
+            foreach (var definition in ReadEmbeddedDefinitionFiles(assembly))
                 yield return definition;
             yield break;
         }
 
-        string directory = Path.Join(BaseDirectory, "GameSpecificData", "Definitions");
+        var directory = Path.Join(BaseDirectory, "GameSpecificData", "Definitions");
         if (!Directory.Exists(directory))
         {
-            foreach (string definition in ReadEmbeddedDefinitionFiles(typeof(GameSpecificResolver).Assembly))
+            foreach (var definition in ReadEmbeddedDefinitionFiles(typeof(GameSpecificResolver).Assembly))
                 yield return definition;
             yield break;
         }
 
-        foreach (string file in Directory.EnumerateFiles(directory, "*.json", SearchOption.TopDirectoryOnly))
+        foreach (var file in Directory.EnumerateFiles(directory, "*.json", SearchOption.TopDirectoryOnly))
         {
             yield return File.ReadAllText(file);
         }
@@ -256,21 +256,21 @@ public class GameSpecificResolver
 
     private static string? ReadEmbeddedDataFile(Assembly assembly, string directory, string fileName)
     {
-        string resourceSuffix = ".GameSpecificData." + directory + "." + fileName.Replace('/', '.').Replace('\\', '.');
-        string? resourceName = assembly.GetManifestResourceNames().FirstOrDefault(name => name.EndsWith(resourceSuffix, StringComparison.Ordinal));
+        var resourceSuffix = ".GameSpecificData." + directory + "." + fileName.Replace('/', '.').Replace('\\', '.');
+        var resourceName = assembly.GetManifestResourceNames().FirstOrDefault(name => name.EndsWith(resourceSuffix, StringComparison.Ordinal));
         return resourceName is null ? null : ReadEmbeddedResource(assembly, resourceName);
     }
 
     private static IEnumerable<string> ReadEmbeddedDefinitionFiles(Assembly assembly)
     {
         const string definitionPrefix = ".GameSpecificData.Definitions.";
-        foreach (string resourceName in assembly.GetManifestResourceNames().Where(name => name.Contains(definitionPrefix, StringComparison.Ordinal) && name.EndsWith(".json", StringComparison.Ordinal)))
+        foreach (var resourceName in assembly.GetManifestResourceNames().Where(name => name.Contains(definitionPrefix, StringComparison.Ordinal) && name.EndsWith(".json", StringComparison.Ordinal)))
             yield return ReadEmbeddedResource(assembly, resourceName);
     }
 
     private static string ReadEmbeddedResource(Assembly assembly, string resourceName)
     {
-        using Stream stream = assembly.GetManifestResourceStream(resourceName)!;
+        using var stream = assembly.GetManifestResourceStream(resourceName);
         using StreamReader reader = new(stream);
         return reader.ReadToEnd();
     }

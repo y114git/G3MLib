@@ -4,8 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System;
-using System.Collections.Generic;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -26,7 +24,7 @@ internal class IMacroTypeConverter(GameSpecificRegistry registry) : JsonConverte
         if (reader.TokenType == JsonTokenType.String)
         {
             // Read type name - access registry (or None to use none)
-            string typeName = reader.GetString() ?? throw new JsonException();
+            var typeName = reader.GetString() ?? throw new JsonException();
             if (typeName == "None")
             {
                 return NoneMacroType.ReusableInstance;
@@ -59,7 +57,7 @@ internal class IMacroTypeConverter(GameSpecificRegistry registry) : JsonConverte
             {
                 throw new JsonException();
             }
-            string? propertyName = reader.GetString();
+            var propertyName = reader.GetString();
             if (propertyName is not "MacroType")
             {
                 throw new JsonException();
@@ -145,7 +143,7 @@ internal static class MacroTypeJson
             throw new JsonException();
         }
 
-        JsonConverter<IMacroType> converter = (JsonConverter<IMacroType>)options.GetConverter(typeof(IMacroType));
+        var converter = (JsonConverter<IMacroType>)options.GetConverter(typeof(IMacroType));
         while (reader.Read())
         {
             if (reader.TokenType == JsonTokenType.EndObject)
@@ -157,7 +155,7 @@ internal static class MacroTypeJson
                 throw new JsonException();
             }
 
-            string name = reader.GetString() ?? throw new JsonException();
+            var name = reader.GetString() ?? throw new JsonException();
             reader.Read();
             define(name, converter.Read(ref reader, typeof(IMacroType), options));
         }

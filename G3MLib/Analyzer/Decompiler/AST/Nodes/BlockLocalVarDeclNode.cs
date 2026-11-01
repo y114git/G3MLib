@@ -4,8 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
-
 namespace G3MLib.Analyzer.Decompiler.AST;
 
 /// <summary>
@@ -37,11 +35,12 @@ public class BlockLocalVarDeclNode : IStatementNode
     /// <inheritdoc/>
     public void Print(ASTPrinter printer)
     {
-        List<string> localNames = printer.TopFragmentContext!.LocalVariableNamesList;
+        ArgumentNullException.ThrowIfNull(printer);
+        var localNames = printer.TopFragmentContext.LocalVariableNamesList;
         if (localNames.Count > 0)
         {
             printer.Write("var ");
-            for (int i = 0; i < localNames.Count; i++)
+            for (var i = 0; i < localNames.Count; i++)
             {
                 printer.Write(localNames[i]);
                 if (i != localNames.Count - 1)

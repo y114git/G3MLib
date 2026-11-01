@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Decompiler.AST;
 
 namespace G3MLib.Analyzer.Decompiler.ControlFlow;
@@ -22,11 +21,11 @@ internal sealed class ContinueNode(int address) : IControlFlowNode
 
     public List<IControlFlowNode> Successors { get; } = [];
 
-    public IControlFlowNode? Parent { get; set; } = null;
+    public IControlFlowNode? Parent { get; set; }
 
     public List<IControlFlowNode?> Children { get; } = [];
 
-    public bool Unreachable { get; set; } = false;
+    public bool Unreachable { get; set; }
 
     public override string ToString()
     {

@@ -22,7 +22,7 @@ internal static class TestUtil
     /// </summary>
     public static GMCode GetCode(string assembly, IGameContext? context = null)
     {
-        string[] lines = assembly.Split('\n');
+        var lines = assembly.Split('\n');
         return VMAssembly.ParseAssemblyFromLines(lines, context);
     }
 
@@ -55,20 +55,20 @@ internal static class TestUtil
     /// </summary>
     public static void EnsureNoRemainingJumps(DecompileContext ctx)
     {
-        List<Block> blocks = ctx.Blocks!;
-        List<BinaryBranch> branches = ctx.BinaryBranchNodes!;
+        var blocks = ctx.Blocks;
+        var branches = ctx.BinaryBranchNodes;
 
-        foreach (BinaryBranch bb in branches)
+        foreach (var bb in branches)
         {
-            int startIndex = ((Block)bb.Condition).BlockIndex;
-            int endAddress = bb.EndAddress;
-            for (int i = startIndex + 1; i < blocks.Count && blocks[i].StartAddress < endAddress; i++)
+            var startIndex = ((Block)bb.Condition).BlockIndex;
+            var endAddress = bb.EndAddress;
+            for (var i = startIndex + 1; i < blocks.Count && blocks[i].StartAddress < endAddress; i++)
             {
-                Block block = blocks[i];
+                var block = blocks[i];
                 if (block.Instructions is [.., { Kind: IGMInstruction.Opcode.Branch }] &&
                     block.Successors.Count >= 1 && block.Successors[0].StartAddress >= endAddress)
                 {
-                    throw new Exception("Found unprocessed break/continue");
+                    throw new InvalidOperationException("Found unprocessed break/continue");
                 }
             }
         }
@@ -81,7 +81,7 @@ internal static class TestUtil
     {
         gameContext ??= new();
         DecompileContext decompilerContext = new(gameContext, GetCode(asm, gameContext), decompileSettings);
-        string decompileResult = decompilerContext.DecompileToString().Trim();
+        var decompileResult = decompilerContext.DecompileToString().Trim();
         Assert.Equal(gml.Trim().ReplaceLineEndings("\n"), decompileResult);
         return decompilerContext;
     }
@@ -104,7 +104,7 @@ internal static class TestUtil
     public static void AssertTokens((string Text, Type Type)[] expected, List<IToken> tokens)
     {
         Assert.Equal(expected.Length, tokens.Count);
-        for (int i = 0; i < expected.Length; i++)
+        for (var i = 0; i < expected.Length; i++)
         {
             Assert.Equal(expected[i].Text.ReplaceLineEndings("\n"), tokens[i].ToString()?.ReplaceLineEndings("\n"));
             Assert.IsType(expected[i].Type, tokens[i]);
@@ -116,7 +116,7 @@ internal static class TestUtil
     /// </summary>
     public static ParseContext Parse(string code, GameContextMock? gameContext = null)
     {
-        LexContext lexContext = Lex(code, gameContext);
+        var lexContext = Lex(code, gameContext);
         ParseContext parseContext = new(lexContext.CompileContext, lexContext.Tokens);
         parseContext.Parse();
         return parseContext;
@@ -127,7 +127,7 @@ internal static class TestUtil
     /// </summary>
     public static ParseContext ParseAndPostProcess(string code, GameContextMock? gameContext = null)
     {
-        ParseContext parseContext = Parse(code, gameContext);
+        var parseContext = Parse(code, gameContext);
         parseContext.PostProcessTree();
         return parseContext;
     }
@@ -140,7 +140,7 @@ internal static class TestUtil
         // Compile code
         gameContext ??= new();
         string? globalScriptName = null;
-        CompileScriptKind scriptKind = CompileScriptKind.ObjectEvent;
+        var scriptKind = CompileScriptKind.ObjectEvent;
         if (isGlobalScript)
         {
             globalScriptName = "GlobalScriptMockName";
@@ -157,10 +157,10 @@ internal static class TestUtil
         }
 
         // Resolve FunctionEntry instances
-        int structCounter = 1;
-        int anonCounter = 1;
-        int scriptIndexCounter = 1;
-        foreach (FunctionEntry functionEntry in context.OutputFunctionEntries!)
+        var structCounter = 1;
+        var anonCounter = 1;
+        var scriptIndexCounter = 1;
+        foreach (var functionEntry in context.OutputFunctionEntries)
         {
             // Determine function name
             if (functionEntry is { FunctionName: string globalFuncName, DeclaredInRootScope: true })
@@ -168,7 +168,7 @@ internal static class TestUtil
                 // For global functions, declare them in global scope accordingly
                 if (isGlobalScript)
                 {
-                    string name = $"global_func_{globalFuncName}";
+                    var name = $"global_func_{globalFuncName}";
                     GMFunction actualFunction = new(name);
                     functionEntry.ResolveFunction(actualFunction, "unused for tests");
                     ((GlobalFunctions)gameContext.GlobalFunctions).DefineFunction(globalFuncName, actualFunction);
@@ -176,23 +176,23 @@ internal static class TestUtil
                 }
                 else
                 {
-                    string name = $"regular_func_{globalFuncName}";
+                    var name = $"regular_func_{globalFuncName}";
                     functionEntry.ResolveFunction(new GMFunction(name), "unused for tests");
                     gameContext.DefineMockAsset(AssetType.Script, scriptIndexCounter++, name);
                 }
             }
             else if (functionEntry.FunctionName is string regularFuncName)
             {
-                string name = $"regular_func_{regularFuncName}";
+                var name = $"regular_func_{regularFuncName}";
                 functionEntry.ResolveFunction(new GMFunction(name), "unused for tests");
                 gameContext.DefineMockAsset(AssetType.Script, scriptIndexCounter++, name);
             }
             else if (functionEntry.Kind == FunctionEntryKind.StructInstantiation)
             {
-                string structName = $"__struct__{structCounter++}";
+                var structName = $"__struct__{structCounter++}";
                 functionEntry.ResolveStructName(structName);
 
-                string name = $"struct_func_{structName}";
+                var name = $"struct_func_{structName}";
                 functionEntry.ResolveFunction(new GMFunction(name), "unused for tests");
                 gameContext.DefineMockAsset(AssetType.Script, scriptIndexCounter++, name);
             }
@@ -222,16 +222,16 @@ internal static class TestUtil
         }
 
         // Create code entries
-        GMCode rootEntry = new("root", new(context.OutputInstructions!.Count));
-        foreach (IGMInstruction instr in context.OutputInstructions!)
+        GMCode rootEntry = new("root", new(context.OutputInstructions.Count));
+        foreach (var instr in context.OutputInstructions)
         {
-            GMInstruction castInstr = (GMInstruction)instr;
+            var castInstr = (GMInstruction)instr;
             rootEntry.Instructions.Add(castInstr);
             rootEntry.Length += IGMInstruction.GetSize(castInstr);
         }
-        foreach (FunctionEntry func in context.OutputFunctionEntries!)
+        foreach (var func in context.OutputFunctionEntries)
         {
-            GMCode childEntry = new(func.Function!.Name.Content, rootEntry.Instructions)
+            GMCode childEntry = new(func.Function.Name.Content, rootEntry.Instructions)
             {
                 Parent = rootEntry,
                 StartOffset = func.BytecodeOffset,
@@ -251,17 +251,17 @@ internal static class TestUtil
     private static void AssertCodeSameAsAssembly(GMCode generated, string assembly, GameContextMock? gameContext = null)
     {
         // Generate comparison code
-        GMCode comparison = GetCode(assembly, gameContext);
+        var comparison = GetCode(assembly, gameContext);
 
         // Compare the instructions
-        for (int i = 0; i < comparison.InstructionCount; i++)
+        for (var i = 0; i < comparison.InstructionCount; i++)
         {
             if (i >= generated.InstructionCount)
             {
                 Assert.Equal(comparison.InstructionCount, generated.Instructions.Count);
             }
-            GMInstruction comparisonInstr = (GMInstruction)comparison.GetInstruction(i);
-            GMInstruction actualInstr = generated.Instructions[i];
+            var comparisonInstr = (GMInstruction)comparison.GetInstruction(i);
+            var actualInstr = generated.Instructions[i];
             Assert.Equal(comparisonInstr.Address, actualInstr.Address);
             Assert.Equal(comparisonInstr.Kind, actualInstr.Kind);
             Assert.Equal(comparisonInstr.Type1, actualInstr.Type1);
@@ -284,7 +284,7 @@ internal static class TestUtil
             Assert.Equal(comparisonInstr.ValueShort, actualInstr.ValueShort);
             if (comparisonInstr.ValueString is IGMString str)
             {
-                Assert.Equal(str.Content, actualInstr.ValueString!.Content);
+                Assert.Equal(str.Content, actualInstr.ValueString.Content);
             }
             else
             {
@@ -292,14 +292,14 @@ internal static class TestUtil
             }
             if (comparisonInstr.ResolvedVariable is IGMVariable variable)
             {
-                Assert.Equal(variable.Name.Content, actualInstr.ResolvedVariable!.Name.Content);
+                Assert.Equal(variable.Name.Content, actualInstr.ResolvedVariable.Name.Content);
 
                 // Self sometimes becomes builtin/stacktop for instructions, but not the actual variable itself
-                if (actualInstr.ResolvedVariable!.InstanceType != IGMInstruction.InstanceType.Self ||
+                if (actualInstr.ResolvedVariable.InstanceType != IGMInstruction.InstanceType.Self ||
                     variable.InstanceType is not (IGMInstruction.InstanceType.Builtin or
                                                   IGMInstruction.InstanceType.StackTop))
                 {
-                    Assert.Equal(variable.InstanceType, actualInstr.ResolvedVariable!.InstanceType);
+                    Assert.Equal(variable.InstanceType, actualInstr.ResolvedVariable.InstanceType);
                 }
             }
             else
@@ -308,7 +308,7 @@ internal static class TestUtil
             }
             if (comparisonInstr.ResolvedFunction is IGMFunction function)
             {
-                Assert.Equal(function.Name.Content, actualInstr.ResolvedFunction!.Name.Content);
+                Assert.Equal(function.Name.Content, actualInstr.ResolvedFunction.Name.Content);
             }
             else
             {
@@ -324,7 +324,7 @@ internal static class TestUtil
     public static CompileContext AssertBytecode(string code, string assembly, bool isGlobalScript = false, GameContextMock? gameContext = null)
     {
         // Generate compiled code
-        (GMCode generated, CompileContext compileContext) = CompileCode(code, isGlobalScript, gameContext);
+        (var generated, var compileContext) = CompileCode(code, isGlobalScript, gameContext);
 
         AssertCodeSameAsAssembly(generated, assembly, gameContext);
 
@@ -339,11 +339,11 @@ internal static class TestUtil
         gameContext ??= new();
 
         // Compile code
-        (GMCode generated, CompileContext compileContext) = CompileCode(code, isGlobalScript, gameContext);
+        (var generated, var compileContext) = CompileCode(code, isGlobalScript, gameContext);
 
         // Decompile generated code entry
         DecompileContext decompilerContext = new(gameContext, generated, decompileSettings);
-        string decompileResult = decompilerContext.DecompileToString();
+        var decompileResult = decompilerContext.DecompileToString();
 
         // Ensure code is identical
         Assert.Equal(code.Trim().ReplaceLineEndings("\n"), decompileResult.Trim());
@@ -359,11 +359,11 @@ internal static class TestUtil
         gameContext ??= new();
 
         // Compile code
-        (GMCode generated, CompileContext compileContext) = CompileCode(code, isGlobalScript, gameContext);
+        (var generated, var compileContext) = CompileCode(code, isGlobalScript, gameContext);
 
         // Decompile generated code entry
         DecompileContext decompilerContext = new(gameContext, generated, decompileSettings);
-        string decompileResult = decompilerContext.DecompileToString();
+        var decompileResult = decompilerContext.DecompileToString();
 
         // Ensure code is identical to expected decompilation
         Assert.Equal(expected.Trim().ReplaceLineEndings("\n"), decompileResult.Trim());
@@ -379,14 +379,14 @@ internal static class TestUtil
         gameContext ??= new();
 
         // Compile code
-        (GMCode generated, CompileContext compileContext) = CompileCode(code, isGlobalScript, gameContext);
+        (var generated, var compileContext) = CompileCode(code, isGlobalScript, gameContext);
 
         // Assert bytecode
         AssertCodeSameAsAssembly(generated, assembly);
 
         // Decompile generated code entry
         DecompileContext decompilerContext = new(gameContext, generated, decompileSettings);
-        string decompileResult = decompilerContext.DecompileToString();
+        var decompileResult = decompilerContext.DecompileToString();
 
         // Ensure code is identical to expected decompilation
         Assert.Equal(code.Trim().ReplaceLineEndings("\n"), decompileResult.Trim());
@@ -402,14 +402,14 @@ internal static class TestUtil
         gameContext ??= new();
 
         // Compile code
-        (GMCode generated, CompileContext compileContext) = CompileCode(code, isGlobalScript, gameContext);
+        (var generated, var compileContext) = CompileCode(code, isGlobalScript, gameContext);
 
         // Assert bytecode
         AssertCodeSameAsAssembly(generated, assembly);
 
         // Decompile generated code entry
         DecompileContext decompilerContext = new(gameContext, generated, decompileSettings);
-        string decompileResult = decompilerContext.DecompileToString();
+        var decompileResult = decompilerContext.DecompileToString();
 
         // Ensure code is identical to expected decompilation
         Assert.Equal(expected.Trim().ReplaceLineEndings("\n"), decompileResult.Trim());

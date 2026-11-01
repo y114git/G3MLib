@@ -14,7 +14,7 @@ public class VMAssembly_ParseInstructions
     [Fact]
     public void TestBasic()
     {
-        string text =
+        var text =
         """
         :[0]
 
@@ -123,10 +123,10 @@ public class VMAssembly_ParseInstructions
 
         :[end]
         """;
-        string[] lines = text.Split('\n');
+        var lines = text.Split('\n');
 
-        GMCode code = VMAssembly.ParseAssemblyFromLines(lines, null);
-        List<GMInstruction> list = code.Instructions;
+        var code = VMAssembly.ParseAssemblyFromLines(lines, null);
+        var list = code.Instructions;
 
         Assert.Equal(75, list.Count);
 
@@ -143,14 +143,14 @@ public class VMAssembly_ParseInstructions
         Assert.Equal(IGMInstruction.DataType.Variable, list[26].Type2);
         Assert.Equal(IGMInstruction.InstanceType.Self, list[26].InstType);
         Assert.Equal(IGMInstruction.VariableType.Normal, list[26].ReferenceVarType);
-        Assert.Equal("a", list[26].ResolvedVariable!.Name.Content);
+        Assert.Equal("a", list[26].ResolvedVariable.Name.Content);
 
         Assert.Equal(IGMInstruction.Opcode.Pop, list[29].Kind);
         Assert.Equal(IGMInstruction.DataType.Variable, list[29].Type1);
         Assert.Equal(IGMInstruction.DataType.Variable, list[29].Type2);
         Assert.Equal(IGMInstruction.InstanceType.Self, list[29].InstType);
         Assert.Equal(IGMInstruction.VariableType.StackTop, list[29].ReferenceVarType);
-        Assert.Equal("a", list[29].ResolvedVariable!.Name.Content);
+        Assert.Equal("a", list[29].ResolvedVariable.Name.Content);
 
         Assert.Equal(IGMInstruction.Opcode.Branch, list[41].Kind);
         Assert.Equal(-list[41].Address, list[41].BranchOffset);
@@ -160,31 +160,31 @@ public class VMAssembly_ParseInstructions
 
         Assert.Equal(IGMInstruction.Opcode.Push, list[56].Kind);
         Assert.Equal(IGMInstruction.DataType.String, list[56].Type1);
-        Assert.Equal("Test string!", list[56].ValueString!.Content);
+        Assert.Equal("Test string!", list[56].ValueString.Content);
 
         Assert.Equal(IGMInstruction.Opcode.Push, list[57].Kind);
         Assert.Equal(IGMInstruction.DataType.String, list[57].Type1);
-        Assert.Equal("\"Test\nescaped\nstring!\"", list[57].ValueString!.Content);
+        Assert.Equal("\"Test\nescaped\nstring!\"", list[57].ValueString.Content);
 
         Assert.Equal(IGMInstruction.Opcode.Push, list[72].Kind);
         Assert.Equal(IGMInstruction.DataType.Int32, list[72].Type1);
-        Assert.Equal("test_function_reference", list[72].ResolvedFunction!.Name.Content);
+        Assert.Equal("test_function_reference", list[72].ResolvedFunction.Name.Content);
 
         Assert.Equal(IGMInstruction.Opcode.Extended, list[73].Kind);
         Assert.Equal(IGMInstruction.ExtendedOpcode.PushReference, list[73].ExtKind);
         Assert.Equal(IGMInstruction.DataType.Int32, list[73].Type1);
         Assert.NotNull(list[73].ResolvedFunction);
-        Assert.Equal("test_function_reference", list[73].ResolvedFunction!.Name.Content);
+        Assert.Equal("test_function_reference", list[73].ResolvedFunction.Name.Content);
 
         Assert.Equal(IGMInstruction.Opcode.Push, list[74].Kind);
         Assert.Equal(IGMInstruction.DataType.Int32, list[74].Type1);
-        Assert.Equal("test_variable_reference", list[74].ResolvedVariable!.Name.Content);
+        Assert.Equal("test_variable_reference", list[74].ResolvedVariable.Name.Content);
     }
 
     [Fact]
     public void TestSubEntries()
     {
-        string text =
+        var text =
         """
         > test_root (locals=5)
         pushi.e 0
@@ -203,10 +203,10 @@ public class VMAssembly_ParseInstructions
         > test_sub_entry_no_params
 
         """;
-        string[] lines = text.Split('\n');
+        var lines = text.Split('\n');
 
-        GMCode code = VMAssembly.ParseAssemblyFromLines(lines, null, "test_root");
-        List<GMInstruction> list = code.Instructions;
+        var code = VMAssembly.ParseAssemblyFromLines(lines, null, "test_root");
+        var list = code.Instructions;
 
         Assert.Equal("test_root", code.Name.Content);
         Assert.Equal(3, code.Children.Count);

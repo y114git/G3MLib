@@ -7,7 +7,6 @@
 using G3MLib.Analyzer;
 using G3MLib.Analyzer.Decompiler;
 using G3MLib.Analyzer.Decompiler.ControlFlow;
-using G3MLib.Analyzer.Mock;
 
 namespace G3MLib.Tests;
 
@@ -16,7 +15,7 @@ public class Nullish_FindNullish
     [Fact]
     public void TestBasicExpression()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             push.v self.a
@@ -31,20 +30,20 @@ public class Nullish_FindNullish
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Nullish> nulls = Nullish.FindNullish(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var nulls = Nullish.FindNullish(ctx);
 
-        Assert.Single(nulls);
-        Assert.Equal(Nullish.NullishType.Expression, nulls[0].NullishKind);
+        var item = Assert.Single(nulls);
+        Assert.Equal(Nullish.NullishType.Expression, item.NullishKind);
         Assert.Equal([blocks[0]], nulls[0].Predecessors);
         Assert.Equal([blocks[2]], nulls[0].Successors);
         Assert.Equal([nulls[0]], blocks[0].Successors);
         Assert.Equal([nulls[0]], blocks[2].Predecessors);
         Assert.Equal(blocks[1], nulls[0].IfNullish);
         Assert.Empty(blocks[1].Predecessors);
-        Assert.Single(blocks[1].Successors);
-        Assert.IsType<EmptyNode>(blocks[1].Successors[0]);
+        var item_2 = Assert.Single(blocks[1].Successors);
+        Assert.IsType<EmptyNode>(item_2);
         Assert.True(blocks[0].Instructions is [{ Kind: IGMInstruction.Opcode.Push }]);
         Assert.True(blocks[1].Instructions is [{ Kind: IGMInstruction.Opcode.Push }]);
         Assert.Equal(nulls[0], blocks[1].Parent);
@@ -57,7 +56,7 @@ public class Nullish_FindNullish
     [Fact]
     public void TestBasicAssignment()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             push.v self.a
@@ -77,12 +76,12 @@ public class Nullish_FindNullish
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Nullish> nulls = Nullish.FindNullish(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var nulls = Nullish.FindNullish(ctx);
 
-        Assert.Single(nulls);
-        Assert.Equal(Nullish.NullishType.Assignment, nulls[0].NullishKind);
+        var item = Assert.Single(nulls);
+        Assert.Equal(Nullish.NullishType.Assignment, item.NullishKind);
         Assert.Equal([blocks[0]], nulls[0].Predecessors);
         Assert.Equal([blocks[2]], nulls[0].Successors);
         Assert.Equal([nulls[0]], blocks[0].Successors);
@@ -104,7 +103,7 @@ public class Nullish_FindNullish
     [Fact]
     public void TestChainExpression()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             push.v self.a
@@ -127,12 +126,12 @@ public class Nullish_FindNullish
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Nullish> nulls = Nullish.FindNullish(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var nulls = Nullish.FindNullish(ctx);
 
-        Nullish firstNull = nulls[1];
-        Nullish secondNull = nulls[0];
+        var firstNull = nulls[1];
+        var secondNull = nulls[0];
 
         Assert.Equal(2, nulls.Count);
         Assert.Equal(Nullish.NullishType.Expression, firstNull.NullishKind);
@@ -142,8 +141,8 @@ public class Nullish_FindNullish
         Assert.Equal([firstNull], blocks[2].Predecessors);
         Assert.Equal(blocks[1], firstNull.IfNullish);
         Assert.Empty(blocks[1].Predecessors);
-        Assert.Single(blocks[1].Successors);
-        Assert.IsType<EmptyNode>(blocks[1].Successors[0]);
+        var item = Assert.Single(blocks[1].Successors);
+        Assert.IsType<EmptyNode>(item);
         Assert.True(blocks[0].Instructions is [{ Kind: IGMInstruction.Opcode.Push }]);
         Assert.True(blocks[1].Instructions is [{ Kind: IGMInstruction.Opcode.Push }]);
         Assert.Equal(firstNull, blocks[1].Parent);
@@ -155,8 +154,8 @@ public class Nullish_FindNullish
         Assert.Equal([secondNull], blocks[4].Predecessors);
         Assert.Equal(blocks[3], secondNull.IfNullish);
         Assert.Empty(blocks[3].Predecessors);
-        Assert.Single(blocks[3].Successors);
-        Assert.IsType<EmptyNode>(blocks[3].Successors[0]);
+        var item_2 = Assert.Single(blocks[3].Successors);
+        Assert.IsType<EmptyNode>(item_2);
         Assert.Equal([secondNull], blocks[2].Successors);
         Assert.True(blocks[2].Instructions is []);
         Assert.True(blocks[3].Instructions is [{ Kind: IGMInstruction.Opcode.Push }]);
@@ -170,7 +169,7 @@ public class Nullish_FindNullish
     [Fact]
     public void TestCombined()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             push.v self.a
@@ -198,12 +197,12 @@ public class Nullish_FindNullish
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Nullish> nulls = Nullish.FindNullish(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var nulls = Nullish.FindNullish(ctx);
 
-        Nullish firstNull = nulls[1];
-        Nullish secondNull = nulls[0];
+        var firstNull = nulls[1];
+        var secondNull = nulls[0];
 
         Assert.Equal(2, nulls.Count);
         Assert.Equal(Nullish.NullishType.Assignment, firstNull.NullishKind);
@@ -226,8 +225,8 @@ public class Nullish_FindNullish
         Assert.Equal([secondNull], blocks[3].Predecessors);
         Assert.Equal(blocks[2], secondNull.IfNullish);
         Assert.Empty(blocks[2].Predecessors);
-        Assert.Single(blocks[2].Successors);
-        Assert.IsType<EmptyNode>(blocks[2].Successors[0]);
+        var item = Assert.Single(blocks[2].Successors);
+        Assert.IsType<EmptyNode>(item);
         Assert.True(blocks[2].Instructions is [{ Kind: IGMInstruction.Opcode.Push }]);
         Assert.True(blocks[3].Instructions is [{ Kind: IGMInstruction.Opcode.Pop }]);
         Assert.Equal(secondNull, blocks[2].Parent);
@@ -240,7 +239,7 @@ public class Nullish_FindNullish
     [Fact]
     public void TestInnerBranchAssignment()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             push.v self.a
@@ -271,12 +270,12 @@ public class Nullish_FindNullish
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Nullish> nulls = Nullish.FindNullish(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var nulls = Nullish.FindNullish(ctx);
 
-        Assert.Single(nulls);
-        Assert.Equal(Nullish.NullishType.Assignment, nulls[0].NullishKind);
+        var item = Assert.Single(nulls);
+        Assert.Equal(Nullish.NullishType.Assignment, item.NullishKind);
         Assert.Equal([blocks[0]], nulls[0].Predecessors);
         Assert.Equal([blocks[5]], nulls[0].Successors);
         Assert.Equal([nulls[0]], blocks[0].Successors);

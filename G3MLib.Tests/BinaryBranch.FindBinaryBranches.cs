@@ -6,7 +6,6 @@
 
 using G3MLib.Analyzer.Decompiler;
 using G3MLib.Analyzer.Decompiler.ControlFlow;
-using G3MLib.Analyzer.Mock;
 
 namespace G3MLib.Tests;
 
@@ -15,7 +14,7 @@ public class BinaryBranch_FindBinaryBranches
     [Fact]
     public void TestSingleIfEmpty()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             push.v self.a
@@ -26,14 +25,14 @@ public class BinaryBranch_FindBinaryBranches
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
 
-        Assert.Single(branches);
-        BinaryBranch b = branches[0];
+        var item = Assert.Single(branches);
+        var b = item;
         Assert.Equal([], b.Predecessors);
         Assert.Equal([blocks[1]], b.Successors);
         Assert.Equal(blocks[0], b.Condition);
@@ -51,7 +50,7 @@ public class BinaryBranch_FindBinaryBranches
     [Fact]
     public void TestSingleIf()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             push.v self.a
@@ -66,14 +65,14 @@ public class BinaryBranch_FindBinaryBranches
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
 
-        Assert.Single(branches);
-        BinaryBranch b = branches[0];
+        var item = Assert.Single(branches);
+        var b = item;
         Assert.Equal([], b.Predecessors);
         Assert.Equal([blocks[2]], b.Successors);
         Assert.Equal(blocks[0], b.Condition);
@@ -92,7 +91,7 @@ public class BinaryBranch_FindBinaryBranches
     [Fact]
     public void TestSingleIfElseEmpty()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             push.v self.a
@@ -106,14 +105,14 @@ public class BinaryBranch_FindBinaryBranches
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
 
-        Assert.Single(branches);
-        BinaryBranch b = branches[0];
+        var item = Assert.Single(branches);
+        var b = item;
         Assert.Equal([], b.Predecessors);
         Assert.Equal([blocks[2]], b.Successors);
         Assert.Equal(blocks[0], b.Condition);
@@ -136,7 +135,7 @@ public class BinaryBranch_FindBinaryBranches
     [Fact]
     public void TestSingleIfElse()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             push.v self.a
@@ -156,14 +155,14 @@ public class BinaryBranch_FindBinaryBranches
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
 
-        Assert.Single(branches);
-        BinaryBranch b = branches[0];
+        var item = Assert.Single(branches);
+        var b = item;
         Assert.Equal([], b.Predecessors);
         Assert.Equal([blocks[3]], b.Successors);
         Assert.Equal(blocks[0], b.Condition);
@@ -172,7 +171,7 @@ public class BinaryBranch_FindBinaryBranches
         Assert.Equal(blocks[2], b.False);
         Assert.Equal(blocks[2], b.Else);
         Assert.Empty(b.True.Predecessors);
-        Assert.Empty(b.Else!.Predecessors);
+        Assert.Empty(b.Else.Predecessors);
 
         Assert.Equal(2, blocks[1].Instructions.Count);
 
@@ -186,7 +185,7 @@ public class BinaryBranch_FindBinaryBranches
     [Fact]
     public void TestNestedIfEmpty()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             push.v self.a
@@ -202,15 +201,15 @@ public class BinaryBranch_FindBinaryBranches
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
 
         Assert.Equal(2, branches.Count);
-        BinaryBranch b0 = branches[0];
-        BinaryBranch b1 = branches[1];
+        var b0 = branches[0];
+        var b1 = branches[1];
 
         Assert.Equal([], b0.Predecessors);
         Assert.Equal([blocks[2]], b0.Successors);
@@ -238,7 +237,7 @@ public class BinaryBranch_FindBinaryBranches
     [Fact]
     public void TestNestedIf()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             push.v self.a
@@ -258,15 +257,15 @@ public class BinaryBranch_FindBinaryBranches
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
 
         Assert.Equal(2, branches.Count);
-        BinaryBranch b0 = branches[0];
-        BinaryBranch b1 = branches[1];
+        var b0 = branches[0];
+        var b1 = branches[1];
 
         Assert.Equal([], b0.Predecessors);
         Assert.Equal([blocks[3]], b0.Successors);
@@ -294,7 +293,7 @@ public class BinaryBranch_FindBinaryBranches
     [Fact]
     public void TestDoubleIf()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             push.v self.a
@@ -318,15 +317,15 @@ public class BinaryBranch_FindBinaryBranches
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
 
         Assert.Equal(2, branches.Count);
-        BinaryBranch b0 = branches[0];
-        BinaryBranch b1 = branches[1];
+        var b0 = branches[0];
+        var b1 = branches[1];
 
         Assert.Equal([], b0.Predecessors);
         Assert.Equal([b1], b0.Successors);
@@ -354,7 +353,7 @@ public class BinaryBranch_FindBinaryBranches
     [Fact]
     public void TestNestedIfElse()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             push.v self.a
@@ -396,16 +395,16 @@ public class BinaryBranch_FindBinaryBranches
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
 
         Assert.Equal(3, branches.Count);
-        BinaryBranch b0 = branches[0];
-        BinaryBranch b1 = branches[1];
-        BinaryBranch b2 = branches[2];
+        var b0 = branches[0];
+        var b1 = branches[1];
+        var b2 = branches[2];
 
         Assert.Equal([], b0.Predecessors);
         Assert.Equal([blocks[8]], b0.Successors);
@@ -414,7 +413,7 @@ public class BinaryBranch_FindBinaryBranches
         Assert.Equal(b2, b0.False);
         Assert.Equal(b2, b0.Else);
         Assert.Empty(b0.True.Predecessors);
-        Assert.Empty(b0.Else!.Predecessors);
+        Assert.Empty(b0.Else.Predecessors);
 
         Assert.Equal([], b1.Predecessors);
         Assert.Equal([blocks[4]], b1.Successors);
@@ -423,7 +422,7 @@ public class BinaryBranch_FindBinaryBranches
         Assert.Equal(blocks[3], b1.False);
         Assert.Equal(blocks[3], b1.Else);
         Assert.Empty(b1.True.Predecessors);
-        Assert.Empty(b1.Else!.Predecessors);
+        Assert.Empty(b1.Else.Predecessors);
 
         Assert.Equal([], b2.Predecessors);
         Assert.Equal([], b2.Successors);
@@ -432,7 +431,7 @@ public class BinaryBranch_FindBinaryBranches
         Assert.Equal(blocks[7], b2.False);
         Assert.Equal(blocks[7], b2.Else);
         Assert.Empty(b2.True.Predecessors);
-        Assert.Empty(b2.Else!.Predecessors);
+        Assert.Empty(b2.Else.Predecessors);
 
         Assert.Equal(2, blocks[2].Instructions.Count);
         Assert.Empty(blocks[4].Instructions);
@@ -448,7 +447,7 @@ public class BinaryBranch_FindBinaryBranches
     [Fact]
     public void TestNestedIfElseEmpty1()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             push.v self.a
@@ -467,15 +466,15 @@ public class BinaryBranch_FindBinaryBranches
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
 
         Assert.Equal(2, branches.Count);
-        BinaryBranch b0 = branches[0];
-        BinaryBranch b1 = branches[1];
+        var b0 = branches[0];
+        var b1 = branches[1];
 
         Assert.Equal([], b0.Predecessors);
         Assert.Equal([blocks[3]], b0.Successors);
@@ -506,7 +505,7 @@ public class BinaryBranch_FindBinaryBranches
     [Fact]
     public void TestNestedIfElseEmpty2()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             push.v self.a
@@ -536,16 +535,16 @@ public class BinaryBranch_FindBinaryBranches
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
 
         Assert.Equal(3, branches.Count);
-        BinaryBranch b0 = branches[0];
-        BinaryBranch b1 = branches[1];
-        BinaryBranch b2 = branches[2];
+        var b0 = branches[0];
+        var b1 = branches[1];
+        var b2 = branches[2];
 
         Assert.Equal([], b0.Predecessors);
         Assert.Equal([blocks[6]], b0.Successors);
@@ -554,7 +553,7 @@ public class BinaryBranch_FindBinaryBranches
         Assert.Equal(b2, b0.False);
         Assert.Equal(b2, b0.Else);
         Assert.Empty(b0.True.Predecessors);
-        Assert.Empty(b0.Else!.Predecessors);
+        Assert.Empty(b0.Else.Predecessors);
 
         Assert.Equal([], b1.Predecessors);
         Assert.Equal([blocks[3]], b1.Successors);
@@ -564,7 +563,7 @@ public class BinaryBranch_FindBinaryBranches
         Assert.Equal(blocks[3], b1.False);
         Assert.IsType<EmptyNode>(b1.Else);
         Assert.Empty(b1.True.Predecessors);
-        Assert.Empty(b1.Else!.Predecessors);
+        Assert.Empty(b1.Else.Predecessors);
 
         Assert.Equal([], b2.Predecessors);
         Assert.Equal([], b2.Successors);
@@ -573,7 +572,7 @@ public class BinaryBranch_FindBinaryBranches
         Assert.Equal(blocks[6], b2.False);
         Assert.IsType<EmptyNode>(b2.Else);
         Assert.Empty(b2.True.Predecessors);
-        Assert.Empty(b2.Else!.Predecessors);
+        Assert.Empty(b2.Else.Predecessors);
 
         Assert.Empty(blocks[2].Instructions);
         Assert.Empty(blocks[3].Instructions);
@@ -589,7 +588,7 @@ public class BinaryBranch_FindBinaryBranches
     [Fact]
     public void TestNestedIfElseEmpty3()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             push.v self.a
@@ -608,15 +607,15 @@ public class BinaryBranch_FindBinaryBranches
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
 
         Assert.Equal(2, branches.Count);
-        BinaryBranch b0 = branches[0];
-        BinaryBranch b1 = branches[1];
+        var b0 = branches[0];
+        var b1 = branches[1];
 
         Assert.Equal([], b0.Predecessors);
         Assert.Equal([blocks[3]], b0.Successors);
@@ -626,7 +625,7 @@ public class BinaryBranch_FindBinaryBranches
         Assert.Equal(b1, b0.False);
         Assert.Equal(b1, b0.Else);
         Assert.Empty(b0.True.Predecessors);
-        Assert.Empty(b0.Else!.Predecessors);
+        Assert.Empty(b0.Else.Predecessors);
 
         Assert.Equal([], b1.Predecessors);
         Assert.Equal([], b1.Successors);
@@ -648,7 +647,7 @@ public class BinaryBranch_FindBinaryBranches
     [Fact]
     public void TestNestedIfElseEmpty4()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             push.v self.a
@@ -671,15 +670,15 @@ public class BinaryBranch_FindBinaryBranches
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
 
         Assert.Equal(2, branches.Count);
-        BinaryBranch b0 = branches[0];
-        BinaryBranch b1 = branches[1];
+        var b0 = branches[0];
+        var b1 = branches[1];
 
         Assert.Equal([], b0.Predecessors);
         Assert.Equal([blocks[4]], b0.Successors);
@@ -711,7 +710,7 @@ public class BinaryBranch_FindBinaryBranches
     [Fact]
     public void TestIfExit()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             push.v self.a
@@ -725,21 +724,21 @@ public class BinaryBranch_FindBinaryBranches
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
 
-        Assert.Single(branches);
-        BinaryBranch b0 = branches[0];
+        var item = Assert.Single(branches);
+        var b0 = item;
 
         Assert.Equal([], b0.Predecessors);
         Assert.Equal([blocks[2]], b0.Successors);
         Assert.Equal(blocks[0], b0.Condition);
         Assert.Equal(blocks[1], b0.True);
-        Assert.Single(blocks[1].Successors);
-        Assert.IsType<ExitNode>(blocks[1].Successors[0]);
+        var item_2 = Assert.Single(blocks[1].Successors);
+        Assert.IsType<ExitNode>(item_2);
         Assert.Empty(blocks[1].Successors[0].Successors);
         Assert.Equal(blocks[2], b0.False);
         Assert.Null(b0.Else);
@@ -755,7 +754,7 @@ public class BinaryBranch_FindBinaryBranches
     [Fact]
     public void TestIfExitUnreachable()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             push.v self.a
@@ -772,24 +771,24 @@ public class BinaryBranch_FindBinaryBranches
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
 
-        Assert.Single(branches);
-        BinaryBranch b0 = branches[0];
+        var item = Assert.Single(branches);
+        var b0 = item;
 
         Assert.Equal([], b0.Predecessors);
         Assert.Equal([blocks[3]], b0.Successors);
         Assert.Equal(blocks[0], b0.Condition);
         Assert.Equal(blocks[1], b0.True);
-        Assert.Single(blocks[1].Successors);
-        Assert.IsType<ExitNode>(blocks[1].Successors[0]);
+        var item_2 = Assert.Single(blocks[1].Successors);
+        Assert.IsType<ExitNode>(item_2);
         Assert.Equal([blocks[2]], blocks[1].Successors[0].Successors);
-        Assert.Single(blocks[2].Successors);
-        Assert.IsType<ExitNode>(blocks[2].Successors[0]);
+        var item_3 = Assert.Single(blocks[2].Successors);
+        Assert.IsType<ExitNode>(item_3);
         Assert.Empty(blocks[2].Successors[0].Successors);
         Assert.Equal(blocks[3], b0.False);
         Assert.Null(b0.Else);
@@ -805,7 +804,7 @@ public class BinaryBranch_FindBinaryBranches
     [Fact]
     public void TestIfElseExit()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             push.v self.a
@@ -825,27 +824,27 @@ public class BinaryBranch_FindBinaryBranches
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
 
-        Assert.Single(branches);
-        BinaryBranch b0 = branches[0];
+        var item = Assert.Single(branches);
+        var b0 = item;
 
         Assert.Equal([], b0.Predecessors);
         Assert.Equal([blocks[4]], b0.Successors);
         Assert.Equal(blocks[0], b0.Condition);
         Assert.Equal(blocks[1], b0.True);
-        Assert.Single(blocks[1].Successors);
-        Assert.IsType<ExitNode>(blocks[1].Successors[0]);
+        var item_2 = Assert.Single(blocks[1].Successors);
+        Assert.IsType<ExitNode>(item_2);
         Assert.Equal([blocks[2]], blocks[1].Successors[0].Successors);
         Assert.Empty(blocks[2].Successors);
         Assert.Equal(blocks[3], b0.Else);
         Assert.Equal(blocks[3], b0.False);
         Assert.Empty(b0.True.Predecessors);
-        Assert.Empty(b0.Else!.Predecessors);
+        Assert.Empty(b0.Else.Predecessors);
 
         Assert.Empty(blocks[2].Instructions);
 
@@ -859,7 +858,7 @@ public class BinaryBranch_FindBinaryBranches
     [Fact]
     public void TestIfWith()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             pushi.e 1
@@ -879,17 +878,17 @@ public class BinaryBranch_FindBinaryBranches
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
 
-        Assert.Single(loops);
-        WithLoop loop0 = (WithLoop)loops[0];
+        var item = Assert.Single(loops);
+        var loop0 = (WithLoop)item;
 
-        Assert.Single(branches);
-        BinaryBranch b0 = branches[0];
+        var item_2 = Assert.Single(branches);
+        var b0 = item_2;
 
         Assert.Equal([], b0.Predecessors);
         Assert.Equal([blocks[4]], b0.Successors);
@@ -911,7 +910,7 @@ public class BinaryBranch_FindBinaryBranches
     [Fact]
     public void TestIfNestedIfThenExit()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             push.v self.b
@@ -930,23 +929,23 @@ public class BinaryBranch_FindBinaryBranches
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
 
         Assert.Equal(2, branches.Count);
-        BinaryBranch b0 = branches[0];
-        BinaryBranch b1 = branches[1];
+        var b0 = branches[0];
+        var b1 = branches[1];
 
         Assert.Equal([], b0.Predecessors);
         Assert.Equal([blocks[3]], b0.Successors);
         Assert.Equal(blocks[0], b0.Condition);
         Assert.Equal(b1, b0.True);
         Assert.Equal([blocks[2]], b1.Successors);
-        Assert.Single(blocks[2].Successors);
-        Assert.IsType<ExitNode>(blocks[2].Successors[0]);
+        var item = Assert.Single(blocks[2].Successors);
+        Assert.IsType<ExitNode>(item);
         Assert.Empty(blocks[2].Successors[0].Successors);
         Assert.Null(b0.Else);
         Assert.Equal(blocks[3], b0.False);

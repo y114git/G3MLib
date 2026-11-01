@@ -1,8 +1,6 @@
-using System;
-using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.IO;
-using System.Linq;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -22,12 +20,12 @@ public sealed partial class ProjectContext
     /// <summary>
     /// Name of the project.
     /// </summary>
-    public string Name { get => _mainOptions?.Name ?? "(unknown project name)"; }
+    public string Name => _mainOptions?.Name ?? "(unknown project name)";
 
     /// <summary>
     /// Project flags, denoting certain features that the project may use (including custom ones, which start with an underscore).
     /// </summary>
-    public List<string> Flags { get => _mainOptions?.Flags ?? []; }
+    public List<string> Flags => _mainOptions?.Flags ?? [];
 
     /// <summary>
     /// Whether script importing should be allowed on this project context.
@@ -50,12 +48,12 @@ public sealed partial class ProjectContext
     /// <summary>
     /// Current data file path associated with this project, for loading only, or <see langword="null"/> if none is assigned.
     /// </summary>
-    public string LoadDataPath { get; private set; } = null;
+    public string LoadDataPath { get; private set; }
 
     /// <summary>
     /// Current data file path to save to, when saving the game data (not the project itself), or <see langword="null"/> if none is assigned.
     /// </summary>
-    public string SaveDataPath { get; private set; } = null;
+    public string SaveDataPath { get; private set; }
 
     /// <summary>
     /// Path to the main data file for the game. Will be (or is at least intended to be) saved to.
@@ -71,7 +69,7 @@ public sealed partial class ProjectContext
     /// <summary>
     /// Whether this context has any unexported assets.
     /// </summary>
-    public bool HasUnexportedAssets { get => _assetsMarkedForExport.Count > 0; }
+    public bool HasUnexportedAssets => _assetsMarkedForExport.Count > 0;
 
     /// <summary>
     /// Event for when any assets are added to or removed from this project context.
@@ -90,7 +88,7 @@ public sealed partial class ProjectContext
     /// <summary>
     /// Current data context associated with this project, or <see langword="null"/> if none is assigned.
     /// </summary>
-    internal GameMakerData Data { get; private set; } = null;
+    internal GameMakerData Data { get; private set; }
 
     /// <summary>
     /// Lookup of asset paths that existed when loading on disk, by data name and asset type.
@@ -121,6 +119,7 @@ public sealed partial class ProjectContext
     internal static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
+        NewLine = "\n",
         AllowTrailingCommas = true,
         ReadCommentHandling = JsonCommentHandling.Skip,
         NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals,
@@ -133,11 +132,11 @@ public sealed partial class ProjectContext
     internal record struct AssetNameTypePair(string DataName, SerializableAssetType AssetType);
 
     // Main options of the project
-    private ProjectMainOptions _mainOptions = null;
+    private ProjectMainOptions? _mainOptions;
 
     // Hashset of all fully-qualified paths to project JSONs, for when importing sub-projects (to avoid infinite recursion).
     // This is shared with parent projects, if a sub-project.
-    private HashSet<string> _projectJsonPaths = null;
+    private HashSet<string>? _projectJsonPaths;
 
     // Lookup of asset paths that existed when loading on disk, by data name and asset type
     private readonly Dictionary<AssetNameTypePair, string> _assetDataNamesToPaths = new(128);
@@ -152,11 +151,11 @@ public sealed partial class ProjectContext
     private Dictionary<string, GameMakerString> _stringsByContent;
 
     // During project loading and saving *only*, this caches audio group data
-    private Dictionary<int, GameMakerData> _audioGroups = null;
+    private Dictionary<int, GameMakerData>? _audioGroups;
 
     // During project loading *only*, this holds a set of Filename strings on SerializableSound,
     // for duplicate detection (to catch this user error early)
-    private HashSet<string> _streamedSoundFilenames = null;
+    private HashSet<string>? _streamedSoundFilenames;
 
     /// <summary>
     /// Initializes a project context based on its existing main file path, as well as load/save directories.
@@ -170,7 +169,7 @@ public sealed partial class ProjectContext
         LoadDirectory = Path.GetFullPath(loadDirectory);
         SaveDirectory = Path.GetFullPath(saveDirectory);
         MainFilePath = Path.GetFullPath(mainFilePath);
-        MainDirectory = Path.GetDirectoryName(MainFilePath)!;
+        MainDirectory = Path.GetDirectoryName(MainFilePath);
     }
 
     /// <summary>
@@ -194,7 +193,7 @@ public sealed partial class ProjectContext
     {
         loadPath = Path.GetFullPath(loadPath);
         savePath = Path.GetFullPath(savePath);
-        return new ProjectContext(Path.GetDirectoryName(loadPath)!, Path.GetDirectoryName(savePath)!, mainFilePath)
+        return new ProjectContext(Path.GetDirectoryName(loadPath), Path.GetDirectoryName(savePath), mainFilePath)
         {
             LoadDataPath = loadPath,
             SaveDataPath = savePath
@@ -216,19 +215,19 @@ public sealed partial class ProjectContext
     /// </param>
     /// <exception cref="ProjectException">When a project-specific exception occurs</exception>
     public ProjectContext(GameMakerData currentData, string loadedDataPath, string savingDataPath, string mainFilePath,
-                          string newProjectName, Action<Action> mainThreadAction = null)
+                          string newProjectName, Action<Action>? mainThreadAction = null)
     {
         Data = currentData;
         LoadDataPath = Path.GetFullPath(loadedDataPath);
         SaveDataPath = Path.GetFullPath(savingDataPath);
-        LoadDirectory = Path.GetDirectoryName(LoadDataPath)!;
-        SaveDirectory = Path.GetDirectoryName(SaveDataPath)!;
+        LoadDirectory = Path.GetDirectoryName(LoadDataPath);
+        SaveDirectory = Path.GetDirectoryName(SaveDataPath);
         MainFilePath = Path.GetFullPath(mainFilePath);
         if (mainThreadAction is not null)
         {
             MainThreadAction = mainThreadAction;
         }
-        MainDirectory = Path.GetDirectoryName(MainFilePath)!;
+        MainDirectory = Path.GetDirectoryName(MainFilePath);
 
         // If the file already exists, we cannot overwrite it (give a friendly message)
         if (File.Exists(mainFilePath))
@@ -267,7 +266,7 @@ public sealed partial class ProjectContext
     /// an existing <see cref="IGameFileBackup"/> instance can be used to back up files.
     /// </param>
     /// <exception cref="ProjectException">When a project-specific exception occurs</exception>
-    public void Import(GameMakerData currentData = null, IGameFileBackup existingFileBackup = null, Action<Action> mainThreadAction = null)
+    public void Import(GameMakerData? currentData = null, IGameFileBackup? existingFileBackup = null, Action<Action>? mainThreadAction = null)
     {
         // Ensure project is imported
         if (_mainOptions is not null)
@@ -294,9 +293,10 @@ public sealed partial class ProjectContext
         {
             // Use already-loaded assets data file, if provided
             Data = currentData;
+            BaseFileMatchesRecord();
             VerifyGameVersion();
         }
-        else if (TryFindFileFromPathList(_mainOptions.AssetsDataFilePath, out string loadDataPath, out string saveDataPath))
+        else if (TryFindFileFromPathList(_mainOptions.AssetsDataFilePath, out var loadDataPath, out var saveDataPath))
         {
             // No data currently loaded - adjust load/save data file paths if a valid one is found.
             // Note that the load/save *directories* are unchanged.
@@ -333,13 +333,13 @@ public sealed partial class ProjectContext
                 {
                     // Data should be ready for loading now
                     LoadAssetsDataFile();
+                    BaseFileMatchesRecord();
                     VerifyGameVersion();
                 }
                 RunPreAssetImportScripts();
                 LoadProjectAssets();
             }
             RunPostImportScripts();
-            DeinitializeScripting();
             if (SaveDataPath is not null)
             {
                 FileBackup.BackupFile(SaveDataPath);
@@ -369,6 +369,7 @@ public sealed partial class ProjectContext
     /// <returns>If the asset was not marked for export previously, returns <see langword="true"/>; <see langword="false"/> otherwise.</returns>
     public bool MarkAssetForExport(IProjectAsset asset)
     {
+        ArgumentNullException.ThrowIfNull(asset);
         // First, check if asset is eligible for export
         if (!asset.ProjectExportable)
         {
@@ -455,6 +456,26 @@ public sealed partial class ProjectContext
     /// <exception cref="ProjectException">When a project-specific exception occurs</exception>
     public void Export(bool clearMarkedAssets)
     {
+        var previousCulture = CultureInfo.CurrentCulture;
+        CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
+        try
+        {
+            var lossy = _assetsMarkedForExport.Any(a => a is GameMakerGameObject or GameMakerRoom or GameMakerSprite);
+            ExportCore(clearMarkedAssets);
+            NormalizeProjectTextFiles();
+            if (lossy)
+            {
+                AddWarning(LayoutLimitsWarning);
+            }
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = previousCulture;
+        }
+    }
+
+    private void ExportCore(bool clearMarkedAssets)
+    {
         // Ensure project is imported
         if (_mainOptions is null)
         {
@@ -471,15 +492,15 @@ public sealed partial class ProjectContext
         _audioGroups = new(Data.AudioGroups?.Count ?? 4);
 
         // Before main asset export, ensure all code entries have source code - if they don't, use the decompiler to generate some
-        GlobalDecompileContext globalDecompileContext = null;
-        foreach (IProjectAsset asset in _assetsMarkedForExport)
+        GlobalDecompileContext? globalDecompileContext = null;
+        foreach (var asset in _assetsMarkedForExport)
         {
             if (asset is GameMakerCode code && !_codeSources.ContainsKey(code))
             {
                 globalDecompileContext ??= new(Data);
                 try
                 {
-                    string source = new DecompileContext(globalDecompileContext, code, Data.ToolInfo.DecompilerSettings).DecompileToString();
+                    var source = new DecompileContext(globalDecompileContext, code, Data.ToolInfo.DecompilerSettings).DecompileToString();
                     _codeSources[code] = source;
                 }
                 catch (Exception e)
@@ -502,7 +523,7 @@ public sealed partial class ProjectContext
         // Export all assets that are marked as such
         try
         {
-            foreach (IProjectAsset asset in _assetsMarkedForExport)
+            foreach (var asset in SortedMarkedAssets())
             {
                 // If the asset isn't exportable anymore, throw an exception
                 if (!asset.ProjectExportable)
@@ -511,12 +532,12 @@ public sealed partial class ProjectContext
                 }
 
                 // Generate serializable version of the asset
-                ISerializableProjectAsset serializableAsset = asset.GenerateSerializableProjectAsset(this);
+                var serializableAsset = asset.GenerateSerializableProjectAsset(this);
 
                 // Figure out a destination file path
                 string destinationFile;
-                if (_assetDataNamesToPaths.TryGetValue(new(serializableAsset.DataName, serializableAsset.AssetType), out string existingPath) &&
-                    (File.Exists(existingPath) || (asset is GameMakerCode && File.Exists(Path.ChangeExtension(existingPath, "gml")))))
+                if (_assetDataNamesToPaths.TryGetValue(new(serializableAsset.DataName, serializableAsset.AssetType), out var existingPath) &&
+                    (File.Exists(existingPath) || asset is GameMakerCode && File.Exists(Path.ChangeExtension(existingPath, "gml"))))
                 {
                     // Existing file path existed from project load, and the file still exists; use that again
                     destinationFile = existingPath;
@@ -524,7 +545,7 @@ public sealed partial class ProjectContext
                 else
                 {
                     // Generate new path
-                    string friendlyName = MakeValidFilenameIdentifier(serializableAsset.AssetType, serializableAsset.DataName);
+                    var friendlyName = MakeValidFilenameIdentifier(serializableAsset.AssetType, serializableAsset.DataName);
                     if (serializableAsset.IndividualDirectory)
                     {
                         // Asset needs its own directory
@@ -537,10 +558,10 @@ public sealed partial class ProjectContext
                     }
 
                     // If file already exists, add a suffix until there is no conflict
-                    int attempts = 0;
+                    var attempts = 0;
                     while (File.Exists(destinationFile) && attempts < 10)
                     {
-                        string directory = Path.GetDirectoryName(destinationFile);
+                        var directory = Path.GetDirectoryName(destinationFile);
                         destinationFile = Path.Join(directory, $"{friendlyName}_{attempts + 2}.json");
                         attempts++;
                     }
@@ -602,8 +623,8 @@ public sealed partial class ProjectContext
             MainThreadAction = MainThreadAction
         };
         List<KeyValuePair<GameMakerCode, string>> codeSourcePairs = [.. _codeSources];
-        codeSourcePairs.Sort((a, b) => (a.Key.Name?.Content ?? "").CompareTo(b.Key.Name?.Content ?? ""));
-        foreach ((GameMakerCode code, string source) in codeSourcePairs)
+        codeSourcePairs.Sort((a, b) => (a.Key.Name?.Content ?? "").CompareTo(b.Key.Name?.Content ?? "", StringComparison.Ordinal));
+        foreach ((var code, var source) in codeSourcePairs)
         {
             try
             {

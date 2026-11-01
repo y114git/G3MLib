@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using System.Text.Json;
 
 namespace G3MLib.Analyzer.Decompiler.GameSpecific.Json;
@@ -29,7 +28,7 @@ internal static class NamedArgumentResolverConverter
             {
                 throw new JsonException();
             }
-            string codeEntryName = reader.GetString() ?? throw new JsonException();
+            var codeEntryName = reader.GetString() ?? throw new JsonException();
 
             // Read name array
             reader.Read();

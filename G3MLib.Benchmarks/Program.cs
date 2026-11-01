@@ -13,18 +13,18 @@ using G3MLib.Modding.Merging;
 using G3MLib.Modding.Patching;
 using G3MLib.Modding.Resources;
 
-bool compare = args.Contains("--compare");
-bool full = args.Contains("--full") || compare;
-string[] paths = args.Where(arg => arg != "--full" && arg != "--compare").ToArray();
+var compare = args.Contains("--compare");
+var full = args.Contains("--full") || compare;
+string[] paths = [.. args.Where(arg => arg is not "--full" and not "--compare")];
 if (paths.Length == 0)
 {
     Console.Error.WriteLine("Usage: G3MLib.Benchmarks [--full | --compare] <data-file> [data-file ...]");
     return 1;
 }
 using var logScope = LogService.BeginScope(null, null, suppress: true);
-foreach (string inputPath in paths)
+foreach (var inputPath in paths)
 {
-    string path = Path.GetFullPath(inputPath);
+    var path = Path.GetFullPath(inputPath);
     using var data = Read(path);
     Console.WriteLine(JsonSerializer.Serialize(new { file = Path.GetFileName(path), bytes = new FileInfo(path).Length, runs = compare ? 7 : full ? 3 : 5 }));
     if (compare)
@@ -44,7 +44,7 @@ foreach (string inputPath in paths)
     await MeasureAsync("md5_async", async () => { await FileHash.ComputeMd5Async(path); });
     if (!full) continue;
 
-    string source = string.Join('\n', Enumerable.Range(0, 200).Select(i => $"var value{i} = {i} + 1;"));
+    var source = string.Join('\n', Enumerable.Range(0, 200).Select(i => $"var value{i} = {i} + 1;"));
     Measure("parse_gml", () =>
     {
         var context = new CompileContext(source, CompileScriptKind.ObjectEvent, null, new GameContextMock());
@@ -65,7 +65,7 @@ foreach (string inputPath in paths)
     }
     Measure("info_snapshot", () => G3MCacheService.BuildInfoSnapshot(path, data));
 
-    string directory = Path.Combine(Path.GetTempPath(), $"G3MLibBenchmarks-{Guid.NewGuid():N}");
+    var directory = Path.Combine(Path.GetTempPath(), $"G3MLibBenchmarks-{Guid.NewGuid():N}");
     Directory.CreateDirectory(directory);
     try
     {
@@ -83,20 +83,36 @@ foreach (string inputPath in paths)
         });
         Measure("cache_read", () => Check(G3MCacheService.TryReadDataCache(path, cache) != null, "Cache could not be read"));
         Measure("export_sprites", () => ResourceExportService.ExportSprites(data, Output("sprites")));
-        int expectedFrames = data.Sprites.Sum(sprite => sprite.Textures.Count(frame => frame.Texture != null));
-        int exportedFrames = Directory.Exists(Output("sprites"))
+        var expectedFrames = data.Sprites.Sum(sprite => sprite.Textures.Count(frame => frame.Texture != null));
+        var exportedFrames = Directory.Exists(Output("sprites"))
             ? Directory.GetFiles(Output("sprites"), "*.png", SearchOption.AllDirectories).Length : 0;
         Check(exportedFrames == expectedFrames, "Sprite frame export is incomplete");
         Console.WriteLine(JsonSerializer.Serialize(new { exportedFrames }));
+        Measure("reference_index_build", () => { var index = G3MLib.DataFile.References.ReferenceIndex.Build(data); Check(index != null, "Index was not built"); });
+        var referenceIndex = G3MLib.DataFile.References.ReferenceIndex.Build(data);
+        Measure("rename_100_sprites", () =>
+        {
+            var requests = data.Sprites.Take(100).Select(sprite => G3MLib.DataFile.References.RenameRequest.ForResource(sprite, sprite.Name.Content + "_bench")).ToList();
+            var plan = G3MLib.DataFile.References.RenameService.PlanRenames(data, requests, referenceIndex);
+            Check(plan.Conflicts.Count == 0, "Rename plan has conflicts");
+            G3MLib.DataFile.References.RenameService.Apply(plan).Undo();
+        });
+        Measure("repack_plan", () => new G3MLib.DataFile.Util.TexturePageRepacker(data).Plan(new G3MLib.DataFile.Util.RepackOptions()));
+        Measure("import_sprites", () =>
+        {
+            using var target = GameMakerData.CreateNew2026LTS();
+            Check(ResourceImportService.Import("Sprites", target, Path.Combine(Output("sprites"), "Sprites")), "Sprite import failed");
+            Check(target.Sprites.Count > 0, "No sprite was imported");
+        });
         if (data.Rooms.Count < 8) throw new InvalidOperationException("Full patch benchmarks require at least eight rooms.");
         var patches = new List<string>();
-        for (int i = 0; i < 8; i++)
+        for (var i = 0; i < 8; i++)
         {
             using var modified = Read(path);
             modified.Rooms[i].Width++;
-            string modifiedPath = Output($"modified-{i}.win");
+            var modifiedPath = Output($"modified-{i}.win");
             PatchInputService.WriteDataFile(modified, modifiedPath, path);
-            string patch = Output($"patch-{i}.g3mpatch");
+            var patch = Output($"patch-{i}.g3mpatch");
             var created = await PatchService.CreatePatchAsync(path, modifiedPath, patch);
             Check(created.Success, created.Error);
             patches.Add(patch);
@@ -106,13 +122,13 @@ foreach (string inputPath in paths)
         await MeasureAsync("patch_apply", async () => { var result = await PatchService.ApplyPatchAsync(path, patches[0], Output("applied.win")); Check(result.Success, result.Error); });
         foreach (var mode in new[] { DiffReportMode.Standard, DiffReportMode.Full })
             await MeasureAsync($"diff_{mode.ToString().ToLowerInvariant()}", async () => { var result = await DiffService.CompareAsync(path, Output("modified-0.win"), Output($"diff-{mode}.md"), mode); Check(result.Success, result.Error); });
-        foreach (int count in new[] { 2, 4, 8 })
-            await MeasureAsync($"merge_{count}", async () => { var result = await MergeService.MergePatchesAsync(path, patches.Take(count).ToList(), new MergeOptions { OutputPath = Output($"merged-{count}.g3mpatch") }); Check(result.Success, result.Error); });
+        foreach (var count in new[] { 2, 4, 8 })
+            await MeasureAsync($"merge_{count}", async () => { var result = await MergeService.MergePatchesAsync(path, [.. patches.Take(count)], new MergeOptions { OutputPath = Output($"merged-{count}.g3mpatch") }); Check(result.Success, result.Error); });
         await MeasureAsync("merge_apply_8", async () => { var result = await MergeService.MergePatchesAsync(path, patches, new MergeOptions { OutputPath = Output("merged.g3mpatch"), ApplyPath = Output("merged.win") }); Check(result.Success, result.Error); });
         using var applied = Read(Output("applied.win"));
         Check(applied.Rooms[0].Width == data.Rooms[0].Width + 1, "Applied room width differs");
         using var merged = Read(Output("merged.win"));
-        for (int i = 0; i < 8; i++) Check(merged.Rooms[i].Width == data.Rooms[i].Width + 1, "Merged room width differs");
+        for (var i = 0; i < 8; i++) Check(merged.Rooms[i].Width == data.Rooms[i].Width + 1, "Merged room width differs");
         Console.WriteLine(JsonSerializer.Serialize(new { validation = "patch and merge room changes match" }));
     }
     finally
@@ -137,12 +153,12 @@ async Task MeasureAsync(string operation, Func<Task> action)
     await action();
     var times = new double[full ? 3 : 5];
     var allocations = new long[times.Length];
-    for (int i = 0; i < times.Length; i++)
+    for (var i = 0; i < times.Length; i++)
     {
         GC.Collect();
         GC.WaitForPendingFinalizers();
         GC.Collect();
-        long allocatedBefore = GC.GetTotalAllocatedBytes(true);
+        var allocatedBefore = GC.GetTotalAllocatedBytes(true);
         var timer = Stopwatch.StartNew();
         await action();
         timer.Stop();

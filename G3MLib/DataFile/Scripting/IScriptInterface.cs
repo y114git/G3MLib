@@ -1,9 +1,4 @@
-using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using G3MLib.Analyzer.Decompiler;
 using G3MLib.DataFile.Decompiler;
 using G3MLib.DataFile.Models;
@@ -28,7 +23,7 @@ public class ScriptException : Exception
     /// <summary>
     /// Initializes a new instance of the ScriptException class with its message string set to <paramref name="msg"/>.
     /// </summary>
-    /// <param name="msg">A <see cref="String"/> that describes the error. The content of <paramref name="msg"/> is intended to be understood by humans.</param>
+    /// <param name="msg">A <see cref="string"/> that describes the error. The content of <paramref name="msg"/> is intended to be understood by humans.</param>
     public ScriptException(string msg) : base(msg)
     {
     }
@@ -51,7 +46,7 @@ public class ScriptCancelledException : ScriptException
     /// <summary>
     /// Initializes a new instance of the ScriptCancelledException class with its message string set to <paramref name="msg"/>.
     /// </summary>
-    /// <param name="msg">A <see cref="String"/> that describes the error. The content of <paramref name="msg"/> is intended to be understood by humans.</param>
+    /// <param name="msg">A <see cref="string"/> that describes the error. The content of <paramref name="msg"/> is intended to be understood by humans.</param>
     public ScriptCancelledException(string msg) : base(msg)
     {
     }
@@ -104,7 +99,7 @@ public interface IScriptInterface
     bool ScriptExecutionSuccess { get; }
 
     /// <summary>
-    /// Error message of the last executed script. Will be <c>""</c> (<see cref="String.Empty"/>) if no error occurred.
+    /// Error message of the last executed script. Will be <c>""</c> (<see cref="string.Empty"/>) if no error occurred.
     /// </summary>
     string ScriptErrorMessage { get; }
 
@@ -216,7 +211,7 @@ public interface IScriptInterface
     /// <returns>Decompiled text as a <see cref="string"/>.</returns>
     /// <remarks>This will return a string, even if the decompilation failed! Usually commented out and featuring
     /// <c>DECOMPILER FAILED!</c> .</remarks>
-    string GetDecompiledText(string codeName, GlobalDecompileContext context = null, IDecompileSettings settings = null);
+    string GetDecompiledText(string codeName, GlobalDecompileContext? context = null, IDecompileSettings? settings = null);
 
     /// <summary>
     /// Get the decompiled text from an <see cref="GameMakerCode"/> object.
@@ -227,7 +222,7 @@ public interface IScriptInterface
     /// <returns>Decompiled text as a <see cref="string"/>.</returns>
     /// <remarks>This will return a string, even if the decompilation failed! Usually commented out and featuring
     /// <c>DECOMPILER FAILED!</c> .</remarks>
-    string GetDecompiledText(GameMakerCode code, GlobalDecompileContext context = null, IDecompileSettings settings = null);
+    string GetDecompiledText(GameMakerCode code, GlobalDecompileContext? context = null, IDecompileSettings? settings = null);
 
     /// <summary>
     ///  Get the disassembly from a code entry (like <c>gml_Script_moveTo</c>).
@@ -255,15 +250,15 @@ public interface IScriptInterface
     /// <returns>A <see cref="bool"/> that indicates whether the files are identical or not.</returns>
     bool AreFilesIdentical(string file1, string file2)
     {
-        using FileStream fs1 = new FileStream(file1, FileMode.Open, FileAccess.Read, FileShare.Read);
-        using FileStream fs2 = new FileStream(file2, FileMode.Open, FileAccess.Read, FileShare.Read);
+        using var fs1 = new FileStream(file1, FileMode.Open, FileAccess.Read, FileShare.Read);
+        using var fs2 = new FileStream(file2, FileMode.Open, FileAccess.Read, FileShare.Read);
 
         if (fs1.Length != fs2.Length) return false; // different size, files can't be the same
 
         while (true)
         {
-            int b1 = fs1.ReadByte();
-            int b2 = fs2.ReadByte();
+            var b1 = fs1.ReadByte();
+            var b2 = fs2.ReadByte();
             if (b1 != b2) return false; // different contents, files are not the same
             if (b1 == -1) break; // here both bytes are the same. Thus we only need to check if one is at end-of-file.
         }
@@ -318,7 +313,7 @@ public interface IScriptInterface
     /// <param name="showInDecompiledView">Whether to open the "Decompiled" view or the "Disassembly" view when clicking on an entry name.</param>
     /// <param name="failedList">A list of code entries that encountered an error while searching.</param>
     /// <returns>A task that represents the search output.</returns>
-    Task ClickableSearchOutput(string title, string query, int resultsCount, IOrderedEnumerable<KeyValuePair<string, List<(int lineNum, string codeLine)>>> resultsDict, bool showInDecompiledView, IOrderedEnumerable<string> failedList = null);
+    Task ClickableSearchOutput(string title, string query, int resultsCount, IOrderedEnumerable<KeyValuePair<string, List<(int lineNum, string codeLine)>>> resultsDict, bool showInDecompiledView, IOrderedEnumerable<string>? failedList = null);
 
     /// <summary>
     /// Shows search output with clickable text to the user.
@@ -331,7 +326,7 @@ public interface IScriptInterface
     /// <param name="showInDecompiledView">Whether to open the "Decompiled" view or the "Disassembly" view when clicking on an entry name.</param>
     /// <param name="failedList">A list of code entries that encountered an error while searching.</param>
     /// <returns>A task that represents the search output.</returns>
-    Task ClickableSearchOutput(string title, string query, int resultsCount, IDictionary<string, List<(int lineNum, string codeLine)>> resultsDict, bool showInDecompiledView, IEnumerable<string> failedList = null);
+    Task ClickableSearchOutput(string title, string query, int resultsCount, IDictionary<string, List<(int lineNum, string codeLine)>> resultsDict, bool showInDecompiledView, IEnumerable<string>? failedList = null);
 
     /// <summary>
     /// Sets whether or not the current script should show a message indicating that it completed.

@@ -4,8 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System;
-using System.Collections.Generic;
 using G3MLib.Analyzer.Decompiler.GameSpecific;
 
 namespace G3MLib.Analyzer.Decompiler.AST;
@@ -27,10 +25,10 @@ public class FunctionCallNode(IGMFunction function, List<IExpressionNode> argume
     public List<IExpressionNode> Arguments { get; } = arguments;
 
     /// <inheritdoc/>
-    public bool Duplicated { get; set; } = false;
+    public bool Duplicated { get; set; }
 
     /// <inheritdoc/>
-    public bool Group { get; set; } = false;
+    public bool Group { get; set; }
 
     /// <inheritdoc/>
     public IGMInstruction.DataType StackType { get; set; } = IGMInstruction.DataType.Variable;
@@ -45,7 +43,7 @@ public class FunctionCallNode(IGMFunction function, List<IExpressionNode> argume
     public bool EmptyLineAfter { get => false; set => _ = value; }
 
     /// <inheritdoc/>
-    public string FunctionName { get => Function.Name.Content; }
+    public string FunctionName => Function.Name.Content;
 
     /// <inheritdoc/>
     public string ConditionalTypeName => "FunctionCall";
@@ -57,7 +55,7 @@ public class FunctionCallNode(IGMFunction function, List<IExpressionNode> argume
     IExpressionNode IASTNode<IExpressionNode>.Clean(ASTCleaner cleaner)
     {
         // Clean up all arguments
-        for (int i = 0; i < Arguments.Count; i++)
+        for (var i = 0; i < Arguments.Count; i++)
         {
             Arguments[i] = Arguments[i].Clean(cleaner);
         }
@@ -87,7 +85,7 @@ public class FunctionCallNode(IGMFunction function, List<IExpressionNode> argume
                 return Arguments[0];
             case VMConstants.TemplateStringFunction:
                 {
-                    IGameContext context = cleaner.Context.GameContext;
+                    var context = cleaner.Context.GameContext;
                     if (context.UsingTemplateStrings && !context.UsingModernTemplateStrings)
                     {
                         return CleanupTemplateString(cleaner, false);
@@ -96,7 +94,7 @@ public class FunctionCallNode(IGMFunction function, List<IExpressionNode> argume
                 }
             case VMConstants.ModernTemplateStringFunction:
                 {
-                    IGameContext context = cleaner.Context.GameContext;
+                    var context = cleaner.Context.GameContext;
                     if (context.UsingTemplateStrings && context.UsingModernTemplateStrings)
                     {
                         return CleanupTemplateString(cleaner, true);
@@ -112,7 +110,7 @@ public class FunctionCallNode(IGMFunction function, List<IExpressionNode> argume
     IStatementNode IASTNode<IStatementNode>.Clean(ASTCleaner cleaner)
     {
         // Just clean up arguments here - special calls are only in expressions
-        for (int i = 0; i < Arguments.Count; i++)
+        for (var i = 0; i < Arguments.Count; i++)
         {
             Arguments[i] = Arguments[i].Clean(cleaner);
         }
@@ -139,7 +137,7 @@ public class FunctionCallNode(IGMFunction function, List<IExpressionNode> argume
     /// </summary>
     private IFunctionCallNode CleanupMacroTypes(ASTCleaner cleaner)
     {
-        string functionName = Function.Name.Content;
+        var functionName = Function.Name.Content;
 
         if (functionName == VMConstants.ScriptExecuteFunction)
         {
@@ -199,9 +197,9 @@ public class FunctionCallNode(IGMFunction function, List<IExpressionNode> argume
         }
 
         // for each field, whether or not a placeholder exists
-        int nextExpectedFieldIndex = 0;
-        int maxExpectedFieldIndex = Arguments.Count - 2;
-        for (int i = 0; i < format.Length; i++)
+        var nextExpectedFieldIndex = 0;
+        var maxExpectedFieldIndex = Arguments.Count - 2;
+        for (var i = 0; i < format.Length; i++)
         {
             // Skip non-placeholder starting characters
             if (format[i] != '{')
@@ -211,18 +209,18 @@ public class FunctionCallNode(IGMFunction function, List<IExpressionNode> argume
 
             // If the next character is the same, it can be treated as an escape on non-modern versions, and
             // we probably just want to bail to preserve behavior... (e.g. if ported to other GM versions)
-            if (!isModern && (i + 1) < format.Length && format[i + 1] == '{')
+            if (!isModern && i + 1 < format.Length && format[i + 1] == '{')
             {
                 return this;
             }
 
             // Parse the placeholder (may not necessarily be valid)
-            int startIndex = i + 1;
-            int j = startIndex;
-            bool invalidCharacter = false;
+            var startIndex = i + 1;
+            var j = startIndex;
+            var invalidCharacter = false;
             while (j < format.Length && format[j] != '}')
             {
-                if (format[j] < '0' || format[j] > '9')
+                if (format[j] is < '0' or > '9')
                 {
                     invalidCharacter = true;
                     break;
@@ -233,8 +231,8 @@ public class FunctionCallNode(IGMFunction function, List<IExpressionNode> argume
             {
                 continue;
             }
-            ReadOnlySpan<char> placeholderNumberText = format.AsSpan()[startIndex..j];
-            if (!int.TryParse(placeholderNumberText, out int fieldIndex))
+            var placeholderNumberText = format.AsSpan()[startIndex..j];
+            if (!int.TryParse(placeholderNumberText, out var fieldIndex))
             {
                 continue;
             }
@@ -252,7 +250,7 @@ public class FunctionCallNode(IGMFunction function, List<IExpressionNode> argume
         }
 
         // If we didn't use exactly the number of expected indices, bail!
-        if (nextExpectedFieldIndex != (maxExpectedFieldIndex + 1))
+        if (nextExpectedFieldIndex != maxExpectedFieldIndex + 1)
         {
             return this;
         }
@@ -265,6 +263,7 @@ public class FunctionCallNode(IGMFunction function, List<IExpressionNode> argume
     /// <inheritdoc/>
     public void Print(ASTPrinter printer)
     {
+        ArgumentNullException.ThrowIfNull(printer);
         if (Group)
         {
             printer.Write('(');
@@ -290,6 +289,7 @@ public class FunctionCallNode(IGMFunction function, List<IExpressionNode> argume
     /// <inheritdoc/>
     public IMacroType? GetExpressionMacroType(ASTCleaner cleaner)
     {
+        ArgumentNullException.ThrowIfNull(cleaner);
         return cleaner.GlobalMacroResolver.ResolveReturnValueType(cleaner, Function.Name.Content);
     }
 
@@ -304,9 +304,9 @@ public class FunctionCallNode(IGMFunction function, List<IExpressionNode> argume
         // For choose(...), propagate type to all parameters
         if (Function.Name.Content == VMConstants.ChooseFunction)
         {
-            bool didAnything = false;
+            var didAnything = false;
 
-            for (int i = 0; i < Arguments.Count; i++)
+            for (var i = 0; i < Arguments.Count; i++)
             {
                 if (Arguments[i] is IMacroResolvableNode argResolvable &&
                     argResolvable.ResolveMacroType(cleaner, type) is IExpressionNode argResolved)

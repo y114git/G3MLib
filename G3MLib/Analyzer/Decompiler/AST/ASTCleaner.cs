@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Decompiler.GameSpecific;
 
 namespace G3MLib.Analyzer.Decompiler.AST;
@@ -22,12 +21,12 @@ public sealed class ASTCleaner(DecompileContext context)
     /// <summary>
     /// List of arguments passed into a struct fragment.
     /// </summary>
-    internal List<IExpressionNode>? StructArguments { get => TopFragmentContext!.StructArguments; set => TopFragmentContext!.StructArguments = value; }
+    internal List<IExpressionNode>? StructArguments { get => TopFragmentContext.StructArguments; set => TopFragmentContext.StructArguments = value; }
 
     /// <summary>
     /// Set of all local variables present in the current fragment.
     /// </summary>
-    internal HashSet<string> LocalVariableNames { get => TopFragmentContext!.LocalVariableNames; }
+    internal HashSet<string> LocalVariableNames => TopFragmentContext.LocalVariableNames;
 
     /// <summary>
     /// Stack used to manage fragment contexts.
@@ -54,19 +53,18 @@ public sealed class ASTCleaner(DecompileContext context)
     {
         get
         {
-            if (_macroInstanceIdOrObjectAsset is null)
+            if (field is null)
             {
                 if (!Context.GameContext.GameSpecificRegistry.TypeExists("Id.Instance") ||
                     !Context.GameContext.GameSpecificRegistry.TypeExists("Asset.Object"))
                 {
                     return null;
                 }
-                _macroInstanceIdOrObjectAsset = Context.GameContext.GameSpecificRegistry.FindTypeUnion(["Id.Instance", "Asset.Object"]);
+                field = Context.GameContext.GameSpecificRegistry.FindTypeUnion(["Id.Instance", "Asset.Object"]);
             }
-            return _macroInstanceIdOrObjectAsset;
+            return field;
         }
     }
-    private IMacroType? _macroInstanceIdOrObjectAsset = null;
 
     /// <summary>
     /// Pushes a context onto the fragment context stack.
@@ -83,7 +81,7 @@ public sealed class ASTCleaner(DecompileContext context)
     /// </summary>
     internal ASTFragmentContext PopFragmentContext()
     {
-        ASTFragmentContext popped = FragmentContextStack.Pop();
+        var popped = FragmentContextStack.Pop();
         if (FragmentContextStack.Count > 0)
         {
             TopFragmentContext = FragmentContextStack.Peek();

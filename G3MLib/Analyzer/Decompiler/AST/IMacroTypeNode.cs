@@ -16,5 +16,5 @@ public interface IMacroTypeNode
     /// <summary>
     /// Returns the macro type for this node as used in an expression, or <see langword="null"/> if none exists.
     /// </summary>
-    public IMacroType? GetExpressionMacroType(ASTCleaner cleaner);
+    IMacroType? GetExpressionMacroType(ASTCleaner cleaner);
 }

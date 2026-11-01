@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Compiler.Bytecode;
 using G3MLib.Analyzer.Compiler.Lexer;
 using G3MLib.Analyzer.Compiler.Parser;
@@ -133,7 +132,7 @@ internal sealed class IfNode : IASTNode
         context.ConvertDataType(DataType.Boolean);
 
         // Store initial last array owner ID
-        long initialLastArrayOwnerID = context.LastArrayOwnerID;
+        var initialLastArrayOwnerID = context.LastArrayOwnerID;
 
         // Jump based on condition
         SingleForwardBranchPatch conditionBranch = new(context, context.Emit(Opcode.BranchFalse));
@@ -142,7 +141,7 @@ internal sealed class IfNode : IASTNode
         TrueStatement.GenerateCode(context);
 
         // Store post-true last array owner ID
-        long postTrueLastArrayOwnerID = context.LastArrayOwnerID;
+        var postTrueLastArrayOwnerID = context.LastArrayOwnerID;
 
         // False statement, if present
         if (FalseStatement is not null)

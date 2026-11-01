@@ -1,8 +1,5 @@
-using System;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
-using System.Linq;
 using System.Runtime.CompilerServices;
 using G3MLib.DataFile.Project;
 using G3MLib.DataFile.Project.SerializableAssets;
@@ -143,14 +140,14 @@ public class GameMakerGameObject : GameMakerNamedResource, IProjectAsset, INotif
     /// <summary>
     /// The vertices used for a <see cref="CollisionShape"/> of type <see cref="CollisionShapeFlags.Custom"/>.
     /// </summary>
-    public GameMakerObservableList<GameMakerPhysicsVertex> PhysicsVertices { get; set; } = new();
+    public GameMakerObservableList<GameMakerPhysicsVertex> PhysicsVertices { get; set; } = [];
 
     #endregion
 
     /// <summary>
     /// All the events that this game object has.
     /// </summary>
-    public GameMakerPointerList<GameMakerPointerList<Event>> Events { get; set; } = new();
+    public GameMakerPointerList<GameMakerPointerList<Event>> Events { get; set; } = [];
 
     /// <inheritdoc />
     public event PropertyChangedEventHandler PropertyChanged;
@@ -158,7 +155,7 @@ public class GameMakerGameObject : GameMakerNamedResource, IProjectAsset, INotif
     /// <summary>
     /// Invoked whenever the effective value of any dependency property has been updated.
     /// </summary>
-    protected void OnPropertyChanged([CallerMemberName] string name = null)
+    protected void OnPropertyChanged([CallerMemberName] string? name = null)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
     }
@@ -169,13 +166,14 @@ public class GameMakerGameObject : GameMakerNamedResource, IProjectAsset, INotif
     public GameMakerGameObject()
     {
         Events.SetCapacity(EventTypeCount);
-        for (int i = 0; i < EventTypeCount; i++)
-            Events.InternalAdd(new GameMakerPointerList<Event>());
+        for (var i = 0; i < EventTypeCount; i++)
+            Events.InternalAdd([]);
     }
 
     /// <inheritdoc />
     public void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         writer.WriteGameMakerString(Name);
         writer.WriteGameMakerObject(_sprite);
         writer.Write(Visible);
@@ -207,7 +205,7 @@ public class GameMakerGameObject : GameMakerNamedResource, IProjectAsset, INotif
         writer.Write(Awake);
         writer.Write(Kinematic);
         // Need to write these manually because the count is unfortunately separated
-        foreach (GameMakerPhysicsVertex v in PhysicsVertices)
+        foreach (var v in PhysicsVertices)
         {
             v.Serialize(writer);
         }
@@ -218,6 +216,7 @@ public class GameMakerGameObject : GameMakerNamedResource, IProjectAsset, INotif
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         Name = reader.ReadGameMakerString();
         _sprite = reader.ReadGameMakerObject<GameMakerResourceById<GameMakerSprite, GameMakerChunkSPRT>>();
         Visible = reader.ReadBoolean();
@@ -229,14 +228,14 @@ public class GameMakerGameObject : GameMakerNamedResource, IProjectAsset, INotif
         Depth = reader.ReadInt32();
         Persistent = reader.ReadBoolean();
         _parentId = new GameMakerResourceById<GameMakerGameObject, GameMakerChunkOBJT>();
-        int parent = reader.ReadInt32();
+        var parent = reader.ReadInt32();
         if (parent == -100)
         {
             _parentId.UnserializeById(reader, -1);
         }
         else
         {
-            if (parent < 0 && parent != -1) // Technically can be -100 (undefined), -2 (other), or -1 (self). Other makes no sense here though
+            if (parent is < 0 and not -1) // Technically can be -100 (undefined), -2 (other), or -1 (self). Other makes no sense here though
                 throw new GameMakerSerializationException("Invalid value for parent - should be -100 or object id, got " + parent);
             _parentId.UnserializeById(reader, parent);
         }
@@ -249,18 +248,18 @@ public class GameMakerGameObject : GameMakerNamedResource, IProjectAsset, INotif
         Group = reader.ReadUInt32();
         LinearDamping = reader.ReadSingle();
         AngularDamping = reader.ReadSingle();
-        int physicsShapeVertexCount = reader.ReadInt32();
+        var physicsShapeVertexCount = reader.ReadInt32();
         if (physicsShapeVertexCount < 0)
             throw new IOException("Negative physics shape vertex count.");
         Friction = reader.ReadSingle();
         Awake = reader.ReadBoolean();
         Kinematic = reader.ReadBoolean();
         // Needs to be done manually because count is separated
-        if ((long)physicsShapeVertexCount * GameMakerPhysicsVertex.ChildObjectsSize > reader.Length - reader.Position)
+        if (physicsShapeVertexCount * GameMakerPhysicsVertex.ChildObjectsSize > reader.Length - reader.Position)
             throw new IOException("Physics shape vertex data exceeds the available input.");
         PhysicsVertices.Clear();
         PhysicsVertices.SetCapacity(physicsShapeVertexCount);
-        for (int i = 0; i < physicsShapeVertexCount; i++)
+        for (var i = 0; i < physicsShapeVertexCount; i++)
         {
             GameMakerPhysicsVertex v = new();
             v.Unserialize(reader);
@@ -271,12 +270,12 @@ public class GameMakerGameObject : GameMakerNamedResource, IProjectAsset, INotif
 
     private void FixBrokenEvents()
     {
-        foreach (GameMakerPointerList<Event> events in Events)
+        foreach (var events in Events)
         {
             if (events is null)
                 continue;
 
-            for (int i = events.Count - 1; i >= 0; i--)
+            for (var i = events.Count - 1; i >= 0; i--)
             {
                 if (events[i]?.Actions?.Count == 0)
                     events.RemoveAt(i);
@@ -287,6 +286,7 @@ public class GameMakerGameObject : GameMakerNamedResource, IProjectAsset, INotif
     /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
     public static uint UnserializeChildObjectCount(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         uint count = 0;
 
         if (reader.gameMakerData.IsVersionAtLeast(2022, 5) && !reader.gameMakerData.IsVersionAtLeast(2026, 1))
@@ -294,10 +294,10 @@ public class GameMakerGameObject : GameMakerNamedResource, IProjectAsset, INotif
         else
             reader.Position += 64;
 
-        int physicsShapeVertexCount = reader.ReadInt32();
+        var physicsShapeVertexCount = reader.ReadInt32();
         if (physicsShapeVertexCount < 0)
             throw new IOException("Negative physics shape vertex count.");
-        reader.Position += 12L + ((long)physicsShapeVertexCount * GameMakerPhysicsVertex.ChildObjectsSize);
+        reader.Position += 12L + physicsShapeVertexCount * GameMakerPhysicsVertex.ChildObjectsSize;
 
         count += 2 + 1 + GameMakerPointerList<GameMakerPointerList<Event>>.UnserializeChildObjectCount(reader);
 
@@ -318,13 +318,13 @@ public class GameMakerGameObject : GameMakerNamedResource, IProjectAsset, INotif
         ArgumentNullException.ThrowIfNull(data);
 
         // Under the given event type, find an event with the given subtype, or create a new one if none exists
-        int eventType = checked((int)type);
+        var eventType = checked((int)type);
         if ((uint)eventType >= Events.Count)
             throw new ArgumentOutOfRangeException(nameof(type));
 
-        GameMakerPointerList<Event> subEvents = Events[eventType] ??= new();
-        Event targetEvent = null;
-        foreach (Event ev in subEvents)
+        var subEvents = Events[eventType] ??= [];
+        Event? targetEvent = null;
+        foreach (var ev in subEvents)
         {
             if (ev?.EventSubtype == subtype)
             {
@@ -339,8 +339,8 @@ public class GameMakerGameObject : GameMakerNamedResource, IProjectAsset, INotif
         }
 
         // Find action for event, or create a new one if none exists
-        targetEvent.Actions ??= new();
-        EventAction targetAction = targetEvent.Actions.FirstOrDefault();
+        targetEvent.Actions ??= [];
+        var targetAction = targetEvent.Actions.FirstOrDefault();
         if (targetAction is null)
         {
             targetAction = new();
@@ -378,7 +378,7 @@ public class GameMakerGameObject : GameMakerNamedResource, IProjectAsset, INotif
     /// <returns>New or existing code entry corresponding to the event.</returns>
     public GameMakerCode EventHandlerFor(EventType type, EventSubtypeKey subtype, GameMakerData data)
     {
-        if (type != EventType.Keyboard && type != EventType.KeyPress && type != EventType.KeyRelease)
+        if (type is not EventType.Keyboard and not EventType.KeyPress and not EventType.KeyRelease)
             throw new InvalidOperationException();
         return EventHandlerFor(type, (uint)subtype, data);
     }
@@ -445,7 +445,7 @@ public class GameMakerGameObject : GameMakerNamedResource, IProjectAsset, INotif
     /// </summary>
     public IEnumerable<GameMakerGameObject> FindChildren(GameMakerData data)
     {
-        foreach (GameMakerGameObject gameObject in data?.GameObjects ?? Enumerable.Empty<GameMakerGameObject>())
+        foreach (var gameObject in data?.GameObjects ?? Enumerable.Empty<GameMakerGameObject>())
         {
             if (gameObject?._parentId.Resource == this)
                 yield return gameObject;
@@ -466,7 +466,7 @@ public class GameMakerGameObject : GameMakerNamedResource, IProjectAsset, INotif
         _sprite.Dispose();
         _parentId.Dispose();
         _textureMaskId.Dispose();
-        PhysicsVertices = new();
+        PhysicsVertices = [];
         foreach (var ev in Events)
         {
             if (ev is null)
@@ -475,7 +475,7 @@ public class GameMakerGameObject : GameMakerNamedResource, IProjectAsset, INotif
                 subEv?.Dispose();
         }
         Name = null;
-        Events = new();
+        Events = [];
     }
 
     /// <inheritdoc/>
@@ -512,7 +512,7 @@ public class GameMakerGameObject : GameMakerNamedResource, IProjectAsset, INotif
         /// The available actions that will be performed for this event.
         /// </summary>
         /// <remarks>This seems to always have 1 entry, it would need testing if maybe the games using drag-and-drop code are different</remarks>
-        public GameMakerPointerList<EventAction> Actions { get; set; } = new GameMakerPointerList<EventAction>();
+        public GameMakerPointerList<EventAction> Actions { get; set; } = [];
 
         // Legacy script compatibility aliases.
         public EventSubtypeKey EventSubtypeKey
@@ -554,6 +554,7 @@ public class GameMakerGameObject : GameMakerNamedResource, IProjectAsset, INotif
         /// <inheritdoc />
         public void Serialize(GameMakerWriter writer)
         {
+            ArgumentNullException.ThrowIfNull(writer);
             writer.Write(EventSubtype);
             writer.WriteGameMakerObject(Actions);
         }
@@ -561,6 +562,7 @@ public class GameMakerGameObject : GameMakerNamedResource, IProjectAsset, INotif
         /// <inheritdoc />
         public void Unserialize(GameMakerReader reader)
         {
+            ArgumentNullException.ThrowIfNull(reader);
             EventSubtype = reader.ReadUInt32();
             Actions = reader.ReadGameMakerObject<GameMakerPointerList<EventAction>>();
         }
@@ -568,6 +570,7 @@ public class GameMakerGameObject : GameMakerNamedResource, IProjectAsset, INotif
         /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
         public static uint UnserializeChildObjectCount(GameMakerReader reader)
         {
+            ArgumentNullException.ThrowIfNull(reader);
             reader.Position += 4; // "EventSubtype"
 
             return 1 + GameMakerPointerList<EventAction>.UnserializeChildObjectCount(reader);
@@ -578,9 +581,9 @@ public class GameMakerGameObject : GameMakerNamedResource, IProjectAsset, INotif
         {
             GC.SuppressFinalize(this);
 
-            foreach (EventAction action in Actions)
+            foreach (var action in Actions)
                 action?.Dispose();
-            Actions = new();
+            Actions = [];
         }
     }
 
@@ -609,7 +612,7 @@ public class GameMakerGameObject : GameMakerNamedResource, IProjectAsset, INotif
         public bool UseApplyTo { get; set; } // always 1
         public uint ExeType { get; set; } // always 2
         public GameMakerString? ActionName { get; set; } // always ""
-        private GameMakerResourceById<GameMakerCode, GameMakerChunkCODE> _codeId = new GameMakerResourceById<GameMakerCode, GameMakerChunkCODE>();
+        private GameMakerResourceById<GameMakerCode, GameMakerChunkCODE> _codeId = new();
 
         /// <summary>
         /// The code entry that gets executed.
@@ -627,6 +630,7 @@ public class GameMakerGameObject : GameMakerNamedResource, IProjectAsset, INotif
         /// <inheritdoc />
         public void Serialize(GameMakerWriter writer)
         {
+            ArgumentNullException.ThrowIfNull(writer);
             writer.Write(LibID);
             writer.Write(ID);
             writer.Write(Kind);
@@ -646,6 +650,7 @@ public class GameMakerGameObject : GameMakerNamedResource, IProjectAsset, INotif
         /// <inheritdoc />
         public void Unserialize(GameMakerReader reader)
         {
+            ArgumentNullException.ThrowIfNull(reader);
             LibID = reader.ReadUInt32();
             ID = reader.ReadUInt32();
             Kind = reader.ReadUInt32();
@@ -694,6 +699,7 @@ public class GameMakerGameObject : GameMakerNamedResource, IProjectAsset, INotif
         /// <inheritdoc />
         public void Serialize(GameMakerWriter writer)
         {
+            ArgumentNullException.ThrowIfNull(writer);
             writer.Write(X);
             writer.Write(Y);
         }
@@ -701,6 +707,7 @@ public class GameMakerGameObject : GameMakerNamedResource, IProjectAsset, INotif
         /// <inheritdoc />
         public void Unserialize(GameMakerReader reader)
         {
+            ArgumentNullException.ThrowIfNull(reader);
             X = reader.ReadSingle();
             Y = reader.ReadSingle();
         }

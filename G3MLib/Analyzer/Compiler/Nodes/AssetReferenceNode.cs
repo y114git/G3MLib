@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Compiler.Bytecode;
 using G3MLib.Analyzer.Compiler.Lexer;
 using G3MLib.Analyzer.Compiler.Parser;
@@ -38,8 +37,8 @@ internal sealed class AssetReferenceNode : IConstantASTNode
     public IASTNode PostProcess(ParseContext context)
     {
         // If not using typed asset references, just convert to numeric form
-        IGameContext gameContext = context.CompileContext.GameContext;
-        if (!gameContext.UsingAssetReferences || (_token.IsRoomInstanceAsset && !gameContext.UsingRoomInstanceReferences))
+        var gameContext = context.CompileContext.GameContext;
+        if (!gameContext.UsingAssetReferences || _token.IsRoomInstanceAsset && !gameContext.UsingRoomInstanceReferences)
         {
             return new NumberNode(AssetId, _token);
         }

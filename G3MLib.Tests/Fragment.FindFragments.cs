@@ -6,7 +6,6 @@
 
 using G3MLib.Analyzer.Decompiler;
 using G3MLib.Analyzer.Decompiler.ControlFlow;
-using G3MLib.Analyzer.Mock;
 
 namespace G3MLib.Tests;
 
@@ -15,17 +14,17 @@ public class Fragment_FindFragments
     [Fact]
     public void TestSingle()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             pushi.e 123
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
 
-        Assert.Single(fragments);
-        Assert.Equal(2, fragments[0].Children.Count);
+        var item = Assert.Single(fragments);
+        Assert.Equal(2, item.Children.Count);
         Assert.Equal(blocks[0], fragments[0].Children[0]);
         Assert.Equal(blocks[1], fragments[0].Children[1]);
         Assert.Empty(fragments[0].Predecessors);
@@ -38,7 +37,7 @@ public class Fragment_FindFragments
     [Fact]
     public void TestDouble()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             pushi.e 0
@@ -56,8 +55,8 @@ public class Fragment_FindFragments
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
 
         Assert.Equal(2, fragments.Count);
 
@@ -71,10 +70,10 @@ public class Fragment_FindFragments
         Assert.Empty(fragments[0].Successors);
 
         Assert.Single(blocks[0].Instructions);
-        Assert.Single(fragments[1].Children);
-        Assert.Equal(blocks[1], fragments[1].Children[0]);
-        Assert.Single(blocks[1].Instructions);
-        Assert.Equal(1, blocks[1].Instructions[0].ValueShort);
+        var item = Assert.Single(fragments[1].Children);
+        Assert.Equal(blocks[1], item);
+        var item_2 = Assert.Single(blocks[1].Instructions);
+        Assert.Equal(1, item_2.ValueShort);
         Assert.Equal(blocks[0], fragments[1].Predecessors[0]);
         Assert.Equal(blocks[2], fragments[1].Successors[0]);
         Assert.Empty(blocks[1].Successors);
@@ -86,7 +85,7 @@ public class Fragment_FindFragments
     [Fact]
     public void TestNested()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             pushi.e 0
@@ -122,8 +121,8 @@ public class Fragment_FindFragments
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
 
         Assert.Equal(4, fragments.Count);
 

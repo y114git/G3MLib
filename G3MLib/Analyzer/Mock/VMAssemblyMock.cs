@@ -4,10 +4,7 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System;
-using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
 using System.Reflection;
 using System.Text;
 
@@ -29,38 +26,38 @@ public static class VMAssembly
     static VMAssembly()
     {
         // Normal opcodes
-        Type typeOpcode = typeof(IGMInstruction.Opcode);
+        var typeOpcode = typeof(IGMInstruction.Opcode);
         foreach (IGMInstruction.Opcode opcode in Enum.GetValues(typeOpcode))
         {
-            var field = typeOpcode.GetField(Enum.GetName(typeOpcode, opcode)!)!;
-            var info = field.GetCustomAttribute<IGMInstruction.OpcodeInfo>()!;
+            var field = typeOpcode.GetField(Enum.GetName(typeOpcode, opcode));
+            var info = field.GetCustomAttribute<IGMInstruction.OpcodeInfo>();
             StringToOpcode[info.Mnemonic] = opcode;
         }
 
         // Extended opcodes
-        Type typeExtType = typeof(IGMInstruction.ExtendedOpcode);
+        var typeExtType = typeof(IGMInstruction.ExtendedOpcode);
         foreach (IGMInstruction.ExtendedOpcode opcode in Enum.GetValues(typeExtType))
         {
-            var field = typeExtType.GetField(Enum.GetName(typeExtType, opcode)!)!;
-            var info = field.GetCustomAttribute<IGMInstruction.OpcodeInfo>()!;
+            var field = typeExtType.GetField(Enum.GetName(typeExtType, opcode));
+            var info = field.GetCustomAttribute<IGMInstruction.OpcodeInfo>();
             StringToOpcode[info.Mnemonic] = IGMInstruction.Opcode.Extended;
             StringToExtOpcode[info.Mnemonic] = opcode;
         }
 
         // Data types
-        Type typeDataType = typeof(IGMInstruction.DataType);
+        var typeDataType = typeof(IGMInstruction.DataType);
         foreach (IGMInstruction.DataType dataType in Enum.GetValues(typeDataType))
         {
-            var field = typeDataType.GetField(Enum.GetName(typeDataType, dataType)!)!;
-            var info = field.GetCustomAttribute<IGMInstruction.DataTypeInfo>()!;
+            var field = typeDataType.GetField(Enum.GetName(typeDataType, dataType));
+            var info = field.GetCustomAttribute<IGMInstruction.DataTypeInfo>();
             CharToDataType[info.Mnemonic] = dataType;
         }
 
         // Asset types
-        Type typeAssetType = typeof(AssetType);
+        var typeAssetType = typeof(AssetType);
         foreach (AssetType assetType in Enum.GetValues(typeAssetType))
         {
-            StringToAssetType[Enum.GetName(typeAssetType, assetType)!] = assetType;
+            StringToAssetType[Enum.GetName(typeAssetType, assetType)] = assetType;
         }
     }
 
@@ -69,6 +66,7 @@ public static class VMAssembly
     /// </summary>
     public static GMCode ParseAssemblyFromLines(IEnumerable<string> lines, IGameContext? context, string name = "root")
     {
+        ArgumentNullException.ThrowIfNull(lines);
         List<GMInstruction> instructions = [];
         GMCode root = new(name, instructions);
 
@@ -79,14 +77,14 @@ public static class VMAssembly
         HashSet<GMFunction> functions = new(new GMFunctionComparer());
         if (context is not null)
         {
-            foreach (GMFunction func in ((Decompiler.GlobalFunctions)context.GlobalFunctions).GetFunctions().Cast<GMFunction>())
+            foreach (var func in ((Decompiler.GlobalFunctions)context.GlobalFunctions).GetFunctions().Cast<GMFunction>())
             {
                 functions.Add(func);
             }
         }
 
-        int address = 0;
-        foreach (string line in lines)
+        var address = 0;
+        foreach (var line in lines)
         {
             // Totally empty line; ignore
             if (line.Length == 0)
@@ -103,10 +101,10 @@ public static class VMAssembly
             // Branch label
             if (line[0] == ':')
             {
-                string label = line[1..].Trim();
+                var label = line[1..].Trim();
                 if (label.Length < 3 || label[0] != '[' || label[^1] != ']')
                 {
-                    throw new Exception("Invalid branch header");
+                    throw new InvalidOperationException("Invalid branch header");
                 }
                 branchLabelAddresses[label[1..^1]] = address;
                 continue;
@@ -115,10 +113,10 @@ public static class VMAssembly
             // Sub-entry label
             if (line[0] == '>')
             {
-                string decl = line[1..].Trim();
+                var decl = line[1..].Trim();
 
                 // Split into label and parameters
-                int space = decl.IndexOf(' ');
+                var space = decl.IndexOf(' ', StringComparison.Ordinal);
                 string label, parameters;
                 if (space == -1)
                 {
@@ -132,8 +130,8 @@ public static class VMAssembly
                 }
 
                 // Parse (optional) parameters
-                int? localCount = ParseOptionalParameter(parameters, "locals");
-                int? argCount = ParseOptionalParameter(parameters, "args");
+                var localCount = ParseOptionalParameter(parameters, "locals");
+                var argCount = ParseOptionalParameter(parameters, "args");
 
                 if (address == 0 && label == name)
                 {
@@ -161,7 +159,7 @@ public static class VMAssembly
             }
 
             // Split line into constituent parts
-            string[] parts = line.Trim().Split(' ');
+            var parts = line.Trim().Split(' ');
 
             // Empty line; ignore
             if (parts.Length == 0 || string.IsNullOrEmpty(parts[0]))
@@ -169,13 +167,13 @@ public static class VMAssembly
                 continue;
             }
 
-            string[] opcodeParts = parts[0].Split('.');
+            var opcodeParts = parts[0].Split('.');
 
             // Parse opcode
-            string opcodeStr = opcodeParts[0].ToLowerInvariant();
-            if (!StringToOpcode.TryGetValue(opcodeStr, out IGMInstruction.Opcode opcode))
+            var opcodeStr = opcodeParts[0].ToLowerInvariant();
+            if (!StringToOpcode.TryGetValue(opcodeStr, out var opcode))
             {
-                throw new Exception($"Unexpected opcode \"{opcodeStr}\"");
+                throw new InvalidOperationException($"Unexpected opcode \"{opcodeStr}\"");
             }
 
             // Parse data types
@@ -185,29 +183,29 @@ public static class VMAssembly
             {
                 if (opcodeParts[1].Length != 1)
                 {
-                    throw new Exception("Expected single character for data type 1");
+                    throw new InvalidOperationException("Expected single character for data type 1");
                 }
-                char c = opcodeParts[1].ToLowerInvariant()[0];
+                var c = opcodeParts[1].ToLowerInvariant()[0];
                 if (!CharToDataType.TryGetValue(c, out type1))
                 {
-                    throw new Exception($"Unexpected data type \"{c}\"");
+                    throw new InvalidOperationException($"Unexpected data type \"{c}\"");
                 }
             }
             if (opcodeParts.Length >= 3)
             {
                 if (opcodeParts[2].Length != 1)
                 {
-                    throw new Exception("Expected single character for data type 2");
+                    throw new InvalidOperationException("Expected single character for data type 2");
                 }
-                char c = opcodeParts[2].ToLowerInvariant()[0];
+                var c = opcodeParts[2].ToLowerInvariant()[0];
                 if (!CharToDataType.TryGetValue(c, out type2))
                 {
-                    throw new Exception($"Unexpected data type \"{c}\"");
+                    throw new InvalidOperationException($"Unexpected data type \"{c}\"");
                 }
             }
             if (opcodeParts.Length >= 4)
             {
-                throw new Exception("Too many data types");
+                throw new InvalidOperationException("Too many data types");
             }
 
             // Construct mock instruction
@@ -227,17 +225,17 @@ public static class VMAssembly
                         // Parse comparison kind
                         if (parts.Length < 2)
                         {
-                            throw new Exception("Compare needs comparison kind parameter");
+                            throw new InvalidOperationException("Compare needs comparison kind parameter");
                         }
                         instr.ComparisonKind = parts[1].ToLowerInvariant() switch
                         {
-                            "lt" =>             IGMInstruction.ComparisonType.LesserThan,
-                            "leq" or "lte" =>   IGMInstruction.ComparisonType.LesserEqualThan,
-                            "eq" =>             IGMInstruction.ComparisonType.EqualTo,
-                            "neq" =>            IGMInstruction.ComparisonType.NotEqualTo,
-                            "geq" or "gte" =>   IGMInstruction.ComparisonType.GreaterEqualThan,
-                            "gt" =>             IGMInstruction.ComparisonType.GreaterThan,
-                            _ => throw new Exception("Unknown comparison kind")
+                            "lt" => IGMInstruction.ComparisonType.LesserThan,
+                            "leq" or "lte" => IGMInstruction.ComparisonType.LesserEqualThan,
+                            "eq" => IGMInstruction.ComparisonType.EqualTo,
+                            "neq" => IGMInstruction.ComparisonType.NotEqualTo,
+                            "geq" or "gte" => IGMInstruction.ComparisonType.GreaterEqualThan,
+                            "gt" => IGMInstruction.ComparisonType.GreaterThan,
+                            _ => throw new InvalidOperationException("Unknown comparison kind")
                         };
                     }
                     break;
@@ -245,16 +243,16 @@ public static class VMAssembly
                     {
                         if (parts.Length < 2)
                         {
-                            throw new Exception("Pop needs parameter");
+                            throw new InvalidOperationException("Pop needs parameter");
                         }
-                        string data = string.Join(' ', parts[1..]).Trim();
+                        var data = string.Join(' ', parts[1..]).Trim();
 
                         // Parse swap variant
                         if (instr.Type1 == IGMInstruction.DataType.Int16)
                         {
-                            if (!byte.TryParse(data, out byte popSwapSize) || popSwapSize < 5 || popSwapSize > 6)
+                            if (!byte.TryParse(data, out var popSwapSize) || popSwapSize < 5 || popSwapSize > 6)
                             {
-                                throw new Exception("Unexpected pop swap size");
+                                throw new InvalidOperationException("Unexpected pop swap size");
                             }
                             instr.PopSwapSize = popSwapSize;
                             break;
@@ -263,7 +261,7 @@ public static class VMAssembly
                         // Parse variable destination
                         if (!ParseVariableFromString(data, variables, out var variable, out var varType, out var instType))
                         {
-                            throw new Exception($"Failed to parse variable {data}");
+                            throw new InvalidOperationException($"Failed to parse variable {data}");
                         }
                         instr.ResolvedVariable = variable;
                         instr.ReferenceVarType = varType;
@@ -275,20 +273,20 @@ public static class VMAssembly
                         // Parse normal dup size
                         if (parts.Length < 2)
                         {
-                            throw new Exception("Duplicate needs size parameter");
+                            throw new InvalidOperationException("Duplicate needs size parameter");
                         }
-                        if (!byte.TryParse(parts[1], out byte dupSize))
+                        if (!byte.TryParse(parts[1], out var dupSize))
                         {
-                            throw new Exception("Failed to parse parameter");
+                            throw new InvalidOperationException("Failed to parse parameter");
                         }
                         instr.DuplicationSize = dupSize;
 
                         // Parse "swap" mode size, if parameter exists
                         if (parts.Length >= 3)
                         {
-                            if (!byte.TryParse(parts[2], out byte dupSize2))
+                            if (!byte.TryParse(parts[2], out var dupSize2))
                             {
-                                throw new Exception("Failed to parse parameter");
+                                throw new InvalidOperationException("Failed to parse parameter");
                             }
                             instr.DuplicationSize2 = dupSize2;
                         }
@@ -299,11 +297,11 @@ public static class VMAssembly
                         // Parse argument count
                         if (parts.Length < 2)
                         {
-                            throw new Exception("CallVariable needs size parameter");
+                            throw new InvalidOperationException("CallVariable needs size parameter");
                         }
-                        if (!int.TryParse(parts[1], out int argCount))
+                        if (!int.TryParse(parts[1], out var argCount))
                         {
-                            throw new Exception("Failed to parse parameter");
+                            throw new InvalidOperationException("Failed to parse parameter");
                         }
                         instr.ArgumentCount = argCount;
                     }
@@ -316,9 +314,9 @@ public static class VMAssembly
                     {
                         if (parts.Length < 2)
                         {
-                            throw new Exception("Branch instruction needs target");
+                            throw new InvalidOperationException("Branch instruction needs target");
                         }
-                        string target = parts[1];
+                        var target = parts[1];
 
                         // PopWithContext has an exception to this branch target
                         if (opcode == IGMInstruction.Opcode.PopWithContext && target == "<drop>")
@@ -330,7 +328,7 @@ public static class VMAssembly
                         // Parse normal target
                         if (target.Length < 3 || target[0] != '[' || target[^1] != ']')
                         {
-                            throw new Exception("Invalid branch target format");
+                            throw new InvalidOperationException("Invalid branch target format");
                         }
 
                         // Store this target for later
@@ -345,27 +343,27 @@ public static class VMAssembly
                     {
                         if (parts.Length < 2)
                         {
-                            throw new Exception("Push instruction needs data");
+                            throw new InvalidOperationException("Push instruction needs data");
                         }
-                        string data = string.Join(' ', parts[1..]).Trim();
+                        var data = string.Join(' ', parts[1..]).Trim();
 
                         switch (type1)
                         {
                             case IGMInstruction.DataType.Double:
-                                if (!double.TryParse(data, out double dataDouble))
+                                if (!double.TryParse(data, out var dataDouble))
                                 {
-                                    throw new Exception("Invalid double");
+                                    throw new InvalidOperationException("Invalid double");
                                 }
                                 instr.ValueDouble = dataDouble;
                                 break;
                             case IGMInstruction.DataType.Int32:
-                                if (!int.TryParse(data, out int dataInt32))
+                                if (!int.TryParse(data, out var dataInt32))
                                 {
                                     if (data.StartsWith("[function]", StringComparison.Ordinal))
                                     {
                                         // We're pushing a function index instead
                                         GMFunction function = new(data["[function]".Length..]);
-                                        if (functions.TryGetValue(function, out GMFunction? existingFunction))
+                                        if (functions.TryGetValue(function, out var existingFunction))
                                         {
                                             // We found a function that was already created
                                             instr.ResolvedFunction = existingFunction;
@@ -379,12 +377,12 @@ public static class VMAssembly
                                     if (data.StartsWith("[variable]", StringComparison.Ordinal))
                                     {
                                         // We're pushing a variable hash instead
-                                        string variableName = data["[variable]".Length..];
+                                        var variableName = data["[variable]".Length..];
                                         if (variableName.StartsWith('"'))
                                         {
                                             if (!variableName.EndsWith('"'))
                                             {
-                                                throw new Exception("Expected quote at the end of variable hash name");
+                                                throw new InvalidOperationException("Expected quote at the end of variable hash name");
                                             }
                                             variableName = UnescapeStringContents(variableName[1..^1]);
                                         }
@@ -394,41 +392,41 @@ public static class VMAssembly
                                         };
                                         break;
                                     }
-                                    throw new Exception("Unknown push.i value");
+                                    throw new InvalidOperationException("Unknown push.i value");
                                 }
                                 instr.ValueInt = dataInt32;
                                 break;
                             case IGMInstruction.DataType.Int64:
-                                if (!long.TryParse(data, out long dataInt64))
+                                if (!long.TryParse(data, out var dataInt64))
                                 {
-                                    throw new Exception("Invalid int64");
+                                    throw new InvalidOperationException("Invalid int64");
                                 }
                                 instr.ValueLong = dataInt64;
                                 break;
                             case IGMInstruction.DataType.Boolean:
-                                if (!bool.TryParse(data, out bool dataBool))
+                                if (!bool.TryParse(data, out var dataBool))
                                 {
-                                    throw new Exception("Invalid boolean");
+                                    throw new InvalidOperationException("Invalid boolean");
                                 }
                                 instr.ValueBool = dataBool;
                                 break;
                             case IGMInstruction.DataType.Variable:
                                 if (!ParseVariableFromString(data, variables, out var variable, out var varType, out var instType))
                                 {
-                                    throw new Exception($"Failed to parse variable {data}");
+                                    throw new InvalidOperationException($"Failed to parse variable {data}");
                                 }
                                 instr.ResolvedVariable = variable;
                                 instr.ReferenceVarType = varType;
                                 instr.InstType = instType;
                                 break;
                             case IGMInstruction.DataType.String:
-                                string contents = line[(line.IndexOf('"') + 1)..line.LastIndexOf('"')];
+                                var contents = line[(line.IndexOf('"', StringComparison.Ordinal) + 1)..line.LastIndexOf('"')];
                                 instr.ValueString = new GMString(UnescapeStringContents(contents));
                                 break;
                             case IGMInstruction.DataType.Int16:
-                                if (!short.TryParse(data, out short dataInt16))
+                                if (!short.TryParse(data, out var dataInt16))
                                 {
-                                    throw new Exception("Invalid int16");
+                                    throw new InvalidOperationException("Invalid int16");
                                 }
                                 instr.ValueShort = dataInt16;
                                 break;
@@ -439,11 +437,11 @@ public static class VMAssembly
                     {
                         if (parts.Length < 3)
                         {
-                            throw new Exception("Call needs function and argument count");
+                            throw new InvalidOperationException("Call needs function and argument count");
                         }
 
                         GMFunction function = new(parts[1]);
-                        if (functions.TryGetValue(function, out GMFunction? existingFunction))
+                        if (functions.TryGetValue(function, out var existingFunction))
                         {
                             // We found a function that was already created
                             instr.ResolvedFunction = existingFunction;
@@ -455,9 +453,9 @@ public static class VMAssembly
                             functions.Add(function);
                         }
 
-                        if (!int.TryParse(parts[2], out int argCount))
+                        if (!int.TryParse(parts[2], out var argCount))
                         {
-                            throw new Exception("Failed to parse argument count");
+                            throw new InvalidOperationException("Failed to parse argument count");
                         }
                         instr.ArgumentCount = argCount;
                     }
@@ -465,9 +463,9 @@ public static class VMAssembly
                 case IGMInstruction.Opcode.Extended:
                     {
                         // Parse extended opcode type
-                        if (!StringToExtOpcode.TryGetValue(opcodeStr, out IGMInstruction.ExtendedOpcode extOpcode))
+                        if (!StringToExtOpcode.TryGetValue(opcodeStr, out var extOpcode))
                         {
-                            throw new Exception($"Unexpected extended opcode \"{opcodeStr}\"");
+                            throw new InvalidOperationException($"Unexpected extended opcode \"{opcodeStr}\"");
                         }
                         instr.ExtKind = extOpcode;
 
@@ -476,9 +474,9 @@ public static class VMAssembly
                         {
                             if (parts.Length < 2)
                             {
-                                throw new Exception("PushReference needs reference ID (or function)");
+                                throw new InvalidOperationException("PushReference needs reference ID (or function)");
                             }
-                            if (!int.TryParse(parts[1], out int referenceID))
+                            if (!int.TryParse(parts[1], out var referenceID))
                             {
                                 // Not a reference ID. Instead, a function reference
                                 instr.ResolvedFunction = new GMFunction(parts[1]);
@@ -486,7 +484,7 @@ public static class VMAssembly
                             }
                             if (parts.Length < 3)
                             {
-                                throw new Exception("PushReference needs reference ID and type parameters");
+                                throw new InvalidOperationException("PushReference needs reference ID and type parameters");
                             }
                             instr.AssetReferenceId = referenceID;
                             instr.AssetReferenceType = StringToAssetType[parts[2]];
@@ -501,12 +499,12 @@ public static class VMAssembly
         }
 
         // Resolve branch targets
-        foreach ((string targetLabel, GMInstruction targetInstr) in branchTargets)
+        foreach ((var targetLabel, var targetInstr) in branchTargets)
         {
             // Look up label
-            if (!branchLabelAddresses.TryGetValue(targetLabel, out int labelAddress))
+            if (!branchLabelAddresses.TryGetValue(targetLabel, out var labelAddress))
             {
-                throw new Exception($"Did not find matching label for \"{targetLabel}\"");
+                throw new InvalidOperationException($"Did not find matching label for \"{targetLabel}\"");
             }
 
             targetInstr.BranchOffset = labelAddress - targetInstr.Address;
@@ -540,13 +538,13 @@ public static class VMAssembly
         // Parse variable type
         if (str[0] == '[')
         {
-            int closingBracket = str.IndexOf(']');
+            var closingBracket = str.IndexOf(']', StringComparison.Ordinal);
             if (closingBracket == -1)
             {
                 return false;
             }
 
-            string varTypeStr = str[1..closingBracket].ToLowerInvariant();
+            var varTypeStr = str[1..closingBracket].ToLowerInvariant();
             varType = varTypeStr switch
             {
                 "array" => IGMInstruction.VariableType.Array,
@@ -555,7 +553,7 @@ public static class VMAssembly
                 "instance" => IGMInstruction.VariableType.Instance,
                 "multipush" => IGMInstruction.VariableType.MultiPush,
                 "multipushpop" => IGMInstruction.VariableType.MultiPushPop,
-                _ => throw new Exception("Unknown variable type")
+                _ => throw new InvalidOperationException("Unknown variable type")
             };
 
             // Get rid of this part of the variable string
@@ -563,13 +561,13 @@ public static class VMAssembly
         }
 
         // Parse instance type
-        int dot = str.IndexOf('.');
+        var dot = str.IndexOf('.', StringComparison.Ordinal);
         if (dot == -1)
         {
             return false;
         }
-        string instTypeStr = str[..dot];
-        if (short.TryParse(instTypeStr, out short instTypeObjectId))
+        var instTypeStr = str[..dot];
+        if (short.TryParse(instTypeStr, out var instTypeObjectId))
         {
             instType = (IGMInstruction.InstanceType)instTypeObjectId;
         }
@@ -586,7 +584,7 @@ public static class VMAssembly
                 "stacktop" => IGMInstruction.InstanceType.StackTop,
                 "arg" or "argument" => IGMInstruction.InstanceType.Argument,
                 "static" => IGMInstruction.InstanceType.Static,
-                _ => throw new Exception("Unknown instance type")
+                _ => throw new InvalidOperationException("Unknown instance type")
             };
         }
 
@@ -598,7 +596,7 @@ public static class VMAssembly
         {
             if (!str.EndsWith('"'))
             {
-                throw new Exception("Expected end quote at end of variable name");
+                throw new InvalidOperationException("Expected end quote at end of variable name");
             }
             str = UnescapeStringContents(str[1..^1]);
         }
@@ -611,7 +609,7 @@ public static class VMAssembly
         };
 
         // Check existing variables - if this already exists, return existing variable
-        if (variables.TryGetValue(variable, out GMVariable? existingVariable))
+        if (variables.TryGetValue(variable, out var existingVariable))
         {
             variable = existingVariable;
         }
@@ -628,8 +626,8 @@ public static class VMAssembly
     {
         StringBuilder sb = new();
 
-        bool escapeActive = false;
-        foreach (char c in str)
+        var escapeActive = false;
+        foreach (var c in str)
         {
             if (escapeActive)
             {
@@ -640,7 +638,7 @@ public static class VMAssembly
                     't' => '\t',
                     '"' => '"',
                     '\\' => '\\',
-                    _ => throw new Exception("Unrecognized escape sequence")
+                    _ => throw new InvalidOperationException("Unrecognized escape sequence")
                 });
                 escapeActive = false;
                 continue;
@@ -657,7 +655,7 @@ public static class VMAssembly
 
         if (escapeActive)
         {
-            throw new Exception("Invalid escape at end of string");
+            throw new InvalidOperationException("Invalid escape at end of string");
         }
 
         return sb.ToString();
@@ -665,11 +663,11 @@ public static class VMAssembly
 
     private static int? ParseOptionalParameter(string str, string paramName)
     {
-        int paramPos = str.IndexOf($"{paramName}=");
+        var paramPos = str.IndexOf($"{paramName}=", StringComparison.Ordinal);
         if (paramPos != -1)
         {
-            int digitStart = paramPos + $"{paramName}=".Length;
-            int digitEnd = digitStart;
+            var digitStart = paramPos + $"{paramName}=".Length;
+            var digitEnd = digitStart;
             while (digitEnd < str.Length)
             {
                 if (!char.IsDigit(str[digitEnd]))
@@ -678,7 +676,7 @@ public static class VMAssembly
                 }
                 digitEnd++;
             }
-            if (int.TryParse(str[digitStart..digitEnd], out int paramValue))
+            if (int.TryParse(str[digitStart..digitEnd], out var paramValue))
             {
                 return paramValue;
             }

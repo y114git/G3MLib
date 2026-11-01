@@ -1,10 +1,6 @@
-using System;
-using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Text;
-using G3MLib.DataFile.Compiler;
-using G3MLib.DataFile.Decompiler;
 
 namespace G3MLib.DataFile.Models;
 
@@ -199,7 +195,7 @@ public class GameMakerGeneralInfo : GameMakerObject, IDisposable
     /// <summary>
     /// Likely padding, IsDebuggerDisabled and BytecodeVersion are written together as a 32-bit integer
     /// </summary>
-    public ushort Padding { get; set; } = 0;
+    public ushort Padding { get; set; }
 
     /// <summary>
     /// The file name of the runner.
@@ -275,6 +271,7 @@ public class GameMakerGeneralInfo : GameMakerObject, IDisposable
 
         public readonly void Serialize(GameMakerWriter writer)
         {
+            ArgumentNullException.ThrowIfNull(writer);
             writer.Write(Major);
             writer.Write(Minor);
             writer.Write(Release);
@@ -283,6 +280,7 @@ public class GameMakerGeneralInfo : GameMakerObject, IDisposable
 
         public void Unserialize(GameMakerReader reader)
         {
+            ArgumentNullException.ThrowIfNull(reader);
             Major = reader.ReadUInt32();
             Minor = reader.ReadUInt32();
             Release = reader.ReadUInt32();
@@ -296,8 +294,18 @@ public class GameMakerGeneralInfo : GameMakerObject, IDisposable
     public RuntimeVersion Version { get; set; } = new();
 
     /// <summary>
+    /// Name of the chunk whose format set <see cref="Version"/> during reading, or <see langword="null"/> when the version is the one stored in GEN8 or was set by hand.
+    /// </summary>
+    public string VersionSource { get; set; }
+
+    /// <summary>
+    /// The version numbers GEN8 stored for a GameMaker 2 file, written back as they were. <see langword="null"/> writes 2.0.0.0.
+    /// </summary>
+    public RuntimeVersion? StoredVersion { get; set; }
+
+    /// <summary>
     /// The major version of the data file.
-    /// If greater than 1, serialization produces "2.0.0.0" due to the flag no longer updating in data.win
+    /// If greater than 1, serialization writes <see cref="StoredVersion"/>, or "2.0.0.0" when none was read
     /// </summary>
     public uint Major { get => Version.Major; set { var version = Version; version.Major = value; Version = version; } }
 
@@ -349,7 +357,7 @@ public class GameMakerGeneralInfo : GameMakerObject, IDisposable
     /// <summary>
     /// The UNIX timestamp the game was compiled.
     /// </summary>
-    public ulong Timestamp { get; set; } = 0;
+    public ulong Timestamp { get; set; }
 
     /// <summary>
     /// The name that gets displayed in the window.
@@ -357,7 +365,7 @@ public class GameMakerGeneralInfo : GameMakerObject, IDisposable
     public GameMakerString DisplayName { get; set; }
 
 
-    public ulong ActiveTargets { get; set; } = 0;
+    public ulong ActiveTargets { get; set; }
 
     /// <summary>
     /// The function classifications of this data file.
@@ -367,7 +375,7 @@ public class GameMakerGeneralInfo : GameMakerObject, IDisposable
     /// <summary>
     /// The Steam app id of the game.
     /// </summary>
-    public int SteamAppID { get; set; } = 0;
+    public int SteamAppID { get; set; }
 
     /// <summary>
     /// The port the data file exposes for the debugger.
@@ -377,12 +385,12 @@ public class GameMakerGeneralInfo : GameMakerObject, IDisposable
     /// <summary>
     /// The room order of the data file.
     /// </summary>
-    public GameMakerSimpleResourcesList<GameMakerRoom, GameMakerChunkROOM> RoomOrder { get; set; } = new();
+    public GameMakerSimpleResourcesList<GameMakerRoom, GameMakerChunkROOM> RoomOrder { get; set; } = [];
 
     /// <summary>
     /// Deterministic runner identity values generated from the game timestamp and identifiers.
     /// </summary>
-    public List<long> GMS2RandomUID { get; set; } = new List<long>();
+    public List<long> GMS2RandomUID { get; set; } = [];
 
     /// <summary>
     /// The FPS of the data file. GameMaker Studio 2 only.
@@ -405,22 +413,48 @@ public class GameMakerGeneralInfo : GameMakerObject, IDisposable
     public bool InfoTimestampOffset { get; set; } = true;
 
     public static RuntimeVersion TestForCommonGMSVersions(GameMakerReader reader, RuntimeVersion readVersion)
+        => TestForCommonGMSVersions(reader, readVersion, out _);
+
+    /// <param name="source">The chunk that decided the version, or <see langword="null"/> if the stored version was kept.</param>
+    /// <param name="reader">The reader positioned at the data.</param>
+    /// <param name="readVersion">The version of the data that is being read.</param>
+    public static RuntimeVersion TestForCommonGMSVersions(GameMakerReader reader, RuntimeVersion readVersion, out string source)
     {
-        RuntimeVersion detectedVer = readVersion;
+        ArgumentNullException.ThrowIfNull(reader);
+        var detectedVer = readVersion;
+        source = null;
 
         // Some GMS2+ version detection. The rest is spread around, mostly in GameMakerChunks.cs
         if (reader.AllChunkNames.Contains("UILR"))      // 2024.13, not present on LTS
+        {
             detectedVer = new(2024, 13, 0, 0, BranchType.Post2022_0);
+            source = "UILR";
+        }
         else if (reader.AllChunkNames.Contains("PSEM")) // 2023.2, not present on LTS
+        {
             detectedVer = new(2023, 2, 0, 0, BranchType.Post2022_0);
+            source = "PSEM";
+        }
         else if (reader.AllChunkNames.Contains("FEAT")) // 2022.8
+        {
             detectedVer = new(2022, 8, 0, 0, BranchType.Pre2022_0);
+            source = "FEAT";
+        }
         else if (reader.AllChunkNames.Contains("FEDS")) // 2.3.6
+        {
             detectedVer = new(2, 3, 6, 0, BranchType.Pre2022_0);
+            source = "FEDS";
+        }
         else if (reader.AllChunkNames.Contains("SEQN")) // 2.3
+        {
             detectedVer = new(2, 3, 0, 0, BranchType.Pre2022_0);
+            source = "SEQN";
+        }
         else if (reader.AllChunkNames.Contains("TGIN")) // 2.2.1
+        {
             detectedVer = new(2, 2, 1, 0, BranchType.Pre2022_0);
+            source = "TGIN";
+        }
 
         return detectedVer;
     }
@@ -430,6 +464,7 @@ public class GameMakerGeneralInfo : GameMakerObject, IDisposable
     [SuppressMessage("Security", "S2245:Use a cryptographically strong random number generator.", Justification = "GameMaker's random UID is derived from and must match its timestamp-based format.")]
     public void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         writer.Write(IsDebuggerDisabled ? (byte)1 : (byte)0);
         writer.Write(BytecodeVersion);
         writer.Write(Padding);
@@ -440,7 +475,7 @@ public class GameMakerGeneralInfo : GameMakerObject, IDisposable
         writer.Write(GameID);
         writer.Write(DirectPlayGuid.ToByteArray());
         writer.WriteGameMakerString(Name);
-        RuntimeVersion versionToWrite = Major < 2 ? Version : new(2);
+        var versionToWrite = Major < 2 ? Version : StoredVersion is { Major: >= 2 } stored ? stored : new(2);
         versionToWrite.Serialize(writer);
         writer.Write(DefaultWindowWidth);
         writer.Write(DefaultWindowHeight);
@@ -465,14 +500,14 @@ public class GameMakerGeneralInfo : GameMakerObject, IDisposable
         if (Major >= 2)
         {
             // Write random UID
-            Random random = new Random((int)(Timestamp & 4294967295L));
-            long firstRandom = (long)random.Next() << 32 | (long)random.Next();
-            long infoNumber = GetInfoNumber(firstRandom, InfoTimestampOffset);
-            int infoLocation = Math.Abs((int)((long)Timestamp & 65535L) / 7 + (int)(GameID - DefaultWindowWidth) + RoomOrder.Count) % 4;
+            var random = new Random((int)(Timestamp & 4294967295L));
+            var firstRandom = (long)random.Next() << 32 | (long)random.Next();
+            var infoNumber = GetInfoNumber(firstRandom, InfoTimestampOffset);
+            var infoLocation = Math.Abs((int)((long)Timestamp & 65535L) / 7 + (int)(GameID - DefaultWindowWidth) + RoomOrder.Count) % 4;
             GMS2RandomUID.Clear();
             writer.Write(firstRandom);
             GMS2RandomUID.Add(firstRandom);
-            for (int i = 0; i < 4; i++)
+            for (var i = 0; i < 4; i++)
             {
                 if (i == infoLocation)
                 {
@@ -481,8 +516,8 @@ public class GameMakerGeneralInfo : GameMakerObject, IDisposable
                 }
                 else
                 {
-                    int first = random.Next();
-                    int second = random.Next();
+                    var first = random.Next();
+                    var second = random.Next();
                     writer.Write(first);
                     writer.Write(second);
                     GMS2RandomUID.Add(((long)first << 32) | (long)second);
@@ -500,16 +535,17 @@ public class GameMakerGeneralInfo : GameMakerObject, IDisposable
     [SuppressMessage("Security", "S2245:Use a cryptographically strong random number generator.", Justification = "GameMaker's random UID is validated against its timestamp-based format.")]
     public void Unserialize(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         Func<GameMakerString> readFileNameDelegate;
         if (reader.ReadOnlyGEN8)
             readFileNameDelegate = () =>
             {
-                GameMakerString res = reader.ReadGameMakerString();
+                var res = reader.ReadGameMakerString();
                 if (res.Content is not null)
                     return res;
 
                 reader.SwitchReaderType(false);
-                long returnTo = reader.Position;
+                var returnTo = reader.Position;
                 reader.Position = reader.GetOffsetMapRev()[res];
                 reader.ReadGameMakerObject<GameMakerString>();
                 reader.Position = returnTo;
@@ -528,15 +564,20 @@ public class GameMakerGeneralInfo : GameMakerObject, IDisposable
         LastObj = reader.ReadUInt32();
         LastTile = reader.ReadUInt32();
         GameID = reader.ReadUInt32();
-        byte[] guidData = reader.ReadBytes(16);
+        var guidData = reader.ReadBytes(16);
         DirectPlayGuid = new Guid(guidData);
         Name = reader.ReadGameMakerString();
-        Version.Unserialize(reader);
+        // RuntimeVersion is a struct: unserialize into a local, not into the property's copy.
+        var storedVersion = Version;
+        storedVersion.Unserialize(reader);
+        Version = storedVersion;
+        StoredVersion = storedVersion;
 
         if (reader.ReadOnlyGEN8)
             return;
 
         Version = reader.gameMakerData.GeneralInfo.Version;
+        VersionSource = reader.gameMakerData.GeneralInfo.VersionSource;
 
         DefaultWindowWidth = reader.ReadUInt32();
         DefaultWindowHeight = reader.ReadUInt32();
@@ -549,7 +590,7 @@ public class GameMakerGeneralInfo : GameMakerObject, IDisposable
         FunctionClassifications = (FunctionClassification)reader.ReadUInt64();
         SteamAppID = reader.ReadInt32();
         DebuggerPort = 0;
-        GMS2RandomUID = new();
+        GMS2RandomUID = [];
         GMS2FPS = 0;
         GMS2AllowStatistics = false;
         GMS2GameGUID = new byte[16];
@@ -560,19 +601,19 @@ public class GameMakerGeneralInfo : GameMakerObject, IDisposable
         if (Major >= 2)
         {
             // Begin parsing random UID, and verify it based on original algorithm
-            GMS2RandomUID = new List<long>();
+            GMS2RandomUID = [];
 
-            Random random = new Random((int)((long)Timestamp & 4294967295L));
-            long firstRandom = (long)random.Next() << 32 | (long)random.Next();
+            var random = new Random((int)((long)Timestamp & 4294967295L));
+            var firstRandom = (long)random.Next() << 32 | (long)random.Next();
             if (reader.ReadInt64() != firstRandom)
                 throw new GameMakerSerializationException("Unexpected random UID #1");
             GMS2RandomUID.Add(firstRandom);
-            int infoLocation = Math.Abs((int)((long)Timestamp & 65535L) / 7 + (int)(GameID - DefaultWindowWidth) + RoomOrder.Count) % 4;
-            for (int i = 0; i < 4; i++)
+            var infoLocation = Math.Abs((int)((long)Timestamp & 65535L) / 7 + (int)(GameID - DefaultWindowWidth) + RoomOrder.Count) % 4;
+            for (var i = 0; i < 4; i++)
             {
                 if (i == infoLocation)
                 {
-                    long curr = reader.ReadInt64();
+                    var curr = reader.ReadInt64();
                     GMS2RandomUID.Add(curr);
                     if (curr != GetInfoNumber(firstRandom, true))
                     {
@@ -584,8 +625,8 @@ public class GameMakerGeneralInfo : GameMakerObject, IDisposable
                 }
                 else
                 {
-                    int first = reader.ReadInt32();
-                    int second = reader.ReadInt32();
+                    var first = reader.ReadInt32();
+                    var second = reader.ReadInt32();
                     if (first != random.Next())
                         throw new GameMakerSerializationException("Unexpected random UID #2");
                     if (second != random.Next())
@@ -597,16 +638,17 @@ public class GameMakerGeneralInfo : GameMakerObject, IDisposable
             GMS2AllowStatistics = reader.ReadBoolean();
             GMS2GameGUID = reader.ReadBytes(16);
         }
-        reader.gameMakerData.UnsupportedBytecodeVersion = BytecodeVersion < 13 || BytecodeVersion > 17;
+        reader.gameMakerData.UnsupportedBytecodeVersion = BytecodeVersion is < 13 or > 17;
         reader.Bytecode14OrLower = BytecodeVersion <= 14;
     }
 
     /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
     public static uint UnserializeChildObjectCount(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         reader.Position++; // "IsDebuggerDisabled"
-        byte bytecodeVer = reader.ReadByte();
-        bool readDebugPort = bytecodeVer >= 14;
+        var bytecodeVer = reader.ReadByte();
+        var readDebugPort = bytecodeVer >= 14;
 
         reader.Position += (uint)(122 + (readDebugPort ? 4 : 0));
 
@@ -619,21 +661,21 @@ public class GameMakerGeneralInfo : GameMakerObject, IDisposable
     /// </summary>
     private long GetInfoNumber(long firstRandom, bool infoTimestampOffset)
     {
-        long infoNumber = (long)Timestamp;
+        var infoNumber = (long)Timestamp;
         if (infoTimestampOffset)
             infoNumber -= 1000;
-        ulong temp = (ulong)infoNumber;
-        temp = ((temp << 56 & 18374686479671623680UL) | (temp >> 8 & 71776119061217280UL) |
+        var temp = (ulong)infoNumber;
+        temp = (temp << 56 & 18374686479671623680UL) | (temp >> 8 & 71776119061217280UL) |
                 (temp << 32 & 280375465082880UL) | (temp >> 16 & 1095216660480UL) | (temp << 8 & 4278190080UL) |
-                (temp >> 24 & 16711680UL) | (temp >> 16 & 65280UL) | (temp >> 32 & 255UL));
+                (temp >> 24 & 16711680UL) | (temp >> 16 & 65280UL) | (temp >> 32 & 255UL);
         infoNumber = (long)temp;
         infoNumber ^= firstRandom;
         infoNumber = ~infoNumber;
-        infoNumber ^= ((long)GameID << 32 | (long)GameID);
-        infoNumber ^= ((DefaultWindowWidth + (int)Info) << 48 |
+        infoNumber ^= (long)GameID << 32 | GameID;
+        infoNumber ^= (DefaultWindowWidth + (int)Info) << 48 |
                        (DefaultWindowHeight + (int)Info) << 32 |
                        (DefaultWindowHeight + (int)Info) << 16 |
-                       (DefaultWindowWidth + (int)Info));
+                       (DefaultWindowWidth + (int)Info);
         infoNumber ^= BytecodeVersion;
         return infoNumber;
     }
@@ -646,20 +688,13 @@ public class GameMakerGeneralInfo : GameMakerObject, IDisposable
         else
         {
             StringBuilder sb = new(DisplayName?.ToString() ?? "");
-            if (Major < 2022 || (Major == 2022 && Minor < 3))
+            if (Major < 2022 || Major == 2022 && Minor < 3)
                 sb.Append(" (GMS ");
             else
                 sb.Append(" (GM ");
-            if (Branch == BranchType.LTS2022_0)
-            {
-                sb.Append("2022.0");
-            }
-            else
-            {
-                sb.Append(Major);
-                sb.Append('.');
-                sb.Append(Minor);
-            }
+            sb.Append(Major);
+            sb.Append('.');
+            sb.Append(Minor);
             if (Release != 0)
             {
                 sb.Append('.');
@@ -670,6 +705,8 @@ public class GameMakerGeneralInfo : GameMakerObject, IDisposable
                     sb.Append(Build);
                 }
             }
+            if (Branch == BranchType.LTS2022_0)
+                sb.Append(" LTS");
             if (Major < 2022)
             {
                 sb.Append(", bytecode ");
@@ -689,8 +726,8 @@ public class GameMakerGeneralInfo : GameMakerObject, IDisposable
         Config = null;
         Name = null;
         DisplayName = null;
-        RoomOrder = new();
-        GMS2RandomUID = new();
+        RoomOrder = [];
+        GMS2RandomUID = [];
     }
 }
 
@@ -792,32 +829,32 @@ public class GameMakerOptions : GameMakerObject, IDisposable
     /// <summary>
     /// Window color option retained in the data-file format.
     /// </summary>
-    public uint WindowColor { get; set; } = 0;
+    public uint WindowColor { get; set; }
 
     /// <summary>
     /// The Color depth the game uses. Used only in Game Maker 8 and earlier.
     /// </summary>
-    public uint ColorDepth { get; set; } = 0;
+    public uint ColorDepth { get; set; }
 
     /// <summary>
     /// The game's resolution. Used only in Game Maker 8 and earlier.
     /// </summary>
-    public uint Resolution { get; set; } = 0;
+    public uint Resolution { get; set; }
 
     /// <summary>
     /// The game's refresh rate. Used only in Game Maker 8 and earlier.
     /// </summary>
-    public uint Frequency { get; set; } = 0;
+    public uint Frequency { get; set; }
 
     /// <summary>
     /// Whether the game uses V-Sync.
     /// </summary>
-    public uint VertexSync { get; set; } = 0;
+    public uint VertexSync { get; set; }
 
     /// <summary>
     /// The priority of the game process. The higher the number, the more priority will be given to the game. Used only in Game Maker 8 and earlier.
     /// </summary>
-    public uint Priority { get; set; } = 0;
+    public uint Priority { get; set; }
 
     /// <summary>
     /// The background of the loading bar when loading GameMaker 8 games.
@@ -842,7 +879,7 @@ public class GameMakerOptions : GameMakerObject, IDisposable
     /// <summary>
     /// A list of Constants that the game uses.
     /// </summary>
-    public GameMakerSimpleList<Constant> Constants { get; set; } = new GameMakerSimpleList<Constant>();
+    public GameMakerSimpleList<Constant> Constants { get; set; } = [];
 
     public bool NewFormat { get; set; } = true;
 
@@ -866,6 +903,7 @@ public class GameMakerOptions : GameMakerObject, IDisposable
         /// <inheritdoc />
         public void Serialize(GameMakerWriter writer)
         {
+            ArgumentNullException.ThrowIfNull(writer);
             writer.WriteGameMakerString(Name);
             writer.WriteGameMakerString(Value);
         }
@@ -873,6 +911,7 @@ public class GameMakerOptions : GameMakerObject, IDisposable
         /// <inheritdoc />
         public void Unserialize(GameMakerReader reader)
         {
+            ArgumentNullException.ThrowIfNull(reader);
             Name = reader.ReadGameMakerString();
             Value = reader.ReadGameMakerString();
         }
@@ -890,6 +929,7 @@ public class GameMakerOptions : GameMakerObject, IDisposable
     /// <inheritdoc />
     public void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         if (NewFormat)
         {
             writer.Write(ShaderExtensionFlag);
@@ -952,7 +992,8 @@ public class GameMakerOptions : GameMakerObject, IDisposable
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
-        NewFormat = reader.ReadInt32() == Int32.MinValue;
+        ArgumentNullException.ThrowIfNull(reader);
+        NewFormat = reader.ReadInt32() == int.MinValue;
         reader.Position -= 4;
         if (NewFormat)
         {
@@ -1019,8 +1060,9 @@ public class GameMakerOptions : GameMakerObject, IDisposable
     /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
     public static uint UnserializeChildObjectCount(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         uint count = 0;
-        bool newFormat = reader.ReadInt32() == Int32.MinValue;
+        var newFormat = reader.ReadInt32() == int.MinValue;
         reader.Position -= 4;
 
         reader.Position += newFormat ? 60u : 140u;
@@ -1039,7 +1081,7 @@ public class GameMakerOptions : GameMakerObject, IDisposable
 
         if (Constants is not null)
         {
-            foreach (Constant constant in Constants)
+            foreach (var constant in Constants)
                 constant?.Dispose();
         }
         BackImage = new();
@@ -1054,27 +1096,28 @@ public class GameMakerLanguage : GameMakerObject, IDisposable
 {
     // Seems to be a list of entry IDs paired to strings for several languages
     public uint Unknown1 { get; set; } = 1;
-    public uint LanguageCount { get; set; } = 0;
-    public uint EntryCount { get; set; } = 0;
+    public uint LanguageCount { get; set; }
+    public uint EntryCount { get; set; }
 
-    public List<GameMakerString> EntryIDs { get; set; } = new List<GameMakerString>();
-    public List<LanguageData> Languages { get; set; } = new List<LanguageData>();
+    public List<GameMakerString> EntryIDs { get; set; } = [];
+    public List<LanguageData> Languages { get; set; } = [];
 
     /// <inheritdoc />
     public void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         writer.Write(Unknown1);
         LanguageCount = (uint)Languages.Count;
         writer.Write(LanguageCount);
         EntryCount = (uint)EntryIDs.Count;
         writer.Write(EntryCount);
 
-        foreach (GameMakerString s in EntryIDs)
+        foreach (var s in EntryIDs)
         {
             writer.WriteGameMakerString(s);
         }
 
-        foreach (LanguageData ld in Languages)
+        foreach (var ld in Languages)
         {
             ld.Serialize(writer);
         }
@@ -1083,12 +1126,13 @@ public class GameMakerLanguage : GameMakerObject, IDisposable
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         EntryIDs.Clear();
         Languages.Clear();
         Unknown1 = reader.ReadUInt32();
         LanguageCount = reader.ReadUInt32();
         EntryCount = reader.ReadUInt32();
-        ulong pointerCount = (ulong)EntryCount + ((ulong)LanguageCount * ((ulong)EntryCount + 2));
+        var pointerCount = EntryCount + LanguageCount * ((ulong)EntryCount + 2);
         if (pointerCount * sizeof(uint) > (ulong)(reader.Length - reader.Position))
             throw new IOException("Language data exceeds the available input.");
 
@@ -1101,7 +1145,7 @@ public class GameMakerLanguage : GameMakerObject, IDisposable
         // Read the data for each language
         for (uint i = 0; i < LanguageCount; i++)
         {
-            LanguageData ld = new LanguageData();
+            var ld = new LanguageData();
             ld.Unserialize(reader, EntryCount);
             Languages.Add(ld);
         }
@@ -1112,10 +1156,10 @@ public class GameMakerLanguage : GameMakerObject, IDisposable
     {
         GC.SuppressFinalize(this);
 
-        foreach (LanguageData data in Languages)
+        foreach (var data in Languages)
             data?.Dispose();
-        EntryIDs = new();
-        Languages = new();
+        EntryIDs = [];
+        Languages = [];
     }
 
     [PropertyChanged.AddINotifyPropertyChangedInterface]
@@ -1123,7 +1167,7 @@ public class GameMakerLanguage : GameMakerObject, IDisposable
     {
         public GameMakerString Name { get; set; }
         public GameMakerString Region { get; set; }
-        public List<GameMakerString> Entries { get; set; } = new List<GameMakerString>();
+        public List<GameMakerString> Entries { get; set; } = [];
         // values that correspond to IDs in the main chunk content
 
         /// <summary>
@@ -1132,9 +1176,10 @@ public class GameMakerLanguage : GameMakerObject, IDisposable
         /// <param name="writer">Where to serialize to.</param>
         public void Serialize(GameMakerWriter writer)
         {
+            ArgumentNullException.ThrowIfNull(writer);
             writer.WriteGameMakerString(Name);
             writer.WriteGameMakerString(Region);
-            foreach (GameMakerString s in Entries)
+            foreach (var s in Entries)
             {
                 writer.WriteGameMakerString(s);
             }
@@ -1147,6 +1192,7 @@ public class GameMakerLanguage : GameMakerObject, IDisposable
         /// <param name="entryCount">Count of entries to read.</param>
         public void Unserialize(GameMakerReader reader, uint entryCount)
         {
+            ArgumentNullException.ThrowIfNull(reader);
             Entries.Clear();
             Name = reader.ReadGameMakerString();
             Region = reader.ReadGameMakerString();
@@ -1161,7 +1207,7 @@ public class GameMakerLanguage : GameMakerObject, IDisposable
         {
             GC.SuppressFinalize(this);
 
-            Entries = new();
+            Entries = [];
             Name = null;
             Region = null;
         }

@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Compiler.Bytecode;
 using G3MLib.Analyzer.Compiler.Lexer;
 using G3MLib.Analyzer.Compiler.Parser;
@@ -33,11 +32,11 @@ internal sealed class ExitNode(TokenKeyword token) : IASTNode
         if (context.TryStatementContext is { HasFinally: true })
         {
             // Reserve block with enough space for all finally nodes
-            List<IASTNode> finallyNodes = context.CurrentScope.TryFinallyNodes;
-            BlockNode newBlock = BlockNode.CreateEmpty(NearbyToken, 1 + finallyNodes.Count);
+            var finallyNodes = context.CurrentScope.TryFinallyNodes;
+            var newBlock = BlockNode.CreateEmpty(NearbyToken, 1 + finallyNodes.Count);
 
             // Generate all finally code, then exit
-            for (int i = finallyNodes.Count - 1; i >= 0; i--)
+            for (var i = finallyNodes.Count - 1; i >= 0; i--)
             {
                 newBlock.Children.Add(finallyNodes[i].Duplicate(context));
             }

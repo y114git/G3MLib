@@ -4,8 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System;
-using System.Collections.Generic;
 using G3MLib.Analyzer.Decompiler.GameSpecific;
 using static G3MLib.Analyzer.IGMInstruction;
 
@@ -39,16 +37,16 @@ public class AssignNode : IStatementNode, IExpressionNode, IBlockCleanupNode
     /// <summary>
     /// Whether this assignment node should declare a local variable specifically.
     /// </summary>
-    public bool DeclareLocalVar { get; set; } = false;
+    public bool DeclareLocalVar { get; set; }
 
     /// <inheritdoc/>
-    public bool SemicolonAfter { get => true; }
+    public bool SemicolonAfter => true;
 
     /// <inheritdoc/>
-    public bool Duplicated { get; set; } = false;
+    public bool Duplicated { get; set; }
 
     /// <inheritdoc/>
-    public bool Group { get; set; } = false;
+    public bool Group { get; set; }
 
     /// <inheritdoc/>
     public bool EmptyLineBefore
@@ -117,6 +115,7 @@ public class AssignNode : IStatementNode, IExpressionNode, IBlockCleanupNode
     /// <inheritdoc/>
     public IStatementNode Clean(ASTCleaner cleaner)
     {
+        ArgumentNullException.ThrowIfNull(cleaner);
         if (AssignKind == AssignType.Normal &&
             Variable is IMacroTypeNode variableTypeNode && Value is IMacroResolvableNode valueResolvable &&
             variableTypeNode.GetExpressionMacroType(cleaner) is IMacroType variableMacroType &&
@@ -137,46 +136,46 @@ public class AssignNode : IStatementNode, IExpressionNode, IBlockCleanupNode
             binary.Left is VariableNode binVariable && binVariable.IdenticalToInExpression(variable) &&
             (variable.Duplicated || variable.IsSimpleVariable()))
         {
-                // This is probably a compound operation
+            // This is probably a compound operation
 
-                // Check if we're a postfix operation
-                if (binary.Instruction.Kind is Opcode.Add or Opcode.Subtract &&
-                    binary.Right is Int16Node i16 && i16.Value == 1 && i16.RegularPush)
+            // Check if we're a postfix operation
+            if (binary.Instruction.Kind is Opcode.Add or Opcode.Subtract &&
+                binary.Right is Int16Node i16 && i16.Value == 1 && i16.RegularPush)
+            {
+                AssignKind = AssignType.Postfix;
+                BinaryInstruction = binary.Instruction;
+                Value = null;
+
+                return this;
+            }
+
+            // Ensure we actually are a compound operation (Push vs. specialized Push instruction, as well as
+            // a few special case quirks with code generation)
+            if (cleaner.Context.OlderThanBytecode15 || binVariable.RegularPush || binVariable.Variable.InstanceType == InstanceType.Self)
+            {
+                var canBeCompound = true;
+                if (binary is { Instruction.Kind: Opcode.Divide, Right: not DoubleNode, Right.StackType: DataType.Double })
                 {
-                    AssignKind = AssignType.Postfix;
+                    canBeCompound = false;
+                }
+                else if (binary is
+                {
+                    Instruction.Kind: Opcode.And or Opcode.Or or Opcode.Xor,
+                    Instruction.Type2: DataType.Int64
+                })
+                {
+                    canBeCompound = false;
+                }
+
+                if (canBeCompound)
+                {
+                    AssignKind = AssignType.Compound;
                     BinaryInstruction = binary.Instruction;
-                    Value = null;
+                    Value = binary.Right;
 
                     return this;
                 }
-
-                // Ensure we actually are a compound operation (Push vs. specialized Push instruction, as well as
-                // a few special case quirks with code generation)
-                if (cleaner.Context.OlderThanBytecode15 || binVariable.RegularPush || binVariable.Variable.InstanceType == InstanceType.Self)
-                {
-                    bool canBeCompound = true;
-                    if (binary is { Instruction.Kind: Opcode.Divide, Right: not DoubleNode, Right.StackType: DataType.Double })
-                    {
-                        canBeCompound = false;
-                    }
-                    else if (binary is
-                             {
-                                 Instruction.Kind: Opcode.And or Opcode.Or or Opcode.Xor,
-                                 Instruction.Type2: DataType.Int64
-                             })
-                    {
-                        canBeCompound = false;
-                    }
-
-                    if (canBeCompound)
-                    {
-                        AssignKind = AssignType.Compound;
-                        BinaryInstruction = binary.Instruction;
-                        Value = binary.Right;
-
-                        return this;
-                    }
-                }
+            }
         }
 
         return this;
@@ -185,6 +184,7 @@ public class AssignNode : IStatementNode, IExpressionNode, IBlockCleanupNode
     /// <inheritdoc/>
     public IStatementNode PostClean(ASTCleaner cleaner)
     {
+        ArgumentNullException.ThrowIfNull(cleaner);
         if (cleaner.Context.Settings.CleanupLocalVarDeclarations &&
             AssignKind == AssignType.Normal &&
             Variable is VariableNode
@@ -194,7 +194,7 @@ public class AssignNode : IStatementNode, IExpressionNode, IBlockCleanupNode
             })
         {
             // We have a local variable which is (at least) declared by the time of this assignment.
-            LocalScope currentLocalScope = cleaner.TopFragmentContext!.CurrentLocalScope!;
+            var currentLocalScope = cleaner.TopFragmentContext.CurrentLocalScope;
             if (!currentLocalScope.LocalDeclaredInAnyParentOrSelf(localName) &&
                 currentLocalScope.DeclaredLocals.Add(localName))
             {
@@ -226,6 +226,8 @@ public class AssignNode : IStatementNode, IExpressionNode, IBlockCleanupNode
     /// <inheritdoc/>
     public int BlockClean(ASTCleaner cleaner, BlockNode block, int i)
     {
+        ArgumentNullException.ThrowIfNull(block);
+        ArgumentNullException.ThrowIfNull(cleaner);
         // Check if our variable is a local that needs to be purged
         if (Variable is VariableNode assignVar && assignVar.Variable.InstanceType == InstanceType.Local &&
             block.FragmentContext.LocalVariablesToPurge.Contains(assignVar.Variable.Name.Content))
@@ -314,7 +316,7 @@ public class AssignNode : IStatementNode, IExpressionNode, IBlockCleanupNode
         }
 
         // If using a disallowed keyword, that's also not valid
-        bool modernSpecialCaseNames = context.UsingStructSpecialCaseNames;
+        var modernSpecialCaseNames = context.UsingStructSpecialCaseNames;
         if (modernSpecialCaseNames && VMConstants.ModernDisallowedStructKeywords.Contains(name))
         {
             return false;
@@ -325,22 +327,22 @@ public class AssignNode : IStatementNode, IExpressionNode, IBlockCleanupNode
         }
 
         // Check first character
-        char firstChar = name[0];
-        if ((firstChar < 'a' || firstChar > 'z') &&
-            (firstChar < 'A' || firstChar > 'Z') &&
-            firstChar != '_')
+        var firstChar = name[0];
+        if (firstChar is (< 'a' or > 'z') and
+            (< 'A' or > 'Z') and
+            not '_')
         {
             return false;
         }
 
         // Check all other characters
-        for (int i = 1; i < name.Length; i++)
+        for (var i = 1; i < name.Length; i++)
         {
-            char c = name[i];
-            if ((c < 'a' || c > 'z') &&
-                (c < 'A' || c > 'Z') &&
-                (c < '0' || c > '9') &&
-                c != '_')
+            var c = name[i];
+            if (c is (< 'a' or > 'z') and
+                (< 'A' or > 'Z') and
+                (< '0' or > '9') and
+                not '_')
             {
                 return false;
             }
@@ -353,6 +355,7 @@ public class AssignNode : IStatementNode, IExpressionNode, IBlockCleanupNode
     /// <inheritdoc/>
     public void Print(ASTPrinter printer)
     {
+        ArgumentNullException.ThrowIfNull(printer);
         switch (AssignKind)
         {
             case AssignType.Normal:
@@ -373,14 +376,14 @@ public class AssignNode : IStatementNode, IExpressionNode, IBlockCleanupNode
                     }
                     else
                     {
-                        Variable.Print(printer);
+                        printer.PrintNode(Variable);
                     }
                     printer.Write(": ");
-                    Value!.Print(printer);
+                    printer.PrintNode(Value);
                 }
                 else
                 {
-                    if (printer.TopFragmentContext!.InStaticInitialization)
+                    if (printer.TopFragmentContext.InStaticInitialization)
                     {
                         // In static initialization, we prepend the "static" keyword to the assignment
                         printer.Write("static ");
@@ -404,22 +407,22 @@ public class AssignNode : IStatementNode, IExpressionNode, IBlockCleanupNode
                     }
 
                     // Normal assignment
-                    Variable.Print(printer);
+                    printer.PrintNode(Variable);
                     printer.Write(" = ");
-                    Value!.Print(printer);
+                    printer.PrintNode(Value);
                 }
                 break;
             case AssignType.Prefix:
-                printer.Write((BinaryInstruction!.Kind == Opcode.Add) ? "++" : "--");
-                Variable.Print(printer);
+                printer.Write((BinaryInstruction.Kind == Opcode.Add) ? "++" : "--");
+                printer.PrintNode(Variable);
                 break;
             case AssignType.Postfix:
-                Variable.Print(printer);
-                printer.Write((BinaryInstruction!.Kind == Opcode.Add) ? "++" : "--");
+                printer.PrintNode(Variable);
+                printer.Write((BinaryInstruction.Kind == Opcode.Add) ? "++" : "--");
                 break;
             case AssignType.Compound:
-                Variable.Print(printer);
-                printer.Write(BinaryInstruction!.Kind switch
+                printer.PrintNode(Variable);
+                printer.Write(BinaryInstruction.Kind switch
                 {
                     Opcode.Add => " += ",
                     Opcode.Subtract => " -= ",
@@ -431,12 +434,12 @@ public class AssignNode : IStatementNode, IExpressionNode, IBlockCleanupNode
                     Opcode.Xor => " ^= ",
                     _ => throw new DecompilerException("Unknown binary instruction opcode in compound assignment")
                 });
-                Value!.Print(printer);
+                printer.PrintNode(Value);
                 break;
             case AssignType.NullishCoalesce:
-                Variable.Print(printer);
+                printer.PrintNode(Variable);
                 printer.Write(" ??= ");
-                Value!.Print(printer);
+                printer.PrintNode(Value);
                 break;
         }
     }
@@ -444,6 +447,7 @@ public class AssignNode : IStatementNode, IExpressionNode, IBlockCleanupNode
     /// <inheritdoc/>
     public bool RequiresMultipleLines(ASTPrinter printer, bool isStatementLHS)
     {
+        ArgumentNullException.ThrowIfNull(printer);
         if (Variable.RequiresMultipleLines(printer, true))
         {
             return true;

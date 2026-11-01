@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Globalization;
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -32,12 +29,12 @@ internal sealed class SerializableScript : ISerializableProjectAsset
     public string Code { get; set; }
 
     // Data asset that was located during pre-import.
-    private GameMakerScript _dataAsset = null;
+    private GameMakerScript? _dataAsset;
 
     /// <summary>
     /// Populates this serializable script with data from an actual script.
     /// </summary>
-    internal void PopulateFromData(ProjectContext projectContext, GameMakerScript script)
+    internal void PopulateFromData(GameMakerScript script)
     {
         // Update all main properties
         DataName = script.Name.Content;
@@ -73,7 +70,7 @@ internal sealed class SerializableScript : ISerializableProjectAsset
     /// <inheritdoc/>
     public IProjectAsset Import(ProjectContext projectContext)
     {
-        GameMakerScript script = _dataAsset;
+        var script = _dataAsset;
 
         // Update all main properties
         script.Code = projectContext.FindCode(Code, this);

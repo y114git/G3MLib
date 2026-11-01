@@ -55,7 +55,7 @@ public class DecompileContext_DecompileToString_Macros
             { 10, "TestValue10" },
             { 11, "TestValue11" }
         });
-        NameMacroTypeResolver globalNames = gameContext.GameSpecificRegistry.MacroResolver.GlobalNames;
+        var globalNames = gameContext.GameSpecificRegistry.MacroResolver.GlobalNames;
         globalNames.DefineVariableType("value0", testEnum);
         globalNames.DefineVariableType("value1", testEnum);
         globalNames.DefineVariableType("value10", testEnum);
@@ -101,10 +101,10 @@ public class DecompileContext_DecompileToString_Macros
         gameContext.DefineMockAsset(AssetType.Sprite, 0, "spr_test");
         gameContext.DefineMockAsset(AssetType.Object, 123, "obj_test");
 
-        GameSpecificRegistry registry = gameContext.GameSpecificRegistry;
+        var registry = gameContext.GameSpecificRegistry;
         registry.RegisterBasic();
 
-        NameMacroTypeResolver globalNames = registry.MacroResolver.GlobalNames;
+        var globalNames = registry.MacroResolver.GlobalNames;
         globalNames.DefineVariableType("sprite_index", registry.FindType("Asset.Sprite"));
 
         TestUtil.VerifyDecompileResult(
@@ -135,10 +135,10 @@ public class DecompileContext_DecompileToString_Macros
     {
         GameContextMock gameContext = new();
 
-        GameSpecificRegistry registry = gameContext.GameSpecificRegistry;
+        var registry = gameContext.GameSpecificRegistry;
         registry.RegisterBasic();
 
-        NameMacroTypeResolver globalNames = registry.MacroResolver.GlobalNames;
+        var globalNames = registry.MacroResolver.GlobalNames;
         var mockColorMacro = new ConstantsMacroType(new Dictionary<int, string>()
         {
             { 0, "c_black" }
@@ -190,10 +190,10 @@ public class DecompileContext_DecompileToString_Macros
             UsingTypedBooleans = false
         };
 
-        GameSpecificRegistry registry = gameContext.GameSpecificRegistry;
+        var registry = gameContext.GameSpecificRegistry;
         registry.RegisterBasic();
 
-        NameMacroTypeResolver globalNames = registry.MacroResolver.GlobalNames;
+        var globalNames = registry.MacroResolver.GlobalNames;
         globalNames.DefineVariableType("test", registry.FindType("Bool"));
 
         TestUtil.VerifyDecompileResult(
@@ -220,10 +220,10 @@ public class DecompileContext_DecompileToString_Macros
         };
         gameContext.DefineMockAsset(AssetType.Sprite, 0, "spr_test");
 
-        GameSpecificRegistry registry = gameContext.GameSpecificRegistry;
+        var registry = gameContext.GameSpecificRegistry;
         registry.RegisterBasic();
 
-        NameMacroTypeResolver globalNames = registry.MacroResolver.GlobalNames;
+        var globalNames = registry.MacroResolver.GlobalNames;
         globalNames.DefineFunctionReturnType("scr_test", registry.FindType("Asset.Sprite"));
 
         TestUtil.VerifyDecompileResult(
@@ -257,10 +257,10 @@ public class DecompileContext_DecompileToString_Macros
         gameContext.DefineMockAsset(AssetType.Sprite, 2, "spr_test2");
         gameContext.DefineMockAsset(AssetType.Sprite, 3, "spr_test3");
 
-        GameSpecificRegistry registry = gameContext.GameSpecificRegistry;
+        var registry = gameContext.GameSpecificRegistry;
         registry.RegisterBasic();
 
-        NameMacroTypeResolver globalNames = registry.MacroResolver.GlobalNames;
+        var globalNames = registry.MacroResolver.GlobalNames;
         globalNames.DefineVariableType("test_array", new ArrayInitMacroType(registry.FindType("Asset.Sprite")));
 
         TestUtil.VerifyDecompileResult(
@@ -295,10 +295,10 @@ public class DecompileContext_DecompileToString_Macros
         gameContext.DefineMockAsset(AssetType.Sprite, 2, "spr_test2");
         gameContext.DefineMockAsset(AssetType.Sprite, 3, "spr_test3");
 
-        GameSpecificRegistry registry = gameContext.GameSpecificRegistry;
+        var registry = gameContext.GameSpecificRegistry;
         registry.RegisterBasic();
 
-        NameMacroTypeResolver globalNames = registry.MacroResolver.GlobalNames;
+        var globalNames = registry.MacroResolver.GlobalNames;
         globalNames.DefineVariableType("random_sprite", registry.FindType("Asset.Sprite"));
 
         TestUtil.VerifyDecompileResult(
@@ -333,11 +333,11 @@ public class DecompileContext_DecompileToString_Macros
         gameContext.DefineMockAsset(AssetType.Sprite, 2, "spr_test2");
         gameContext.DefineMockAsset(AssetType.Sprite, 3, "spr_test3");
 
-        GameSpecificRegistry registry = gameContext.GameSpecificRegistry;
+        var registry = gameContext.GameSpecificRegistry;
         registry.RegisterBasic();
-        IMacroType spriteType = registry.FindType("Asset.Sprite");
+        var spriteType = registry.FindType("Asset.Sprite");
 
-        NameMacroTypeResolver globalNames = registry.MacroResolver.GlobalNames;
+        var globalNames = registry.MacroResolver.GlobalNames;
         globalNames.DefineVariableType("test", new UnionMacroType([new ArrayInitMacroType(spriteType), spriteType]));
 
         TestUtil.VerifyDecompileResult(
@@ -373,12 +373,12 @@ public class DecompileContext_DecompileToString_Macros
         gameContext.DefineMockAsset(AssetType.Sprite, 0, "spr_test");
         gameContext.DefineMockAsset(AssetType.Object, 0, "obj_test");
 
-        GameSpecificRegistry registry = gameContext.GameSpecificRegistry;
+        var registry = gameContext.GameSpecificRegistry;
         registry.RegisterBasic();
-        IMacroType spriteType = registry.FindType("Asset.Sprite");
-        IMacroType objectType = registry.FindType("Asset.Object");
+        var spriteType = registry.FindType("Asset.Sprite");
+        var objectType = registry.FindType("Asset.Object");
 
-        NameMacroTypeResolver globalNames = registry.MacroResolver.GlobalNames;
+        var globalNames = registry.MacroResolver.GlobalNames;
         globalNames.DefineFunctionArgumentsType("scr_test", new UnionMacroType(
             [
                 new FunctionArgsMacroType([new MatchMacroType(null, "String", "set_sprite"), spriteType]),
@@ -432,11 +432,11 @@ public class DecompileContext_DecompileToString_Macros
         };
         gameContext.DefineMockAsset(AssetType.Sprite, 0, "spr_test");
 
-        GameSpecificRegistry registry = gameContext.GameSpecificRegistry;
+        var registry = gameContext.GameSpecificRegistry;
         registry.RegisterBasic();
-        IMacroType spriteType = registry.FindType("Asset.Sprite");
+        var spriteType = registry.FindType("Asset.Sprite");
 
-        NameMacroTypeResolver globalNames = registry.MacroResolver.GlobalNames;
+        var globalNames = registry.MacroResolver.GlobalNames;
         globalNames.DefineFunctionArgumentsType("scr_test", new UnionMacroType(
             [
                 new FunctionArgsMacroType([new UnionMacroType(
@@ -487,11 +487,11 @@ public class DecompileContext_DecompileToString_Macros
         };
         gameContext.DefineMockAsset(AssetType.Sprite, 0, "spr_test");
 
-        GameSpecificRegistry registry = gameContext.GameSpecificRegistry;
+        var registry = gameContext.GameSpecificRegistry;
         registry.RegisterBasic();
-        IMacroType spriteType = registry.FindType("Asset.Sprite");
+        var spriteType = registry.FindType("Asset.Sprite");
 
-        NameMacroTypeResolver globalNames = registry.MacroResolver.GlobalNames;
+        var globalNames = registry.MacroResolver.GlobalNames;
         globalNames.DefineFunctionArgumentsType("scr_test", new UnionMacroType(
             [
                 new FunctionArgsMacroType([new IntersectMacroType(
@@ -538,7 +538,7 @@ public class DecompileContext_DecompileToString_Macros
     {
         GameContextMock gameContext = new();
 
-        GameSpecificRegistry registry = gameContext.GameSpecificRegistry;
+        var registry = gameContext.GameSpecificRegistry;
         registry.RegisterBasic();
 
         NameMacroTypeResolver localNames = new();
@@ -548,10 +548,10 @@ public class DecompileContext_DecompileToString_Macros
         });
         localNames.DefineVariableType("col", mockColorMacro);
 
-        GlobalMacroTypeResolver globalMacros = registry.MacroResolver;
+        var globalMacros = registry.MacroResolver;
         globalMacros.DefineCodeEntry("gml_Script_default_arg_color", localNames);
 
-        NamedArgumentResolver namedArgs = registry.NamedArgumentResolver;
+        var namedArgs = registry.NamedArgumentResolver;
         namedArgs.DefineCodeEntry("gml_Script_default_arg_color", ["col"]);
 
         TestUtil.VerifyDecompileResult(
@@ -601,10 +601,10 @@ public class DecompileContext_DecompileToString_Macros
             UsingTypedBooleans = false
         };
 
-        GameSpecificRegistry registry = gameContext.GameSpecificRegistry;
+        var registry = gameContext.GameSpecificRegistry;
         registry.RegisterBasic();
 
-        NameMacroTypeResolver globalNames = registry.MacroResolver.GlobalNames;
+        var globalNames = registry.MacroResolver.GlobalNames;
         globalNames.DefineVariableType("test", registry.FindType("Bool"));
 
         TestUtil.VerifyDecompileResult(

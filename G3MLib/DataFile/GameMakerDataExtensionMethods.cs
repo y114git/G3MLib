@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using G3MLib.DataFile.Models;
 
 namespace G3MLib.DataFile;
@@ -21,9 +18,10 @@ public static class GameMakerDataExtensionMethods
     /// <returns>The element that has the specified name.</returns>
     public static T ByName<T>(this IList<T> list, string name, bool ignoreCase = false) where T : GameMakerNamedResource
     {
-        StringComparison comparisonType = ignoreCase ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        ArgumentNullException.ThrowIfNull(list);
+        var comparisonType = ignoreCase ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
 
-        foreach (T item in list)
+        foreach (var item in list)
         {
             if (item is null)
             {
@@ -49,9 +47,10 @@ public static class GameMakerDataExtensionMethods
     /// <returns>The index of the element that has the specified name, or -1 if none is found.</returns>
     public static int IndexOfName<T>(this IList<T> list, string name, bool ignoreCase = false) where T : GameMakerNamedResource
     {
-        StringComparison comparisonType = ignoreCase ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        ArgumentNullException.ThrowIfNull(list);
+        var comparisonType = ignoreCase ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
 
-        for (int i = 0; i < list.Count; i++)
+        for (var i = 0; i < list.Count; i++)
         {
             if (list[i] is not T item)
             {
@@ -77,9 +76,10 @@ public static class GameMakerDataExtensionMethods
     /// <returns>The element that has the specified name.</returns>
     public static T ByName<T>(this IList<T> list, ReadOnlySpan<char> name, bool ignoreCase = false) where T : GameMakerNamedResource
     {
-        StringComparison comparisonType = ignoreCase ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        ArgumentNullException.ThrowIfNull(list);
+        var comparisonType = ignoreCase ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
 
-        foreach (T item in list)
+        foreach (var item in list)
         {
             if (item is null)
             {
@@ -105,9 +105,10 @@ public static class GameMakerDataExtensionMethods
     /// <returns>The index of the element that has the specified name, or -1 if none is found.</returns>
     public static int IndexOfName<T>(this IList<T> list, ReadOnlySpan<char> name, bool ignoreCase = false) where T : GameMakerNamedResource
     {
-        StringComparison comparisonType = ignoreCase ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        ArgumentNullException.ThrowIfNull(list);
+        var comparisonType = ignoreCase ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
 
-        for (int i = 0; i < list.Count; i++)
+        for (var i = 0; i < list.Count; i++)
         {
             if (list[i] is not T item)
             {
@@ -124,6 +125,7 @@ public static class GameMakerDataExtensionMethods
 
     public static GameMakerCodeLocals For(this IList<GameMakerCodeLocals> list, GameMakerCode code)
     {
+        ArgumentNullException.ThrowIfNull(code);
         return code.Name is null ? null : list.FirstOrDefault(x =>
             x?.Name == code.Name || x?.Name?.Content == code.Name.Content);
     }
@@ -139,6 +141,7 @@ public static class GameMakerDataExtensionMethods
     /// <exception cref="ArgumentNullException"><paramref name="content"/> is null.</exception>
     public static GameMakerString MakeString(this IList<GameMakerString> list, string content, bool createNew = false)
     {
+        ArgumentNullException.ThrowIfNull(list);
         ArgumentNullException.ThrowIfNull(content);
 
         if (!createNew)
@@ -160,12 +163,13 @@ public static class GameMakerDataExtensionMethods
     /// <exception cref="ArgumentNullException"><paramref name="content"/> is null.</exception>
     public static GameMakerString MakeString(this IList<GameMakerString> list, string content, out int index)
     {
+        ArgumentNullException.ThrowIfNull(list);
         ArgumentNullException.ThrowIfNull(content);
 
         // String indices are referenced throughout the data file, so unused entries are intentionally retained.
-        for (int i = 0; i < list.Count; i++)
+        for (var i = 0; i < list.Count; i++)
         {
-            GameMakerString str = list[i];
+            var str = list[i];
             if (str?.Content == content)
             {
                 index = i;
@@ -173,7 +177,7 @@ public static class GameMakerDataExtensionMethods
             }
         }
 
-        GameMakerString newString = new GameMakerString(content);
+        var newString = new GameMakerString(content);
         index = list.Count;
         list.Add(newString);
         return newString;
@@ -181,7 +185,8 @@ public static class GameMakerDataExtensionMethods
 
     public static GameMakerFunction Define(this IList<GameMakerFunction> list, string name, IList<GameMakerString> strg)
     {
-        GameMakerString str = strg.MakeString(name, out int id);
+        ArgumentNullException.ThrowIfNull(list);
+        var str = strg.MakeString(name, out var id);
         GameMakerFunction func = new()
         {
             Name = str,
@@ -193,7 +198,7 @@ public static class GameMakerDataExtensionMethods
 
     public static GameMakerFunction EnsureDefined(this IList<GameMakerFunction> list, string name, IList<GameMakerString> strg)
     {
-        GameMakerFunction func = list.ByName(name);
+        var func = list.ByName(name);
         if (func is null)
         {
             return list.Define(name, strg);
@@ -203,6 +208,7 @@ public static class GameMakerDataExtensionMethods
 
     public static GameMakerInstruction.InstanceType CalculateInstType(this IList<GameMakerVariable> list, GameMakerInstruction.InstanceType inst, bool isBuiltin, GameMakerData data)
     {
+        ArgumentNullException.ThrowIfNull(data);
         // Local variables are defined distinctly
         if (inst == GameMakerInstruction.InstanceType.Local)
         {
@@ -216,7 +222,7 @@ public static class GameMakerDataExtensionMethods
         }
 
         // Handle bytecode 14 differences
-        bool bytecode14 = data.GeneralInfo.BytecodeVersion <= 14;
+        var bytecode14 = data.GeneralInfo.BytecodeVersion <= 14;
         if (bytecode14)
         {
             // In bytecode 14, instance types are always undefined for some reason
@@ -228,9 +234,11 @@ public static class GameMakerDataExtensionMethods
 
     public static GameMakerVariable Define(this IList<GameMakerVariable> list, GameMakerString nameString, int nameStringId, GameMakerInstruction.InstanceType inst, bool isBuiltin, GameMakerData data)
     {
+        ArgumentNullException.ThrowIfNull(list);
+        ArgumentNullException.ThrowIfNull(data);
         // Update variables counts first
-        uint oldId = data.VarCount1;
-        bool bytecode14 = data.GeneralInfo.BytecodeVersion <= 14;
+        var oldId = data.VarCount1;
+        var bytecode14 = data.GeneralInfo.BytecodeVersion <= 14;
         if (!bytecode14)
         {
             if (data.IsVersionAtLeast(2, 3))
@@ -292,11 +300,12 @@ public static class GameMakerDataExtensionMethods
 
     public static GameMakerVariable EnsureDefined(this IList<GameMakerVariable> list, GameMakerString nameString, int nameStringId, GameMakerInstruction.InstanceType inst, bool isBuiltin, GameMakerData data)
     {
+        ArgumentNullException.ThrowIfNull(list);
         // Calculate correct instance type
         inst = list.CalculateInstType(inst, isBuiltin, data);
 
         // Search for existing variable that can be used
-        foreach (GameMakerVariable variable in list)
+        foreach (var variable in list)
         {
             if (variable?.Name == nameString && variable.InstanceType == inst)
             {
@@ -310,11 +319,13 @@ public static class GameMakerDataExtensionMethods
 
     public static GameMakerVariable DefineLocal(this IList<GameMakerVariable> list, GameMakerData data, int varId, GameMakerString nameString, int nameStringId)
     {
+        ArgumentNullException.ThrowIfNull(data);
+        ArgumentNullException.ThrowIfNull(list);
         // In bytecode 14, look up on entire variable list for existing locals...
-        bool bytecode14 = data.GeneralInfo.BytecodeVersion <= 14;
+        var bytecode14 = data.GeneralInfo.BytecodeVersion <= 14;
         if (bytecode14)
         {
-            foreach (GameMakerVariable variable in list)
+            foreach (var variable in list)
             {
                 if (variable?.Name == nameString && (bytecode14 || variable.InstanceType == GameMakerInstruction.InstanceType.Local))
                 {
@@ -337,6 +348,8 @@ public static class GameMakerDataExtensionMethods
 
     public static GameMakerExtensionFunction DefineExtensionFunction(this IList<GameMakerExtensionFunction> extfuncs, IList<GameMakerFunction> funcs, IList<GameMakerString> strg, uint id, uint kind, string name, GameMakerExtensionVarType rettype, string extname, params GameMakerExtensionVarType[] args)
     {
+        ArgumentNullException.ThrowIfNull(extfuncs);
+        ArgumentNullException.ThrowIfNull(args);
         var func = new GameMakerExtensionFunction()
         {
             ID = id,
@@ -345,7 +358,7 @@ public static class GameMakerDataExtensionMethods
             Kind = kind,
             RetType = rettype
         };
-        foreach(var a in args)
+        foreach (var a in args)
             func.Arguments.Add(new GameMakerExtensionFunctionArg() { Type = a });
         extfuncs.Add(func);
         funcs.EnsureDefined(name, strg);

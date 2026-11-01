@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Decompiler.AST;
 
 namespace G3MLib.Analyzer.Decompiler.GameSpecific;
@@ -20,11 +19,12 @@ public class IntersectMacroType : IMacroTypeInt32, IMacroTypeInt64, IMacroTypeFu
 
     public IntersectMacroType(IEnumerable<IMacroType> types)
     {
-        Types = new(types);
+        ArgumentNullException.ThrowIfNull(types);
+        Types = [.. types];
 
         // Set this macro type as required if any sub-macro types are required
         Required = false;
-        foreach (IMacroType type in types)
+        foreach (var type in types)
         {
             if (type is IMacroTypeConditional conditional && conditional.Required)
             {
@@ -37,7 +37,7 @@ public class IntersectMacroType : IMacroTypeInt32, IMacroTypeInt64, IMacroTypeFu
     public IExpressionNode? Resolve(ASTCleaner cleaner, IMacroResolvableNode node, int data)
     {
         IExpressionNode? result = null;
-        foreach (IMacroType type in Types)
+        foreach (var type in Types)
         {
             if (type is not IMacroTypeInt32 type32)
             {
@@ -55,7 +55,7 @@ public class IntersectMacroType : IMacroTypeInt32, IMacroTypeInt64, IMacroTypeFu
     public IExpressionNode? Resolve(ASTCleaner cleaner, IMacroResolvableNode node, long data)
     {
         IExpressionNode? result = null;
-        foreach (IMacroType type in Types)
+        foreach (var type in Types)
         {
             if (type is not IMacroTypeInt64 type64)
             {
@@ -73,7 +73,7 @@ public class IntersectMacroType : IMacroTypeInt32, IMacroTypeInt64, IMacroTypeFu
     public IFunctionCallNode? Resolve(ASTCleaner cleaner, IFunctionCallNode call)
     {
         IFunctionCallNode? result = null;
-        foreach (IMacroType type in Types)
+        foreach (var type in Types)
         {
             if (type is not IMacroTypeFunctionArgs typeFuncArgs)
             {
@@ -91,7 +91,7 @@ public class IntersectMacroType : IMacroTypeInt32, IMacroTypeInt64, IMacroTypeFu
     public ArrayInitNode? Resolve(ASTCleaner cleaner, ArrayInitNode arrayInit)
     {
         ArrayInitNode? result = null;
-        foreach (IMacroType type in Types)
+        foreach (var type in Types)
         {
             if (type is not IMacroTypeArrayInit typeArrayInit)
             {
@@ -109,7 +109,7 @@ public class IntersectMacroType : IMacroTypeInt32, IMacroTypeInt64, IMacroTypeFu
     public IExpressionNode? Resolve(ASTCleaner cleaner, IConditionalValueNode node)
     {
         IExpressionNode? result = null;
-        foreach (IMacroType type in Types)
+        foreach (var type in Types)
         {
             if (type is not IMacroTypeConditional typeConditional)
             {

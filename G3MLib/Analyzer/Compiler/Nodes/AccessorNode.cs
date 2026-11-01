@@ -4,8 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System;
-using System.Collections.Generic;
 using G3MLib.Analyzer.Compiler.Bytecode;
 using G3MLib.Analyzer.Compiler.Lexer;
 using G3MLib.Analyzer.Compiler.Parser;
@@ -47,7 +45,7 @@ internal sealed class AccessorNode : IAssignableASTNode
     /// <summary>
     /// Whether this is an accessor node currently on the leftmost side of a <see cref="DotVariableNode"/>.
     /// </summary>
-    public bool LeftmostSideOfDot { get; set; } = false;
+    public bool LeftmostSideOfDot { get; set; }
 
     /// <summary>
     /// Kinds of accessors.
@@ -101,7 +99,7 @@ internal sealed class AccessorNode : IAssignableASTNode
             arguments.Add(value);
         }
 
-        string functionName = GetAccessorFunctionName(isSetter);
+        var functionName = GetAccessorFunctionName(isSetter);
         return new SimpleFunctionCallNode(functionName, context.CompileContext.GameContext.Builtins.LookupBuiltinFunction(functionName), arguments);
     }
 
@@ -112,7 +110,7 @@ internal sealed class AccessorNode : IAssignableASTNode
             return false;
         }
 
-        SimpleFunctionCallNode setter = CreateAccessorCall(context, true, value);
+        var setter = CreateAccessorCall(context, true, value);
         setter.IsStatement = true;
         setter.GenerateCode(context);
         return true;
@@ -124,7 +122,7 @@ internal sealed class AccessorNode : IAssignableASTNode
     public static AccessorNode? Parse(ParseContext context, TokenSeparator token, IASTNode expression, AccessorKind kind)
     {
         // Strings are not allowed for these specific accessor kinds
-        bool disallowStrings = kind is AccessorKind.Array or AccessorKind.ArrayDirect or
+        var disallowStrings = kind is AccessorKind.Array or AccessorKind.ArrayDirect or
                                        AccessorKind.List or AccessorKind.Grid;
 
         // Parse the main accessor expression
@@ -181,7 +179,7 @@ internal sealed class AccessorNode : IAssignableASTNode
     public IASTNode PostProcess(ParseContext context)
     {
         // Compiler quirk with rewriting constants in dot nodes earlier in some cases
-        IGameContext gameContext = context.CompileContext.GameContext;
+        var gameContext = context.CompileContext.GameContext;
         if (Expression is DotVariableNode { LeftExpression: NumberNode numberNode } dotVariableNode &&
             (!gameContext.UsingGlobalConstantFunction || gameContext.UsingSelfToBuiltin || numberNode.ConstantName == "global"))
         {
@@ -231,9 +229,9 @@ internal sealed class AccessorNode : IAssignableASTNode
         if (variable is SimpleVariableNode simpleVariable)
         {
             // Check if instance type should be transformed on simple variable (compiler quirk)
-            InstanceType stackInstanceType = simpleVariable.ExplicitInstanceType;
+            var stackInstanceType = simpleVariable.ExplicitInstanceType;
             if (stackInstanceType == InstanceType.Self &&
-                (simpleVariable.IsFunctionCall || (!LeftmostSideOfDot && !simpleVariable.CollapsedFromDot && context.CompileContext.GameContext.UsingSelfToBuiltin)))
+                (simpleVariable.IsFunctionCall || !LeftmostSideOfDot && !simpleVariable.CollapsedFromDot && context.CompileContext.GameContext.UsingSelfToBuiltin))
             {
                 // Change instance type to builtin (weird compiler quirk), when either a function call,
                 // or in newer GML versions when not on the RHS of a dot variable.
@@ -294,14 +292,30 @@ internal sealed class AccessorNode : IAssignableASTNode
     }
 
     /// <summary>
+    /// Pushes the array returned by a function call as the container of this accessor.
+    /// </summary>
+    private void GenerateCallResultContainer(BytecodeContext context)
+    {
+        Expression.GenerateCode(context);
+        context.PopDataType();
+    }
+
+    /// <summary>
     /// Generates code for this node, as part of a chain of accessors.
     /// </summary>
     private void GenerateChainedCode(BytecodeContext context, bool isPop)
     {
-        if (Expression is AccessorNode accessor)
+        if (Expression is AccessorNode or SimpleFunctionCallNode)
         {
-            // If expression is another accessor node, continue down chain
-            accessor.GenerateChainedCode(context, isPop);
+            if (Expression is AccessorNode accessor)
+            {
+                // If expression is another accessor node, continue down chain
+                accessor.GenerateChainedCode(context, isPop);
+            }
+            else
+            {
+                GenerateCallResultContainer(context);
+            }
 
             // Generate current accessor
             AccessorExpression.GenerateCode(context);
@@ -311,10 +325,10 @@ internal sealed class AccessorNode : IAssignableASTNode
         else if (Expression is IVariableASTNode variable)
         {
             // Generate common code to prepare for push
-            (InstanceType pushInstanceType, _) = GenerateVariableCode(context, variable);
+            (var pushInstanceType, _) = GenerateVariableCode(context, variable);
 
             // Simple variable push
-            VariableType variableType = isPop ? VariableType.MultiPushPop : VariableType.MultiPush;
+            var variableType = isPop ? VariableType.MultiPushPop : VariableType.MultiPush;
             VariablePatch varPatch = new(variable.VariableName, pushInstanceType, variableType, variable.BuiltinVariable is not null);
             context.Emit(Opcode.Push, varPatch, DataType.Variable);
         }
@@ -337,7 +351,7 @@ internal sealed class AccessorNode : IAssignableASTNode
         if (Expression is IVariableASTNode variable)
         {
             // Generate common code to prepare for push
-            (InstanceType pushInstanceType, _) = GenerateVariableCode(context, variable);
+            (var pushInstanceType, _) = GenerateVariableCode(context, variable);
 
             // Simple variable push
             VariablePatch varPatch = new(variable.VariableName, pushInstanceType, VariableType.Array, variable.BuiltinVariable is not null);
@@ -355,6 +369,14 @@ internal sealed class AccessorNode : IAssignableASTNode
             context.Emit(ExtendedOpcode.PushArrayFinal);
             context.PushDataType(DataType.Variable);
         }
+        else if (Expression is SimpleFunctionCallNode)
+        {
+            GenerateCallResultContainer(context);
+            AccessorExpression.GenerateCode(context);
+            context.ConvertDataType(DataType.Int32);
+            context.Emit(ExtendedOpcode.PushArrayFinal);
+            context.PushDataType(DataType.Variable);
+        }
         else
         {
             throw new InvalidOperationException(InvalidExpressionError);
@@ -365,7 +387,7 @@ internal sealed class AccessorNode : IAssignableASTNode
     public void GenerateAssignCode(BytecodeContext context)
     {
         // In GMLv2, expression being assigned is converted to a variable type
-        DataType storeType = context.PopDataType();
+        var storeType = context.PopDataType();
         if (storeType != DataType.Variable && context.CompileContext.GameContext.UsingGMLv2)
         {
             context.Emit(Opcode.Convert, storeType, DataType.Variable);
@@ -381,7 +403,7 @@ internal sealed class AccessorNode : IAssignableASTNode
         if (Expression is IVariableASTNode variable)
         {
             // Generate common code to prepare for pop
-            (InstanceType popInstanceType, _) = GenerateVariableCode(context, variable);
+            (var popInstanceType, _) = GenerateVariableCode(context, variable);
 
             // Simple variable store
             VariablePatch varPatch = new(variable.VariableName, popInstanceType, VariableType.Array, variable.BuiltinVariable is not null);
@@ -416,7 +438,7 @@ internal sealed class AccessorNode : IAssignableASTNode
         if (Expression is IVariableASTNode variable)
         {
             // Generate common code to prepare for push and pop
-            (InstanceType instanceType, InstanceConversionType instanceConversionType) = GenerateVariableCode(context, variable);
+            (var instanceType, var instanceConversionType) = GenerateVariableCode(context, variable);
 
             // Duplicate instance ID and array index, so it can be stored back to later
             if (instanceConversionType == InstanceConversionType.StacktopId)
@@ -538,7 +560,7 @@ internal sealed class AccessorNode : IAssignableASTNode
         if (Expression is IVariableASTNode variable)
         {
             // Generate common code to prepare for push and pop
-            (InstanceType instanceType, InstanceConversionType instanceConversionType) = GenerateVariableCode(context, variable);
+            (var instanceType, var instanceConversionType) = GenerateVariableCode(context, variable);
 
             // Duplicate instance ID and array index, so it can be stored back to later
             if (instanceConversionType == InstanceConversionType.StacktopId)

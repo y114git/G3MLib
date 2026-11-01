@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Decompiler.AST;
 
 namespace G3MLib.Analyzer.Decompiler.ControlFlow;
@@ -25,11 +24,11 @@ internal sealed class Nullish : IControlFlowNode
 
     public List<IControlFlowNode> Successors { get; } = [];
 
-    public IControlFlowNode? Parent { get; set; } = null;
+    public IControlFlowNode? Parent { get; set; }
 
     public List<IControlFlowNode?> Children { get; } = [null];
 
-    public bool Unreachable { get; set; } = false;
+    public bool Unreachable { get; set; }
 
     public NullishType NullishKind { get; }
 
@@ -40,7 +39,7 @@ internal sealed class Nullish : IControlFlowNode
     /// Upon being processed, this has its predecessors disconnected.
     /// All paths exiting from it are also isolated from the external graph.
     /// </remarks>
-    public IControlFlowNode IfNullish { get => Children[0]!; private set => Children[0] = value; }
+    public IControlFlowNode IfNullish { get => Children[0]; private set => Children[0] = value; }
 
     public Nullish(int startAddress, int endAddress, NullishType nullishKind, IControlFlowNode ifNullishNode)
     {
@@ -55,25 +54,25 @@ internal sealed class Nullish : IControlFlowNode
     /// </summary>
     public static List<Nullish> FindNullish(DecompileContext ctx)
     {
-        List<Block> blocks = ctx.Blocks!;
+        var blocks = ctx.Blocks;
 
         List<Nullish> res = [];
 
-        for (int j = blocks.Count - 1; j >= 0; j--)
+        for (var j = blocks.Count - 1; j >= 0; j--)
         {
             // Search for pattern
-            Block block = blocks[j];
+            var block = blocks[j];
             if (block.Instructions is
                 [..,
                 { Kind: IGMInstruction.Opcode.Extended, ExtKind: IGMInstruction.ExtendedOpcode.IsNullishValue },
                 { Kind: IGMInstruction.Opcode.BranchFalse }
                 ])
             {
-                Block ifNullishBlock = block.Successors[0] as Block ?? throw new DecompilerException("Expected first successor to be block");
-                Block afterBlock = block.Successors[1] as Block ?? throw new DecompilerException("Expected second successor to be block");
+                var ifNullishBlock = block.Successors[0] as Block ?? throw new DecompilerException("Expected first successor to be block");
+                var afterBlock = block.Successors[1] as Block ?? throw new DecompilerException("Expected second successor to be block");
 
                 // Determine nullish type by using the block "after"
-                NullishType nullishKind = NullishType.Expression;
+                var nullishKind = NullishType.Expression;
                 if (afterBlock.Instructions is [{ Kind: IGMInstruction.Opcode.PopDelete }, ..])
                 {
                     nullishKind = NullishType.Assignment;
@@ -105,9 +104,9 @@ internal sealed class Nullish : IControlFlowNode
                 if (nullishKind == NullishType.Expression)
                 {
                     EmptyNode emptyDest = new(afterBlock.StartAddress);
-                    for (int i = 0; i < afterBlock.Predecessors.Count; i++)
+                    for (var i = 0; i < afterBlock.Predecessors.Count; i++)
                     {
-                        IControlFlowNode afterPred = afterBlock.Predecessors[i];
+                        var afterPred = afterBlock.Predecessors[i];
                         if (afterPred.StartAddress >= block.EndAddress)
                         {
                             // Route all nodes going into after into a unique empty node
@@ -147,8 +146,8 @@ internal sealed class Nullish : IControlFlowNode
     {
         if (NullishKind == NullishType.Expression)
         {
-            IExpressionNode left = builder.ExpressionStack.Pop();
-            IExpressionNode right = builder.BuildExpression(IfNullish);
+            var left = builder.ExpressionStack.Pop();
+            var right = builder.BuildExpression(IfNullish);
             builder.ExpressionStack.Push(new NullishCoalesceNode(left, right));
         }
         else
@@ -157,7 +156,7 @@ internal sealed class Nullish : IControlFlowNode
             builder.ExpressionStack.Pop();
 
             // Read assignment statement from branch
-            BlockNode rightBlock = builder.BuildBlock(IfNullish);
+            var rightBlock = builder.BuildBlock(IfNullish);
             if (rightBlock.Children is not [AssignNode rightAssign])
             {
                 throw new DecompilerException("Expected assignment in nullish-coalescing assignment");

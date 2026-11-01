@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System;
 using System.Globalization;
 using System.Text;
 
@@ -23,7 +22,7 @@ internal static class Tags
         ReadOnlySpan<char> text = context.Text;
 
         // Read directive type
-        int pos = ContiguousTextReader.ReadWhileIdentifier(text, startPosition + 1, out ReadOnlySpan<char> directiveType);
+        var pos = ContiguousTextReader.ReadWhileIdentifier(text, startPosition + 1, out var directiveType);
 
         // Read specific types
         switch (directiveType)
@@ -38,18 +37,18 @@ internal static class Tags
                     }
 
                     // Parse macro name
-                    pos = ContiguousTextReader.ReadUntilWhitespace(text, pos + 1, out ReadOnlySpan<char> macroName);
+                    pos = ContiguousTextReader.ReadUntilWhitespace(text, pos + 1, out var macroName);
 
                     // Parse macro content until newline (allowing for escapes to get multiple lines)
                     pos++;
                     StringBuilder macroContent = new(64);
                     while (pos < text.Length && text[pos] != '\n')
                     {
-                        char curr = text[pos];
+                        var curr = text[pos];
                         if (curr == '\\' && pos + 1 < text.Length)
                         {
                             // Escaped; ignore whitespace through to the end of the line
-                            int backslashPos = pos++;
+                            var backslashPos = pos++;
                             do
                             {
                                 curr = text[pos++];
@@ -75,7 +74,7 @@ internal static class Tags
                     }
 
                     // Try to add the macro
-                    string macroNameStr = macroName.ToString();
+                    var macroNameStr = macroName.ToString();
                     LexContext newLexContext = new(context.CompileContext, macroContent.ToString(), macroNameStr);
                     Macro newMacro = new(newLexContext, macroNameStr);
                     if (!context.CompileContext.Macros.TryAdd(macroNameStr, newMacro))
@@ -102,13 +101,13 @@ internal static class Tags
                 // Attempt to parse an RGB color literal
                 if (directiveType.Length is 6 or 8)
                 {
-                    ReadOnlySpan<char> color = directiveType;
+                    var color = directiveType;
 
                     // Ensure all characters are valid hex
-                    bool valid = true;
-                    foreach (char hex in color)
+                    var valid = true;
+                    foreach (var hex in color)
                     {
-                        if ((hex < '0' || hex > '9') && (hex < 'A' || hex > 'F') && (hex < 'a' || hex > 'f'))
+                        if (hex is (< '0' or > '9') and (< 'A' or > 'F') and (< 'a' or > 'f'))
                         {
                             valid = false;
                             break;
@@ -131,15 +130,15 @@ internal static class Tags
                             converted[6] = color[6];
                             converted[7] = color[7];
                         }
-                        if (long.TryParse(converted[..color.Length], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out long value))
+                        if (long.TryParse(converted[..color.Length], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var value))
                         {
-                            if (value >= int.MinValue && value <= int.MaxValue)
+                            if (value is >= int.MinValue and <= int.MaxValue)
                             {
-                                context.Tokens.Add(new TokenNumber(context, startPosition, $"#{color.ToString()}", value));
+                                context.Tokens.Add(new TokenNumber(context, startPosition, $"#{color}", value));
                             }
                             else
                             {
-                                context.Tokens.Add(new TokenInt64(context, startPosition, $"#{color.ToString()}", value));
+                                context.Tokens.Add(new TokenInt64(context, startPosition, $"#{color}", value));
                             }
                             return pos;
                         }
@@ -147,7 +146,7 @@ internal static class Tags
                 }
 
                 // Failed to recognize any tag or directive
-                context.CompileContext.PushError($"Unrecognized tag or directive \"{directiveType.ToString()}\"", context, startPosition);
+                context.CompileContext.PushError($"Unrecognized tag or directive \"{directiveType}\"", context, startPosition);
                 break;
         }
 

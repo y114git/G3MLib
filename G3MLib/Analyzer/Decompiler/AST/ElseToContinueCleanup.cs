@@ -27,7 +27,7 @@ internal static class ElseToContinueCleanup
         {
             return;
         }
-        IStatementNode lastStatement = body.Children[^1];
+        var lastStatement = body.Children[^1];
 
         // Perform our operation as long as we have an empty true block, and an else block
         while (lastStatement is IfNode { TrueBlock.Children: [], ElseBlock: not null } ifNode)

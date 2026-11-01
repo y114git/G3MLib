@@ -1,4 +1,3 @@
-using System;
 using System.ComponentModel;
 using G3MLib.DataFile.Project;
 using G3MLib.DataFile.Project.SerializableAssets;
@@ -36,7 +35,7 @@ public class GameMakerPath : GameMakerNamedResource, IProjectAsset, INotifyPrope
     /// <summary>
     /// The collection of <see cref="PathPoint"/>s this <see cref="GameMakerPath"/> has.
     /// </summary>
-    public GameMakerSimpleList<PathPoint> Points { get; set; } = new GameMakerSimpleList<PathPoint>();
+    public GameMakerSimpleList<PathPoint> Points { get; set; } = [];
 
     /// <inheritdoc />
 #pragma warning disable CS0067 // Implemented by Fody at build time.
@@ -75,6 +74,7 @@ public class GameMakerPath : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// <inheritdoc />
         public void Serialize(GameMakerWriter writer)
         {
+            ArgumentNullException.ThrowIfNull(writer);
             writer.Write(X);
             writer.Write(Y);
             writer.Write(Speed);
@@ -83,6 +83,7 @@ public class GameMakerPath : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// <inheritdoc />
         public void Unserialize(GameMakerReader reader)
         {
+            ArgumentNullException.ThrowIfNull(reader);
             X = reader.ReadSingle();
             Y = reader.ReadSingle();
             Speed = reader.ReadSingle();
@@ -92,6 +93,7 @@ public class GameMakerPath : GameMakerNamedResource, IProjectAsset, INotifyPrope
     /// <inheritdoc />
     public void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         writer.WriteGameMakerString(Name);
         writer.Write(IsSmooth);
         writer.Write(IsClosed);
@@ -102,6 +104,7 @@ public class GameMakerPath : GameMakerNamedResource, IProjectAsset, INotifyPrope
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         Name = reader.ReadGameMakerString();
         IsSmooth = reader.ReadBoolean();
         IsClosed = reader.ReadBoolean();
@@ -112,6 +115,7 @@ public class GameMakerPath : GameMakerNamedResource, IProjectAsset, INotifyPrope
     /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
     public static uint UnserializeChildObjectCount(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         reader.Position += 16;
 
         return 1 + GameMakerSimpleList<PathPoint>.UnserializeChildObjectCount(reader);
@@ -129,14 +133,14 @@ public class GameMakerPath : GameMakerNamedResource, IProjectAsset, INotifyPrope
         GC.SuppressFinalize(this);
 
         Name = null;
-        Points = new();
+        Points = [];
     }
 
     /// <inheritdoc/>
     ISerializableProjectAsset IProjectAsset.GenerateSerializableProjectAsset(ProjectContext projectContext)
     {
         SerializablePath serializable = new();
-        serializable.PopulateFromData(projectContext, this);
+        serializable.PopulateFromData(this);
         return serializable;
     }
 

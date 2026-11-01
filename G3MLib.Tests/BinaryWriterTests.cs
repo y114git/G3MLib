@@ -1,9 +1,6 @@
-using System;
 using System.Buffers.Binary;
-using System.IO;
 using System.Text;
 using G3MLib.DataFile.Util;
-using Xunit;
 
 namespace G3MLib.Tests;
 
@@ -15,7 +12,7 @@ public sealed class BinaryWriterTests
         const int maximumChunk = 12 * 1024 * 1024;
         using var stream = new MemoryStream(new byte[maximumChunk + 8]);
         using var reader = new BufferBinaryReader(stream);
-        foreach (int length in new[] { 4, maximumChunk, 1 })
+        foreach (var length in new[] { 4, maximumChunk, 1 })
         {
             stream.Position = 8;
             stream.WriteByte(42);
@@ -37,7 +34,7 @@ public sealed class BinaryWriterTests
             writer.WriteUInt24(10597059u);
             writer.WriteGMString("G3M");
         }
-        byte[] written = stream.ToArray();
+        var written = stream.ToArray();
         Assert.Equal(new byte[6] { 254, 255, 255, 195, 178, 161 }, written[..6]);
         Assert.Equal(3, BinaryPrimitives.ReadInt32LittleEndian(written.AsSpan(6)));
         Assert.Equal("G3M", Encoding.UTF8.GetString(written, 10, 3));
@@ -56,7 +53,7 @@ public sealed class BinaryWriterTests
             writer.WriteGMString("G3M");
             writer.Flush();
         }
-        byte[] written = stream.ToArray();
+        var written = stream.ToArray();
         Assert.Equal(16, written.Length);
         Assert.Equal(48879, BinaryPrimitives.ReadUInt16LittleEndian(written));
         Assert.Equal(new byte[6] { 254, 255, 255, 195, 178, 161 }, written.AsSpan(2, 6).ToArray());
@@ -89,7 +86,7 @@ public sealed class BinaryWriterTests
             writer.WriteGMString(value);
         }
 
-        byte[] written = stream.ToArray();
+        var written = stream.ToArray();
         Assert.Equal(2050, BinaryPrimitives.ReadInt32LittleEndian(written));
         Assert.Equal(value, Encoding.UTF8.GetString(written, 4, 2050));
         Assert.Equal(0, written[2054]);
@@ -99,8 +96,8 @@ public sealed class BinaryWriterTests
     public void FileBinaryReaderReadsLongUtf8GameMakerStrings()
     {
         string value = new('\u00E9', 1025);
-        byte[] encoded = Encoding.UTF8.GetBytes(value);
-        byte[] input = new byte[encoded.Length + 5];
+        var encoded = Encoding.UTF8.GetBytes(value);
+        var input = new byte[encoded.Length + 5];
         BinaryPrimitives.WriteInt32LittleEndian(input, encoded.Length);
         encoded.CopyTo(input, 4);
 
@@ -129,7 +126,7 @@ public sealed class BinaryWriterTests
             chunk = stream.ToArray();
         }
 
-        byte[] input = new byte[chunk.Length + 8];
+        var input = new byte[chunk.Length + 8];
         Encoding.ASCII.GetBytes("TEST").CopyTo(input, 0);
         BinaryPrimitives.WriteInt32LittleEndian(input.AsSpan(4), chunk.Length);
         chunk.CopyTo(input, 8);

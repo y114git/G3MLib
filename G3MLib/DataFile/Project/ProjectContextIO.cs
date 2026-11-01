@@ -1,4 +1,3 @@
-using System;
 using System.IO;
 using G3MLib.DataFile.Models;
 using G3MLib.DataFile.Project.SerializableAssets;
@@ -6,7 +5,7 @@ using G3MLib.DataFile.Util;
 
 namespace G3MLib.DataFile.Project;
 
-partial class ProjectContext
+public partial class ProjectContext
 {
     /// <summary>
     /// Helper method to copy a directory to another directory, ignoring hidden folders and files.
@@ -27,25 +26,25 @@ partial class ProjectContext
         }
 
         // Copy over files from this directory
-        foreach (FileInfo sourceFileInfo in sourceInfo.EnumerateFiles("*", SearchOption.TopDirectoryOnly))
+        foreach (var sourceFileInfo in sourceInfo.EnumerateFiles("*", SearchOption.TopDirectoryOnly))
         {
             if (sourceFileInfo.Attributes.HasFlag(FileAttributes.Hidden) || sourceFileInfo.Attributes.HasFlag(FileAttributes.System))
             {
                 continue;
             }
-            string destFilePath = Path.Join(destPath, sourceFileInfo.Name);
+            var destFilePath = Path.Join(destPath, sourceFileInfo.Name);
             FileBackup.BackupFile(destFilePath);
             sourceFileInfo.CopyTo(destFilePath, true);
         }
 
         // Recursively copy sub-directories
-        foreach (DirectoryInfo sourceDirInfo in sourceInfo.EnumerateDirectories("*", SearchOption.TopDirectoryOnly))
+        foreach (var sourceDirInfo in sourceInfo.EnumerateDirectories("*", SearchOption.TopDirectoryOnly))
         {
             if (sourceDirInfo.Attributes.HasFlag(FileAttributes.Hidden) || sourceDirInfo.Attributes.HasFlag(FileAttributes.System))
             {
                 continue;
             }
-            string destDirPath = Path.Join(destPath, sourceDirInfo.Name);
+            var destDirPath = Path.Join(destPath, sourceDirInfo.Name);
             CopyDirectory(sourceDirInfo, destDirPath);
         }
     }
@@ -59,10 +58,10 @@ partial class ProjectContext
     /// <returns><see langword="true"/> if a valid path pair was found; <see langword="false"/> otherwise.</returns>
     private bool TryFindFileFromPathList(ProjectMainOptions.PathList list, out string sourcePath, out string destPath)
     {
-        foreach (ProjectMainOptions.PathList.PathPair pair in list.Paths)
+        foreach (var pair in list.Paths)
         {
             // Attempt next path
-            string attemptPath = Paths.JoinVerifyWithinDirectory(LoadDirectory, pair.Source);
+            var attemptPath = Paths.JoinVerifyWithinDirectory(LoadDirectory, pair.Source);
             if (!File.Exists(attemptPath))
             {
                 continue;
@@ -99,7 +98,7 @@ partial class ProjectContext
         }
 
         // Ensure first letter is an ASCII letter or an underscore
-        char firstChar = text[0];
+        var firstChar = text[0];
         if (!char.IsAsciiLetter(firstChar) && firstChar != '_')
         {
             // Replace first character with an underscore
@@ -107,9 +106,9 @@ partial class ProjectContext
         }
 
         // Replace every other invalid character
-        for (int i = 1; i < text.Length; i++)
+        for (var i = 1; i < text.Length; i++)
         {
-            char c = text[i];
+            var c = text[i];
             if (!char.IsAsciiLetterOrDigit(c) && c != '_')
             {
                 text = text[1..i] + "_" + text[(i + 1)..];
@@ -126,7 +125,7 @@ partial class ProjectContext
     internal GameMakerData RequestAudiogroup(int index, bool fromLoadedDirectory, ISerializableProjectAsset forAsset)
     {
         // Check if cached, and return if so
-        if (_audioGroups.TryGetValue(index, out GameMakerData cached))
+        if (_audioGroups.TryGetValue(index, out var cached))
         {
             return cached;
         }
@@ -141,15 +140,15 @@ partial class ProjectContext
         {
             relativeAudioGroupPath = $"audiogroup{index}.dat";
         }
-        string baseDirectory = fromLoadedDirectory ? LoadDirectory : SaveDirectory;
-        string path = Paths.JoinVerifyWithinDirectory(baseDirectory, relativeAudioGroupPath);
+        var baseDirectory = fromLoadedDirectory ? LoadDirectory : SaveDirectory;
+        var path = Paths.JoinVerifyWithinDirectory(baseDirectory, relativeAudioGroupPath);
         if (File.Exists(path))
         {
             using FileStream stream = new(path, FileMode.Open, FileAccess.Read, FileShare.Read);
             try
             {
                 // Read and cache data
-                return _audioGroups[index] = GameMakerIO.Read(stream, (string warning, bool _) =>
+                return _audioGroups[index] = GameMakerIO.Read(stream, (warning, _) =>
                 {
                     throw new ProjectException($"Warning occurred when loading audio group {index}: {warning}");
                 });
@@ -188,14 +187,14 @@ partial class ProjectContext
         // Perform copy (and overwrite)
         try
         {
-            string destPath = Paths.JoinVerifyWithinDirectory(SaveDirectory, destinationFilename);
+            var destPath = Paths.JoinVerifyWithinDirectory(SaveDirectory, destinationFilename);
 
             // Backup original destination file status
-            string destFullPath = Path.GetFullPath(destPath);
+            var destFullPath = Path.GetFullPath(destPath);
             FileBackup.BackupFile(destFullPath);
 
             // Create directories if needed
-            string destDirectory = Path.GetDirectoryName(destFullPath);
+            var destDirectory = Path.GetDirectoryName(destFullPath);
             if (!Directory.Exists(destDirectory))
             {
                 FileBackup.BackupDirectory(destDirectory, true);
@@ -219,7 +218,7 @@ partial class ProjectContext
         try
         {
             using FileStream fs = new(LoadDataPath, FileMode.Open, FileAccess.Read, FileShare.Read);
-            Data = GameMakerIO.Read(fs, (string warning, bool isImportant) =>
+            Data = GameMakerIO.Read(fs, (warning, isImportant) =>
             {
                 if (_mainOptions.ErrorOnWarnings)
                 {

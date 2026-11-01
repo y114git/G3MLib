@@ -1,13 +1,9 @@
-using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using G3MLib.DataFile.Models;
 using G3MLib.DataFile.Util;
 
 namespace G3MLib.DataFile.Project;
 
-partial class ProjectContext
+public partial class ProjectContext
 {
 
     /// <summary>
@@ -15,7 +11,7 @@ partial class ProjectContext
     /// </summary>
     private void ProcessFlags()
     {
-        foreach (string flag in _mainOptions.Flags)
+        foreach (var flag in _mainOptions.Flags)
         {
             // Ignore custom flags
             if (flag.StartsWith('_'))
@@ -33,13 +29,13 @@ partial class ProjectContext
     /// </summary>
     private void VerifyGameVersion()
     {
-        bool failed = false;
+        var failed = false;
         if (_mainOptions.VerifyStrings.Count <= 1)
         {
-            foreach (string expectedString in _mainOptions.VerifyStrings)
+            foreach (var expectedString in _mainOptions.VerifyStrings)
             {
-                bool found = false;
-                foreach (GameMakerString str in Data.Strings)
+                var found = false;
+                foreach (var str in Data.Strings)
                 {
                     if (str.Content == expectedString)
                     {
@@ -57,7 +53,7 @@ partial class ProjectContext
         else
         {
             HashSet<string> lookup = new(Data.Strings.Count);
-            foreach (GameMakerString str in Data.Strings)
+            foreach (var str in Data.Strings)
             {
                 lookup.Add(str.Content);
             }
@@ -79,9 +75,9 @@ partial class ProjectContext
             return;
         }
         _projectJsonPaths ??= [Path.GetFullPath(MainFilePath)];
-        foreach (string subProjectRelativePath in _mainOptions.SubProjects)
+        foreach (var subProjectRelativePath in _mainOptions.SubProjects)
         {
-            string subProjectPath = Paths.JoinVerifyWithinDirectory(MainDirectory, subProjectRelativePath);
+            var subProjectPath = Paths.JoinVerifyWithinDirectory(MainDirectory, subProjectRelativePath);
             if (!_projectJsonPaths.Add(Path.GetFullPath(subProjectPath)))
             {
                 throw new ProjectException("Infinite sub-project recursion detected");
@@ -99,14 +95,14 @@ partial class ProjectContext
     /// </summary>
     private void ImportExternalFiles()
     {
-        foreach (ProjectMainOptions.PathList.PathPair pair in _mainOptions.ExternalFiles)
+        foreach (var pair in _mainOptions.ExternalFiles)
         {
             // Make sure external file or directory exists
-            string sourcePath = Paths.JoinVerifyWithinDirectory(MainDirectory, pair.Source);
+            var sourcePath = Paths.JoinVerifyWithinDirectory(MainDirectory, pair.Source);
             bool isDirectory;
             try
             {
-                FileAttributes sourceAttributes = File.GetAttributes(sourcePath);
+                var sourceAttributes = File.GetAttributes(sourcePath);
                 isDirectory = sourceAttributes.HasFlag(FileAttributes.Directory);
             }
             catch (Exception e)
@@ -115,11 +111,11 @@ partial class ProjectContext
             }
 
             // Get destination path
-            string destPath = Paths.JoinVerifyWithinDirectory(SaveDirectory, pair.Destination);
+            var destPath = Paths.JoinVerifyWithinDirectory(SaveDirectory, pair.Destination);
 
             // Create directories if needed
-            string destFullPath = Path.GetFullPath(destPath);
-            string destDirectory = Path.GetDirectoryName(destFullPath);
+            var destFullPath = Path.GetFullPath(destPath);
+            var destDirectory = Path.GetDirectoryName(destFullPath);
             if (!Directory.Exists(destDirectory))
             {
                 FileBackup.BackupDirectory(destDirectory, true);
@@ -146,10 +142,10 @@ partial class ProjectContext
     private void ApplyFileOperations()
     {
         // Apply file copies first
-        foreach (ProjectMainOptions.FileOperation operation in _mainOptions.FileCopies)
+        foreach (var operation in _mainOptions.FileCopies)
         {
             // Try finding valid source/destination file paths
-            if (!TryFindFileFromPathList(operation.Paths, out string sourcePath, out string destPath))
+            if (!TryFindFileFromPathList(operation.Paths, out var sourcePath, out var destPath))
             {
                 // Throw exception only if required
                 if (operation.Required)
@@ -160,11 +156,11 @@ partial class ProjectContext
             }
 
             // Back up destination file
-            string destFullPath = Path.GetFullPath(destPath);
+            var destFullPath = Path.GetFullPath(destPath);
             FileBackup.BackupFile(destFullPath);
 
             // Create directories if needed
-            string destDirectory = Path.GetDirectoryName(destFullPath);
+            var destDirectory = Path.GetDirectoryName(destFullPath);
             if (!Directory.Exists(destDirectory))
             {
                 FileBackup.BackupDirectory(destDirectory, true);
@@ -176,10 +172,10 @@ partial class ProjectContext
         }
 
         // Apply file deletes last
-        foreach (ProjectMainOptions.FileOperation operation in _mainOptions.FileDeletes)
+        foreach (var operation in _mainOptions.FileDeletes)
         {
             // Try finding valid destination file path
-            if (!TryFindFileFromPathList(operation.Paths, out _, out string destPath))
+            if (!TryFindFileFromPathList(operation.Paths, out _, out var destPath))
             {
                 // Throw exception only if required
                 if (operation.Required)
@@ -203,24 +199,24 @@ partial class ProjectContext
     /// </summary>
     private void ApplyFilePatches()
     {
-        foreach (ProjectMainOptions.Patch patch in _mainOptions.Patches)
+        foreach (var patch in _mainOptions.Patches)
         {
             // Get path to patch file
-            string fullPatchPath = Paths.JoinVerifyWithinDirectory(MainDirectory, patch.PatchPath);
+            var fullPatchPath = Paths.JoinVerifyWithinDirectory(MainDirectory, patch.PatchPath);
 
             // Try finding valid base/output file paths
-            if (!TryFindFileFromPathList(patch.DataFilePath, out string baseFilePath, out string outputFilePath))
+            if (!TryFindFileFromPathList(patch.DataFilePath, out var baseFilePath, out var outputFilePath))
             {
                 throw new ProjectException("Failed to find data file to be patched");
             }
-            string baseFileFullPath = Path.GetFullPath(baseFilePath);
-            string outputFileFullPath = Path.GetFullPath(outputFilePath);
+            var baseFileFullPath = Path.GetFullPath(baseFilePath);
+            var outputFileFullPath = Path.GetFullPath(outputFilePath);
 
             // Back up destination file
             FileBackup.BackupFile(outputFileFullPath);
 
             // Create directories if needed
-            string outputDirectory = Path.GetDirectoryName(outputFileFullPath);
+            var outputDirectory = Path.GetDirectoryName(outputFileFullPath);
             if (!Directory.Exists(outputDirectory))
             {
                 FileBackup.BackupDirectory(outputDirectory, true);
@@ -232,7 +228,7 @@ partial class ProjectContext
             using FileStream patchStream = new(fullPatchPath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize);
             if (baseFileFullPath == outputFileFullPath)
             {
-                byte[] baseFileBytes = File.ReadAllBytes(baseFileFullPath);
+                var baseFileBytes = File.ReadAllBytes(baseFileFullPath);
                 using MemoryStream baseStream = new(baseFileBytes);
                 using FileStream outputStream = new(outputFileFullPath, FileMode.Create, FileAccess.ReadWrite, FileShare.Read, bufferSize);
                 BPS.ApplyPatch(baseStream, patchStream, outputStream);

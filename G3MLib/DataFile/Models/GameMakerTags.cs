@@ -1,8 +1,3 @@
-using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Linq;
-
 namespace G3MLib.DataFile.Models;
 
 /// <summary>
@@ -16,7 +11,9 @@ public class GameMakerTags : GameMakerObject, IDisposable
 
     public static int GetAssetTagID(GameMakerData data, GameMakerNamedResource resource)
     {
-        ResourceType type = resource switch
+        ArgumentNullException.ThrowIfNull(resource);
+        ArgumentNullException.ThrowIfNull(data);
+        var type = resource switch
         {
             GameMakerGameObject => ResourceType.Object,
             GameMakerSprite => ResourceType.Sprite,
@@ -33,9 +30,9 @@ public class GameMakerTags : GameMakerObject, IDisposable
             GameMakerParticleSystem => ResourceType.ParticleSystem,
             _ => throw new ArgumentException("Invalid resource type!")
         };
-        IList list = data[resource.GetType()];
+        var list = data[resource.GetType()];
 
-        int offset = resource is GameMakerScript ? 100000 : 0;
+        var offset = resource is GameMakerScript ? 100000 : 0;
 
         return ((int)type << 24) | ((list.IndexOf(resource) + offset) & 0xFFFFFF);
     }
@@ -45,7 +42,7 @@ public class GameMakerTags : GameMakerObject, IDisposable
     public void Serialize(GameMakerWriter writer)
     {
         Tags.Serialize(writer);
-        GameMakerPointerList<TempAssetTags> temp = new GameMakerPointerList<TempAssetTags>();
+        GameMakerPointerList<TempAssetTags> temp = [];
         foreach (var kvp in AssetTags)
             temp.Add(new TempAssetTags() { ID = kvp.Key, Tags = kvp.Value });
         temp.Serialize(writer);
@@ -54,11 +51,12 @@ public class GameMakerTags : GameMakerObject, IDisposable
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
-        Tags = new GameMakerSimpleListString();
+        ArgumentNullException.ThrowIfNull(reader);
+        Tags = [];
         Tags.Unserialize(reader);
-        GameMakerPointerList<TempAssetTags> temp = reader.ReadGameMakerObject<GameMakerPointerList<TempAssetTags>>();
-        AssetTags = new Dictionary<int, GameMakerSimpleListString>();
-        foreach (TempAssetTags t in temp.Where(t => t is not null))
+        var temp = reader.ReadGameMakerObject<GameMakerPointerList<TempAssetTags>>();
+        AssetTags = [];
+        foreach (var t in temp.Where(t => t is not null))
             AssetTags[t.ID] = t.Tags;
     }
 

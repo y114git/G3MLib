@@ -4,8 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System;
-using System.Collections.Generic;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -44,7 +42,7 @@ internal class EnumMacroTypeConverter : JsonConverter<EnumMacroType>
             {
                 throw new JsonException();
             }
-            string propertyName = reader.GetString() ?? throw new JsonException();
+            var propertyName = reader.GetString() ?? throw new JsonException();
 
             // Read either name or values
             switch (propertyName)
@@ -86,7 +84,7 @@ internal class EnumMacroTypeConverter : JsonConverter<EnumMacroType>
             {
                 throw new JsonException();
             }
-            string propertyName = reader.GetString() ?? throw new JsonException();
+            var propertyName = reader.GetString() ?? throw new JsonException();
 
             // Read value
             reader.Read();

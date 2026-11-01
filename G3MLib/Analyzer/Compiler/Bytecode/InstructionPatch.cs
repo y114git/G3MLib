@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using static G3MLib.Analyzer.IGMInstruction;
 
 namespace G3MLib.Analyzer.Compiler.Bytecode;
@@ -69,7 +68,7 @@ internal interface IInstructionPatch
     /// <summary>
     /// Associated instruction to patch, or <see langword="null"/> if none is yet assigned.
     /// </summary>
-    public IGMInstruction? Instruction { get; set; }
+    IGMInstruction? Instruction { get; set; }
 }
 
 /// <summary>
@@ -126,6 +125,7 @@ internal record struct FunctionPatch(FunctionScope Scope, string Name, IBuiltinF
     /// Creates a function patch from a builtin function, and the compile context.
     /// </summary>
     /// <param name="builtinName">Builtin function name to use.</param>
+    /// <param name="context">The compile context.</param>
     public static FunctionPatch FromBuiltin(ISubCompileContext context, string builtinName)
     {
         return new FunctionPatch(context.CurrentScope, builtinName, context.CompileContext.GameContext.Builtins.LookupBuiltinFunction(builtinName));

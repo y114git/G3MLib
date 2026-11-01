@@ -17,14 +17,34 @@ public sealed class ParserError : ICompileError
     public string BaseMessage { get; }
 
     private readonly IToken? _nearbyToken;
+    private readonly string _codeText;
 
     /// <summary>
     /// Internal constructor for parser errors. Takes a nearby token, or null if there is none.
     /// </summary>
-    internal ParserError(string baseMessage, IToken? nearbyToken = null)
+    internal ParserError(string baseMessage, string codeText, IToken? nearbyToken = null)
     {
         BaseMessage = baseMessage;
+        _codeText = codeText;
         _nearbyToken = nearbyToken;
+    }
+
+    /// <inheritdoc/>
+    public GmlDiagnostic Diagnostic
+    {
+        get
+        {
+            var code = GmlDiagnostic.ClassifyParserMessage(BaseMessage);
+            if (_nearbyToken is IToken token)
+            {
+                var text = token.Context.Text;
+                var start = Math.Min(token.TextPosition, text.Length);
+                var span = new LineMap(text).GetSpan(start, start + Math.Max(1, token.ToString().Length));
+                return new GmlDiagnostic(DiagnosticSeverity.Error, code, BaseMessage, span, token.Context.MacroName);
+            }
+            // No token: the error is about the end of the code
+            return new GmlDiagnostic(DiagnosticSeverity.Error, code, BaseMessage, new LineMap(_codeText).GetSpan(_codeText.Length, _codeText.Length));
+        }
     }
 
     /// <inheritdoc/>
@@ -32,7 +52,7 @@ public sealed class ParserError : ICompileError
     {
         if (_nearbyToken is IToken token)
         {
-            (int line, int column) = token.Context.GetLineAndColumnFromPos(token.TextPosition);
+            (var line, var column) = token.Context.GetLineAndColumnFromPos(token.TextPosition);
             if (token.Context.MacroName is string macroName)
             {
                 return $"{BaseMessage} around line {line}, column {column} of macro \"{macroName}\"";

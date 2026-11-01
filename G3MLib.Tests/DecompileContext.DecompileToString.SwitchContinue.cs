@@ -166,7 +166,7 @@ public class DecompileContext_DecompileToString_SwitchContinue
             }
             """,
             null,
-            new G3MLib.Analyzer.Decompiler.DecompileSettings()
+            new Analyzer.Decompiler.DecompileSettings()
             {
                 CleanupElseToContinue = false
             }
@@ -240,7 +240,7 @@ public class DecompileContext_DecompileToString_SwitchContinue
             }
             """,
             null,
-            new G3MLib.Analyzer.Decompiler.DecompileSettings()
+            new Analyzer.Decompiler.DecompileSettings()
             {
                 CleanupElseToContinue = false
             }

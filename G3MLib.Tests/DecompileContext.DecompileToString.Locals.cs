@@ -1246,7 +1246,7 @@ public class DecompileContext_DecompileToString_Locals
             }
             """,
             null,
-            new G3MLib.Analyzer.Decompiler.DecompileSettings()
+            new Analyzer.Decompiler.DecompileSettings()
             {
                 EmptyLineAroundBranchStatements = true
             }

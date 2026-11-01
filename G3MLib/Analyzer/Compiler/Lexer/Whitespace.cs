@@ -4,8 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System;
-
 namespace G3MLib.Analyzer.Compiler.Lexer;
 
 /// <summary>
@@ -19,7 +17,7 @@ internal static class Whitespace
     /// </summary>
     public static int Skip(ReadOnlySpan<char> text, int startPosition)
     {
-        int pos = startPosition;
+        var pos = startPosition;
 
         // Skip whitespace until there is no more
         while (true)

@@ -4,8 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System;
-using System.Collections.Generic;
 using System.Reflection;
 using static G3MLib.Analyzer.IGMInstruction;
 
@@ -24,7 +22,7 @@ internal static class BlockSimulator
     static BlockSimulator()
     {
         // Load in data type sizes
-        Type typeDataType = typeof(DataType);
+        var typeDataType = typeof(DataType);
         foreach (DataType dataType in Enum.GetValues(typeDataType))
         {
             var field = typeDataType.GetField(Enum.GetName(typeDataType, dataType) ?? throw new InvalidOperationException())
@@ -39,9 +37,21 @@ internal static class BlockSimulator
     /// </summary>
     public static void Simulate(ASTBuilder builder, List<IStatementNode> output, ControlFlow.Block block)
     {
-        for (int i = builder.StartBlockInstructionIndex; i < block.Instructions.Count; i++)
+        var offsets = builder.Context.NodeOffsets;
+        var address = block.StartAddress;
+        if (offsets is not null)
         {
-            IGMInstruction instr = block.Instructions[i];
+            for (var j = 0; j < builder.StartBlockInstructionIndex; j++)
+            {
+                address += GetSize(block.Instructions[j]);
+            }
+        }
+        for (var i = builder.StartBlockInstructionIndex; i < block.Instructions.Count; i++)
+        {
+            var instr = block.Instructions[i];
+            var outputBefore = output.Count;
+            var stackBefore = builder.ExpressionStack.Count;
+            var topBefore = stackBefore > 0 ? builder.ExpressionStack.Peek() : null;
 
             switch (instr.Kind)
             {
@@ -94,6 +104,21 @@ internal static class BlockSimulator
                     SimulateExtended(builder, output, instr);
                     break;
             }
+
+            if (offsets is not null)
+            {
+                // Remember which instruction produced each new node, for the source map
+                for (var k = outputBefore; k < output.Count; k++)
+                {
+                    offsets.TryAdd(output[k], address);
+                }
+                if (builder.ExpressionStack.Count > 0 &&
+                    (builder.ExpressionStack.Count != stackBefore || !ReferenceEquals(builder.ExpressionStack.Peek(), topBefore)))
+                {
+                    offsets.TryAdd(builder.ExpressionStack.Peek(), address);
+                }
+                address += GetSize(instr);
+            }
         }
 
         builder.StartBlockInstructionIndex = 0;
@@ -104,8 +129,8 @@ internal static class BlockSimulator
     /// </summary>
     private static void SimulateDuplicate(ASTBuilder builder, IGMInstruction instr)
     {
-        DataType dupType = instr.Type1;
-        int dupTypeSize = DataTypeToSize[(int)dupType];
+        var dupType = instr.Type1;
+        var dupTypeSize = DataTypeToSize[(int)dupType];
         int dupSize = instr.DuplicationSize;
         int dupSwapSize = instr.DuplicationSize2;
 
@@ -125,21 +150,21 @@ internal static class BlockSimulator
             }
 
             // Load top data from stack
-            int topSize = dupSize * dupTypeSize;
+            var topSize = dupSize * dupTypeSize;
             Stack<IExpressionNode> topStack = new();
             while (topSize > 0)
             {
-                IExpressionNode curr = builder.ExpressionStack.Pop();
+                var curr = builder.ExpressionStack.Pop();
                 topStack.Push(curr);
                 topSize -= DataTypeToSize[(int)curr.StackType];
             }
 
             // Load bottom data from stack
-            int bottomSize = dupSwapSize * dupTypeSize;
+            var bottomSize = dupSwapSize * dupTypeSize;
             Stack<IExpressionNode> bottomStack = new();
             while (bottomSize > 0)
             {
-                IExpressionNode curr = builder.ExpressionStack.Pop();
+                var curr = builder.ExpressionStack.Pop();
                 bottomStack.Push(curr);
                 bottomSize -= DataTypeToSize[(int)curr.StackType];
             }
@@ -167,11 +192,11 @@ internal static class BlockSimulator
         else
         {
             // Normal duplication mode
-            int size = (dupSize + 1) * dupTypeSize;
+            var size = (dupSize + 1) * dupTypeSize;
             List<IExpressionNode> toDuplicate = [];
             while (size > 0)
             {
-                IExpressionNode curr = builder.ExpressionStack.Pop();
+                var curr = builder.ExpressionStack.Pop();
                 toDuplicate.Add(curr);
                 curr.Duplicated = true;
                 size -= DataTypeToSize[(int)curr.StackType];
@@ -187,7 +212,7 @@ internal static class BlockSimulator
             // If duplication type is boolean, then cast all non-converted int16s being duplicated to booleans
             if (dupType == DataType.Boolean)
             {
-                for (int i = 0; i < toDuplicate.Count; i++)
+                for (var i = 0; i < toDuplicate.Count; i++)
                 {
                     if (toDuplicate[i] is Int16Node { Value: 0 or 1, StackType: not DataType.Boolean } i16)
                     {
@@ -200,9 +225,9 @@ internal static class BlockSimulator
             }
 
             // Push data back to the stack twice (duplicating it, while maintaining internal order)
-            for (int i = 0; i < 2; i++)
+            for (var i = 0; i < 2; i++)
             {
-                for (int j = toDuplicate.Count - 1; j >= 0; j--)
+                for (var j = toDuplicate.Count - 1; j >= 0; j--)
                 {
                     builder.ExpressionStack.Push(toDuplicate[j]);
                 }
@@ -256,12 +281,12 @@ internal static class BlockSimulator
     /// </summary>
     private static void SimulatePushVariable(ASTBuilder builder, IGMInstruction instr)
     {
-        IGMVariable gmVariable = instr.TryFindVariable(builder.Context.GameContext) ?? throw new DecompilerException("Missing variable on instruction");
+        var gmVariable = instr.TryFindVariable(builder.Context.GameContext) ?? throw new DecompilerException("Missing variable on instruction");
 
         // If this is a local variable, add it to the fragment context
         if (gmVariable.InstanceType == InstanceType.Local)
         {
-            string localName = gmVariable.Name.Content;
+            var localName = gmVariable.Name.Content;
             if (builder.LocalVariableNames.Add(localName))
             {
                 builder.LocalVariableNamesList.Add(localName);
@@ -328,12 +353,12 @@ internal static class BlockSimulator
         if (instr.Type1 == DataType.Int16)
         {
             // "Pop Swap" instruction variant - just moves stuff around on the stack
-            IExpressionNode e1 = builder.ExpressionStack.Pop();
-            IExpressionNode e2 = builder.ExpressionStack.Pop();
+            var e1 = builder.ExpressionStack.Pop();
+            var e2 = builder.ExpressionStack.Pop();
             if (instr.PopSwapSize == 5)
             {
                 // Non-array variant (e3 should be stacktop parameter)
-                IExpressionNode e3 = builder.ExpressionStack.Pop();
+                var e3 = builder.ExpressionStack.Pop();
                 builder.ExpressionStack.Push(e1);
                 builder.ExpressionStack.Push(e3);
                 builder.ExpressionStack.Push(e2);
@@ -341,8 +366,8 @@ internal static class BlockSimulator
             else
             {
                 // Array variant (e3 and e4 should be array parameters)
-                IExpressionNode e3 = builder.ExpressionStack.Pop();
-                IExpressionNode e4 = builder.ExpressionStack.Pop();
+                var e3 = builder.ExpressionStack.Pop();
+                var e4 = builder.ExpressionStack.Pop();
                 builder.ExpressionStack.Push(e1);
                 builder.ExpressionStack.Push(e4);
                 builder.ExpressionStack.Push(e3);
@@ -354,10 +379,10 @@ internal static class BlockSimulator
         IExpressionNode? valueToAssign = null;
 
         // If this is a local variable, add it to the fragment context
-        IGMVariable gmVariable = instr.TryFindVariable(builder.Context.GameContext) ?? throw new DecompilerException("Missing variable on instruction");
+        var gmVariable = instr.TryFindVariable(builder.Context.GameContext) ?? throw new DecompilerException("Missing variable on instruction");
         if (gmVariable.InstanceType == InstanceType.Local)
         {
-            string localName = gmVariable.Name.Content;
+            var localName = gmVariable.Name.Content;
             if (builder.LocalVariableNames.Add(localName))
             {
                 builder.LocalVariableNamesList.Add(localName);
@@ -471,7 +496,7 @@ internal static class BlockSimulator
     /// </summary>
     private static List<IExpressionNode> SimulateArrayIndices(ASTBuilder builder)
     {
-        IExpressionNode index = builder.ExpressionStack.Pop();
+        var index = builder.ExpressionStack.Pop();
 
         if (builder.Context.GMLv2)
         {
@@ -497,8 +522,8 @@ internal static class BlockSimulator
     private static void SimulateCall(ASTBuilder builder, List<IStatementNode> output, IGMInstruction instr)
     {
         // Check if we're a special function we need to handle
-        IGMFunction function = instr.TryFindFunction(builder.Context.GameContext) ?? throw new DecompilerException("Missing function on instruction");
-        string? funcName = function.Name?.Content;
+        var function = instr.TryFindFunction(builder.Context.GameContext) ?? throw new DecompilerException("Missing function on instruction");
+        var funcName = function.Name?.Content;
         if (funcName is not null)
         {
             switch (funcName)
@@ -516,7 +541,7 @@ internal static class BlockSimulator
                 case VMConstants.CopyStaticFunction:
                     // Top of stack is function reference to base class (which we ignore), followed by parent call
                     builder.ExpressionStack.Pop();
-                    builder.TopFragmentContext!.BaseParentCall = builder.ExpressionStack.Pop();
+                    builder.TopFragmentContext.BaseParentCall = builder.ExpressionStack.Pop();
                     return;
                 case VMConstants.FinishFinallyFunction:
                     builder.ExpressionStack.Push(new TryCatchNode.FinishFinallyNode());
@@ -530,9 +555,9 @@ internal static class BlockSimulator
         }
 
         // Load all arguments on stack into list
-        int numArgs = instr.ArgumentCount;
+        var numArgs = instr.ArgumentCount;
         List<IExpressionNode> args = new(numArgs);
-        for (int j = 0; j < numArgs; j++)
+        for (var j = 0; j < numArgs; j++)
         {
             args.Add(builder.ExpressionStack.Pop());
         }
@@ -546,9 +571,9 @@ internal static class BlockSimulator
     private static void SimulateArrayInit(ASTBuilder builder, IGMInstruction instr)
     {
         // Load all arguments on stack into list
-        int numArgs = instr.ArgumentCount;
+        var numArgs = instr.ArgumentCount;
         List<IExpressionNode> elems = new(numArgs);
-        for (int j = 0; j < numArgs; j++)
+        for (var j = 0; j < numArgs; j++)
         {
             elems.Add(builder.ExpressionStack.Pop());
         }
@@ -569,12 +594,12 @@ internal static class BlockSimulator
         }
 
         // Load function from first parameter
-        IExpressionNode function = builder.ExpressionStack.Pop();
+        var function = builder.ExpressionStack.Pop();
 
         // Load all arguments on stack into list
-        int numArgs = instr.ArgumentCount - 1;
+        var numArgs = instr.ArgumentCount - 1;
         List<IExpressionNode> args = new(numArgs);
-        for (int j = 0; j < numArgs; j++)
+        for (var j = 0; j < numArgs; j++)
         {
             args.Add(builder.ExpressionStack.Pop());
         }
@@ -588,13 +613,13 @@ internal static class BlockSimulator
     private static void SimulateCallVariable(ASTBuilder builder, IGMInstruction instr)
     {
         // Load function/method and the instance to call it on from the stack
-        IExpressionNode function = builder.ExpressionStack.Pop();
-        IExpressionNode? instance = builder.ExpressionStack.Pop();
+        var function = builder.ExpressionStack.Pop();
+        var instance = builder.ExpressionStack.Pop();
 
         // Load all arguments on stack into list
-        int numArgs = instr.ArgumentCount;
+        var numArgs = instr.ArgumentCount;
         List<IExpressionNode> args = new(numArgs);
-        for (int j = 0; j < numArgs; j++)
+        for (var j = 0; j < numArgs; j++)
         {
             args.Add(builder.ExpressionStack.Pop());
         }
@@ -613,8 +638,8 @@ internal static class BlockSimulator
     /// </summary>
     private static void SimulateBinary(ASTBuilder builder, IGMInstruction instr)
     {
-        IExpressionNode right = builder.ExpressionStack.Pop();
-        IExpressionNode left = builder.ExpressionStack.Pop();
+        var right = builder.ExpressionStack.Pop();
+        var left = builder.ExpressionStack.Pop();
 
         // If either type is a boolean, check if our value is a 16-bit int (0 or 1), and make it a boolean if so
         if (instr.Type1 == DataType.Boolean && right is Int16Node valueRI16 && valueRI16.Value is 0 or 1)
@@ -634,7 +659,7 @@ internal static class BlockSimulator
     /// </summary>
     private static void SimulateConvert(ASTBuilder builder, IGMInstruction instr)
     {
-        IExpressionNode top = builder.ExpressionStack.Peek();
+        var top = builder.ExpressionStack.Peek();
 
         if (top is Int16Node i16 && i16.Value is 0 or 1 && instr is { Type1: DataType.Boolean })
         {
@@ -663,7 +688,7 @@ internal static class BlockSimulator
             return;
         }
 
-        IExpressionNode node = builder.ExpressionStack.Pop();
+        var node = builder.ExpressionStack.Pop();
         if (node.Duplicated || node is VariableNode)
         {
             // Disregard unnecessary expressions
@@ -712,15 +737,15 @@ internal static class BlockSimulator
     /// </summary>
     private static void SimulateMultiArrayPush(ASTBuilder builder)
     {
-        IExpressionNode index = builder.ExpressionStack.Pop();
+        var index = builder.ExpressionStack.Pop();
         if (builder.ExpressionStack.Pop() is not VariableNode variable)
         {
             throw new DecompilerException("Expected variable in multi-array push");
         }
 
         // Make a copy of the variable we already have, with the new index at the end of array indices
-        List<IExpressionNode> existingArrayIndices = variable.ArrayIndices ?? throw new DecompilerException("Expected existing array indices");
-        VariableNode extendedVariable = new(variable.Variable, variable.ReferenceType, variable.Left, new(existingArrayIndices) { index }, variable.RegularPush);
+        var existingArrayIndices = variable.ArrayIndices ?? throw new DecompilerException("Expected existing array indices");
+        VariableNode extendedVariable = new(variable.Variable, variable.ReferenceType, variable.Left, [.. existingArrayIndices, index], variable.RegularPush);
         builder.ExpressionStack.Push(extendedVariable);
     }
 
@@ -729,21 +754,21 @@ internal static class BlockSimulator
     /// </summary>
     private static void SimulateMultiArrayPop(ASTBuilder builder, List<IStatementNode> output)
     {
-        IExpressionNode index = builder.ExpressionStack.Pop();
+        var index = builder.ExpressionStack.Pop();
         if (builder.ExpressionStack.Pop() is not VariableNode variable)
         {
             throw new DecompilerException("Expected variable in multi-array pop");
         }
 
         // Make a copy of the variable we already have, with the new index at the end of array indices
-        List<IExpressionNode> existingArrayIndices = variable.ArrayIndices ?? throw new DecompilerException("Expected existing array indices");
-        VariableNode extendedVariable = new(variable.Variable, variable.ReferenceType, variable.Left, new(existingArrayIndices) { index }, variable.RegularPush)
+        var existingArrayIndices = variable.ArrayIndices ?? throw new DecompilerException("Expected existing array indices");
+        VariableNode extendedVariable = new(variable.Variable, variable.ReferenceType, variable.Left, [.. existingArrayIndices, index], variable.RegularPush)
         {
             Duplicated = variable.Duplicated
         };
 
         // Make assignment node with this variable, and the value remaining at the top of the stack
-        IExpressionNode value = builder.ExpressionStack.Pop();
+        var value = builder.ExpressionStack.Pop();
 
         // If we have a binary being assigned, check for prefix/postfix operations
         if (value is BinaryNode binary)

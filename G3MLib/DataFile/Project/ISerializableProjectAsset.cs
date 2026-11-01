@@ -1,4 +1,3 @@
-using System;
 using System.Text.Json.Serialization;
 using G3MLib.DataFile.Project.SerializableAssets;
 using G3MLib.DataFile.Util;
@@ -27,44 +26,44 @@ public interface ISerializableProjectAsset
     /// <summary>
     /// Name to be used for this asset directly in game data.
     /// </summary>
-    public string DataName { get; internal set; }
+    string DataName { get; internal set; }
 
     /// <summary>
     /// Static asset type for this asset.
     /// </summary>
     [JsonIgnore]
-    public SerializableAssetType AssetType { get; }
+    SerializableAssetType AssetType { get; }
 
     /// <summary>
     /// Static boolean for whether this asset type requires an individual directory per each asset.
     /// </summary>
     [JsonIgnore]
-    public bool IndividualDirectory { get; }
+    bool IndividualDirectory { get; }
 
     /// <summary>
     /// Optional integer override for asset importing order.
     /// This has higher precedence over all alphabetical <see cref="DataName"/> sorting, and is ordered ascending.
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
-    public int OverrideOrder { get; set; }
+    int OverrideOrder { get; set; }
 
     /// <summary>
     /// Serializes this project asset to a destination (main) filename, along with any other files that need to be saved.
     /// </summary>
-    public void Serialize(ProjectContext projectContext, string destinationFile);
+    void Serialize(ProjectContext projectContext, string destinationFile);
 
     /// <summary>
     /// Performs any pre-import operations for importing this asset into game data, such as finding/creating a blank asset.
     /// </summary>
     /// <param name="projectContext">Context of the project.</param>
-    public void PreImport(ProjectContext projectContext);
+    void PreImport(ProjectContext projectContext);
 
     /// <summary>
     /// Imports this serializable asset into game data, within the given project context.
     /// </summary>
     /// <param name="projectContext">Context of the project.</param>
     /// <returns>A raw/regular version of this serializable asset, as contained (or added) to game data.</returns>
-    public IProjectAsset Import(ProjectContext projectContext);
+    IProjectAsset Import(ProjectContext projectContext);
 }
 
 public interface ISerializableTextureProjectAsset : ISerializableProjectAsset
@@ -74,7 +73,7 @@ public interface ISerializableTextureProjectAsset : ISerializableProjectAsset
     /// </summary>
     /// <param name="projectContext">Context of the project.</param>
     /// <param name="texturePacker">Texture packer currently being used for packing.</param>
-    public void ImportTextures(ProjectContext projectContext, TextureGroupPacker texturePacker);
+    void ImportTextures(ProjectContext projectContext, TextureGroupPacker texturePacker);
 }
 
 /// <summary>

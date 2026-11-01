@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using G3MLib.Analyzer;
 using G3MLib.Analyzer.Compiler;
 using G3MLib.Analyzer.Compiler.Bytecode;
@@ -25,9 +23,9 @@ internal class CodeBuilder : ICodeBuilder
         _globalContext = globalContext;
 
         // Make variable and function lookups (to not rely on O(n) searches)
-        IList<GameMakerVariable> variables = _globalContext.Data.Variables;
+        var variables = _globalContext.Data.Variables;
         _variableLookup = new(variables.Count);
-        foreach (GameMakerVariable v in variables)
+        foreach (var v in variables)
         {
             if (v is null)
             {
@@ -43,7 +41,7 @@ internal class CodeBuilder : ICodeBuilder
     /// </summary>
     private GameMakerInstruction.Opcode MapOpcode(Opcode opcode)
     {
-        GameMakerInstruction.Opcode utOpcode = (GameMakerInstruction.Opcode)opcode;
+        var utOpcode = (GameMakerInstruction.Opcode)opcode;
 
         if (!_globalContext.Bytecode14OrLower)
         {
@@ -277,16 +275,16 @@ internal class CodeBuilder : ICodeBuilder
             {
                 // Register/define non-local variable, and update variable on instruction immediately
                 _globalContext.CurrentCompileGroup.RegisterNonLocalVariable(variableName);
-                GameMakerString nameString = _globalContext.CurrentCompileGroup.MakeString(variableName, out int nameStringId);
-                GameMakerInstruction.InstanceType actualInstType =
+                var nameString = _globalContext.CurrentCompileGroup.MakeString(variableName, out var nameStringId);
+                var actualInstType =
                     _globalContext.Data.Variables.CalculateInstType((GameMakerInstruction.InstanceType)variableInstanceType, isBuiltin, _globalContext.Data);
-                if (_variableLookup.TryGetValue((nameString, actualInstType), out GameMakerVariable existingVariable))
+                if (_variableLookup.TryGetValue((nameString, actualInstType), out var existingVariable))
                 {
                     utInstruction.ValueVariable = existingVariable;
                 }
                 else
                 {
-                    GameMakerVariable newVariable = _globalContext.Data.Variables.Define(nameString, nameStringId, actualInstType, isBuiltin, _globalContext.Data);
+                    var newVariable = _globalContext.Data.Variables.Define(nameString, nameStringId, actualInstType, isBuiltin, _globalContext.Data);
                     _variableLookup.Add((nameString, actualInstType), newVariable);
                     utInstruction.ValueVariable = newVariable;
                 }
@@ -308,14 +306,14 @@ internal class CodeBuilder : ICodeBuilder
         {
             // Register/define non-local variable, and update variable on instruction immediately
             _globalContext.CurrentCompileGroup.RegisterNonLocalVariable(variableName);
-            GameMakerString nameString = _globalContext.CurrentCompileGroup.MakeString(variableName, out int nameStringId);
-            if (_variableLookup.TryGetValue((nameString, GameMakerInstruction.InstanceType.Self), out GameMakerVariable existingVariable))
+            var nameString = _globalContext.CurrentCompileGroup.MakeString(variableName, out var nameStringId);
+            if (_variableLookup.TryGetValue((nameString, GameMakerInstruction.InstanceType.Self), out var existingVariable))
             {
                 utInstruction.ValueVariable = existingVariable;
             }
             else
             {
-                GameMakerVariable newVariable = _globalContext.Data.Variables.Define(
+                var newVariable = _globalContext.Data.Variables.Define(
                     nameString, nameStringId, GameMakerInstruction.InstanceType.Self, isBuiltin, _globalContext.Data);
                 _variableLookup.Add((nameString, GameMakerInstruction.InstanceType.Self), newVariable);
                 utInstruction.ValueVariable = newVariable;
@@ -330,7 +328,7 @@ internal class CodeBuilder : ICodeBuilder
         {
             // Resolve reference
             GameMakerFunction reference;
-            if (scope.TryGetDeclaredFunction(_globalContext, functionName, out FunctionEntry entry))
+            if (scope.TryGetDeclaredFunction(_globalContext, functionName, out var entry))
             {
                 reference = entry.Function as GameMakerFunction ?? throw new InvalidOperationException("Function not resolved for function entry");
             }
@@ -338,11 +336,11 @@ internal class CodeBuilder : ICodeBuilder
             {
                 reference = _globalContext.Data.Functions.EnsureDefined(functionName, _globalContext.Data.Strings);
             }
-            else if (_globalContext.GlobalFunctions.TryGetFunction(functionName, out IGMFunction function))
+            else if (_globalContext.GlobalFunctions.TryGetFunction(functionName, out var function))
             {
                 reference = (GameMakerFunction)function;
             }
-            else if (_globalContext.GetScriptId(functionName, out int _))
+            else if (_globalContext.GetScriptId(functionName, out var _))
             {
                 reference = _globalContext.Data.Functions.EnsureDefined(functionName, _globalContext.Data.Strings);
             }
@@ -362,7 +360,7 @@ internal class CodeBuilder : ICodeBuilder
         if (instruction is GameMakerInstruction utInstruction)
         {
             // Resolve reference
-            GameMakerFunction reference = functionEntry.Function as GameMakerFunction ?? throw new InvalidOperationException("Function not resolved for function entry");
+            var reference = functionEntry.Function as GameMakerFunction ?? throw new InvalidOperationException("Function not resolved for function entry");
 
             // Put reference on instruction
             utInstruction.ValueFunction = reference;
@@ -375,7 +373,7 @@ internal class CodeBuilder : ICodeBuilder
         if (instruction is GameMakerInstruction utInstruction)
         {
             // Make/find string
-            GameMakerString str = _globalContext.CurrentCompileGroup.MakeString(stringContent, out int strIndex);
+            var str = _globalContext.CurrentCompileGroup.MakeString(stringContent, out var strIndex);
 
             // Update instruction
             utInstruction.ValueString = new GameMakerResourceById<GameMakerString, GameMakerChunkSTRG>(str, strIndex);
@@ -414,7 +412,7 @@ internal class CodeBuilder : ICodeBuilder
     /// <inheritdoc/>
     public long GenerateArrayOwnerID(string variableName, long functionIndex, bool isDot)
     {
-        long id = _globalContext.UsingNewArrayOwners ? (functionIndex << 16) : 0;
+        var id = _globalContext.UsingNewArrayOwners ? (functionIndex << 16) : 0;
         if (isDot)
         {
             // Double the ID at this point, apparently...

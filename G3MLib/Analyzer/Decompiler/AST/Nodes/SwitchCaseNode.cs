@@ -4,8 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
-
 namespace G3MLib.Analyzer.Decompiler.AST;
 
 /// <summary>
@@ -44,6 +42,8 @@ public class SwitchCaseNode(IExpressionNode? expression) : IStatementNode, IBloc
     /// <inheritdoc/>
     public int BlockClean(ASTCleaner cleaner, BlockNode block, int i)
     {
+        ArgumentNullException.ThrowIfNull(block);
+        ArgumentNullException.ThrowIfNull(cleaner);
         if (cleaner.Context.Settings.EmptyLineBeforeSwitchCases && i > 0 && block.Children[i - 1] is not SwitchCaseNode)
         {
             EmptyLineBefore = true;
@@ -59,10 +59,11 @@ public class SwitchCaseNode(IExpressionNode? expression) : IStatementNode, IBloc
     /// <inheritdoc/>
     public void Print(ASTPrinter printer)
     {
+        ArgumentNullException.ThrowIfNull(printer);
         if (Expression is not null)
         {
             printer.Write("case ");
-            Expression.Print(printer);
+            printer.PrintNode(Expression);
             printer.Write(':');
         }
         else

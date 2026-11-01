@@ -1,4 +1,3 @@
-using System;
 using static G3MLib.DataFile.Models.IGameMakerFlexProperties;
 
 namespace G3MLib.DataFile.Models;
@@ -26,6 +25,7 @@ public class GameMakerUINode : GameMakerObject
     /// <inheritdoc/>
     public void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         // Write type discriminator
         writer.Write(Node switch
         {
@@ -59,8 +59,9 @@ public class GameMakerUINode : GameMakerObject
     /// <inheritdoc/>
     public void Unserialize(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         // Handle type discriminator
-        int typeId = reader.ReadInt32();
+        var typeId = reader.ReadInt32();
         Node = typeId switch
         {
             0 => new GameMakerUILayer(),
@@ -74,7 +75,7 @@ public class GameMakerUINode : GameMakerObject
         };
 
         // Read in pointer to node data
-        uint dataPtr = reader.ReadUInt32();
+        var dataPtr = reader.ReadUInt32();
 
         // Read list of children, if required
         if (Node is GameMakerUIContainer container)
@@ -83,7 +84,7 @@ public class GameMakerUINode : GameMakerObject
         }
         else
         {
-            int alwaysZero = reader.ReadInt32();
+            var alwaysZero = reader.ReadInt32();
             if (alwaysZero != 0)
             {
                 throw new GameMakerSerializationException("Expected 0 while reading UI node child count");
@@ -102,13 +103,14 @@ public class GameMakerUINode : GameMakerObject
     /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
     public static uint UnserializeChildObjectCount(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         uint count = 0;
 
         // Use type discriminator
-        int typeId = reader.ReadInt32();
+        var typeId = reader.ReadInt32();
         reader.ReadInt32(); // skip data pointer
 
-        if (typeId == 0 || typeId == 1)
+        if (typeId is 0 or 1)
         {
             // Add children objects to count
             count += GameMakerPointerList<GameMakerUINode>.UnserializeChildObjectCount(reader);
@@ -196,6 +198,7 @@ public readonly struct GameMakerFlexValue
     /// <param name="reader"></param>
     public GameMakerFlexValue(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         Value = reader.ReadSingle();
         Unit = (UnitKind)reader.ReadInt32();
     }
@@ -205,6 +208,7 @@ public readonly struct GameMakerFlexValue
     /// </summary>
     public void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         writer.Write(Value);
         writer.Write((int)Unit);
     }
@@ -218,7 +222,7 @@ public interface IGameMakerFlexProperties
     /// <summary>
     /// Alignment types that can be used for aligning content in a flexbox.
     /// </summary>
-    public enum AlignmentKind : int
+    enum AlignmentKind : int
     {
         Auto = 0,
         FlexStart = 1,
@@ -234,7 +238,7 @@ public interface IGameMakerFlexProperties
     /// <summary>
     /// Flex direction types that can be used in a flexbox.
     /// </summary>
-    public enum FlexDirectionKind : int
+    enum FlexDirectionKind : int
     {
         Column = 0,
         ColumnReverse = 1,
@@ -245,7 +249,7 @@ public interface IGameMakerFlexProperties
     /// <summary>
     /// Wrap types that can be used in a flexbox.
     /// </summary>
-    public enum WrapKind : int
+    enum WrapKind : int
     {
         NoWrap = 0,
         Wrap = 1,
@@ -255,7 +259,7 @@ public interface IGameMakerFlexProperties
     /// <summary>
     /// Justification types that can be used in a flexbox.
     /// </summary>
-    public enum JustifyKind : int
+    enum JustifyKind : int
     {
         FlexStart = 0,
         Center = 1,
@@ -268,7 +272,7 @@ public interface IGameMakerFlexProperties
     /// <summary>
     /// Layout direction types that can be used in a flexbox.
     /// </summary>
-    public enum LayoutDirectionKind : int
+    enum LayoutDirectionKind : int
     {
         Inherit = 0,
         LTR = 1,
@@ -278,68 +282,70 @@ public interface IGameMakerFlexProperties
     /// <summary>
     /// Alignment of child items within the container (along cross axis).
     /// </summary>
-    public AlignmentKind AlignItems { get; set; }
+    AlignmentKind AlignItems { get; set; }
 
     /// <summary>
     /// Main direction that child items are laid out (affects direction of other properties).
     /// </summary>
-    public FlexDirectionKind FlexDirection { get; set; }
+    FlexDirectionKind FlexDirection { get; set; }
 
     /// <summary>
     /// Wrapping type for the flexbox (when items exceed the bounds).
     /// </summary>
-    public WrapKind FlexWrap { get; set; }
+    WrapKind FlexWrap { get; set; }
 
     /// <summary>
     /// Alignment of lines within the container (along cross axis), when items are wrapped to multiple lines.
     /// </summary>
-    public AlignmentKind AlignContent { get; set; }
+    AlignmentKind AlignContent { get; set; }
 
     /// <summary>
     /// Gap between rows of items.
     /// </summary>
-    public float GapRow { get; set; }
+    float GapRow { get; set; }
 
     /// <summary>
     /// Gap between columns of items.
     /// </summary>
-    public float GapColumn { get; set; }
+    float GapColumn { get; set; }
 
     /// <summary>
     /// Left padding of the container.
     /// </summary>
-    public GameMakerFlexValue PaddingLeft { get; set; }
+    GameMakerFlexValue PaddingLeft { get; set; }
 
     /// <summary>
     /// Right padding of the container.
     /// </summary>
-    public GameMakerFlexValue PaddingRight { get; set; }
+    GameMakerFlexValue PaddingRight { get; set; }
 
     /// <summary>
     /// Top padding of the container.
     /// </summary>
-    public GameMakerFlexValue PaddingTop { get; set; }
+    GameMakerFlexValue PaddingTop { get; set; }
 
     /// <summary>
     /// Bottom padding of the container.
     /// </summary>
-    public GameMakerFlexValue PaddingBottom { get; set; }
+    GameMakerFlexValue PaddingBottom { get; set; }
 
     /// <summary>
     /// Alignment of child items within the container (along main axis, i.e. main flex direction).
     /// </summary>
-    public JustifyKind JustifyContent { get; set; }
+    JustifyKind JustifyContent { get; set; }
 
     /// <summary>
     /// Layout direction of the container.
     /// </summary>
-    public LayoutDirectionKind LayoutDirection { get; set; }
+    LayoutDirectionKind LayoutDirection { get; set; }
 
     /// <summary>
     /// Serializes flex properties to the given writer.
     /// </summary>
-    public static void Serialize(GameMakerWriter writer, IGameMakerFlexProperties props)
+    static void Serialize(GameMakerWriter writer, IGameMakerFlexProperties props)
     {
+        ArgumentNullException.ThrowIfNull(props);
+        ArgumentNullException.ThrowIfNull(writer);
         writer.Write((int)props.AlignItems);
         writer.Write((int)props.FlexDirection);
         writer.Write((int)props.FlexWrap);
@@ -357,8 +363,10 @@ public interface IGameMakerFlexProperties
     /// <summary>
     /// Unserializes flex properties from the given reader.
     /// </summary>
-    public static void Unserialize(GameMakerReader reader, IGameMakerFlexProperties props)
+    static void Unserialize(GameMakerReader reader, IGameMakerFlexProperties props)
     {
+        ArgumentNullException.ThrowIfNull(props);
+        ArgumentNullException.ThrowIfNull(reader);
         props.AlignItems = (AlignmentKind)reader.ReadInt32();
         props.FlexDirection = (FlexDirectionKind)reader.ReadInt32();
         props.FlexWrap = (WrapKind)reader.ReadInt32();
@@ -374,8 +382,9 @@ public interface IGameMakerFlexProperties
     }
 
     /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
-    public static uint UnserializeChildObjectCount(GameMakerReader reader)
+    static uint UnserializeChildObjectCount(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         reader.Position += 16 * 4;
         return 0;
     }
@@ -389,43 +398,45 @@ public interface IGameMakerFlexInstanceProperties
     /// <summary>
     /// Whether the instance is visible.
     /// </summary>
-    public bool Visible { get; set; }
+    bool Visible { get; set; }
 
     /// <summary>
     /// Anchor of the instance's (0, 0) position, based on container.
     /// </summary>
-    public int Anchor { get; set; }
+    int Anchor { get; set; }
 
     /// <summary>
     /// Whether the width of the instance is stretched to fit its container.
     /// </summary>
-    public bool StretchWidth { get; set; }
+    bool StretchWidth { get; set; }
 
     /// <summary>
     /// Whether the height of the instance is stretched to fit its container.
     /// </summary>
-    public bool StretchHeight { get; set; }
+    bool StretchHeight { get; set; }
 
     /// <summary>
     /// Whether the instance is tiled horizontally.
     /// </summary>
-    public bool TileH { get; set; }
+    bool TileH { get; set; }
 
     /// <summary>
     /// Whether the instance is tiled vertically.
     /// </summary>
-    public bool TileV { get; set; }
+    bool TileV { get; set; }
 
     /// <summary>
     /// Whether aspect ratio should be maintained when stretching width/height.
     /// </summary>
-    public bool KeepAspect { get; set; }
+    bool KeepAspect { get; set; }
 
     /// <summary>
     /// Serializes flex instance properties to the given writer.
     /// </summary>
-    public static void Serialize(GameMakerWriter writer, IGameMakerFlexInstanceProperties props)
+    static void Serialize(GameMakerWriter writer, IGameMakerFlexInstanceProperties props)
     {
+        ArgumentNullException.ThrowIfNull(props);
+        ArgumentNullException.ThrowIfNull(writer);
         writer.Write(props.Visible);
         writer.Write(props.Anchor);
         writer.Write(props.StretchWidth);
@@ -438,8 +449,10 @@ public interface IGameMakerFlexInstanceProperties
     /// <summary>
     /// Unserializes flex instance properties from the given reader.
     /// </summary>
-    public static void Unserialize(GameMakerReader reader, IGameMakerFlexInstanceProperties props)
+    static void Unserialize(GameMakerReader reader, IGameMakerFlexInstanceProperties props)
     {
+        ArgumentNullException.ThrowIfNull(props);
+        ArgumentNullException.ThrowIfNull(reader);
         props.Visible = reader.ReadBoolean();
         props.Anchor = reader.ReadInt32();
         props.StretchWidth = reader.ReadBoolean();
@@ -450,8 +463,9 @@ public interface IGameMakerFlexInstanceProperties
     }
 
     /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
-    public static uint UnserializeChildObjectCount(GameMakerReader reader)
+    static uint UnserializeChildObjectCount(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         reader.Position += 7 * 4;
         return 0;
     }
@@ -465,7 +479,7 @@ public abstract class GameMakerUIContainer : IGameMakerUINodeData, IGameMakerFle
     /// <summary>
     /// Child nodes of the container.
     /// </summary>
-    public GameMakerPointerList<GameMakerUINode> Children { get; set; } = new();
+    public GameMakerPointerList<GameMakerUINode> Children { get; set; } = [];
 
     /// <inheritdoc/>
     public AlignmentKind AlignItems { get; set; }
@@ -542,6 +556,7 @@ public class GameMakerUILayer : GameMakerUIContainer, GameMakerNamedResource
     /// <inheritdoc/>
     public override void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         writer.WriteGameMakerString(Name);
         writer.Write((int)DrawSpace);
         writer.Write(Visible);
@@ -551,6 +566,7 @@ public class GameMakerUILayer : GameMakerUIContainer, GameMakerNamedResource
     /// <inheritdoc/>
     public override void Unserialize(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         Name = reader.ReadGameMakerString();
         DrawSpace = (DrawSpaceKind)reader.ReadInt32();
         Visible = reader.ReadBoolean();
@@ -560,6 +576,7 @@ public class GameMakerUILayer : GameMakerUIContainer, GameMakerNamedResource
     /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
     public static uint UnserializeChildObjectCount(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         reader.Position += 4 * 3;
         return IGameMakerFlexProperties.UnserializeChildObjectCount(reader);
     }
@@ -683,6 +700,7 @@ public class GameMakerUIFlexPanel : GameMakerUIContainer
     /// <inheritdoc/>
     public override void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         writer.WriteGameMakerString(Name);
         Width.Serialize(writer);
         Height.Serialize(writer);
@@ -709,6 +727,7 @@ public class GameMakerUIFlexPanel : GameMakerUIContainer
     /// <inheritdoc/>
     public override void Unserialize(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         Name = reader.ReadGameMakerString();
         Width = new(reader);
         Height = new(reader);
@@ -735,6 +754,7 @@ public class GameMakerUIFlexPanel : GameMakerUIContainer
     /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
     public static uint UnserializeChildObjectCount(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         reader.Position += 20 * 4;
         return IGameMakerFlexProperties.UnserializeChildObjectCount(reader);
     }
@@ -783,6 +803,7 @@ public class GameMakerUIGameObject : GameMakerRoom.GameObject, IGameMakerUINodeD
     /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
     public static uint UnserializeChildObjectCount(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         reader.Position += 12 * 4;
         return IGameMakerFlexInstanceProperties.UnserializeChildObjectCount(reader);
     }
@@ -831,6 +852,7 @@ public class GameMakerUISequenceInstance : GameMakerRoom.SequenceInstance, IGame
     /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
     public static uint UnserializeChildObjectCount(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         reader.Position += 11 * 4;
         return IGameMakerFlexInstanceProperties.UnserializeChildObjectCount(reader);
     }
@@ -879,6 +901,7 @@ public class GameMakerUISpriteInstance : GameMakerRoom.SpriteInstance, IGameMake
     /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
     public static uint UnserializeChildObjectCount(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         reader.Position += 11 * 4;
         return IGameMakerFlexInstanceProperties.UnserializeChildObjectCount(reader);
     }
@@ -925,8 +948,9 @@ public class GameMakerUITextItemInstance : GameMakerRoom.TextItemInstance, IGame
     }
 
     /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
-    public new static uint UnserializeChildObjectCount(GameMakerReader reader)
+    public static new uint UnserializeChildObjectCount(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         reader.Position += 17 * 4;
         return IGameMakerFlexInstanceProperties.UnserializeChildObjectCount(reader);
     }
@@ -950,11 +974,12 @@ public class GameMakerUIEffectLayer : IGameMakerUINodeData
     /// <summary>
     /// List of effect properties for the effect layer.
     /// </summary>
-    public GameMakerPointerList<GameMakerRoom.EffectProperty> Properties { get; set; } = new();
+    public GameMakerPointerList<GameMakerRoom.EffectProperty> Properties { get; set; } = [];
 
     /// <inheritdoc />
     public void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         writer.Write(Enabled);
         writer.WriteGameMakerString(EffectType);
         Properties.Serialize(writer);
@@ -963,6 +988,7 @@ public class GameMakerUIEffectLayer : IGameMakerUINodeData
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         Enabled = reader.ReadBoolean();
         EffectType = reader.ReadGameMakerString();
         Properties.Unserialize(reader);
@@ -971,6 +997,7 @@ public class GameMakerUIEffectLayer : IGameMakerUINodeData
     /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
     public static uint UnserializeChildObjectCount(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         reader.Position += 8;
         return GameMakerPointerList<GameMakerRoom.EffectProperty>.UnserializeChildObjectCount(reader);
     }

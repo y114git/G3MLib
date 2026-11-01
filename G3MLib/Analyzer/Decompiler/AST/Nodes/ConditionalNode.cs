@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Decompiler.GameSpecific;
 
 namespace G3MLib.Analyzer.Decompiler.AST;
@@ -31,10 +30,10 @@ public class ConditionalNode(IExpressionNode condition, IExpressionNode trueExpr
     public IExpressionNode False { get; private set; } = falseExpr;
 
     /// <inheritdoc/>
-    public bool Duplicated { get; set; } = false;
+    public bool Duplicated { get; set; }
 
     /// <inheritdoc/>
-    public bool Group { get; set; } = false;
+    public bool Group { get; set; }
 
     /// <inheritdoc/>
     public IGMInstruction.DataType StackType { get; set; } = IGMInstruction.DataType.Variable;
@@ -81,16 +80,17 @@ public class ConditionalNode(IExpressionNode condition, IExpressionNode trueExpr
     /// <inheritdoc/>
     public void Print(ASTPrinter printer)
     {
+        ArgumentNullException.ThrowIfNull(printer);
         if (Group)
         {
             printer.Write('(');
         }
 
-        Condition.Print(printer);
+        printer.PrintNode(Condition);
         printer.Write(" ? ");
-        True.Print(printer);
+        printer.PrintNode(True);
         printer.Write(" : ");
-        False.Print(printer);
+        printer.PrintNode(False);
 
         if (Group)
         {
@@ -118,7 +118,7 @@ public class ConditionalNode(IExpressionNode condition, IExpressionNode trueExpr
             return conditional.Resolve(cleaner, this);
         }
 
-        bool didAnything = false;
+        var didAnything = false;
 
         if (True is IMacroResolvableNode trueResolvable &&
             trueResolvable.ResolveMacroType(cleaner, type) is IExpressionNode trueResolved)

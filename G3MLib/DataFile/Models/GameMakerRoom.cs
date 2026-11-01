@@ -1,11 +1,9 @@
-using System;
-using System.Collections.Generic;
+using System.Globalization;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
-using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using G3MLib.DataFile.Project;
@@ -108,19 +106,16 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
     /// </summary>
     public RoomEntryFlags Flags { get; set; } = RoomEntryFlags.EnableViews;
 
-    public bool World { get; set; } = false;
-    public uint Top { get; set; } = 0;
-    public uint Left { get; set; } = 0;
+    public bool World { get; set; }
+    public uint Top { get; set; }
+    public uint Left { get; set; }
     public uint Right { get; set; } = 1024;
     public uint Bottom { get; set; } = 768;
-
-    private double _gridWidth = 16.0;
-    private double _gridHeight = 16.0;
 
     /// <summary>
     /// The gravity towards x axis using room physics in m/s.
     /// </summary>
-    public float GravityX { get; set; } = 0;
+    public float GravityX { get; set; }
 
     /// <summary>
     /// The gravity towards y axis using room physics in m/s.
@@ -138,7 +133,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
     /// <remarks>
     /// This is an GameMakerModTool-only property; it doesn't exist in game data.
     /// </remarks>
-    public double GridWidth { get => _gridWidth; set { if (value >= 0) _gridWidth = value; } }
+    public double GridWidth { get; set { if (value >= 0) field = value; } } = 16.0;
 
     /// <summary>
     /// The height of the room grid in pixels.
@@ -146,7 +141,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
     /// <remarks>
     /// This is an GameMakerModTool-only property; it doesn't exist in game data.
     /// </remarks>
-    public double GridHeight { get => _gridHeight; set { if (value >= 0) _gridHeight = value; } }
+    public double GridHeight { get; set { if (value >= 0) field = value; } } = 16.0;
 
     /// <summary>
     /// The thickness of the room grid in pixels.
@@ -159,29 +154,29 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
     /// <summary>
     /// The list of backgrounds this room uses.
     /// </summary>
-    public GameMakerPointerList<Background> Backgrounds { get; set; } = new GameMakerPointerList<Background>();
+    public GameMakerPointerList<Background> Backgrounds { get; set; } = [];
 
     /// <summary>
     /// The list of views this room uses.
     /// </summary>
-    public GameMakerPointerList<View> Views { get; set; } = new GameMakerPointerList<View>();
+    public GameMakerPointerList<View> Views { get; set; } = [];
 
     /// <summary>
     /// The list of game objects this room uses.
     /// </summary>
-    public GameMakerPointerList<GameObject> GameObjects { get; set; } = new GameMakerPointerList<GameObject>();
+    public GameMakerPointerList<GameObject> GameObjects { get; set; } = [];
 
     /// <summary>
     /// The list of tiles this room uses.
     /// </summary>
-    public GameMakerPointerList<Tile> Tiles { get; set; } = new GameMakerPointerList<Tile>();
+    public GameMakerPointerList<Tile> Tiles { get; set; } = [];
 
-    private GameMakerPointerList<Layer> _layers = new();
+    private GameMakerPointerList<Layer> _layers = [];
 
     /// <summary>
     /// List of instance creation order IDs, used for the first room in the room order only, in GameMaker 2024.13 and above.
     /// </summary>
-    public InstanceIDList InstanceCreationOrderIDs { get; set; } = null;
+    public InstanceIDList InstanceCreationOrderIDs { get; set; }
 
     /// <summary>
     /// The list of layers this room uses. Used in GameMaker Studio 2 only, as <see cref="Backgrounds"/> and <see cref="Tiles"/> are empty there.
@@ -191,7 +186,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
     /// <summary>
     /// The list of sequences this room uses.
     /// </summary>
-    public GameMakerSimpleList<GameMakerResourceById<GameMakerSequence, GameMakerChunkSEQN>> Sequences { get; set; } = new GameMakerSimpleList<GameMakerResourceById<GameMakerSequence, GameMakerChunkSEQN>>();
+    public GameMakerSimpleList<GameMakerResourceById<GameMakerSequence, GameMakerChunkSEQN>> Sequences { get; set; } = [];
 
     /// <summary>
     /// Calls <see cref="OnPropertyChanged(string)"/> for <see cref="BGColorLayer"/> in order to update the room background color.<br/>
@@ -208,8 +203,8 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         if (Layers is null)
             return true;
 
-        Layer previous = null;
-        foreach (Layer layer in Layers)
+        Layer? previous = null;
+        foreach (var layer in Layers)
         {
             if (layer is null)
                 continue;
@@ -230,23 +225,23 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
     /// A <see cref="Tuple"/> that consists of: the selected layer (in the room editor), ordered layers array and selected layer index.
     /// This parameter is used only by <c>LayerZIndexConverter</c> (part of the room editor UI).
     /// </param>
-    public void RearrangeLayers(Tuple<Layer, Layer[], int> layerProperties = null)
+    public void RearrangeLayers(Tuple<Layer, Layer[], int>? layerProperties = null)
     {
         if (Layers.Count == 0)
             return;
 
         Layer[] orderedLayers;
-        Layer selectedLayer = null;
-        int selectedLayerIndex = -1;
+        Layer? selectedLayer = null;
+        var selectedLayerIndex = -1;
         if (layerProperties is not null)
         {
-            orderedLayers = layerProperties.Item2.Where(layer => layer is not null).ToArray();
+            orderedLayers = [.. layerProperties.Item2.Where(layer => layer is not null)];
             selectedLayer = layerProperties.Item1;
             selectedLayerIndex = layerProperties.Item3;
         }
         else
         {
-            orderedLayers = Layers.Where(l => l is not null).OrderBy(l => l.LayerDepth).ToArray();
+            orderedLayers = [.. Layers.Where(l => l is not null).OrderBy(l => l.LayerDepth)];
             selectedLayerIndex = Array.IndexOf(orderedLayers, selectedLayer);
         }
 
@@ -254,8 +249,8 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         if (selectedLayer is not null && selectedLayerIndex >= 0)
             Layers[selectedLayerIndex] = selectedLayer;
 
-        int orderedIndex = 0;
-        for (int i = 0; i < Layers.Count; i++)
+        var orderedIndex = 0;
+        for (var i = 0; i < Layers.Count; i++)
         {
             if (Layers[i] is not null)
                 Layers[i] = orderedLayers[orderedIndex++];
@@ -269,16 +264,10 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
     /// Used by "BGColorConverter" of the GameMakerModTool room editor.
     /// This attribute is UMT-only and does not exist in GameMaker.
     /// </remarks>
-    public Layer BGColorLayer
-    {
-        get
-        {
-            return (_layers?.Where(l => l?.LayerType is LayerType.Background
-                                        && l.BackgroundData?.Sprite is null
-                                        && l.BackgroundData.Color != 0))
+    public Layer BGColorLayer => (_layers?.Where(l => l?.LayerType is LayerType.Background
+                                                                      && l.BackgroundData?.Sprite is null
+                                                                      && l.BackgroundData.Color != 0))
                             .MinBy(l => l.LayerDepth);
-        }
-    }
 
     /// <inheritdoc />
     public event PropertyChangedEventHandler PropertyChanged;
@@ -286,7 +275,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
     /// <summary>
     /// Invoked whenever the effective value of any dependency property has been updated.
     /// </summary>
-    protected void OnPropertyChanged([CallerMemberName] string name = null)
+    protected void OnPropertyChanged([CallerMemberName] string? name = null)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
     }
@@ -298,9 +287,9 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
     {
         Backgrounds.SetCapacity(8);
         Views.SetCapacity(8);
-        for (int i = 0; i < 8; i++)
+        for (var i = 0; i < 8; i++)
             Backgrounds.InternalAdd(new Background());
-        for (int i = 0; i < 8; i++)
+        for (var i = 0; i < 8; i++)
             Views.InternalAdd(new View());
         if (Flags.HasFlag(RoomEntryFlags.EnableViews))
             Views[0].Enabled = true;
@@ -309,13 +298,14 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
     /// <inheritdoc />
     public void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         writer.WriteGameMakerString(Name);
         writer.WriteGameMakerString(Caption);
         writer.Write(Width);
         writer.Write(Height);
         writer.Write(Speed);
         writer.Write(Persistent);
-        writer.Write(BackgroundColor ^ 0xFF000000); // remove alpha (background color doesn't have alpha)
+        writer.Write(BackgroundColor & 0x00FFFFFF); // remove alpha (background color doesn't have alpha)
         writer.Write(DrawBackgroundColor);
         writer.WriteGameMakerObject(_creationCodeId);
         writer.Write((uint)Flags);
@@ -336,7 +326,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         writer.Write(GravityX);
         writer.Write(GravityY);
         writer.Write(MetersPerPixel);
-        bool sequences = false;
+        var sequences = false;
         if (writer.gameMakerData.IsGameMaker2())
         {
             writer.WriteGameMakerObjectPointer(Layers);
@@ -364,6 +354,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         Name = reader.ReadGameMakerString();
         Caption = reader.ReadGameMakerString();
         Width = reader.ReadUInt32();
@@ -394,7 +385,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         GravityX = reader.ReadSingle();
         GravityY = reader.ReadSingle();
         MetersPerPixel = reader.ReadSingle();
-        bool sequences = false;
+        var sequences = false;
         if (reader.gameMakerData.IsGameMaker2())
         {
             Layers = reader.ReadGameMakerObjectPointer<GameMakerPointerList<Layer>>();
@@ -402,12 +393,12 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
             if (sequences)
                 Sequences = reader.ReadGameMakerObjectPointer<GameMakerSimpleList<GameMakerResourceById<GameMakerSequence, GameMakerChunkSEQN>>>();
             else
-                Sequences = new();
+                Sequences = [];
         }
         else
         {
             Layers = null;
-            Sequences = new();
+            Sequences = [];
         }
         reader.ReadGameMakerObject(Backgrounds);
         reader.ReadGameMakerObject(Views);
@@ -437,7 +428,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
                     if (gameObjectsByInstanceId is null)
                     {
                         gameObjectsByInstanceId = new(GameObjects.Count);
-                        foreach (GameObject? gameObject in GameObjects)
+                        foreach (var gameObject in GameObjects)
                         {
                             if (gameObject is null)
                                 continue;
@@ -452,7 +443,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
                         && instancesData.InstanceIds[0] > lastGameObject.InstanceID)
                     {
                         // Make sure it's not a false positive
-                        uint firstLayerInstID = instancesData.InstanceIds.Min();
+                        var firstLayerInstID = instancesData.InstanceIds.Min();
                         if (firstLayerInstID > maxGameObjectInstanceId)
                         {
                             // Should this throw a warning instead?
@@ -464,7 +455,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
 
                     foreach (var id in instancesData.InstanceIds)
                     {
-                        if (gameObjectsByInstanceId.TryGetValue(id, out GameObject? gameObj))
+                        if (gameObjectsByInstanceId.TryGetValue(id, out var gameObj))
                             instancesData.Instances.Add(gameObj);
                         else
                         {
@@ -487,15 +478,16 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
     /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
     public static uint UnserializeChildObjectCount(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         uint count = 0;
 
         reader.Position += 40;
         count += 1; // "_creationCodeId"
 
-        uint backgroundPtr = reader.ReadUInt32();
-        uint viewsPtr = reader.ReadUInt32();
-        uint gameObjsPtr = reader.ReadUInt32();
-        uint tilesPtr = reader.ReadUInt32();
+        var backgroundPtr = reader.ReadUInt32();
+        var viewsPtr = reader.ReadUInt32();
+        var gameObjsPtr = reader.ReadUInt32();
+        var tilesPtr = reader.ReadUInt32();
         uint layersPtr = 0;
         uint sequencesPtr = 0;
 
@@ -548,11 +540,11 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
     /// <param name="calculateGridHeight">Whether to calculate the room grid height.</param>
     public void SetupRoom(bool calculateGridWidth = true, bool calculateGridHeight = true)
     {
-        foreach (Layer layer in Layers.Where(layer => layer is not null))
+        foreach (var layer in Layers.Where(layer => layer is not null))
         {
             layer.ParentRoom = this;
         }
-        foreach (GameMakerRoom.Background bgnd in Backgrounds.Where(bgnd => bgnd is not null))
+        foreach (var bgnd in Backgrounds.Where(bgnd => bgnd is not null))
         {
             bgnd.ParentRoom = this;
         }
@@ -561,13 +553,13 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
 
         // Automatically set the grid size to whatever most tiles are sized
 
-        Dictionary<Point, uint> tileSizes = new();
+        Dictionary<Point, uint> tileSizes = [];
         IEnumerable<Tile> tileList;
 
         if (Layers.Count > 0)
         {
-            tileList = new List<Tile>();
-            foreach (Layer layer in Layers)
+            tileList = [];
+            foreach (var layer in Layers)
             {
                 if (layer is null)
                     continue;
@@ -576,11 +568,11 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
                     tileList = tileList.Concat(layer.AssetsData.LegacyTiles);
                 else if (layer.LayerType == LayerType.Tiles && layer.TilesData is { } tilesData && tilesData.TileData?.Length != 0 && tilesData.Background is not null)
                 {
-                    int w = (int)tilesData.Background.GMS2TileWidth;
-                    int h = (int)tilesData.Background.GMS2TileHeight;
+                    var w = (int)tilesData.Background.GMS2TileWidth;
+                    var h = (int)tilesData.Background.GMS2TileHeight;
                     Point scale = new(w, h);
-                    uint numTiles = tilesData.TilesX * tilesData.TilesY;
-                    tileSizes.TryGetValue(scale, out uint tileCount);
+                    var numTiles = tilesData.TilesX * tilesData.TilesY;
+                    tileSizes.TryGetValue(scale, out var tileCount);
                     tileSizes[scale] = tileCount + numTiles;
                 }
             }
@@ -590,13 +582,13 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
             tileList = Tiles;
 
         // Loop through each tile and save how many times their sizes are used
-        foreach (Tile tile in tileList)
+        foreach (var tile in tileList)
         {
             if (tile is null)
                 continue;
 
-            Point scale = new((int) tile.Width, (int) tile.Height);
-            tileSizes.TryGetValue(scale, out uint tileCount);
+            Point scale = new((int)tile.Width, (int)tile.Height);
+            tileSizes.TryGetValue(scale, out var tileCount);
             tileSizes[scale] = tileCount + 1;
         }
 
@@ -633,36 +625,36 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         if (Flags.HasFlag(RoomEntryFlags.IsGMS2) || Flags.HasFlag(RoomEntryFlags.IsGM2024_13))
         {
             if (_layers is not null)
-                foreach (Layer layer in _layers)
+                foreach (var layer in _layers)
                     layer?.Dispose();
             InstanceCreationOrderIDs = null;
             _layers = null;
-            Sequences = new();
+            Sequences = [];
         }
         else
         {
-            foreach (Background bg in Backgrounds)
+            foreach (var bg in Backgrounds)
                 bg?.Dispose();
-            foreach (View view in Views)
+            foreach (var view in Views)
                 view?.Dispose();
-            foreach (GameObject obj in GameObjects)
+            foreach (var obj in GameObjects)
                 obj?.Dispose();
-            foreach (Tile tile in Tiles)
+            foreach (var tile in Tiles)
                 tile?.Dispose();
-            Backgrounds = new();
-            Views = new();
-            Tiles = new();
+            Backgrounds = [];
+            Views = [];
+            Tiles = [];
         }
         Name = null;
         Caption = null;
-        GameObjects = new();
+        GameObjects = [];
     }
 
     /// <inheritdoc/>
     ISerializableProjectAsset IProjectAsset.GenerateSerializableProjectAsset(ProjectContext projectContext)
     {
         SerializableRoom serializable = new();
-        serializable.PopulateFromData(projectContext, this);
+        serializable.PopulateFromData(this);
         return serializable;
     }
 
@@ -739,30 +731,28 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// <summary>
         /// Whether this <see cref="Background"/> is enabled.
         /// </summary>
-        public bool Enabled { get; set; } = false;
+        public bool Enabled { get; set; }
 
         /// <summary>
         /// Whether this acts as a foreground.
         /// </summary>
-        public bool Foreground { get; set; } = false;
+        public bool Foreground { get; set; }
         private GameMakerResourceById<GameMakerBackground, GameMakerChunkBGND> _backgroundDefinition = new();
 
         /// <summary>
         /// The background asset this uses.
         /// </summary>
         public GameMakerBackground BackgroundDefinition { get => _backgroundDefinition.Resource; set { _backgroundDefinition.Resource = value; OnPropertyChanged(); } }
-        private int _x = 0;
-        private int _y = 0;
 
         /// <summary>
         /// The x coordinate of the background in the room.
         /// </summary>
-        public int X { get => _x; set { _x = value; OnPropertyChanged(); UpdateStretch(); } }
+        public int X { get; set { field = value; OnPropertyChanged(); UpdateStretch(); } }
 
         /// <summary>
         /// The y coordinate of the background in the room.
         /// </summary>
-        public int Y { get => _y; set { _y = value; OnPropertyChanged(); UpdateStretch(); } }
+        public int Y { get; set { field = value; OnPropertyChanged(); UpdateStretch(); } }
 
         private int tileX = 1;
         private int tileY = 1;
@@ -770,19 +760,17 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// <summary>
         /// Horizontal speed of the background.
         /// </summary>
-        public int SpeedX { get; set; } = 0;
+        public int SpeedX { get; set; }
 
         /// <summary>
         /// Vertical speed of the background.
         /// </summary>
-        public int SpeedY { get; set; } = 0;
-
-        private bool _stretch = false;
+        public int SpeedY { get; set; }
 
         /// <summary>
         /// Whether this background is stretched
         /// </summary>
-        public bool Stretch { get => _stretch; set { _stretch = value; OnPropertyChanged(); UpdateStretch(); } }
+        public bool Stretch { get; set { field = value; OnPropertyChanged(); UpdateStretch(); } }
 
         /// <summary>
         /// Indicates whether this <see cref="Background"/> is tiled horizontally.
@@ -820,14 +808,14 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
 
         /// <inheritdoc />
         public event PropertyChangedEventHandler PropertyChanged;
-        protected void OnPropertyChanged([CallerMemberName] string name = null)
+        protected void OnPropertyChanged([CallerMemberName] string? name = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
         }
 
         public void UpdateStretch()
         {
-            bool hasRoom = (ParentRoom != null) && (BackgroundDefinition != null);
+            var hasRoom = ParentRoom != null && BackgroundDefinition != null;
             CalcScaleX = (hasRoom && Stretch) ? (ParentRoom.Width / (float)BackgroundDefinition.Texture.SourceWidth) : 1;
             CalcScaleY = (hasRoom && Stretch) ? (ParentRoom.Height / (float)BackgroundDefinition.Texture.SourceHeight) : 1;
         }
@@ -835,6 +823,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// <inheritdoc />
         public void Serialize(GameMakerWriter writer)
         {
+            ArgumentNullException.ThrowIfNull(writer);
             writer.Write(Enabled);
             writer.Write(Foreground);
             writer.WriteGameMakerObject(_backgroundDefinition);
@@ -850,6 +839,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// <inheritdoc />
         public void Unserialize(GameMakerReader reader)
         {
+            ArgumentNullException.ThrowIfNull(reader);
             Enabled = reader.ReadBoolean();
             Foreground = reader.ReadBoolean();
             _backgroundDefinition = reader.ReadGameMakerObject<GameMakerResourceById<GameMakerBackground, GameMakerChunkBGND>>();
@@ -887,7 +877,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// <summary>
         /// Whether this view is enabled.
         /// </summary>
-        public bool Enabled { get; set; } = false;
+        public bool Enabled { get; set; }
 
         /// <summary>
         /// The x coordinate of the view in the room.
@@ -962,6 +952,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// <inheritdoc />
         public void Serialize(GameMakerWriter writer)
         {
+            ArgumentNullException.ThrowIfNull(writer);
             writer.Write(Enabled);
             writer.Write(ViewX);
             writer.Write(ViewY);
@@ -981,6 +972,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// <inheritdoc />
         public void Unserialize(GameMakerReader reader)
         {
+            ArgumentNullException.ThrowIfNull(reader);
             Enabled = reader.ReadBoolean();
             ViewX = reader.ReadInt32();
             ViewY = reader.ReadInt32();
@@ -1096,17 +1088,17 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
                 if (ObjectDefinition?.Sprite is null)
                     return 0;
 
-                int count = ObjectDefinition.Sprite.Textures.Count;
+                var count = ObjectDefinition.Sprite.Textures.Count;
                 if (count == 0)
                     return 0;
 
-                return ((ImageIndex % count) + count) % count;
+                return (ImageIndex % count + count) % count;
             }
         }
 
         /// <inheritdoc />
         public event PropertyChangedEventHandler PropertyChanged;
-        protected void OnPropertyChanged([CallerMemberName] string name = null)
+        protected void OnPropertyChanged([CallerMemberName] string? name = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
         }
@@ -1117,7 +1109,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// <remarks>
         /// This attribute is UMT-only and does not exist in GameMaker.
         /// </remarks>
-        public float OppositeRotation => 360F - (Rotation % 360);
+        public float OppositeRotation => 360F - Rotation % 360;
 
         /// <summary>
         /// A horizontal offset relative to top-left corner of the game object.
@@ -1127,7 +1119,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// This attribute is UMT-only and does not exist in GameMaker.
         /// </remarks>
         public int SpriteXOffset => ObjectDefinition?.Sprite != null
-            ? (-1 * ObjectDefinition.Sprite.OriginXWrapper) + (ObjectDefinition.Sprite.Textures.ElementAtOrDefault(ImageIndex)?.Texture?.TargetX ?? 0)
+            ? -1 * ObjectDefinition.Sprite.OriginXWrapper + (ObjectDefinition.Sprite.Textures.ElementAtOrDefault(ImageIndex)?.Texture?.TargetX ?? 0)
             : 0;
 
         /// <summary>
@@ -1138,7 +1130,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// This attribute is UMT-only and does not exist in GameMaker.
         /// </remarks>
         public int SpriteYOffset => ObjectDefinition?.Sprite != null
-            ? (-1 * ObjectDefinition.Sprite.OriginYWrapper) + (ObjectDefinition.Sprite.Textures.ElementAtOrDefault(ImageIndex)?.Texture?.TargetY ?? 0)
+            ? -1 * ObjectDefinition.Sprite.OriginYWrapper + (ObjectDefinition.Sprite.Textures.ElementAtOrDefault(ImageIndex)?.Texture?.TargetY ?? 0)
             : 0;
         /// <summary>
         /// A horizontal offset used for proper game object position display in the room editor.
@@ -1159,6 +1151,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// <inheritdoc />
         public virtual void Serialize(GameMakerWriter writer)
         {
+            ArgumentNullException.ThrowIfNull(writer);
             writer.Write(X);
             writer.Write(Y);
             _objectDefinition.Serialize(writer);
@@ -1180,6 +1173,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// <inheritdoc />
         public virtual void Unserialize(GameMakerReader reader)
         {
+            ArgumentNullException.ThrowIfNull(reader);
             Nonexistent = false;
             X = reader.ReadInt32();
             Y = reader.ReadInt32();
@@ -1362,7 +1356,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
 
         /// <inheritdoc />
         public event PropertyChangedEventHandler PropertyChanged;
-        protected void OnPropertyChanged([CallerMemberName] string name = null)
+        protected void OnPropertyChanged([CallerMemberName] string? name = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
         }
@@ -1370,6 +1364,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// <inheritdoc />
         public void Serialize(GameMakerWriter writer)
         {
+            ArgumentNullException.ThrowIfNull(writer);
             writer.Write(X);
             writer.Write(Y);
             if (spriteMode != writer.gameMakerData.IsGameMaker2())
@@ -1392,6 +1387,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// <inheritdoc />
         public void Unserialize(GameMakerReader reader)
         {
+            ArgumentNullException.ThrowIfNull(reader);
             X = reader.ReadInt32();
             Y = reader.ReadInt32();
             spriteMode = reader.gameMakerData.IsGameMaker2();
@@ -1427,8 +1423,8 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
     }
 
     /// <summary>
-    /// The layer type for a specific layer. In Game Maker: Studio 2, <see cref="GameMakerRoom.Backgrounds"/>, <see cref="GameMakerRoom.Tiles"/>
-    /// are empty and <see cref="GameMakerRoom.Layers"/> are used instead.
+    /// The layer type for a specific layer. In Game Maker: Studio 2, <see cref="Backgrounds"/>, <see cref="GameMakerRoom.Tiles"/>
+    /// are empty and <see cref="Layers"/> are used instead.
     /// </summary>
     public enum LayerType
     {
@@ -1476,7 +1472,6 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         }
 
         private GameMakerRoom _parentRoom;
-        private int _layerDepth;
 
         /// <summary>
         /// The room this layer belongs to.
@@ -1504,7 +1499,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// <summary>
         /// The depth of this layer.
         /// </summary>
-        public int LayerDepth { get => _layerDepth; set { _layerDepth = value; ParentRoom?.UpdateBGColorLayer(); } }
+        public int LayerDepth { get; set { field = value; ParentRoom?.UpdateBGColorLayer(); } }
 
         public float XOffset { get; set; }
         public float YOffset { get; set; }
@@ -1520,7 +1515,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
 
         /// <inheritdoc />
         public event PropertyChangedEventHandler PropertyChanged;
-        protected void OnPropertyChanged([CallerMemberName] string name = null)
+        protected void OnPropertyChanged([CallerMemberName] string? name = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
         }
@@ -1528,20 +1523,19 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         // GMS 2022.1+
         public bool EffectEnabled { get; set; }
         public GameMakerString EffectType { get; set; }
-        public GameMakerSimpleList<EffectProperty> EffectProperties { get; set; } = new();
+        public GameMakerSimpleList<EffectProperty> EffectProperties { get; set; } = [];
 
         public void UpdateParentRoom()
         {
-            if (BackgroundData != null)
-                BackgroundData.ParentLayer = this;
-            if (TilesData != null)
-                TilesData.ParentLayer = this;
+            BackgroundData?.ParentLayer = this;
+            TilesData?.ParentLayer = this;
         }
         public void UpdateZIndex() => OnPropertyChanged(nameof(LayerDepth));
 
         /// <inheritdoc />
         public void Serialize(GameMakerWriter writer)
         {
+            ArgumentNullException.ThrowIfNull(writer);
             writer.WriteGameMakerString(LayerName);
             writer.Write(LayerId);
             writer.Write((uint)LayerType);
@@ -1575,6 +1569,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// <inheritdoc />
         public void Unserialize(GameMakerReader reader)
         {
+            ArgumentNullException.ThrowIfNull(reader);
             LayerName = reader.ReadGameMakerString();
             LayerId = reader.ReadUInt32();
             LayerType = (LayerType)reader.ReadUInt32();
@@ -1616,10 +1611,11 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
         public static uint UnserializeChildObjectCount(GameMakerReader reader)
         {
+            ArgumentNullException.ThrowIfNull(reader);
             uint count = 0;
 
             reader.Position += 8;
-            LayerType layerType = (LayerType)reader.ReadUInt32();
+            var layerType = (LayerType)reader.ReadUInt32();
             reader.Position += 24;
 
             // Effect properties
@@ -1662,7 +1658,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         public class LayerInstancesData : LayerData
         {
             internal uint[] InstanceIds { get; set; } // 100000, 100001, 100002, 100003 - instance ids from GameObjects list in the room
-            public ObservableCollection<GameObject> Instances { get; set; } = new();
+            public ObservableCollection<GameObject> Instances { get; set; } = [];
 
             /// <inheritdoc />
 #pragma warning disable CS0067 // Implemented by Fody at build time.
@@ -1677,6 +1673,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
             /// <inheritdoc />
             public void Serialize(GameMakerWriter writer)
             {
+                ArgumentNullException.ThrowIfNull(writer);
                 writer.Write((uint)Instances.Count);
                 foreach (var obj in Instances)
                     writer.Write(obj.InstanceID);
@@ -1685,8 +1682,9 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
             /// <inheritdoc />
             public void Unserialize(GameMakerReader reader)
             {
-                uint instanceCount = reader.ReadUInt32();
-                long instanceDataSize = (long)instanceCount * sizeof(uint);
+                ArgumentNullException.ThrowIfNull(reader);
+                var instanceCount = reader.ReadUInt32();
+                var instanceDataSize = (long)instanceCount * sizeof(uint);
                 if (instanceDataSize > reader.Length - reader.Position)
                     throw new IOException("Instance layer data exceeds the available input.");
 
@@ -1703,7 +1701,8 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
             /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
             public static uint UnserializeChildObjectCount(GameMakerReader reader)
             {
-                uint instanceCount = reader.ReadUInt32();
+                ArgumentNullException.ThrowIfNull(reader);
+                var instanceCount = reader.ReadUInt32();
                 if ((long)instanceCount * sizeof(uint) > reader.Length - reader.Position)
                     throw new IOException("Instance layer data exceeds the available input.");
                 reader.Position += (long)instanceCount * sizeof(uint);
@@ -1716,27 +1715,25 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
             {
                 GC.SuppressFinalize(this);
 
-                foreach (GameObject obj in Instances)
+                foreach (var obj in Instances)
                     obj?.Dispose();
                 InstanceIds = null;
-                Instances = new();
+                Instances = [];
             }
         }
 
         public class LayerTilesData : LayerData
         {
             private GameMakerResourceById<GameMakerBackground, GameMakerChunkBGND> _background = new(); // In GMS2 backgrounds are just tilesets
-            private uint _tilesX;
-            private uint _tilesY;
             private uint[][] _tileData; // Each is simply an ID from the tileset/background/sprite
 
             public Layer ParentLayer { get; set; }
             public GameMakerBackground Background { get => _background.Resource; set { _background.Resource = value; OnPropertyChanged(); } }
             public uint TilesX
             {
-                get => _tilesX; set
+                get; set
                 {
-                    _tilesX = value; OnPropertyChanged();
+                    field = value; OnPropertyChanged();
                     if (_tileData != null)
                     {
                         for (var y = 0; y < _tileData.Length; y++)
@@ -1749,9 +1746,9 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
             }
             public uint TilesY
             {
-                get => _tilesY; set
+                get; set
                 {
-                    _tilesY = value; OnPropertyChanged();
+                    field = value; OnPropertyChanged();
                     if (_tileData != null)
                     {
                         Array.Resize(ref _tileData, (int)value);
@@ -1776,7 +1773,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
 
             /// <inheritdoc />
             public event PropertyChangedEventHandler PropertyChanged;
-            protected void OnPropertyChanged([CallerMemberName] string name = null)
+            protected void OnPropertyChanged([CallerMemberName] string? name = null)
             {
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
             }
@@ -1784,6 +1781,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
             /// <inheritdoc />
             public void Serialize(GameMakerWriter writer)
             {
+                ArgumentNullException.ThrowIfNull(writer);
                 _background.Serialize(writer); // see comment below
                 writer.Write(TilesX);
                 writer.Write(TilesY);
@@ -1806,14 +1804,15 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
             /// <inheritdoc />
             public void Unserialize(GameMakerReader reader)
             {
+                ArgumentNullException.ThrowIfNull(reader);
                 _background = new GameMakerResourceById<GameMakerBackground, GameMakerChunkBGND>(); // see comment in GameMakerGlobalInit.Unserialize
                 _background.Unserialize(reader);
                 _tileData = null; // prevent unnecessary resizes
                 TilesX = reader.ReadUInt32();
                 TilesY = reader.ReadUInt32();
-                long tileCount = GetTileCount(TilesX, TilesY);
-                long minimumDataSize = reader.gameMakerData.IsVersionAtLeast(2024, 2)
-                    ? checked(((tileCount + 127) / 128) * 5)
+                var tileCount = GetTileCount(TilesX, TilesY);
+                var minimumDataSize = reader.gameMakerData.IsVersionAtLeast(2024, 2)
+                    ? checked((tileCount + 127) / 128 * 5)
                     : checked(tileCount * sizeof(uint));
                 if (minimumDataSize > reader.Length - reader.Position)
                     throw new IOException("Tile layer data exceeds the available input.");
@@ -1837,16 +1836,17 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
             /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
             public static uint UnserializeChildObjectCount(GameMakerReader reader)
             {
+                ArgumentNullException.ThrowIfNull(reader);
                 uint count = 0;
 
                 reader.Position += 4; // _background
 
-                uint tilesX = reader.ReadUInt32();
-                uint tilesY = reader.ReadUInt32();
-                long tileCount = GetTileCount(tilesX, tilesY);
-                bool compressed = reader.gameMakerData.IsVersionAtLeast(2024, 2);
-                long minimumDataSize = compressed
-                    ? checked(((tileCount + 127) / 128) * 5)
+                var tilesX = reader.ReadUInt32();
+                var tilesY = reader.ReadUInt32();
+                var tileCount = GetTileCount(tilesX, tilesY);
+                var compressed = reader.gameMakerData.IsVersionAtLeast(2024, 2);
+                var minimumDataSize = compressed
+                    ? checked((tileCount + 127) / 128 * 5)
                     : checked(tileCount * sizeof(uint));
                 if (minimumDataSize > reader.Length - reader.Position)
                     throw new IOException("Tile layer data exceeds the available input.");
@@ -1856,11 +1856,11 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
                     long tiles = 0;
                     while (tiles < tileCount)
                     {
-                        byte opcode = reader.ReadByte();
+                        var opcode = reader.ReadByte();
                         if (opcode >= 128)
                         {
                             // Repeat run
-                            int length = opcode - 127;
+                            var length = opcode - 127;
                             reader.Position += 4;
                             tiles += length;
                         }
@@ -1896,14 +1896,15 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
             /// <param name="reader">Where to deserialize from.</param>
             public void ReadCompressedTileData(GameMakerReader reader)
             {
+                ArgumentNullException.ThrowIfNull(reader);
                 if (TilesX == 0 || TilesY == 0)
                     return;
 
-                int x = 0;
-                int y = 0;
+                var x = 0;
+                var y = 0;
                 if (TilesY > 0)
                     TileData[y] = new uint[TilesX];
-                Func<bool> NextTile = () =>
+                bool NextTile()
                 {
                     x++;
                     if (x >= TilesX)
@@ -1915,7 +1916,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
                         TileData[y] = new uint[TilesX];
                     }
                     return false;
-                };
+                }
 
                 byte length;
                 uint tile;
@@ -1925,9 +1926,9 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
                     if (length >= 128)
                     {
                         // Repeat run
-                        int runLength = (length & 0x7f) + 1;
+                        var runLength = (length & 0x7f) + 1;
                         tile = reader.ReadUInt32();
-                        for (int i = 0; i < runLength; i++)
+                        for (var i = 0; i < runLength; i++)
                         {
                             TileData[y][x] = tile;
                             if (NextTile())
@@ -1940,7 +1941,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
                         int runLength = length;
                         if (runLength == 0)
                             throw new IOException("Zero-length compressed tile run.");
-                        for (int i = 0; i < runLength; i++)
+                        for (var i = 0; i < runLength; i++)
                         {
                             TileData[y][x] = reader.ReadUInt32();
                             if (NextTile())
@@ -1956,8 +1957,8 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
                 // This is a certified YoyoGames moment right here.
                 x = (int)(TilesX - 1);
                 y = (int)(TilesY - 1);
-                bool hasPadding = false;
-                uint lastTile = TileData[y][x];
+                bool hasPadding;
+                var lastTile = TileData[y][x];
 
                 // Go back 1 tile
                 x--;
@@ -1974,7 +1975,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
 
                 if (hasPadding)
                 {
-                    long paddingStart = reader.Position;
+                    var paddingStart = reader.Position;
                     length = reader.ReadByte();
                     tile = reader.ReadUInt32();
 
@@ -1997,13 +1998,14 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
             /// <param name="writer">Where to serialize to.</param>
             public void WriteCompressedTileData(GameMakerWriter writer)
             {
+                ArgumentNullException.ThrowIfNull(writer);
                 if (TilesX > int.MaxValue || TilesY > int.MaxValue ||
                     (ulong)TilesX * TilesY > int.MaxValue)
                     throw new InvalidOperationException("Tile layer is too large to serialize.");
 
                 if (TileData.Length != (int)TilesY)
                     throw new InvalidOperationException("Invalid TileData row length.");
-                foreach (uint[] row in TileData)
+                foreach (var row in TileData)
                 {
                     if (row is null || row.Length != (int)TilesX)
                         throw new InvalidOperationException("Invalid TileData column length.");
@@ -2017,24 +2019,24 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
                 // previous verbatim run is serialized first.
                 // We also iterate in 1D, which requires some division and modulo to work with
                 // the 2D array we have for representation here.
-                int tileCount = checked((int)((ulong)TilesX * TilesY));
-                uint lastTile = TileData[0][0];
-                int numVerbatim = 0;
-                int verbatimStart = 0;
-                int i = 1;
+                var tileCount = checked((int)((ulong)TilesX * TilesY));
+                var lastTile = TileData[0][0];
+                var numVerbatim = 0;
+                var verbatimStart = 0;
+                var i = 1;
                 while (i <= tileCount + 1) // note: we go out of bounds to ensure a repeat run at the end
                 {
-                    uint currTile = (i >= tileCount) ? unchecked((uint)-1) : TileData[i / TilesX][i % TilesX];
+                    var currTile = (i >= tileCount) ? unchecked((uint)-1) : TileData[i / TilesX][i % TilesX];
                     i++;
 
                     if (currTile == lastTile)
                     {
                         // We have two tiles in a row - construct a repeating run.
                         // Figure out how far this repeat goes, first.
-                        int numRepeats = 2;
+                        var numRepeats = 2;
                         while (i < tileCount)
                         {
-                            uint nextTile = TileData[i / TilesX][i % TilesX];
+                            var nextTile = TileData[i / TilesX][i % TilesX];
                             if (nextTile != currTile)
                             {
                                 break;
@@ -2047,12 +2049,12 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
                         // Serialize the preceding verbatim run, splitting into 127-length chunks
                         while (numVerbatim > 0)
                         {
-                            int numToWrite = Math.Min(127, numVerbatim);
+                            var numToWrite = Math.Min(127, numVerbatim);
                             writer.Write((byte)numToWrite);
 
-                            for (int j = 0; j < numToWrite; j++)
+                            for (var j = 0; j < numToWrite; j++)
                             {
-                                int tileIndex = verbatimStart + j;
+                                var tileIndex = verbatimStart + j;
                                 writer.Write(TileData[tileIndex / TilesX][tileIndex % TilesX]);
                             }
 
@@ -2063,7 +2065,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
                         // Serialize this repeat run, splitting into 128-length chunks
                         while (numRepeats > 0)
                         {
-                            int numToWrite = Math.Min(128, numRepeats);
+                            var numToWrite = Math.Min(128, numRepeats);
                             writer.Write((byte)(0x80 | (numToWrite - 1)));
                             writer.Write(lastTile);
 
@@ -2116,9 +2118,6 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
             private Layer _parentLayer;
 
             private GameMakerResourceById<GameMakerSprite, GameMakerChunkSPRT> _sprite = new(); // Apparently there's a mode where it's a background reference, but probably not necessary
-            private bool _tiledHorizontally;
-            private bool _tiledVertically;
-            private bool _stretch;
 
             public Layer ParentLayer { get => _parentLayer; set { _parentLayer = value; OnPropertyChanged(); UpdateScale(); } }
             public float CalcScaleX { get; set; }
@@ -2127,9 +2126,9 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
             public bool Visible { get; set; } = true;
             public bool Foreground { get; set; }
             public GameMakerSprite Sprite { get => _sprite.Resource; set { _sprite.Resource = value; OnPropertyChanged(); ParentLayer?.ParentRoom?.UpdateBGColorLayer(); } }
-            public bool TiledHorizontally { get => _tiledHorizontally; set { _tiledHorizontally = value; OnPropertyChanged(); } }
-            public bool TiledVertically { get => _tiledVertically; set { _tiledVertically = value; OnPropertyChanged(); } }
-            public bool Stretch { get => _stretch; set { _stretch = value; OnPropertyChanged(); } }
+            public bool TiledHorizontally { get; set { field = value; OnPropertyChanged(); } }
+            public bool TiledVertically { get; set { field = value; OnPropertyChanged(); } }
+            public bool Stretch { get; set { field = value; OnPropertyChanged(); } }
             public uint Color { get; set; } = 0xFF000000;
             public float FirstFrame { get; set; }
             public float AnimationSpeed { get; set; }
@@ -2146,14 +2145,14 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
 
             /// <inheritdoc />
             public event PropertyChangedEventHandler PropertyChanged;
-            protected void OnPropertyChanged([CallerMemberName] string name = null)
+            protected void OnPropertyChanged([CallerMemberName] string? name = null)
             {
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
             }
 
             public void UpdateScale()
             {
-                bool hasRoom = (ParentLayer != null) && (ParentLayer.ParentRoom != null) && (Sprite != null);
+                var hasRoom = ParentLayer != null && ParentLayer.ParentRoom != null && Sprite != null;
                 CalcScaleX = (hasRoom && Stretch) ? (ParentLayer.ParentRoom.Width / (float)Sprite.Width) : 1;
                 CalcScaleY = (hasRoom && Stretch) ? (ParentLayer.ParentRoom.Height / (float)Sprite.Height) : 1;
             }
@@ -2161,6 +2160,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
             /// <inheritdoc />
             public void Serialize(GameMakerWriter writer)
             {
+                ArgumentNullException.ThrowIfNull(writer);
                 writer.Write(Visible);
                 writer.Write(Foreground);
                 writer.WriteGameMakerObject(_sprite);
@@ -2176,6 +2176,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
             /// <inheritdoc />
             public void Unserialize(GameMakerReader reader)
             {
+                ArgumentNullException.ThrowIfNull(reader);
                 Visible = reader.ReadBoolean();
                 Foreground = reader.ReadBoolean();
                 _sprite = reader.ReadGameMakerObject<GameMakerResourceById<GameMakerSprite, GameMakerChunkSPRT>>();
@@ -2191,6 +2192,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
             /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
             public static uint UnserializeChildObjectCount(GameMakerReader reader)
             {
+                ArgumentNullException.ThrowIfNull(reader);
                 reader.Position += ChildObjectsSize;
 
                 return ChildObjectCount;
@@ -2224,6 +2226,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
             /// <inheritdoc />
             public void Serialize(GameMakerWriter writer)
             {
+                ArgumentNullException.ThrowIfNull(writer);
                 writer.WriteGameMakerObjectPointer(LegacyTiles);
                 writer.WriteGameMakerObjectPointer(Sprites);
                 if (writer.gameMakerData.IsVersionAtLeast(2, 3))
@@ -2233,7 +2236,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
                         writer.WriteGameMakerObjectPointer(NineSlices);
                     if (writer.gameMakerData.IsNonLTSVersionAtLeast(2023, 2))
                         writer.WriteGameMakerObjectPointer(ParticleSystems);
-                    if (writer.gameMakerData.IsNonLTSVersionAtLeast(2024, 6))
+                    if (writer.gameMakerData.IsVersionAtLeast(2024, 6))
                         writer.WriteGameMakerObjectPointer(TextItems);
                 }
                 writer.WriteGameMakerObject(LegacyTiles);
@@ -2245,7 +2248,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
                         writer.WriteGameMakerObject(NineSlices);
                     if (writer.gameMakerData.IsNonLTSVersionAtLeast(2023, 2))
                         writer.WriteGameMakerObject(ParticleSystems);
-                    if (writer.gameMakerData.IsNonLTSVersionAtLeast(2024, 6))
+                    if (writer.gameMakerData.IsVersionAtLeast(2024, 6))
                         writer.WriteGameMakerObject(TextItems);
                 }
             }
@@ -2253,6 +2256,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
             /// <inheritdoc />
             public void Unserialize(GameMakerReader reader)
             {
+                ArgumentNullException.ThrowIfNull(reader);
                 // Track first pointer target to detect additional data
                 long firstPointerTarget = reader.ReadUInt32();
                 reader.Position -= 4;
@@ -2272,9 +2276,9 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
                         ParticleSystems = null;
                     if (firstPointerTarget > reader.AbsPosition &&
                         !reader.gameMakerData.IsLTSBranch() &&
-                        !reader.gameMakerData.IsNonLTSVersionAtLeast(2024, 6))
+                        !reader.gameMakerData.IsVersionAtLeast(2024, 6))
                         reader.gameMakerData.SetGMS2Version(2024, 6); // There's more data before legacy tiles, so must be 2024.6+
-                    if (reader.gameMakerData.IsNonLTSVersionAtLeast(2024, 6))
+                    if (reader.gameMakerData.IsVersionAtLeast(2024, 6))
                         TextItems = reader.ReadGameMakerObjectPointer<GameMakerPointerList<TextItemInstance>>();
                     else
                         TextItems = null;
@@ -2295,7 +2299,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
                         reader.ReadGameMakerObject(NineSlices);
                     if (reader.gameMakerData.IsNonLTSVersionAtLeast(2023, 2))
                         reader.ReadGameMakerObject(ParticleSystems);
-                    if (reader.gameMakerData.IsNonLTSVersionAtLeast(2024, 6))
+                    if (reader.gameMakerData.IsVersionAtLeast(2024, 6))
                         reader.ReadGameMakerObject(TextItems);
                 }
             }
@@ -2303,10 +2307,11 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
             /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
             public static uint UnserializeChildObjectCount(GameMakerReader reader)
             {
+                ArgumentNullException.ThrowIfNull(reader);
                 uint count = 0;
 
-                uint legacyTilesPtr = reader.ReadUInt32();
-                uint spritesPtr = reader.ReadUInt32();
+                var legacyTilesPtr = reader.ReadUInt32();
+                var spritesPtr = reader.ReadUInt32();
                 uint sequencesPtr = 0;
                 uint nineSlicesPtr = 0;
                 uint partSystemsPtr = 0;
@@ -2320,9 +2325,9 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
                         partSystemsPtr = reader.ReadUInt32();
                     if (legacyTilesPtr > reader.AbsPosition &&
                         !reader.gameMakerData.IsLTSBranch() &&
-                        !reader.gameMakerData.IsNonLTSVersionAtLeast(2024, 6))
+                        !reader.gameMakerData.IsVersionAtLeast(2024, 6))
                         reader.gameMakerData.SetGMS2Version(2024, 6); // There's more data before legacy tiles, so must be 2024.6+
-                    if (reader.gameMakerData.IsNonLTSVersionAtLeast(2024, 6))
+                    if (reader.gameMakerData.IsVersionAtLeast(2024, 6))
                         textItemsPtr = reader.ReadUInt32();
                 }
 
@@ -2344,7 +2349,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
                         reader.AbsPosition = partSystemsPtr;
                         count += 1 + GameMakerPointerList<ParticleSystemInstance>.UnserializeChildObjectCount(reader);
                     }
-                    if (reader.gameMakerData.IsNonLTSVersionAtLeast(2024, 6))
+                    if (reader.gameMakerData.IsVersionAtLeast(2024, 6))
                     {
                         reader.AbsPosition = textItemsPtr;
                         count += 1 + GameMakerPointerList<TextItemInstance>.UnserializeChildObjectCount(reader);
@@ -2361,32 +2366,32 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
 
                 if (LegacyTiles is not null)
                 {
-                    foreach (Tile tile in LegacyTiles)
+                    foreach (var tile in LegacyTiles)
                         tile?.Dispose();
                 }
                 if (Sprites is not null)
                 {
-                    foreach (SpriteInstance inst in Sprites)
+                    foreach (var inst in Sprites)
                         inst?.Dispose();
                 }
                 if (Sequences is not null)
                 {
-                    foreach (SequenceInstance inst in Sequences)
+                    foreach (var inst in Sequences)
                         inst?.Dispose();
                 }
                 if (NineSlices is not null)
                 {
-                    foreach (SpriteInstance inst in NineSlices)
+                    foreach (var inst in NineSlices)
                         inst?.Dispose();
                 }
                 if (ParticleSystems is not null)
                 {
-                    foreach (ParticleSystemInstance inst in ParticleSystems)
+                    foreach (var inst in ParticleSystems)
                         inst?.Dispose();
                 }
                 if (TextItems is not null)
                 {
-                    foreach (TextItemInstance item in TextItems)
+                    foreach (var item in TextItems)
                         item?.Dispose();
                 }
 
@@ -2413,6 +2418,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
             /// <inheritdoc />
             public void Serialize(GameMakerWriter writer)
             {
+                ArgumentNullException.ThrowIfNull(writer);
                 if (writer.gameMakerData.IsVersionAtLeast(2022, 1))
                     return;
                 writer.WriteGameMakerString(EffectType);
@@ -2422,6 +2428,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
             /// <inheritdoc />
             public void Unserialize(GameMakerReader reader)
             {
+                ArgumentNullException.ThrowIfNull(reader);
                 if (reader.gameMakerData.IsVersionAtLeast(2022, 1))
                 {
                     EffectType = null;
@@ -2435,6 +2442,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
             /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
             public static uint UnserializeChildObjectCount(GameMakerReader reader)
             {
+                ArgumentNullException.ThrowIfNull(reader);
                 if (reader.gameMakerData.IsVersionAtLeast(2022, 1))
                     return 0;
 
@@ -2450,7 +2458,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
 
                 if (Properties is not null)
                 {
-                    foreach (EffectProperty prop in Properties)
+                    foreach (var prop in Properties)
                         prop?.Dispose();
                 }
 
@@ -2480,6 +2488,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// <inheritdoc />
         public void Serialize(GameMakerWriter writer)
         {
+            ArgumentNullException.ThrowIfNull(writer);
             writer.Write((int)Kind);
             writer.WriteGameMakerString(Name);
             writer.WriteGameMakerString(Value);
@@ -2488,6 +2497,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// <inheritdoc />
         public void Unserialize(GameMakerReader reader)
         {
+            ArgumentNullException.ThrowIfNull(reader);
             Kind = (PropertyType)reader.ReadInt32();
             Name = reader.ReadGameMakerString();
             Value = reader.ReadGameMakerString();
@@ -2527,11 +2537,11 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
                 if (Sprite is null)
                     return 0;
 
-                int count = Sprite.Textures.Count;
+                var count = Sprite.Textures.Count;
                 if (count == 0)
                     return 0;
 
-                return (((int)FrameIndex % count) + count) % count;
+                return ((int)FrameIndex % count + count) % count;
             }
         }
         public float Rotation { get; set; }
@@ -2552,7 +2562,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// This attribute is UMT-only and does not exist in GameMaker.
         /// </remarks>
         public int SpriteXOffset => Sprite != null
-            ? (-1 * Sprite.OriginXWrapper) + (Sprite.Textures.ElementAtOrDefault(WrappedFrameIndex)?.Texture?.TargetX ?? 0)
+            ? -1 * Sprite.OriginXWrapper + (Sprite.Textures.ElementAtOrDefault(WrappedFrameIndex)?.Texture?.TargetX ?? 0)
             : 0;
 
         /// <summary>
@@ -2563,7 +2573,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// This attribute is UMT-only and does not exist in GameMaker.
         /// </remarks>
         public int SpriteYOffset => Sprite != null
-            ? (-1 * Sprite.OriginYWrapper) + (Sprite.Textures.ElementAtOrDefault(WrappedFrameIndex)?.Texture?.TargetY ?? 0)
+            ? -1 * Sprite.OriginYWrapper + (Sprite.Textures.ElementAtOrDefault(WrappedFrameIndex)?.Texture?.TargetY ?? 0)
             : 0;
 
         /// <summary>
@@ -2584,7 +2594,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
 
         /// <inheritdoc />
         public event PropertyChangedEventHandler PropertyChanged;
-        protected void OnPropertyChanged([CallerMemberName] string name = null)
+        protected void OnPropertyChanged([CallerMemberName] string? name = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
         }
@@ -2592,6 +2602,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// <inheritdoc />
         public virtual void Serialize(GameMakerWriter writer)
         {
+            ArgumentNullException.ThrowIfNull(writer);
             writer.WriteGameMakerString(Name);
             _sprite.Serialize(writer);
             writer.Write(X);
@@ -2608,6 +2619,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// <inheritdoc />
         public virtual void Unserialize(GameMakerReader reader)
         {
+            ArgumentNullException.ThrowIfNull(reader);
             Name = reader.ReadGameMakerString();
             _sprite.Unserialize(reader);
             X = reader.ReadInt32();
@@ -2626,8 +2638,9 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// </summary>
         public static GameMakerString GenerateRandomName(GameMakerData data)
         {
+            ArgumentNullException.ThrowIfNull(data);
             // The same format as in "GameMaker Studio: 2".
-            return data.Strings.MakeString("graphic_" + ((uint)Random.Shared.NextInt64(1L << 32)).ToString("X8"));
+            return data.Strings.MakeString("graphic_" + ((uint)Random.Shared.NextInt64(1L << 32)).ToString("X8", CultureInfo.InvariantCulture));
         }
 
         /// <inheritdoc />
@@ -2670,6 +2683,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// <inheritdoc />
         public virtual void Serialize(GameMakerWriter writer)
         {
+            ArgumentNullException.ThrowIfNull(writer);
             writer.WriteGameMakerString(Name);
             _sequence.Serialize(writer);
             writer.Write(X);
@@ -2686,6 +2700,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// <inheritdoc />
         public virtual void Unserialize(GameMakerReader reader)
         {
+            ArgumentNullException.ThrowIfNull(reader);
             Name = reader.ReadGameMakerString();
             _sequence.Unserialize(reader);
             X = reader.ReadInt32();
@@ -2718,7 +2733,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
     public class ParticleSystemInstance : GameMakerObject, INotifyPropertyChanged, IDisposable
     {
         public event PropertyChangedEventHandler PropertyChanged;
-        protected void OnPropertyChanged([CallerMemberName] string name = null)
+        protected void OnPropertyChanged([CallerMemberName] string? name = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
         }
@@ -2754,6 +2769,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// <inheritdoc />
         public void Serialize(GameMakerWriter writer)
         {
+            ArgumentNullException.ThrowIfNull(writer);
             writer.WriteGameMakerString(Name);
             if (writer.gameMakerData.IsVersionAtLeast(2024, 14))
                 writer.Write(InstanceID);
@@ -2769,6 +2785,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// <inheritdoc />
         public void Unserialize(GameMakerReader reader)
         {
+            ArgumentNullException.ThrowIfNull(reader);
             Name = reader.ReadGameMakerString();
             if (reader.gameMakerData.IsVersionAtLeast(2024, 14))
             {
@@ -2797,6 +2814,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
         public static uint UnserializeChildObjectCount(GameMakerReader reader)
         {
+            ArgumentNullException.ThrowIfNull(reader);
             reader.Position += 32;
 
             if (reader.gameMakerData.IsVersionAtLeast(2024, 14))
@@ -2812,7 +2830,8 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// </summary>
         public static GameMakerString GenerateRandomName(GameMakerData data)
         {
-            return data.Strings.MakeString("particle_" + ((uint)Random.Shared.Next(-Int32.MaxValue, Int32.MaxValue)).ToString("X8"));
+            ArgumentNullException.ThrowIfNull(data);
+            return data.Strings.MakeString("particle_" + ((uint)Random.Shared.Next(-int.MaxValue, int.MaxValue)).ToString("X8", CultureInfo.InvariantCulture));
         }
 
         /// <inheritdoc />
@@ -2834,7 +2853,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
     public class TextItemInstance : GameMakerObject, INotifyPropertyChanged, IDisposable
     {
         public event PropertyChangedEventHandler PropertyChanged;
-        protected void OnPropertyChanged([CallerMemberName] string name = null)
+        protected void OnPropertyChanged([CallerMemberName] string? name = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
         }
@@ -2873,6 +2892,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// <inheritdoc />
         public virtual void Serialize(GameMakerWriter writer)
         {
+            ArgumentNullException.ThrowIfNull(writer);
             writer.WriteGameMakerString(Name);
             writer.Write(X);
             writer.Write(Y);
@@ -2902,6 +2922,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// <inheritdoc />
         public virtual void Unserialize(GameMakerReader reader)
         {
+            ArgumentNullException.ThrowIfNull(reader);
             Name = reader.ReadGameMakerString();
             X = reader.ReadInt32();
             Y = reader.ReadInt32();
@@ -2938,6 +2959,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
         public static uint UnserializeChildObjectCount(GameMakerReader reader)
         {
+            ArgumentNullException.ThrowIfNull(reader);
             reader.Position += 68;
 
             if (reader.gameMakerData.IsVersionAtLeast(2024, 14))
@@ -2953,7 +2975,8 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// </summary>
         public static GameMakerString GenerateRandomName(GameMakerData data)
         {
-            return data.Strings.MakeString("textitem_" + ((uint)Random.Shared.Next(-Int32.MaxValue, Int32.MaxValue)).ToString("X8"));
+            ArgumentNullException.ThrowIfNull(data);
+            return data.Strings.MakeString("textitem_" + ((uint)Random.Shared.Next(-int.MaxValue, int.MaxValue)).ToString("X8", CultureInfo.InvariantCulture));
         }
 
         /// <inheritdoc />
@@ -2982,8 +3005,9 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
 
         public void Serialize(GameMakerWriter writer)
         {
+            ArgumentNullException.ThrowIfNull(writer);
             writer.Write(InstanceIDs.Count);
-            foreach (uint id in InstanceIDs)
+            foreach (var id in InstanceIDs)
             {
                 writer.Write(id);
             }
@@ -2991,14 +3015,15 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
 
         public void Unserialize(GameMakerReader reader)
         {
-            int count = reader.ReadInt32();
+            ArgumentNullException.ThrowIfNull(reader);
+            var count = reader.ReadInt32();
             if (count < 0)
                 throw new IOException("Negative room instance ID count.");
             if ((long)count * sizeof(uint) > reader.Length - reader.Position)
                 throw new IOException("Room instance ID data exceeds the available input.");
             InstanceIDs.Clear();
             InstanceIDs.SetCapacity(count);
-            for (int i = 0; i < count; i++)
+            for (var i = 0; i < count; i++)
             {
                 InstanceIDs.InternalAdd(reader.ReadUInt32());
             }

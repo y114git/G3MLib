@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using System.Text;
 using System.Text.RegularExpressions;
 using G3MLib.DataFile.Models;
@@ -14,12 +12,18 @@ internal interface ICodeImportOperation
     /// <summary>
     /// Code entry to be imported to, for this operation.
     /// </summary>
-    public GameMakerCode CodeEntry { get; }
+    GameMakerCode CodeEntry { get; }
+
+    /// <summary>
+    /// Name of the operation kind, as reported in import results.
+    /// </summary>
+    string Kind { get; }
 
     /// <summary>
     /// Perform this import operation.
     /// </summary>
-    public void Import(CodeImportGroup group);
+    /// <returns><see langword="false"/> when the operation found nothing to change and queued nothing.</returns>
+    bool Import(CodeImportGroup group);
 }
 
 /// <summary>
@@ -28,9 +32,13 @@ internal interface ICodeImportOperation
 internal readonly record struct CodeReplaceOperation(GameMakerCode CodeEntry, string Code) : ICodeImportOperation
 {
     /// <inheritdoc/>
-    public void Import(CodeImportGroup group)
+    public string Kind => "Replace";
+
+    /// <inheritdoc/>
+    public bool Import(CodeImportGroup group)
     {
         group.CompileGroup.QueueCodeReplace(CodeEntry, Code);
+        return true;
     }
 }
 
@@ -40,10 +48,14 @@ internal readonly record struct CodeReplaceOperation(GameMakerCode CodeEntry, st
 internal readonly record struct CodeAppendOperation(GameMakerCode CodeEntry, string Code) : ICodeImportOperation
 {
     /// <inheritdoc/>
-    public void Import(CodeImportGroup group)
+    public string Kind => "Append";
+
+    /// <inheritdoc/>
+    public bool Import(CodeImportGroup group)
     {
-        string finalCodeToCompile = string.Concat(group.DecompileExistingCode(CodeEntry), "\n", Code);
+        var finalCodeToCompile = string.Concat(group.DecompileExistingCode(CodeEntry), "\n", Code);
         group.CompileGroup.QueueCodeReplace(CodeEntry, finalCodeToCompile);
+        return true;
     }
 }
 
@@ -53,10 +65,14 @@ internal readonly record struct CodeAppendOperation(GameMakerCode CodeEntry, str
 internal readonly record struct CodePrependOperation(GameMakerCode CodeEntry, string Code) : ICodeImportOperation
 {
     /// <inheritdoc/>
-    public void Import(CodeImportGroup group)
+    public string Kind => "Prepend";
+
+    /// <inheritdoc/>
+    public bool Import(CodeImportGroup group)
     {
-        string finalCodeToCompile = string.Concat(Code, "\n", group.DecompileExistingCode(CodeEntry));
+        var finalCodeToCompile = string.Concat(Code, "\n", group.DecompileExistingCode(CodeEntry));
         group.CompileGroup.QueueCodeReplace(CodeEntry, finalCodeToCompile);
+        return true;
     }
 }
 
@@ -76,11 +92,11 @@ internal readonly record struct CodeFindReplaceOperation
     private static List<TrimmedLine> SplitByTrimmedLines(ReadOnlySpan<char> str)
     {
         List<TrimmedLine> lines = new(16);
-        int lineWhitespaceStartIndex = 0;
-        int lineStartIndex = 0;
-        int lineEndIndex = 0;
-        bool beginningOfLine = true;
-        for (int i = 0; i < str.Length; i++)
+        var lineWhitespaceStartIndex = 0;
+        var lineStartIndex = 0;
+        var lineEndIndex = 0;
+        var beginningOfLine = true;
+        for (var i = 0; i < str.Length; i++)
         {
             // End of line
             if (str[i] == '\n')
@@ -122,27 +138,27 @@ internal readonly record struct CodeFindReplaceOperation
         StringBuilder sb = new(code.Length);
 
         // Split search and code into each line being matched
-        List<TrimmedLine> codeLines = SplitByTrimmedLines(code);
-        List<TrimmedLine> searchLines = SplitByTrimmedLines(search);
+        var codeLines = SplitByTrimmedLines(code);
+        var searchLines = SplitByTrimmedLines(search);
 
         // Enumerate over code lines
-        for (int i = 0; i < codeLines.Count; i++)
+        for (var i = 0; i < codeLines.Count; i++)
         {
             // Check for match starting at this line
-            bool match = true;
-            if ((i + searchLines.Count) > codeLines.Count)
+            var match = true;
+            if (i + searchLines.Count > codeLines.Count)
             {
                 match = false;
             }
             else
             {
                 // Compare all lines until any difference is found
-                for (int j = 0; j < searchLines.Count; j++)
+                for (var j = 0; j < searchLines.Count; j++)
                 {
-                    TrimmedLine codeLine = codeLines[i + j];
-                    TrimmedLine searchLine = searchLines[j];
-                    ReadOnlySpan<char> codeLineChars = code[codeLine.StartIndex..codeLine.EndIndex];
-                    ReadOnlySpan<char> searchLineChars = search[searchLine.StartIndex..searchLine.EndIndex];
+                    var codeLine = codeLines[i + j];
+                    var searchLine = searchLines[j];
+                    var codeLineChars = code[codeLine.StartIndex..codeLine.EndIndex];
+                    var searchLineChars = search[searchLine.StartIndex..searchLine.EndIndex];
                     if (!codeLineChars.Equals(searchLineChars, comparison))
                     {
                         match = false;
@@ -159,8 +175,8 @@ internal readonly record struct CodeFindReplaceOperation
             }
             else
             {
-                TrimmedLine codeLine = codeLines[i];
-                ReadOnlySpan<char> fullCodeLineChars = code[codeLine.WhitespaceStartIndex..codeLine.WhitespaceEndIndex];
+                var codeLine = codeLines[i];
+                var fullCodeLineChars = code[codeLine.WhitespaceStartIndex..codeLine.WhitespaceEndIndex];
                 sb.Append(fullCodeLineChars);
             }
         }
@@ -169,17 +185,20 @@ internal readonly record struct CodeFindReplaceOperation
     }
 
     /// <inheritdoc/>
-    public void Import(CodeImportGroup group)
+    public string Kind => IsRegex ? "RegexFindReplace" : TrimmedLines ? "TrimmedLinesFindReplace" : "FindReplace";
+
+    /// <inheritdoc/>
+    public bool Import(CodeImportGroup group)
     {
         // Decompile code
-        string decompilation = group.DecompileExistingCode(CodeEntry);
+        var decompilation = group.DecompileExistingCode(CodeEntry);
 
         // Perform find & replace
         string finalCodeToCompile;
         if (IsRegex)
         {
             // Regex replace
-            RegexOptions options = RegexOptions.Multiline | RegexOptions.CultureInvariant;
+            var options = RegexOptions.Multiline | RegexOptions.CultureInvariant;
             if (!CaseSensitive)
             {
                 options |= RegexOptions.IgnoreCase;
@@ -189,7 +208,7 @@ internal readonly record struct CodeFindReplaceOperation
         else
         {
             // Regular replace
-            StringComparison comparison = StringComparison.Ordinal;
+            var comparison = StringComparison.Ordinal;
             if (!CaseSensitive)
             {
                 comparison = StringComparison.OrdinalIgnoreCase;
@@ -208,10 +227,12 @@ internal readonly record struct CodeFindReplaceOperation
         if (decompilation != finalCodeToCompile)
         {
             group.CompileGroup.QueueCodeReplace(CodeEntry, finalCodeToCompile);
+            return true;
         }
-        else if (group.ThrowOnNoOpFindReplace)
+        if (group.ThrowOnNoOpFindReplace)
         {
             throw new InvalidOperationException($"No-op find and replace performed on {CodeEntry.Name?.Content}");
         }
+        return false;
     }
 }

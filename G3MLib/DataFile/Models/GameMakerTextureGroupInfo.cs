@@ -1,5 +1,3 @@
-using System;
-
 namespace G3MLib.DataFile.Models;
 
 /// <summary>
@@ -112,16 +110,17 @@ public class GameMakerTextureGroupInfo : GameMakerNamedResource, IDisposable
     /// </summary>
     public GameMakerTextureGroupInfo()
     {
-        TexturePages = new GameMakerSimpleResourcesList<GameMakerEmbeddedTexture, GameMakerChunkTXTR>();
-        Sprites = new GameMakerSimpleResourcesList<GameMakerSprite, GameMakerChunkSPRT>();
-        SpineSprites = new GameMakerSimpleResourcesList<GameMakerSprite, GameMakerChunkSPRT>();
-        Fonts = new GameMakerSimpleResourcesList<GameMakerFont, GameMakerChunkFONT>();
-        Tilesets = new GameMakerSimpleResourcesList<GameMakerBackground, GameMakerChunkBGND>();
+        TexturePages = [];
+        Sprites = [];
+        SpineSprites = [];
+        Fonts = [];
+        Tilesets = [];
     }
 
     /// <inheritdoc />
     public void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         writer.WriteGameMakerString(Name);
 
         if (writer.gameMakerData.IsVersionAtLeast(2022, 9))
@@ -149,6 +148,7 @@ public class GameMakerTextureGroupInfo : GameMakerNamedResource, IDisposable
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         Name = reader.ReadGameMakerString();
 
         if (reader.gameMakerData.IsVersionAtLeast(2022, 9))
@@ -186,6 +186,7 @@ public class GameMakerTextureGroupInfo : GameMakerNamedResource, IDisposable
     /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
     public static uint UnserializeChildObjectCount(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         uint count = 0;
 
         reader.Position += 4; // "Name"
@@ -193,13 +194,13 @@ public class GameMakerTextureGroupInfo : GameMakerNamedResource, IDisposable
         if (reader.gameMakerData.IsVersionAtLeast(2022, 9))
             reader.Position += 12;
 
-        uint texPagesPtr = reader.ReadUInt32();
-        uint spritesPtr = reader.ReadUInt32();
+        var texPagesPtr = reader.ReadUInt32();
+        var spritesPtr = reader.ReadUInt32();
         uint spineSpritesPtr = 0;
         if (!reader.gameMakerData.IsNonLTSVersionAtLeast(2023, 1))
             spineSpritesPtr = reader.ReadUInt32();
-        uint fontsPtr = reader.ReadUInt32();
-        uint tilesetsPtr = reader.ReadUInt32();
+        var fontsPtr = reader.ReadUInt32();
+        var tilesetsPtr = reader.ReadUInt32();
 
         reader.AbsPosition = texPagesPtr;
         count += 1 + GameMakerSimpleResourcesList<GameMakerEmbeddedTexture, GameMakerChunkTXTR>

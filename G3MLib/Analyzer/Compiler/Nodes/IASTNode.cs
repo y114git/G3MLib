@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Compiler.Bytecode;
 using G3MLib.Analyzer.Compiler.Lexer;
 using G3MLib.Analyzer.Compiler.Parser;
@@ -20,12 +19,12 @@ internal interface IASTNode
     /// <summary>
     /// A token nearby to this node, for use in error messages.
     /// </summary>
-    public IToken? NearbyToken { get; }
+    IToken? NearbyToken { get; }
 
     /// <summary>
     /// Post-processes this node (e.g. for optimization/code rewriting), returning a new (or the same) node.
     /// </summary>
-    public IASTNode PostProcess(ParseContext context);
+    IASTNode PostProcess(ParseContext context);
 
     /// <summary>
     /// Duplicates this node and all sub-nodes.
@@ -33,25 +32,25 @@ internal interface IASTNode
     /// <remarks>
     /// For immutable leaf nodes, this can return the same instance.
     /// </remarks>
-    public IASTNode Duplicate(ParseContext context);
+    IASTNode Duplicate(ParseContext context);
 
     /// <summary>
     /// Generates bytecode for this node.
     /// </summary>
-    public void GenerateCode(BytecodeContext context);
+    void GenerateCode(BytecodeContext context);
 
     /// <summary>
     /// Enumerates all children nodes in the tree.
     /// </summary>
     /// <returns></returns>
-    public IEnumerable<IASTNode> EnumerateChildren();
+    IEnumerable<IASTNode> EnumerateChildren();
 }
 
 internal static class ASTNodeList
 {
     public static void PostProcess(ParseContext context, List<IASTNode> nodes)
     {
-        for (int i = 0; i < nodes.Count; i++)
+        for (var i = 0; i < nodes.Count; i++)
         {
             nodes[i] = nodes[i].PostProcess(context);
         }
@@ -59,8 +58,8 @@ internal static class ASTNodeList
 
     public static List<IASTNode> Duplicate(ParseContext context, List<IASTNode> nodes)
     {
-        List<IASTNode> duplicate = new(nodes);
-        for (int i = 0; i < duplicate.Count; i++)
+        List<IASTNode> duplicate = [.. nodes];
+        for (var i = 0; i < duplicate.Count; i++)
         {
             duplicate[i] = duplicate[i].Duplicate(context);
         }
@@ -83,17 +82,17 @@ internal interface IAssignableASTNode : IASTNode
     /// <summary>
     /// Generates assignment code for this node.
     /// </summary>
-    public void GenerateAssignCode(BytecodeContext context);
+    void GenerateAssignCode(BytecodeContext context);
 
     /// <summary>
     /// Generates compound assignment code for this node.
     /// </summary>
-    public void GenerateCompoundAssignCode(BytecodeContext context, IASTNode expression, Opcode operationOpcode);
+    void GenerateCompoundAssignCode(BytecodeContext context, IASTNode expression, Opcode operationOpcode);
 
     /// <summary>
     /// Generates pre/post-increment/decrement assignment code for this node.
     /// </summary>
-    public void GeneratePrePostAssignCode(BytecodeContext context, bool isIncrement, bool isPre, bool isStatement);
+    void GeneratePrePostAssignCode(BytecodeContext context, bool isIncrement, bool isPre, bool isStatement);
 }
 
 /// <summary>
@@ -104,7 +103,7 @@ internal interface IMaybeStatementASTNode : IASTNode
     /// <summary>
     /// Whether this call is a standalone statement, rather than an expression.
     /// </summary>
-    public bool IsStatement { get; set; }
+    bool IsStatement { get; set; }
 }
 
 /// <summary>
@@ -115,10 +114,10 @@ internal interface IVariableASTNode : IASTNode
     /// <summary>
     /// Variable name being referenced by this node.
     /// </summary>
-    public string VariableName { get; }
+    string VariableName { get; }
 
     /// <summary>
     /// Builtin variable corresponding to the variable referenced by this node, or null if none.
     /// </summary>
-    public IBuiltinVariable? BuiltinVariable { get; }
+    IBuiltinVariable? BuiltinVariable { get; }
 }

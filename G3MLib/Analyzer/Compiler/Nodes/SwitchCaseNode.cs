@@ -4,8 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System;
-using System.Collections.Generic;
 using G3MLib.Analyzer.Compiler.Bytecode;
 using G3MLib.Analyzer.Compiler.Lexer;
 using G3MLib.Analyzer.Compiler.Parser;
@@ -31,7 +29,7 @@ internal sealed class SwitchCaseNode(IToken? token, IASTNode? expression) : IAST
         Expression = Expression?.PostProcess(context);
 
         // Note: Official compiler logic here seems wrong, but probably designed to support legacy projects
-        if (Expression is not null && Expression is not (IConstantASTNode or SimpleVariableNode or DotVariableNode or AccessorNode))
+        if (Expression is not null and not (IConstantASTNode or SimpleVariableNode or DotVariableNode or AccessorNode))
         {
             context.CompileContext.PushError("Failed to resolve switch case to a constant value or variable", Expression?.NearbyToken);
         }

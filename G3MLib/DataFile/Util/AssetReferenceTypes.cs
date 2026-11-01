@@ -1,5 +1,3 @@
-using System;
-
 namespace G3MLib.DataFile.Util;
 
 public static class AssetReferenceTypes
@@ -30,6 +28,7 @@ public static class AssetReferenceTypes
     /// </summary>
     public static RefType ConvertToRefType(GameMakerData data, int type)
     {
+        ArgumentNullException.ThrowIfNull(data);
         if (data.IsVersionAtLeast(2024, 4))
         {
             return type switch
@@ -77,6 +76,7 @@ public static class AssetReferenceTypes
     /// </summary>
     public static int ConvertFromRefType(GameMakerData data, RefType type)
     {
+        ArgumentNullException.ThrowIfNull(data);
         if (data.IsVersionAtLeast(2024, 4))
         {
             return type switch

@@ -1,8 +1,5 @@
-using System;
-using System.Threading;
 using G3MLib.Analyzer.Decompiler;
 using G3MLib.Analyzer.Mock;
-using Xunit;
 
 namespace G3MLib.Tests;
 

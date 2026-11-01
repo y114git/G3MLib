@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using G3MLib.Analyzer.Compiler.Bytecode;
 using G3MLib.Analyzer.Compiler.Nodes;
@@ -34,38 +33,38 @@ public sealed class FunctionScope(FunctionScope? parent, bool isFunction)
     /// <summary>
     /// If not <see langword="null"/>, this is the block used for initializing static variables for this scope.
     /// </summary>
-    internal BlockNode? StaticInitializerBlock { get; set; } = null;
+    internal BlockNode? StaticInitializerBlock { get; set; }
 
     /// <summary>
     /// Stack of control flow contexts used during bytecode generation.
     /// </summary>
-    internal Stack<IControlFlowContext>? ControlFlowContexts { get; set; } = null;
+    internal Stack<IControlFlowContext>? ControlFlowContexts { get; set; }
 
     /// <summary>
     /// Whether bytecode is currently being generated for a static block.
     /// </summary>
-    internal bool GeneratingStaticBlock { get; set; } = false;
+    internal bool GeneratingStaticBlock { get; set; }
 
     /// <summary>
     /// Whether bytecode is currently being generated for a function call, where the function being called ends in a dot variable access.
     /// </summary>
-    internal bool GeneratingDotVariableCall { get; set; } = false;
+    internal bool GeneratingDotVariableCall { get; set; }
 
     /// <summary>
     /// Whether bytecode is currently being generated for a function declaration header (arguments, inheritance calls).
     /// </summary>
-    internal bool GeneratingFunctionDeclHeader { get; set; } = false;
+    internal bool GeneratingFunctionDeclHeader { get; set; }
 
     /// <summary>
     /// Whether currently post-processing a statement that requires extra logic for break/continue during code rewriting.
     /// </summary>
-    internal bool ProcessingBreakContinueContext { get; set; } = false;
+    internal bool ProcessingBreakContinueContext { get; set; }
 
     /// <summary>
     /// If generating code inside of a static variable assignment, this is the name of the
     /// static variable being assigned to.
     /// </summary>
-    internal string? StaticVariableName { get; set; } = null;
+    internal string? StaticVariableName { get; set; }
 
     /// <summary>
     /// List of nodes to duplicate when exiting early from a finally block.
@@ -145,7 +144,7 @@ public sealed class FunctionScope(FunctionScope? parent, bool isFunction)
     internal void DeclareArguments(List<string> argumentNames)
     {
         // Map argument names to corresponding index
-        for (int i = 0; i < argumentNames.Count; i++)
+        for (var i = 0; i < argumentNames.Count; i++)
         {
             _declaredArguments[argumentNames[i]] = i;
         }
@@ -155,6 +154,7 @@ public sealed class FunctionScope(FunctionScope? parent, bool isFunction)
     /// Attempts to look up an argument index from a variable name.
     /// </summary>
     /// <param name="name">Name of the variable to look up.</param>
+    /// <param name="index">Receives the index of the argument.</param>
     /// <returns>True if an argument index was found; false otherwise.</returns>
     internal bool TryGetArgumentIndex(string name, out int index)
     {
@@ -189,9 +189,11 @@ public sealed class FunctionScope(FunctionScope? parent, bool isFunction)
     /// </remarks>
     /// <param name="name">Name of the function to look up.</param>
     /// <param name="entry">Output function entry, if the lookup is successful.</param>
+    /// <param name="context">The compile context.</param>
     /// <returns><see langword="true"/> if a function entry was found; <see langword="false"/> otherwise.</returns>
     public bool TryGetDeclaredFunction(IGameContext context, string name, [NotNullWhen(true)] out FunctionEntry? entry)
     {
+        ArgumentNullException.ThrowIfNull(context);
         if (_declaredFunctions.TryGetValue(name, out entry))
         {
             if (entry is null)
@@ -215,6 +217,7 @@ public sealed class FunctionScope(FunctionScope? parent, bool isFunction)
     /// </remarks>
     public bool IsFunctionDeclared(IGameContext context, string name)
     {
+        ArgumentNullException.ThrowIfNull(context);
         if (_declaredFunctions.ContainsKey(name))
         {
             return true;

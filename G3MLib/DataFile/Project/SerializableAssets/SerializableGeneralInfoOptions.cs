@@ -50,7 +50,7 @@ internal sealed class SerializableGeneralInfoOptions
     /// </summary>
     public void ImportTo(GameMakerData data)
     {
-        GameMakerGeneralInfo generalInfo = data.GeneralInfo;
+        var generalInfo = data.GeneralInfo;
         if (FileName is not null)
         {
             generalInfo.FileName = data.Strings.MakeString(FileName);
@@ -92,7 +92,7 @@ internal sealed class SerializableGeneralInfoOptions
             generalInfo.GMS2FPS = GMS2FPS.Value;
         }
 
-        GameMakerOptions options = data.Options;
+        var options = data.Options;
         if (OptionsInfo is not null)
         {
             options.Info = OptionsInfo.Value;

@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Compiler.Bytecode;
 using G3MLib.Analyzer.Compiler.Lexer;
 using G3MLib.Analyzer.Compiler.Parser;
@@ -36,7 +35,7 @@ internal sealed class BreakNode(IToken? token) : IASTNode
         {
             // Generate block, setting break variable before breaking
             context.CurrentScope.DeclareLocal(tryContext.BreakVariableName);
-            BlockNode blockNode = BlockNode.CreateEmpty(NearbyToken, 2);
+            var blockNode = BlockNode.CreateEmpty(NearbyToken, 2);
             blockNode.Children.Add(new AssignNode(AssignKind.Normal, new SimpleVariableNode(tryContext.BreakVariableName, null, InstanceType.Local), new NumberNode(1, NearbyToken)));
             blockNode.Children.Add(this);
 

@@ -4,9 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System;
-using System.Collections.Generic;
-
 namespace G3MLib.Analyzer.Decompiler.AST;
 
 /// <summary>
@@ -31,6 +28,7 @@ public class EnumDeclNode(GMEnum gmEnum) : IStatementNode
     /// <inheritdoc/>
     public IStatementNode Clean(ASTCleaner cleaner)
     {
+        ArgumentNullException.ThrowIfNull(cleaner);
         EmptyLineAfter = EmptyLineBefore = cleaner.Context.Settings.EmptyLineAroundEnums;
         return this;
     }
@@ -44,6 +42,7 @@ public class EnumDeclNode(GMEnum gmEnum) : IStatementNode
     /// <inheritdoc/>
     public void Print(ASTPrinter printer)
     {
+        ArgumentNullException.ThrowIfNull(printer);
         printer.Write("enum ");
         printer.Write(Enum.Name);
         if (printer.Context.Settings.OpenBlockBraceOnSameLine)
@@ -53,13 +52,13 @@ public class EnumDeclNode(GMEnum gmEnum) : IStatementNode
         printer.OpenBlock();
 
         // Sort values of enum by value
-        List<GMEnumValue> sorted = new(Enum.Values);
+        List<GMEnumValue> sorted = [.. Enum.Values];
         sorted.Sort((a, b) => Math.Sign(a.Value - b.Value));
 
         // Print values of this enum
-        bool first = true;
+        var first = true;
         long expectedValue = 0;
-        foreach (GMEnumValue value in sorted)
+        foreach (var value in sorted)
         {
             // Print comma and newline if not the first value (workaround for enumeration)
             if (first)
@@ -124,7 +123,7 @@ public class EnumDeclNode(GMEnum gmEnum) : IStatementNode
 
         // Create nodes
         List<EnumDeclNode> enums = new(cleaner.Context.EnumDeclarations.Count);
-        foreach (GMEnum gmEnum in cleaner.Context.EnumDeclarations)
+        foreach (var gmEnum in cleaner.Context.EnumDeclarations)
         {
             enums.Add(new EnumDeclNode(gmEnum));
         }
@@ -140,7 +139,7 @@ public class EnumDeclNode(GMEnum gmEnum) : IStatementNode
         }
 
         // Perform cleanup on the nodes
-        foreach (EnumDeclNode enumDecl in enums)
+        foreach (var enumDecl in enums)
         {
             enumDecl.Clean(cleaner);
         }

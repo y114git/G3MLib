@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System;
 using System.Globalization;
 
 namespace G3MLib.Analyzer.Compiler.Lexer;
@@ -19,10 +18,10 @@ internal static class Numbers
     /// </summary>
     public static int ParseDecimal(LexContext context, int startPosition)
     {
-        int pos = ContiguousTextReader.ReadWhileNumber(context.Text, startPosition, out ReadOnlySpan<char> number);
+        var pos = ContiguousTextReader.ReadWhileNumber(context.Text, startPosition, out var number);
 
         // Parse number
-        if (long.TryParse(number, NumberStyles.Integer, CultureInfo.InvariantCulture, out long intValue))
+        if (long.TryParse(number, NumberStyles.Integer, CultureInfo.InvariantCulture, out var intValue))
         {
             // Check if the integer can be represented losslessly as a double
             if ((long)(double)intValue == intValue)
@@ -34,13 +33,13 @@ internal static class Numbers
                 context.Tokens.Add(new TokenInt64(context, startPosition, number.ToString(), intValue));
             }
         }
-        else if (double.TryParse(number, NumberStyles.Float, CultureInfo.InvariantCulture, out double floatValue))
+        else if (double.TryParse(number, NumberStyles.Float, CultureInfo.InvariantCulture, out var floatValue))
         {
             context.Tokens.Add(new TokenNumber(context, startPosition, number.ToString(), floatValue));
         }
         else
         {
-            context.CompileContext.PushError($"Invalid number \"{number.ToString()}\"", context, startPosition);
+            context.CompileContext.PushError($"Invalid number \"{number}\"", context, startPosition);
         }
 
         return pos;
@@ -51,19 +50,19 @@ internal static class Numbers
     /// </summary>
     public static int ParseHex(LexContext context, int startPosition, bool dollarSignSyntax)
     {
-        string prefix = dollarSignSyntax ? "$" : "0x";
-        int pos = ContiguousTextReader.ReadWhileHex(context.Text, startPosition + (dollarSignSyntax ? 1 : 2), out ReadOnlySpan<char> hex);
+        var prefix = dollarSignSyntax ? "$" : "0x";
+        var pos = ContiguousTextReader.ReadWhileHex(context.Text, startPosition + (dollarSignSyntax ? 1 : 2), out var hex);
 
         // Parse hex as a number
-        if (long.TryParse(hex, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out long value))
+        if (long.TryParse(hex, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var value))
         {
-            if (value >= int.MinValue && value <= int.MaxValue)
+            if (value is >= int.MinValue and <= int.MaxValue)
             {
-                context.Tokens.Add(new TokenNumber(context, startPosition, $"{prefix}{hex.ToString()}", value));
+                context.Tokens.Add(new TokenNumber(context, startPosition, $"{prefix}{hex}", value));
             }
             else
             {
-                context.Tokens.Add(new TokenInt64(context, startPosition, $"{prefix}{hex.ToString()}", value));
+                context.Tokens.Add(new TokenInt64(context, startPosition, $"{prefix}{hex}", value));
             }
         }
         else

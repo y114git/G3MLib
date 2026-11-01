@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Decompiler.AST;
 
 namespace G3MLib.Analyzer.Decompiler.ControlFlow;
@@ -22,14 +21,14 @@ internal abstract class Loop(int startAddress, int endAddress, int index) : ICon
 
     public List<IControlFlowNode> Successors { get; } = [];
 
-    public IControlFlowNode? Parent { get; set; } = null;
+    public IControlFlowNode? Parent { get; set; }
 
     /// <summary>
     /// The child nodes of this loop, those being the constituent parts (such as loop head, tail, and so on).
     /// </summary>
     public abstract List<IControlFlowNode?> Children { get; }
 
-    public bool Unreachable { get; set; } = false;
+    public bool Unreachable { get; set; }
 
     /// <summary>
     /// The index of this loop, as assigned in order of when the loop was first discovered (from top to bottom of code).
@@ -58,18 +57,18 @@ internal abstract class Loop(int startAddress, int endAddress, int index) : ICon
     /// </summary>
     public static List<Loop> FindLoops(DecompileContext ctx)
     {
-        List<Block> blocks = ctx.Blocks!;
+        var blocks = ctx.Blocks;
 
         List<Loop> loops = [];
         HashSet<int> whileLoopsFound = [];
-        int loopIndex = 0;
+        var loopIndex = 0;
 
         // Search for different loop types based on instruction patterns
         // Do this in reverse order, because we want to find the ends of loops first
-        for (int i = blocks.Count - 1; i >= 0; i--)
+        for (var i = blocks.Count - 1; i >= 0; i--)
         {
             ctx.ThrowIfCancellationRequested();
-            Block block = blocks[i];
+            var block = blocks[i];
 
             // If empty, we don't care about the block
             if (block.Instructions.Count == 0)
@@ -78,7 +77,7 @@ internal abstract class Loop(int startAddress, int endAddress, int index) : ICon
             }
 
             // Check last instruction (where branches are located)
-            IGMInstruction instr = block.Instructions[^1];
+            var instr = block.Instructions[^1];
             switch (instr.Kind)
             {
                 case IGMInstruction.Opcode.Branch:
@@ -86,7 +85,7 @@ internal abstract class Loop(int startAddress, int endAddress, int index) : ICon
                     {
                         // While loop detected - only add if this is the first time we see it (in reverse)
                         // If not done only once, then this misfires on "continue" statements
-                        int conditionAddr = (block.EndAddress - 4) + instr.BranchOffset;
+                        var conditionAddr = block.EndAddress - 4 + instr.BranchOffset;
                         if (whileLoopsFound.Add(conditionAddr))
                         {
                             loops.Add(new WhileLoop(conditionAddr, block.EndAddress, loopIndex++,
@@ -113,11 +112,11 @@ internal abstract class Loop(int startAddress, int endAddress, int index) : ICon
                 case IGMInstruction.Opcode.PushWithContext:
                     {
                         // With loop detected - need to additionally check for break block
-                        Block afterBlock = (block.Successors[1].Successors[0] as Block)!;
+                        var afterBlock = block.Successors[1].Successors[0] as Block;
                         Block? breakBlock = null;
                         if (afterBlock.Instructions is [{ Kind: IGMInstruction.Opcode.Branch }])
                         {
-                            Block potentialBreakBlock = blocks[afterBlock.BlockIndex + 1];
+                            var potentialBreakBlock = blocks[afterBlock.BlockIndex + 1];
                             if (potentialBreakBlock.EndAddress == afterBlock.Successors[0].StartAddress &&
                                 potentialBreakBlock.Instructions is
                                     [{ Kind: IGMInstruction.Opcode.PopWithContext, PopWithContextExit: true }])
@@ -162,7 +161,7 @@ internal abstract class ThreePartLoop(int startAddress, int endAddress, int inde
     : Loop(startAddress, endAddress, index)
 {
     public override List<IControlFlowNode?> Children { get; } = [head, tail, after];
-    public IControlFlowNode Head { get => Children[0]!; protected set => Children[0] = value; }
-    public IControlFlowNode Tail { get => Children[1]!; protected set => Children[1] = value; }
-    public IControlFlowNode After { get => Children[2]!; protected set => Children[2] = value; }
+    public IControlFlowNode Head { get => Children[0]; protected set => Children[0] = value; }
+    public IControlFlowNode Tail { get => Children[1]; protected set => Children[1] = value; }
+    public IControlFlowNode After { get => Children[2]; protected set => Children[2] = value; }
 }

@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Decompiler.GameSpecific;
 
 namespace G3MLib.Analyzer.Decompiler.AST;
@@ -20,10 +19,10 @@ public class ArrayInitNode(List<IExpressionNode> elements) : IConditionalValueNo
     public List<IExpressionNode> Elements { get; } = elements;
 
     /// <inheritdoc/>
-    public bool Duplicated { get; set; } = false;
+    public bool Duplicated { get; set; }
 
     /// <inheritdoc/>
-    public bool Group { get; set; } = false;
+    public bool Group { get; set; }
 
     /// <inheritdoc/>
     public IGMInstruction.DataType StackType { get; set; } = IGMInstruction.DataType.Variable;
@@ -37,7 +36,7 @@ public class ArrayInitNode(List<IExpressionNode> elements) : IConditionalValueNo
     /// <inheritdoc/>
     public IExpressionNode Clean(ASTCleaner cleaner)
     {
-        for (int i = 0; i < Elements.Count; i++)
+        for (var i = 0; i < Elements.Count; i++)
         {
             Elements[i] = Elements[i].Clean(cleaner);
         }
@@ -47,7 +46,7 @@ public class ArrayInitNode(List<IExpressionNode> elements) : IConditionalValueNo
     /// <inheritdoc/>
     public IExpressionNode PostClean(ASTCleaner cleaner)
     {
-        for (int i = 0; i < Elements.Count; i++)
+        for (var i = 0; i < Elements.Count; i++)
         {
             Elements[i] = Elements[i].PostClean(cleaner);
         }
@@ -57,10 +56,11 @@ public class ArrayInitNode(List<IExpressionNode> elements) : IConditionalValueNo
     /// <inheritdoc/>
     public void Print(ASTPrinter printer)
     {
+        ArgumentNullException.ThrowIfNull(printer);
         printer.Write('[');
-        for (int i = 0; i < Elements.Count; i++)
+        for (var i = 0; i < Elements.Count; i++)
         {
-            Elements[i].Print(printer);
+            printer.PrintNode(Elements[i]);
             if (i != Elements.Count - 1)
             {
                 printer.Write(", ");
@@ -72,7 +72,7 @@ public class ArrayInitNode(List<IExpressionNode> elements) : IConditionalValueNo
     /// <inheritdoc/>
     public bool RequiresMultipleLines(ASTPrinter printer, bool isStatementLHS)
     {
-        for (int i = 0; i < Elements.Count; i++)
+        for (var i = 0; i < Elements.Count; i++)
         {
             if (Elements[i].RequiresMultipleLines(printer, false))
             {

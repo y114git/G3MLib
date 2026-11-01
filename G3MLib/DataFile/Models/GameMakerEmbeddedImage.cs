@@ -1,5 +1,3 @@
-using System;
-
 namespace G3MLib.DataFile.Models;
 
 /// <summary>
@@ -40,6 +38,7 @@ public class GameMakerEmbeddedImage : GameMakerNamedResource, IStaticChildObject
     /// <inheritdoc />
     public void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         writer.WriteGameMakerString(Name);
         writer.WriteGameMakerObjectPointer(TextureEntry);
     }
@@ -47,6 +46,7 @@ public class GameMakerEmbeddedImage : GameMakerNamedResource, IStaticChildObject
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         Name = reader.ReadGameMakerString();
         TextureEntry = reader.ReadGameMakerObjectPointer<GameMakerTexturePageItem>();
     }

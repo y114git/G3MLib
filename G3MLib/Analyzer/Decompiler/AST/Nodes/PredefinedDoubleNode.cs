@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Decompiler.GameSpecific;
 
 namespace G3MLib.Analyzer.Decompiler.AST;
@@ -25,10 +24,10 @@ public class PredefinedDoubleSingleNode(string value, double originalValue) : IC
     public double OriginalValue { get; } = originalValue;
 
     /// <inheritdoc/>
-    public bool Duplicated { get; set; } = false;
+    public bool Duplicated { get; set; }
 
     /// <inheritdoc/>
-    public bool Group { get; set; } = false;
+    public bool Group { get; set; }
 
     /// <inheritdoc/>
     public IGMInstruction.DataType StackType { get; set; } = IGMInstruction.DataType.Double;
@@ -54,6 +53,7 @@ public class PredefinedDoubleSingleNode(string value, double originalValue) : IC
     /// <inheritdoc/>
     public virtual void Print(ASTPrinter printer)
     {
+        ArgumentNullException.ThrowIfNull(printer);
         printer.Write(Value);
     }
 
@@ -89,6 +89,7 @@ public class PredefinedDoubleMultiNode(string value, double originalValue)
     /// <inheritdoc/>
     public override void Print(ASTPrinter printer)
     {
+        ArgumentNullException.ThrowIfNull(printer);
         if (Group)
         {
             printer.Write('(');

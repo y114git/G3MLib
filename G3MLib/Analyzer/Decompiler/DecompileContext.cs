@@ -4,9 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System;
-using System.Collections.Generic;
-using System.Threading;
 using G3MLib.Analyzer.Decompiler.ControlFlow;
 
 namespace G3MLib.Analyzer.Decompiler;
@@ -42,8 +39,8 @@ public sealed class DecompileContext
     public List<IDecompileWarning> Warnings { get; } = [];
 
     // Helpers to refer to data on game context
-    internal bool OlderThanBytecode15 { get => GameContext.Bytecode14OrLower; }
-    internal bool GMLv2 { get => GameContext.UsingGMLv2; }
+    internal bool OlderThanBytecode15 => GameContext.Bytecode14OrLower;
+    internal bool GMLv2 => GameContext.UsingGMLv2;
 
     // Data structures used (and re-used) for decompilation, as well as tests
     internal List<Block>? Blocks { get; set; }
@@ -65,8 +62,11 @@ public sealed class DecompileContext
     internal Dictionary<Block, int>? BlockAfterLimits { get; set; }
     internal List<GMEnum> EnumDeclarations { get; set; } = [];
     internal Dictionary<string, GMEnum> NameToEnumDeclaration { get; set; } = [];
-    internal GMEnum? UnknownEnumDeclaration { get; set; } = null;
-    internal int UnknownEnumReferenceCount { get; set; } = 0;
+    internal GMEnum? UnknownEnumDeclaration { get; set; }
+    internal int UnknownEnumReferenceCount { get; set; }
+
+    // Instruction offset that produced each node; only filled when a source map is requested
+    internal Dictionary<AST.IBaseASTNode, int>? NodeOffsets { get; set; }
 
     public DecompileContext(IGameContext gameContext, IGMCode code, IDecompileSettings? settings = null,
                             CancellationToken cancellationToken = default)
@@ -163,12 +163,12 @@ public sealed class DecompileContext
         {
             ThrowIfCancellationRequested();
             AST.ASTCleaner cleaner = new(this);
-            AST.IStatementNode cleaned = ast.Clean(cleaner);
+            var cleaned = ast.Clean(cleaner);
             if (Settings.CreateEnumDeclarations)
             {
                 AST.EnumDeclNode.GenerateDeclarations(cleaner, cleaned);
             }
-            AST.IStatementNode postCleaned = cleaned.PostClean(cleaner);
+            var postCleaned = cleaned.PostClean(cleaner);
             return postCleaned;
         }
         catch (DecompilerException ex)
@@ -192,8 +192,32 @@ public sealed class DecompileContext
     {
         ThrowIfCancellationRequested();
         DecompileControlFlow();
-        AST.IStatementNode ast = DecompileAST();
+        var ast = DecompileAST();
         return CleanupAST(ast);
+    }
+
+    /// <summary>
+    /// Decompiles the code entry, and returns the text together with a map from text ranges to AST nodes and
+    /// bytecode instruction offsets. Use a new context for each call.
+    /// </summary>
+    public DecompiledSource DecompileToSourceMap()
+    {
+        ThrowIfCancellationRequested();
+        NodeOffsets = new(ReferenceEqualityComparer.Instance);
+        SourceMapRecorder recorder = new();
+        var ast = DecompileToAST();
+        AST.ASTPrinter printer = new(this) { Recorder = recorder };
+        if (Settings.PrintWarnings)
+        {
+            printer.PrintRemainingWarnings(true);
+        }
+        printer.PrintNode(ast);
+        if (Settings.PrintWarnings)
+        {
+            printer.PrintRemainingWarnings(false);
+        }
+        var text = printer.OutputString;
+        return new DecompiledSource(text, recorder.Build(text, NodeOffsets));
     }
 
     /// <summary>
@@ -202,7 +226,7 @@ public sealed class DecompileContext
     public string DecompileToString()
     {
         ThrowIfCancellationRequested();
-        AST.IStatementNode ast = DecompileToAST();
+        var ast = DecompileToAST();
         try
         {
             AST.ASTPrinter printer = new(this);
@@ -210,7 +234,7 @@ public sealed class DecompileContext
             {
                 printer.PrintRemainingWarnings(true);
             }
-            ast.Print(printer);
+            printer.PrintNode(ast);
             if (Settings.PrintWarnings)
             {
                 printer.PrintRemainingWarnings(false);

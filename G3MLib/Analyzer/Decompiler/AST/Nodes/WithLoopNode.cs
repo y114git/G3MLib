@@ -4,8 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
-
 namespace G3MLib.Analyzer.Decompiler.AST;
 
 /// <summary>
@@ -24,7 +22,7 @@ public class WithLoopNode(IExpressionNode target, BlockNode body) : IStatementNo
     public BlockNode Body { get; private set; } = body;
 
     /// <inheritdoc/>
-    public bool SemicolonAfter { get => false; }
+    public bool SemicolonAfter => false;
 
     /// <inheritdoc/>
     public bool EmptyLineBefore { get; set; }
@@ -35,6 +33,7 @@ public class WithLoopNode(IExpressionNode target, BlockNode body) : IStatementNo
     /// <inheritdoc/>
     public IStatementNode Clean(ASTCleaner cleaner)
     {
+        ArgumentNullException.ThrowIfNull(cleaner);
         Target = Target.Clean(cleaner);
         if (Target is IMacroResolvableNode targetResolvable && cleaner.MacroInstanceIdOrObjectAsset is not null &&
             targetResolvable.ResolveMacroType(cleaner, cleaner.MacroInstanceIdOrObjectAsset) is IExpressionNode targetResolved)
@@ -52,11 +51,12 @@ public class WithLoopNode(IExpressionNode target, BlockNode body) : IStatementNo
     /// <inheritdoc/>
     public IStatementNode PostClean(ASTCleaner cleaner)
     {
+        ArgumentNullException.ThrowIfNull(cleaner);
         Target = Target.PostClean(cleaner);
 
-        cleaner.TopFragmentContext!.PushLocalScope(cleaner.Context, cleaner.TopFragmentContext!.CurrentPostCleanupBlock!, this);
+        cleaner.TopFragmentContext.PushLocalScope(cleaner.Context, cleaner.TopFragmentContext.CurrentPostCleanupBlock, this);
         Body.PostClean(cleaner);
-        cleaner.TopFragmentContext!.PopLocalScope(cleaner.Context);
+        cleaner.TopFragmentContext.PopLocalScope(cleaner.Context);
 
         return this;
     }
@@ -64,6 +64,7 @@ public class WithLoopNode(IExpressionNode target, BlockNode body) : IStatementNo
     /// <inheritdoc/>
     public void Print(ASTPrinter printer)
     {
+        ArgumentNullException.ThrowIfNull(printer);
         printer.PrintBlockStatement("with", Target, Body);
     }
 

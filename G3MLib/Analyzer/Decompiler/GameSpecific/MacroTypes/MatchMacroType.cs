@@ -25,6 +25,7 @@ public class MatchMacroType(IMacroType? innerType, string? typeName, string? val
 
     public override bool EvaluateCondition(ASTCleaner cleaner, IConditionalValueNode node)
     {
+        ArgumentNullException.ThrowIfNull(node);
         if (ConditionalValue is not null && node.ConditionalValue != ConditionalValue)
         {
             return false;

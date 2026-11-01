@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Decompiler.AST;
 
 namespace G3MLib.Analyzer.Decompiler.GameSpecific;
@@ -37,14 +36,15 @@ public class GlobalMacroTypeResolver : IMacroTypeResolver
 
     public IMacroType? ResolveVariableType(ASTCleaner cleaner, string? variableName)
     {
+        ArgumentNullException.ThrowIfNull(cleaner);
         if (variableName is null)
         {
             return null;
         }
 
-        if (CodeEntryNames.TryGetValue(cleaner.TopFragmentContext!.CodeEntryName!, out NameMacroTypeResolver? resolver))
+        if (CodeEntryNames.TryGetValue(cleaner.TopFragmentContext!.CodeEntryName!, out var resolver))
         {
-            IMacroType? resolved = resolver.ResolveVariableType(cleaner, variableName);
+            var resolved = resolver.ResolveVariableType(cleaner, variableName);
             if (resolved is not null)
             {
                 return resolved;
@@ -56,14 +56,15 @@ public class GlobalMacroTypeResolver : IMacroTypeResolver
 
     public IMacroType? ResolveFunctionArgumentTypes(ASTCleaner cleaner, string? functionName)
     {
+        ArgumentNullException.ThrowIfNull(cleaner);
         if (functionName is null)
         {
             return null;
         }
 
-        if (CodeEntryNames.TryGetValue(cleaner.TopFragmentContext!.CodeEntryName!, out NameMacroTypeResolver? resolver))
+        if (CodeEntryNames.TryGetValue(cleaner.TopFragmentContext!.CodeEntryName!, out var resolver))
         {
-            IMacroType? resolved = resolver.ResolveFunctionArgumentTypes(cleaner, functionName);
+            var resolved = resolver.ResolveFunctionArgumentTypes(cleaner, functionName);
             if (resolved is not null)
             {
                 return resolved;
@@ -75,14 +76,15 @@ public class GlobalMacroTypeResolver : IMacroTypeResolver
 
     public IMacroType? ResolveReturnValueType(ASTCleaner cleaner, string? functionName)
     {
+        ArgumentNullException.ThrowIfNull(cleaner);
         if (functionName is null)
         {
             return null;
         }
 
-        if (CodeEntryNames.TryGetValue(cleaner.TopFragmentContext!.CodeEntryName!, out NameMacroTypeResolver? resolver))
+        if (CodeEntryNames.TryGetValue(cleaner.TopFragmentContext!.CodeEntryName!, out var resolver))
         {
-            IMacroType? resolved = resolver.ResolveReturnValueType(cleaner, functionName);
+            var resolved = resolver.ResolveReturnValueType(cleaner, functionName);
             if (resolved is not null)
             {
                 return resolved;

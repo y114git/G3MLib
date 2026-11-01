@@ -14,5 +14,5 @@ public interface IConstantNode<T> : IExpressionNode
     /// <summary>
     /// The constant value of this node.
     /// </summary>
-    public T Value { get; }
+    T Value { get; }
 }

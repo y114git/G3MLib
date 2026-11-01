@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Compiler.Bytecode;
 using G3MLib.Analyzer.Compiler.Lexer;
 using G3MLib.Analyzer.Compiler.Parser;
@@ -68,9 +67,9 @@ internal sealed class RepeatLoopNode : IASTNode
     public IASTNode PostProcess(ParseContext context)
     {
         // Enter repeat context
-        bool previousProcessingSwitch = context.ProcessingSwitch;
-        bool previousProcessingBreakContinueContext = context.CurrentScope.ProcessingBreakContinueContext;
-        bool previousShouldGenerateBreakContinueCode = true;
+        var previousProcessingSwitch = context.ProcessingSwitch;
+        var previousProcessingBreakContinueContext = context.CurrentScope.ProcessingBreakContinueContext;
+        var previousShouldGenerateBreakContinueCode = true;
         context.ProcessingSwitch = false;
         context.CurrentScope.ProcessingBreakContinueContext = true;
         if (context.TryStatementContext is TryStatementContext tryContext)
@@ -121,7 +120,7 @@ internal sealed class RepeatLoopNode : IASTNode
         tailPatch.AddInstruction(context, context.Emit(Opcode.BranchTrue));
 
         // Store current last array owner ID
-        long lastArrayOwnerID = context.LastArrayOwnerID;
+        var lastArrayOwnerID = context.LastArrayOwnerID;
 
         // Body
         MultiBackwardBranchPatch bodyPatch = new(context);

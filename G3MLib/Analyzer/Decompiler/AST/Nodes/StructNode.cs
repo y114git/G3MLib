@@ -4,8 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System;
-using System.Collections.Generic;
 using G3MLib.Analyzer.Decompiler.GameSpecific;
 
 namespace G3MLib.Analyzer.Decompiler.AST;
@@ -21,10 +19,10 @@ public class StructNode(BlockNode body, ASTFragmentContext fragmentContext) : IF
     public BlockNode Body { get; private set; } = body;
 
     /// <inheritdoc/>
-    public bool Duplicated { get; set; } = false;
+    public bool Duplicated { get; set; }
 
     /// <inheritdoc/>
-    public bool Group { get; set; } = false;
+    public bool Group { get; set; }
 
     /// <inheritdoc/>
     public IGMInstruction.DataType StackType { get; set; } = IGMInstruction.DataType.Variable;
@@ -52,7 +50,7 @@ public class StructNode(BlockNode body, ASTFragmentContext fragmentContext) : IF
     /// </summary>
     private void PreCleanBody(ASTCleaner cleaner)
     {
-        for (int i = 0; i < Body.Children.Count; i++)
+        for (var i = 0; i < Body.Children.Count; i++)
         {
             // Replace impossible fields that use "variable_struct_set" and make them use quoted fields instead.
             if (Body.Children[i] is FunctionCallNode
@@ -67,7 +65,7 @@ public class StructNode(BlockNode body, ASTFragmentContext fragmentContext) : IF
 
             // If a negative constant integer is found, rewrite it as its (likely) corresponding constant name to be more accurate, if possible.
             if (Body.Children[i] is AssignNode { Value: IExpressionNode rhs } assign && rhs is Int16Node i16Node && i16Node.Value < 0 &&
-                cleaner.Context.GameContext.LookupCommonNegativeConstant(i16Node.Value, out string? constantName))
+                cleaner.Context.GameContext.LookupCommonNegativeConstant(i16Node.Value, out var constantName))
             {
                 Body.Children[i] = new AssignNode(assign.Variable, new MacroValueNode(constantName));
             }
@@ -78,6 +76,7 @@ public class StructNode(BlockNode body, ASTFragmentContext fragmentContext) : IF
     /// <inheritdoc/>
     public IExpressionNode Clean(ASTCleaner cleaner)
     {
+        ArgumentNullException.ThrowIfNull(cleaner);
         PreCleanBody(cleaner);
         Body.Clean(cleaner);
         return this;
@@ -112,6 +111,7 @@ public class StructNode(BlockNode body, ASTFragmentContext fragmentContext) : IF
     /// <inheritdoc/>
     public void Print(ASTPrinter printer)
     {
+        ArgumentNullException.ThrowIfNull(printer);
         if (Group)
         {
             printer.Write('(');
@@ -123,7 +123,7 @@ public class StructNode(BlockNode body, ASTFragmentContext fragmentContext) : IF
         }
         else
         {
-            Body.Print(printer);
+            printer.PrintNode(Body);
         }
         if (Group)
         {
@@ -139,7 +139,7 @@ public class StructNode(BlockNode body, ASTFragmentContext fragmentContext) : IF
     /// <inheritdoc/>
     public bool RequiresMultipleLines(ASTPrinter printer, bool isStatementLHS)
     {
-        return (isStatementLHS && Group) || Body.Children.Count != 0;
+        return isStatementLHS && Group || Body.Children.Count != 0;
     }
 
     /// <inheritdoc/>

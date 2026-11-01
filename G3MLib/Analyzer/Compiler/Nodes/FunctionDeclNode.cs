@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Compiler.Bytecode;
 using G3MLib.Analyzer.Compiler.Lexer;
 using G3MLib.Analyzer.Compiler.Parser;
@@ -61,7 +60,7 @@ internal sealed class FunctionDeclNode : IMaybeStatementASTNode
     public bool IsConstructor { get; }
 
     /// <inheritdoc/>
-    public bool IsStatement { get; set; } = false;
+    public bool IsStatement { get; set; }
 
     /// <inheritdoc/>
     public IToken? NearbyToken { get; }
@@ -89,9 +88,9 @@ internal sealed class FunctionDeclNode : IMaybeStatementASTNode
     private static IfNode GenerateDefaultCheckAndAssign(ParseContext context, int argumentIndex, IASTNode value)
     {
         // Create condition
-        SimpleVariableNode undefined = SimpleVariableNode.CreateUndefined(context);
-        bool useBuiltinInstanceType = context.CompileContext.GameContext.UsingBuiltinDefaultArguments;
-        IAssignableASTNode argumentVar = SimpleVariableNode.CreateArgumentVariable(context, value.NearbyToken, argumentIndex, useBuiltinInstanceType);
+        var undefined = SimpleVariableNode.CreateUndefined(context);
+        var useBuiltinInstanceType = context.CompileContext.GameContext.UsingBuiltinDefaultArguments;
+        var argumentVar = SimpleVariableNode.CreateArgumentVariable(context, value.NearbyToken, argumentIndex, useBuiltinInstanceType);
         BinaryChainNode condition = new(value.NearbyToken, [argumentVar, undefined], [BinaryChainNode.BinaryOperation.CompareEqual]);
 
         // Create assignment statement
@@ -122,7 +121,7 @@ internal sealed class FunctionDeclNode : IMaybeStatementASTNode
         }
 
         // Enter a new function scope
-        FunctionScope oldScope = context.CurrentScope;
+        var oldScope = context.CurrentScope;
         FunctionScope newScope = new(oldScope, true);
         context.CurrentScope = newScope;
 
@@ -132,7 +131,7 @@ internal sealed class FunctionDeclNode : IMaybeStatementASTNode
         while (!context.EndOfCode && context.Tokens[context.Position] is TokenVariable tokenVariable)
         {
             // Add argument and check for duplicate argument names
-            string argumentName = tokenVariable.Text;
+            var argumentName = tokenVariable.Text;
             if (argumentNames.Contains(argumentName))
             {
                 context.CompileContext.PushError($"Duplicate argument name '{argumentName}'", tokenVariable);
@@ -176,7 +175,7 @@ internal sealed class FunctionDeclNode : IMaybeStatementASTNode
             if (!context.IsCurrentToken(SeparatorKind.GroupClose))
             {
                 // Failed to find group end, so give error and stop parsing
-                IToken currentToken = context.Tokens[context.Position];
+                var currentToken = context.Tokens[context.Position];
                 context.CompileContext.PushError(
                     $"Expected '{TokenSeparator.KindToString(SeparatorKind.Comma)}' or " +
                     $"'{TokenSeparator.KindToString(SeparatorKind.GroupClose)}', " +
@@ -214,7 +213,7 @@ internal sealed class FunctionDeclNode : IMaybeStatementASTNode
         }
 
         // Check for attributes (like "constructor")
-        bool isConstructor = false;
+        var isConstructor = false;
         while (!context.EndOfCode && context.Tokens[context.Position] is TokenVariable tokenAttribute)
         {
             if (tokenAttribute.Text == "constructor")
@@ -241,7 +240,7 @@ internal sealed class FunctionDeclNode : IMaybeStatementASTNode
         }
 
         // Parse main body block
-        BlockNode body = BlockNode.ParseRegular(context);
+        var body = BlockNode.ParseRegular(context);
 
         // Exit function scope
         context.CurrentScope = oldScope;
@@ -276,19 +275,19 @@ internal sealed class FunctionDeclNode : IMaybeStatementASTNode
         }
 
         // Enter a new function scope
-        FunctionScope oldScope = context.CurrentScope;
+        var oldScope = context.CurrentScope;
         FunctionScope newScope = new(oldScope, true);
         context.CurrentScope = newScope;
 
         // Create new function declaration node
-        BlockNode block = BlockNode.CreateEmpty(tokenOpen, 8);
+        var block = BlockNode.CreateEmpty(tokenOpen, 8);
         FunctionDeclNode decl = new(newScope, tokenOpen, new(null, [], null, block, null, true, true));
         List<IASTNode> args = new(9) { decl };
 
         // Read assignments from struct literal
         while (!context.EndOfCode && !context.IsCurrentToken(SeparatorKind.BlockClose, KeywordKind.End))
         {
-            bool parsedStringName = false;
+            var parsedStringName = false;
             if (context.Tokens[context.Position] is not TokenVariable variable)
             {
                 // Failed to find a variable here... check if a constant/asset reference, string, or keyword
@@ -345,13 +344,13 @@ internal sealed class FunctionDeclNode : IMaybeStatementASTNode
             // Non-constant values get hoisted outside of the struct function itself
             if (value is not (IConstantASTNode or FunctionDeclNode))
             {
-                bool externalArrays = context.CompileContext.GameContext.UsingExternalStructArrays;
+                var externalArrays = context.CompileContext.GameContext.UsingExternalStructArrays;
                 if (value is SimpleFunctionCallNode func &&
                     (func.FunctionName is VMConstants.NewObjectFunction ||
                      !externalArrays && func.FunctionName is VMConstants.NewArrayFunction))
                 {
                     // Hoist individual elements of array/struct, rather than entire array/struct
-                    for (int i = 0; i < func.Arguments.Count; i++)
+                    for (var i = 0; i < func.Arguments.Count; i++)
                     {
                         if (func.Arguments[i] is not (IConstantASTNode or FunctionDeclNode))
                         {
@@ -368,13 +367,13 @@ internal sealed class FunctionDeclNode : IMaybeStatementASTNode
             }
 
             // Create assignment statement (or a function call to "variable_struct_set" in some cases)
-            string variableName = variable.Text;
-            bool modernSpecialCaseNames = context.CompileContext.GameContext.UsingStructSpecialCaseNames;
+            var variableName = variable.Text;
+            var modernSpecialCaseNames = context.CompileContext.GameContext.UsingStructSpecialCaseNames;
             if (string.IsNullOrEmpty(variableName))
             {
                 context.CompileContext.PushError("Struct field name cannot be empty", variable);
             }
-            else if (variableName[0] is not ((>= 'a' and <= 'z') or (>= 'A' and <= 'Z') or '_'))
+            else if (variableName[0] is not (>= 'a' and <= 'z' or >= 'A' and <= 'Z' or '_'))
             {
                 if (context.CompileContext.GameContext.UsingStructAnyNonemptyString)
                 {
@@ -456,7 +455,7 @@ internal sealed class FunctionDeclNode : IMaybeStatementASTNode
         }
 
         // Enter a new function scope
-        FunctionScope oldScope = context.CurrentScope;
+        var oldScope = context.CurrentScope;
         context.CurrentScope = Scope;
 
         // Declare function in the current scope if named
@@ -483,7 +482,7 @@ internal sealed class FunctionDeclNode : IMaybeStatementASTNode
         return new FunctionDeclNode(
             Scope,
             NearbyToken,
-            new(FunctionName, new(ArgumentNames), (BlockNode?)DefaultValueBlock?.Duplicate(context),
+            new(FunctionName, [.. ArgumentNames], (BlockNode?)DefaultValueBlock?.Duplicate(context),
                 (BlockNode)Body.Duplicate(context), (SimpleFunctionCallNode?)InheritanceCall?.Duplicate(context),
                 IsStruct, IsConstructor))
         {
@@ -495,7 +494,7 @@ internal sealed class FunctionDeclNode : IMaybeStatementASTNode
     public void GenerateCode(BytecodeContext context)
     {
         // Enter scope of this function
-        FunctionScope oldScope = context.CurrentScope;
+        var oldScope = context.CurrentScope;
         context.CurrentScope = Scope;
 
         // Update array owner IDs if necessary
@@ -511,7 +510,7 @@ internal sealed class FunctionDeclNode : IMaybeStatementASTNode
         SingleForwardBranchPatch skipFunctionPatch = new(context, context.Emit(Opcode.Branch));
 
         // Register FunctionEntry instance
-        FunctionEntry? parentEntry = context.CurrentFunctionEntry;
+        var parentEntry = context.CurrentFunctionEntry;
         FunctionEntry entry = new(
             parentEntry,
             Scope,
@@ -534,7 +533,7 @@ internal sealed class FunctionDeclNode : IMaybeStatementASTNode
         Scope.GeneratingFunctionDeclHeader = true;
 
         // If using new code generation, assign current function entry for default arguments
-        bool assignEntryBeforeDefaultArgs = context.CompileContext.GameContext.UsingFixedDefaultArgumentFunctionDecls;
+        var assignEntryBeforeDefaultArgs = context.CompileContext.GameContext.UsingFixedDefaultArgumentFunctionDecls;
         if (assignEntryBeforeDefaultArgs)
         {
             context.CurrentFunctionEntry = entry;
@@ -575,7 +574,7 @@ internal sealed class FunctionDeclNode : IMaybeStatementASTNode
         }
 
         // Static block, before main body
-        long beforeStaticBlockArrayOwnerId = context.LastArrayOwnerID;
+        var beforeStaticBlockArrayOwnerId = context.LastArrayOwnerID;
         if (Scope.StaticInitializerBlock is BlockNode staticBlock)
         {
             // If static has already initialized, branch past this block
@@ -583,7 +582,7 @@ internal sealed class FunctionDeclNode : IMaybeStatementASTNode
             SingleForwardBranchPatch skipStaticPatch = new(context, context.Emit(Opcode.BranchTrue));
 
             // If not allowing re-entrant static, set the static flag here
-            bool allowReentrantStatic = context.CompileContext.GameContext.UsingReentrantStatic;
+            var allowReentrantStatic = context.CompileContext.GameContext.UsingReentrantStatic;
             if (!allowReentrantStatic)
             {
                 context.Emit(ExtendedOpcode.SetStaticInitialized);

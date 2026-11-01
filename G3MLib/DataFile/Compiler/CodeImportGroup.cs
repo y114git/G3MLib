@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using G3MLib.Analyzer.Decompiler;
 using G3MLib.DataFile.Decompiler;
 using G3MLib.DataFile.Models;
@@ -18,6 +16,9 @@ public sealed class CodeImportGroup
     /// Associated game data for this import code context.
     /// </summary>
     public GameMakerData Data { get; }
+
+    // Created on first use so a group over data without a string table still constructs.
+    private DataLookup Lookup => field ??= DataLookup.Build(Data);
 
     /// <summary>
     /// Associated global decompile context for this import code context.
@@ -50,7 +51,15 @@ public sealed class CodeImportGroup
     /// <remarks>
     /// <see langword="false"/> by default.
     /// </remarks>
-    public bool ThrowOnNoOpFindReplace { get; set; } = false;
+    public bool ThrowOnNoOpFindReplace { get; set; }
+
+    /// <summary>
+    /// Whether new object event actions are written the way GameMaker writes them, with an empty action name.
+    /// </summary>
+    /// <remarks>
+    /// <see langword="false"/> by default, which names the action after its code entry.
+    /// </remarks>
+    public bool GameMakerEventActions { get; set; }
 
     /// <summary>
     /// This action will be called when main-thread operations should occur, and can be changed.
@@ -64,7 +73,7 @@ public sealed class CodeImportGroup
     /// <summary>
     /// Compile group being used by this context, if not null.
     /// </summary>
-    internal CompileGroup CompileGroup { get; private set; } = null;
+    internal CompileGroup CompileGroup { get; private set; }
 
     /// <summary>
     /// Set of code entries currently queued for compile on <see cref="CompileGroup"/>.
@@ -83,7 +92,7 @@ public sealed class CodeImportGroup
     /// If <paramref name="globalContext"/> is not provided, a new global context will be created.
     /// If <paramref name="decompileSettings"/> is not provided, default settings will be used.
     /// </remarks>
-    public CodeImportGroup(GameMakerData data, GlobalDecompileContext globalContext = null, IDecompileSettings decompileSettings = null)
+    public CodeImportGroup(GameMakerData data, GlobalDecompileContext? globalContext = null, IDecompileSettings? decompileSettings = null)
     {
         ArgumentNullException.ThrowIfNull(data);
 
@@ -104,19 +113,24 @@ public sealed class CodeImportGroup
     /// <param name="type">Main event type to link to.</param>
     /// <param name="subtype">Event subtype to link to.</param>
     /// <param name="mainThreadAction">Action to call when creating new data, which may require being changed on the main thread.</param>
-    public static void LinkEvent(GameMakerGameObject obj, GameMakerCode code, EventType type, uint subtype, Action<Action> mainThreadAction)
+    /// <param name="emptyName">When set, new actions are written the way GameMaker writes code actions (library 1, id 603, kind 7, execute type 2, apply to self) with this empty name.</param>
+    public static void LinkEvent(GameMakerGameObject obj, GameMakerCode code, EventType type, uint subtype, Action<Action> mainThreadAction, GameMakerString? emptyName = null)
     {
+        GameMakerGameObject.EventAction NewAction() => emptyName is null
+            ? new() { ActionName = code.Name, CodeId = code }
+            : new() { LibID = 1, ID = 603, Kind = 7, ExeType = 2, Who = -1, ActionName = emptyName, CodeId = code };
+
         ArgumentNullException.ThrowIfNull(obj);
         ArgumentNullException.ThrowIfNull(code);
         ArgumentNullException.ThrowIfNull(mainThreadAction);
 
-        int eventType = checked((int)type);
+        var eventType = checked((int)type);
         if ((uint)eventType >= obj.Events.Count)
             throw new ArgumentOutOfRangeException(nameof(type));
 
-        GameMakerPointerList<GameMakerGameObject.Event> eventList = obj.Events[eventType] ??= new();
-        bool foundExisting = false;
-        foreach (GameMakerGameObject.Event @event in eventList)
+        var eventList = obj.Events[eventType] ??= [];
+        var foundExisting = false;
+        foreach (var @event in eventList)
         {
             if (@event?.EventSubtype != subtype)
             {
@@ -124,12 +138,12 @@ public sealed class CodeImportGroup
                 continue;
             }
 
-            @event.Actions ??= new();
+            @event.Actions ??= [];
 
             if (@event.Actions is [GameMakerGameObject.EventAction action])
             {
                 // Event already exists; reroute action to the new code entry.
-                action.ActionName = code.Name;
+                action.ActionName = emptyName ?? code.Name;
                 action.CodeId = code;
                 foundExisting = true;
                 break;
@@ -138,11 +152,7 @@ public sealed class CodeImportGroup
             if (@event.Actions is [])
             {
                 // Event already exists, but with no actions... create a new one.
-                mainThreadAction(() => @event.Actions.Add(new()
-                {
-                    ActionName = code.Name,
-                    CodeId = code
-                }));
+                mainThreadAction(() => @event.Actions.Add(NewAction()));
                 foundExisting = true;
                 break;
             }
@@ -159,11 +169,7 @@ public sealed class CodeImportGroup
             };
             mainThreadAction(() =>
             {
-                newEvent.Actions.Add(new()
-                {
-                    ActionName = code.Name,
-                    CodeId = code
-                });
+                newEvent.Actions.Add(NewAction());
                 eventList.Add(newEvent);
             });
         }
@@ -202,8 +208,8 @@ public sealed class CodeImportGroup
         {
             return false;
         }
-        ReadOnlySpan<char> otherObjectName = codeEntryName.AsSpan(collisionSeparatorIndex + EventCollisionSeparator.Length);
-        int otherObjectIndex = Data.GameObjects.IndexOfName(otherObjectName);
+        var otherObjectName = codeEntryName.AsSpan(collisionSeparatorIndex + EventCollisionSeparator.Length);
+        var otherObjectIndex = Data.GameObjects.IndexOfName(otherObjectName);
         if (otherObjectIndex < 0)
         {
             return false;
@@ -230,11 +236,11 @@ public sealed class CodeImportGroup
         }
 
         // Need to create a new entry!
-        GameMakerString newEntryName = null;
-        GameMakerCode newEntry = null;
+        GameMakerString? newEntryName = null;
+        GameMakerCode? newEntry = null;
         MainThreadAction(() =>
         {
-            newEntryName = Data.Strings.MakeString(codeEntryName);
+            newEntryName = Lookup.GetOrAddString(codeEntryName);
             newEntry = GameMakerCode.CreateEmptyEntry(Data, newEntryName);
         });
         if (newEntryName is null || newEntry is null)
@@ -253,13 +259,13 @@ public sealed class CodeImportGroup
         {
             MainThreadAction(() =>
             {
-                ReadOnlySpan<char> scriptName = codeEntryName.AsSpan(EventScriptPrefix.Length);
+                var scriptName = codeEntryName.AsSpan(EventScriptPrefix.Length);
                 if (Data.Scripts.ByName(scriptName) is not GameMakerScript existingScript)
                 {
                     // Create script, as one doesn't already exist
                     Data.Scripts.Add(new()
                     {
-                        Name = Data.Strings.MakeString(scriptName.ToString()),
+                        Name = Lookup.GetOrAddString(scriptName.ToString()),
                         Code = newEntry
                     });
                 }
@@ -273,8 +279,8 @@ public sealed class CodeImportGroup
         else if (codeEntryName.StartsWith(EventGlobalScriptPrefix, StringComparison.Ordinal))
         {
             // Scan to see if there's a global init script with a matching (and presumably, invalid) code reference.
-            GameMakerGlobalInit existingGlobalInit = null;
-            foreach (GameMakerGlobalInit globalInit in Data.GlobalInitScripts)
+            GameMakerGlobalInit? existingGlobalInit = null;
+            foreach (var globalInit in Data.GlobalInitScripts)
             {
                 if (globalInit?.Code?.Name?.Content == codeEntryName)
                 {
@@ -286,45 +292,45 @@ public sealed class CodeImportGroup
             {
                 MainThreadAction(() => Data.GlobalInitScripts.Add(new() { Code = newEntry }));
             }
-            else if (existingGlobalInit is not null)
+            else
             {
                 // Attach to existing global init entry (in case of corruption)
-                existingGlobalInit.Code = newEntry;
+                existingGlobalInit?.Code = newEntry;
             }
         }
         else if (codeEntryName.StartsWith(EventObjectPrefix, StringComparison.Ordinal))
         {
             // Parse object event.
             // First, handle collision events, if applicable. (Only supported in GM 2.3+, when "_Collision_" is not in either object name.)
-            int collisionSeparatorIndex = codeEntryName.IndexOf(EventCollisionSeparator, StringComparison.Ordinal);
-            bool containsCollisionSeparator = collisionSeparatorIndex >= 0;
-            if (containsCollisionSeparator && TryParseCollisionEvent(codeEntryName, collisionSeparatorIndex, out ReadOnlySpan<char> collisionObjectName, out uint collisionSubtype))
+            var collisionSeparatorIndex = codeEntryName.IndexOf(EventCollisionSeparator, StringComparison.Ordinal);
+            var containsCollisionSeparator = collisionSeparatorIndex >= 0;
+            if (containsCollisionSeparator && TryParseCollisionEvent(codeEntryName, collisionSeparatorIndex, out var collisionObjectName, out var collisionSubtype))
             {
                 // Create new object if necessary.
-                GameMakerGameObject collisionObj = Data.GameObjects.ByName(collisionObjectName);
+                var collisionObj = Data.GameObjects.ByName(collisionObjectName);
                 if (collisionObj is null)
                 {
-                    string collisionObjectNameStr = collisionObjectName.ToString();
+                    var collisionObjectNameStr = collisionObjectName.ToString();
                     MainThreadAction(() =>
                     {
                         collisionObj = new()
                         {
-                            Name = Data.Strings.MakeString(collisionObjectNameStr)
+                            Name = Lookup.GetOrAddString(collisionObjectNameStr)
                         };
                         Data.GameObjects.Add(collisionObj);
                     });
                 }
 
                 // Link code to object's event (and create one if necessary).
-                LinkEvent(collisionObj, newEntry, EventType.Collision, collisionSubtype, MainThreadAction);
+                LinkEvent(collisionObj, newEntry, EventType.Collision, collisionSubtype, MainThreadAction, GameMakerEventActions ? Lookup.GetOrAddString("") : null);
 
                 // No more processing required.
                 return newEntry;
             }
 
             // Not a collision event: Find positions of last two underscores in name.
-            int lastUnderscore = codeEntryName.LastIndexOf('_');
-            int secondLastUnderscore = codeEntryName.LastIndexOf('_', lastUnderscore - 1);
+            var lastUnderscore = codeEntryName.LastIndexOf('_');
+            var secondLastUnderscore = codeEntryName.LastIndexOf('_', lastUnderscore - 1);
             if (lastUnderscore <= 0 || secondLastUnderscore <= 0)
             {
                 if (containsCollisionSeparator)
@@ -335,7 +341,7 @@ public sealed class CodeImportGroup
             }
 
             // Extract object name, event type, and event subtype
-            EventType eventType = codeEntryName.AsSpan(new Range(secondLastUnderscore + 1, lastUnderscore)) switch
+            var eventType = codeEntryName.AsSpan(new Range(secondLastUnderscore + 1, lastUnderscore)) switch
             {
                 "Create" => EventType.Create,
                 "Destroy" => EventType.Destroy,
@@ -356,29 +362,29 @@ public sealed class CodeImportGroup
                     throw new InvalidOperationException($"Collision event cannot be automatically resolved; must attach to object manually ({codeEntryName})") :
                     throw new InvalidOperationException($"Failed to parse object code entry name: \"{codeEntryName}\"")
             };
-            if (!uint.TryParse(codeEntryName.AsSpan(lastUnderscore + 1), out uint eventSubtype))
+            if (!uint.TryParse(codeEntryName.AsSpan(lastUnderscore + 1), out var eventSubtype))
             {
                 throw new InvalidOperationException($"Failed to parse object code entry name: \"{codeEntryName}\"");
             }
 
             // Create new object if necessary.
-            ReadOnlySpan<char> objectName = codeEntryName.AsSpan(new Range(EventObjectPrefix.Length, secondLastUnderscore));
-            GameMakerGameObject obj = Data.GameObjects.ByName(objectName);
+            var objectName = codeEntryName.AsSpan(new Range(EventObjectPrefix.Length, secondLastUnderscore));
+            var obj = Data.GameObjects.ByName(objectName);
             if (obj is null)
             {
-                string objectNameStr = objectName.ToString();
+                var objectNameStr = objectName.ToString();
                 MainThreadAction(() =>
                 {
                     obj = new()
                     {
-                        Name = Data.Strings.MakeString(objectNameStr)
+                        Name = Lookup.GetOrAddString(objectNameStr)
                     };
                     Data.GameObjects.Add(obj);
                 });
             }
 
             // Link code to object's event (and create one if necessary).
-            LinkEvent(obj, newEntry, eventType, eventSubtype, MainThreadAction);
+            LinkEvent(obj, newEntry, eventType, eventSubtype, MainThreadAction, GameMakerEventActions ? Lookup.GetOrAddString("") : null);
         }
 
         return newEntry;
@@ -598,8 +604,73 @@ public sealed class CodeImportGroup
     /// <returns>Result from compilation.</returns>
     public CompileResult Import(bool throwOnFailedCompile = true)
     {
+        var result = Run(CodeImportMode.Apply, null, default, true).Compile;
+
+        // Handle errors
+        if (!result.Successful && throwOnFailedCompile)
+        {
+            throw new InvalidOperationException("Compile errors occurred during code import:\n" + result.PrintAllErrors(true));
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Performs all queued import operations and reports one result per operation. A failing operation does not stop the others.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="CodeImportMode.DryRun"/> compiles without linking, so nothing in <see cref="Data"/> changes, except entries and assets that queueing by name
+    /// already created. A dry run checks every operation against the original code: an operation that follows another one on the same entry does not see its result.
+    /// Cancelling throws <see cref="OperationCanceledException"/>; after a cancel in <see cref="CodeImportMode.Apply"/> the data may hold part of the operations, so discard it.
+    /// </remarks>
+    public CodeImportResult Import(CodeImportMode mode, IProgress<BatchProgress>? progress = null, CancellationToken cancellationToken = default) =>
+        Run(mode, progress, cancellationToken, false);
+
+    private CodeImportResult Run(CodeImportMode mode, IProgress<BatchProgress> progress, CancellationToken cancellationToken, bool strict)
+    {
+        List<ICodeImportOperation> operations = [.. _queuedOperations];
+        _queuedOperations.Clear();
+        if (mode == CodeImportMode.Stage)
+        {
+            var check = RunPass(operations, true, progress, cancellationToken, false);
+            if (check.Operations.Any(operation => operation.Status == CodeOperationStatus.Failed))
+            {
+                return check with { Committed = false };
+            }
+        }
+        return RunPass(operations, mode == CodeImportMode.DryRun, progress, cancellationToken, strict);
+    }
+
+    private CodeImportResult RunPass(List<ICodeImportOperation> operations, bool dryRun, IProgress<BatchProgress> progress, CancellationToken cancellationToken, bool strict)
+    {
+        var compile = CompileResult.SuccessfulResult;
+        var results = new CodeOperationResult[operations.Count];
+        List<int> pass = [];
+
+        CodeOperationResult Make(int index, CodeOperationStatus status, string? message = null, int line = 0, int column = 0) =>
+            new(operations[index].CodeEntry.Name?.Content, operations[index].Kind, status, message, line, column);
+
+        // Compiles what is queued and assigns the compile errors to the operations of this pass.
+        void Flush()
+        {
+            var passResult = dryRun ? CompileGroup.Check(cancellationToken) : CompileGroup.Compile(cancellationToken);
+            Dictionary<string, CompileError> firstErrors = [];
+            foreach (var error in passResult.Errors ?? [])
+            {
+                firstErrors.TryAdd(error.Code.Name?.Content ?? string.Empty, error);
+            }
+            foreach (var index in pass)
+            {
+                var entry = operations[index].CodeEntry.Name?.Content ?? string.Empty;
+                results[index] = firstErrors.TryGetValue(entry, out var error)
+                    ? Make(index, CodeOperationStatus.Failed, error.GenerateDetailedMessage(), error.Diagnostic.Span.StartLine, error.Diagnostic.Span.StartColumn)
+                    : Make(index, CodeOperationStatus.Applied);
+            }
+            pass.Clear();
+            CompileQueuedCodeEntries.Clear();
+            compile = compile.CombineWith(passResult);
+        }
+
         // Use a lower-level compile group with persisted linking lookups (as this may require multiple passes)
-        CompileResult result = CompileResult.SuccessfulResult;
         try
         {
             CompileGroup = new(Data, GlobalContext)
@@ -607,18 +678,41 @@ public sealed class CodeImportGroup
                 PersistLinkingLookups = true,
                 MainThreadAction = MainThreadAction
             };
-            foreach (ICodeImportOperation operation in _queuedOperations)
+            for (var i = 0; i < operations.Count; i++)
             {
-                // Force a compile pass if code entry is repeated
-                if (CompileQueuedCodeEntries.Contains(operation.CodeEntry))
+                cancellationToken.ThrowIfCancellationRequested();
+                var operation = operations[i];
+
+                // Force a compile pass if code entry is repeated (a dry run never links, so it cannot chain)
+                if (!dryRun && CompileQueuedCodeEntries.Contains(operation.CodeEntry))
                 {
-                    CompileQueuedCodeEntries.Clear();
-                    result = result.CombineWith(CompileGroup.Compile());
+                    Flush();
                 }
 
                 // Perform actual import
                 CompileQueuedCodeEntries.Add(operation.CodeEntry);
-                operation.Import(this);
+                try
+                {
+                    if (operation.Import(this))
+                    {
+                        pass.Add(i);
+                    }
+                    else
+                    {
+                        results[i] = Make(i, CodeOperationStatus.NoMatch, "The text was not found");
+                    }
+                }
+                catch (Exception ex) when (!strict && ex is not OperationCanceledException)
+                {
+                    results[i] = Make(i, CodeOperationStatus.Failed, ex.Message);
+                }
+                progress?.Report(new BatchProgress(i + 1, operations.Count, operation.CodeEntry.Name?.Content ?? string.Empty));
+            }
+
+            // Perform final compile if required
+            if (CompileQueuedCodeEntries.Count > 0)
+            {
+                Flush();
             }
         }
         catch
@@ -629,31 +723,41 @@ public sealed class CodeImportGroup
         }
         finally
         {
-            // Clear queue
-            _queuedOperations.Clear();
+            // Get rid of compile group, as it is no longer needed
+            CompileGroup = null;
         }
 
-        // Perform final compile if required
-        if (CompileQueuedCodeEntries.Count > 0)
-        {
-            CompileQueuedCodeEntries.Clear();
-            result = result.CombineWith(CompileGroup.Compile());
-        }
-
-        // Get rid of compile group, as it is no longer needed
-        CompileGroup = null;
-
-        // Handle errors
-        if (!result.Successful)
-        {
-            if (throwOnFailedCompile)
-            {
-                throw new InvalidOperationException("Compile errors occurred during code import:\n" + result.PrintAllErrors(true));
-            }
-            return result;
-        }
-
-        // Return compile result
-        return result;
+        var committed = !dryRun && compile.Successful;
+        return new CodeImportResult(results, compile, committed);
     }
 }
+
+/// <summary>How queued import operations are run.</summary>
+public enum CodeImportMode
+{
+    /// <summary>Compile and link every operation into the game data.</summary>
+    Apply,
+
+    /// <summary>Compile only. Nothing in the game data changes.</summary>
+    DryRun,
+
+    /// <summary>Dry run first, then apply only when no operation failed.</summary>
+    Stage
+}
+
+/// <summary>Outcome of one queued import operation. In a dry run, Applied means the operation compiled and would apply.</summary>
+public enum CodeOperationStatus
+{
+    Applied,
+    NoMatch,
+    Failed
+}
+
+/// <summary>Result of one queued operation. Line and column (one based) are set for compile errors.</summary>
+public sealed record CodeOperationResult(string CodeEntry, string Operation, CodeOperationStatus Status, string Message, int Line, int Column);
+
+/// <summary>Results of <see cref="CodeImportGroup.Import(CodeImportMode, IProgress{BatchProgress}, CancellationToken)"/>.</summary>
+/// <param name="Operations">One entry per queued operation, in queue order.</param>
+/// <param name="Compile">The combined compile result.</param>
+/// <param name="Committed">True when the operations were written into the game data.</param>
+public sealed record CodeImportResult(IReadOnlyList<CodeOperationResult> Operations, CompileResult Compile, bool Committed);

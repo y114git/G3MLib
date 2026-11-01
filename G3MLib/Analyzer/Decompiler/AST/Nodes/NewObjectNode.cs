@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Decompiler.GameSpecific;
 
 namespace G3MLib.Analyzer.Decompiler.AST;
@@ -29,7 +28,7 @@ public class NewObjectNode(IExpressionNode function, List<IExpressionNode> argum
     public bool Duplicated { get; set; }
 
     /// <inheritdoc/>
-    public bool Group { get; set; } = false;
+    public bool Group { get; set; }
 
     /// <inheritdoc/>
     public IGMInstruction.DataType StackType { get; set; } = IGMInstruction.DataType.Variable;
@@ -44,7 +43,7 @@ public class NewObjectNode(IExpressionNode function, List<IExpressionNode> argum
     public bool EmptyLineAfter { get => false; set => _ = value; }
 
     /// <inheritdoc/>
-    public string? FunctionName { get => (Function is FunctionReferenceNode functionRef) ? functionRef.Function.Name.Content : null; }
+    public string? FunctionName => (Function is FunctionReferenceNode functionRef) ? functionRef.Function.Name.Content : null;
 
     /// <inheritdoc/>
     public string ConditionalTypeName => "NewObject";
@@ -58,7 +57,7 @@ public class NewObjectNode(IExpressionNode function, List<IExpressionNode> argum
     private void CleanFunctionAndArgs(ASTCleaner cleaner)
     {
         Function = Function.Clean(cleaner);
-        for (int i = 0; i < Arguments.Count; i++)
+        for (var i = 0; i < Arguments.Count; i++)
         {
             Arguments[i] = Arguments[i].Clean(cleaner);
         }
@@ -73,6 +72,7 @@ public class NewObjectNode(IExpressionNode function, List<IExpressionNode> argum
     /// <inheritdoc/>
     public IExpressionNode Clean(ASTCleaner cleaner)
     {
+        ArgumentNullException.ThrowIfNull(cleaner);
         CleanFunctionAndArgs(cleaner);
 
         if (cleaner.GlobalMacroResolver.ResolveFunctionArgumentTypes(cleaner, FunctionName) is IMacroTypeFunctionArgs argsMacroType &&
@@ -112,13 +112,14 @@ public class NewObjectNode(IExpressionNode function, List<IExpressionNode> argum
     /// <inheritdoc/>
     public void Print(ASTPrinter printer)
     {
+        ArgumentNullException.ThrowIfNull(printer);
         if (Group)
         {
             printer.Write('(');
         }
 
         printer.Write("new ");
-        Function.Print(printer);
+        printer.PrintNode(Function);
         FunctionCallArguments.Print(printer, Arguments);
 
         if (Group)
@@ -155,7 +156,7 @@ public class NewObjectNode(IExpressionNode function, List<IExpressionNode> argum
     public IEnumerable<IBaseASTNode> EnumerateChildren()
     {
         yield return Function;
-        foreach (IExpressionNode arg in Arguments)
+        foreach (var arg in Arguments)
         {
             yield return arg;
         }

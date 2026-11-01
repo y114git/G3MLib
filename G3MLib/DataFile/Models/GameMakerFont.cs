@@ -1,4 +1,3 @@
-using System;
 using G3MLib.DataFile.Project;
 using G3MLib.DataFile.Project.SerializableAssets;
 
@@ -101,7 +100,7 @@ public class GameMakerFont : GameMakerNamedResource, IProjectAsset, IDisposable
     /// <summary>
     /// The glyphs that this font uses.
     /// </summary>
-    public GameMakerPointerList<Glyph> Glyphs { get; set; } = new GameMakerPointerList<Glyph>();
+    public GameMakerPointerList<Glyph> Glyphs { get; set; } = [];
 
     /// <summary>
     /// The maximum offset from the baseline to the top of the font.
@@ -124,12 +123,12 @@ public class GameMakerFont : GameMakerNamedResource, IProjectAsset, IDisposable
         public ushort Character { get; set; }
 
         /// <summary>
-        /// The x position in the <see cref="GameMakerFont.Texture"/> where the glyph can be found.
+        /// The x position in the <see cref="Texture"/> where the glyph can be found.
         /// </summary>
         public ushort SourceX { get; set; }
 
         /// <summary>
-        /// The y position in the <see cref="GameMakerFont.Texture"/> where the glyph can be found.
+        /// The y position in the <see cref="Texture"/> where the glyph can be found.
         /// </summary>
         public ushort SourceY { get; set; }
 
@@ -157,7 +156,7 @@ public class GameMakerFont : GameMakerNamedResource, IProjectAsset, IDisposable
         /// <summary>
         /// The kerning for each glyph.
         /// </summary>
-        public GameMakerSimpleListShort<GlyphKerning> Kerning { get; set; } = new GameMakerSimpleListShort<GlyphKerning>();
+        public GameMakerSimpleListShort<GlyphKerning> Kerning { get; set; } = [];
 
         /// <summary>
         /// Purpose unknown, always 0.
@@ -170,6 +169,7 @@ public class GameMakerFont : GameMakerNamedResource, IProjectAsset, IDisposable
         /// <inheritdoc />
         public void Serialize(GameMakerWriter writer)
         {
+            ArgumentNullException.ThrowIfNull(writer);
             writer.Write(Character);
             writer.Write(SourceX);
             writer.Write(SourceY);
@@ -177,7 +177,7 @@ public class GameMakerFont : GameMakerNamedResource, IProjectAsset, IDisposable
             writer.Write(SourceHeight);
             writer.Write(Shift);
             writer.Write(Offset);
-            if (writer.gameMakerData.IsNonLTSVersionAtLeast(2024, 11))
+            if (writer.gameMakerData.IsVersionAtLeast(2024, 11))
                 writer.Write(UnknownAlwaysZero);
             writer.WriteGameMakerObject(Kerning);
         }
@@ -185,6 +185,7 @@ public class GameMakerFont : GameMakerNamedResource, IProjectAsset, IDisposable
         /// <inheritdoc />
         public void Unserialize(GameMakerReader reader)
         {
+            ArgumentNullException.ThrowIfNull(reader);
             Character = reader.ReadUInt16();
             SourceX = reader.ReadUInt16();
             SourceY = reader.ReadUInt16();
@@ -192,7 +193,7 @@ public class GameMakerFont : GameMakerNamedResource, IProjectAsset, IDisposable
             SourceHeight = reader.ReadUInt16();
             Shift = reader.ReadInt16();
             Offset = reader.ReadInt16(); // Potential assumption, see the conversation at https://github.com/UnderminersTeam/GameMakerModTool/issues/40#issuecomment-440208912
-            if (reader.gameMakerData.IsNonLTSVersionAtLeast(2024, 11))
+            if (reader.gameMakerData.IsVersionAtLeast(2024, 11))
                 UnknownAlwaysZero = reader.ReadInt16();
             else
                 UnknownAlwaysZero = 0;
@@ -202,8 +203,9 @@ public class GameMakerFont : GameMakerNamedResource, IProjectAsset, IDisposable
         /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
         public static uint UnserializeChildObjectCount(GameMakerReader reader)
         {
+            ArgumentNullException.ThrowIfNull(reader);
             reader.Position += 14;
-            if (reader.gameMakerData.IsNonLTSVersionAtLeast(2024, 11))
+            if (reader.gameMakerData.IsVersionAtLeast(2024, 11))
                 reader.Position += 2; // UnknownAlwaysZero
 
             return 1 + GameMakerSimpleListShort<GlyphKerning>.UnserializeChildObjectCount(reader);
@@ -230,6 +232,7 @@ public class GameMakerFont : GameMakerNamedResource, IProjectAsset, IDisposable
             /// <inheritdoc />
             public void Serialize(GameMakerWriter writer)
             {
+                ArgumentNullException.ThrowIfNull(writer);
                 writer.Write(Character);
                 writer.Write(ShiftModifier);
             }
@@ -237,6 +240,7 @@ public class GameMakerFont : GameMakerNamedResource, IProjectAsset, IDisposable
             /// <inheritdoc />
             public void Unserialize(GameMakerReader reader)
             {
+                ArgumentNullException.ThrowIfNull(reader);
                 Character = reader.ReadInt16();
                 ShiftModifier = reader.ReadInt16();
             }
@@ -247,7 +251,7 @@ public class GameMakerFont : GameMakerNamedResource, IProjectAsset, IDisposable
             /// <returns>The copy.</returns>
             public GlyphKerning Clone()
             {
-                return new GlyphKerning() { ShiftModifier = this.ShiftModifier, Character = this.Character };
+                return new GlyphKerning() { ShiftModifier = ShiftModifier, Character = Character };
             }
         }
 
@@ -263,14 +267,14 @@ public class GameMakerFont : GameMakerNamedResource, IProjectAsset, IDisposable
 
             return new Glyph()
             {
-                Character = this.Character,
-                SourceX = this.SourceX,
-                SourceY = this.SourceY,
-                SourceWidth = this.SourceWidth,
-                SourceHeight = this.SourceHeight,
-                Shift = this.Shift,
-                Offset = this.Offset,
-                UnknownAlwaysZero = this.UnknownAlwaysZero,
+                Character = Character,
+                SourceX = SourceX,
+                SourceY = SourceY,
+                SourceWidth = SourceWidth,
+                SourceHeight = SourceHeight,
+                Shift = Shift,
+                Offset = Offset,
+                UnknownAlwaysZero = UnknownAlwaysZero,
                 Kerning = kerning
             };
         }
@@ -280,13 +284,14 @@ public class GameMakerFont : GameMakerNamedResource, IProjectAsset, IDisposable
         {
             GC.SuppressFinalize(this);
 
-            Kerning = new();
+            Kerning = [];
         }
     }
 
     /// <inheritdoc />
     public void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         writer.WriteGameMakerString(Name);
         writer.WriteGameMakerString(DisplayName);
         if (EmSizeIsFloat)
@@ -325,15 +330,16 @@ public class GameMakerFont : GameMakerNamedResource, IProjectAsset, IDisposable
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         Name = reader.ReadGameMakerString();
         DisplayName = reader.ReadGameMakerString();
-        uint readEmSize = reader.ReadUInt32();
+        var readEmSize = reader.ReadUInt32();
         EmSizeIsFloat = false;
 
         // since the float is always written negated, it has the first bit set.
         if ((readEmSize & (1 << 31)) != 0)
         {
-            float fsize = -BitConverter.ToSingle(BitConverter.GetBytes(readEmSize), 0);
+            var fsize = -BitConverter.ToSingle(BitConverter.GetBytes(readEmSize), 0);
             EmSize = fsize;
             EmSizeIsFloat = true;
         }
@@ -375,7 +381,8 @@ public class GameMakerFont : GameMakerNamedResource, IProjectAsset, IDisposable
     /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
     public static uint UnserializeChildObjectCount(GameMakerReader reader)
     {
-        int skipSize = 40;
+        ArgumentNullException.ThrowIfNull(reader);
+        var skipSize = 40;
         if (reader.gameMakerData.GeneralInfo?.BytecodeVersion >= 17)
             skipSize += 4; // AscenderOffset
         if (reader.gameMakerData.IsVersionAtLeast(2022, 2))
@@ -387,7 +394,7 @@ public class GameMakerFont : GameMakerNamedResource, IProjectAsset, IDisposable
 
         reader.Position += skipSize;
 
-        uint count = 1 + GameMakerPointerList<Glyph>.UnserializeChildObjectCount(reader);
+        var count = 1 + GameMakerPointerList<Glyph>.UnserializeChildObjectCount(reader);
 
         if (reader.gameMakerData.IsVersionAtLeast(2024, 14))
             reader.Align(4);
@@ -406,19 +413,19 @@ public class GameMakerFont : GameMakerNamedResource, IProjectAsset, IDisposable
     {
         GC.SuppressFinalize(this);
 
-        foreach (Glyph glyph in Glyphs)
+        foreach (var glyph in Glyphs)
             glyph?.Dispose();
         Name = null;
         DisplayName = null;
         Texture = null;
-        Glyphs = new();
+        Glyphs = [];
     }
 
     /// <inheritdoc/>
     ISerializableProjectAsset IProjectAsset.GenerateSerializableProjectAsset(ProjectContext projectContext)
     {
         SerializableFont serializable = new();
-        serializable.PopulateFromData(projectContext, this);
+        serializable.PopulateFromData(this);
         return serializable;
     }
 

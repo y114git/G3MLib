@@ -1,5 +1,3 @@
-using System;
-
 namespace G3MLib.Tests;
 
 public class TestCompileErrorException : Exception

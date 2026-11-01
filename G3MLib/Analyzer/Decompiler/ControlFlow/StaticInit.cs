@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Decompiler.AST;
 using static G3MLib.Analyzer.IGMInstruction;
 
@@ -23,11 +22,11 @@ internal sealed class StaticInit : IControlFlowNode
 
     public List<IControlFlowNode> Successors { get; } = [];
 
-    public IControlFlowNode? Parent { get; set; } = null;
+    public IControlFlowNode? Parent { get; set; }
 
     public List<IControlFlowNode?> Children { get; } = [null];
 
-    public bool Unreachable { get; set; } = false;
+    public bool Unreachable { get; set; }
 
     /// <summary>
     /// The top of the static initialization block.
@@ -35,7 +34,7 @@ internal sealed class StaticInit : IControlFlowNode
     /// <remarks>
     /// Upon being processed, this has its predecessors disconnected.
     /// </remarks>
-    public IControlFlowNode Head { get => Children[0]!; private set => Children[0] = value; }
+    public IControlFlowNode Head { get => Children[0]; private set => Children[0] = value; }
 
     public StaticInit(int startAddress, int endAddress, IControlFlowNode head)
     {
@@ -49,7 +48,7 @@ internal sealed class StaticInit : IControlFlowNode
     /// </summary>
     public static List<StaticInit> FindStaticInits(DecompileContext ctx)
     {
-        List<Block> blocks = ctx.Blocks!;
+        var blocks = ctx.Blocks;
 
         List<StaticInit> res = [];
 
@@ -67,7 +66,7 @@ internal sealed class StaticInit : IControlFlowNode
                 block.Instructions.RemoveRange(block.Instructions.Count - 2, 2);
 
                 // Remove instruction from ending block, if it's the right one (changes depending on version)
-                IControlFlowNode afterNode = block.Successors[1];
+                var afterNode = block.Successors[1];
                 if (afterNode is Block { Instructions: [{ Kind: Opcode.Extended, ExtKind: ExtendedOpcode.SetStaticInitialized }, ..] } afterBlock)
                 {
                     afterBlock.Instructions.RemoveAt(0);

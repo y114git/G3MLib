@@ -7,7 +7,6 @@
 using G3MLib.Analyzer;
 using G3MLib.Analyzer.Decompiler;
 using G3MLib.Analyzer.Decompiler.ControlFlow;
-using G3MLib.Analyzer.Mock;
 
 namespace G3MLib.Tests;
 
@@ -16,7 +15,7 @@ public class TryCatch_FindTryCatch
     [Fact]
     public void TestBasicTry()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             push.i 48
@@ -43,12 +42,12 @@ public class TryCatch_FindTryCatch
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<TryCatch> tryCatch = TryCatch.FindTryCatch(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var tryCatch = TryCatch.FindTryCatch(ctx);
 
-        Assert.Single(tryCatch);
-        TryCatch tc = tryCatch[0];
+        var item = Assert.Single(tryCatch);
+        var tc = item;
         Assert.Equal([blocks[0]], tc.Predecessors);
         Assert.Equal([blocks[2]], tc.Successors);
         Assert.Empty(blocks[0].Instructions);
@@ -61,8 +60,8 @@ public class TryCatch_FindTryCatch
         ]);
         Assert.Empty(tc.Try.Predecessors);
         Assert.Equal(blocks[1], tc.Try);
-        Assert.Single(blocks[1].Successors);
-        Assert.IsType<EmptyNode>(blocks[1].Successors[0]);
+        var item_2 = Assert.Single(blocks[1].Successors);
+        Assert.IsType<EmptyNode>(item_2);
         Assert.Null(tc.Catch);
 
         TestUtil.VerifyFlowDirections(blocks);
@@ -73,7 +72,7 @@ public class TryCatch_FindTryCatch
     [Fact]
     public void TestBasicTryCatch()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             push.i 108
@@ -107,12 +106,12 @@ public class TryCatch_FindTryCatch
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<TryCatch> tryCatch = TryCatch.FindTryCatch(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var tryCatch = TryCatch.FindTryCatch(ctx);
 
-        Assert.Single(tryCatch);
-        TryCatch tc = tryCatch[0];
+        var item = Assert.Single(tryCatch);
+        var tc = item;
         Assert.Equal([blocks[0]], tc.Predecessors);
         Assert.Equal([blocks[3]], tc.Successors);
         Assert.Empty(blocks[0].Instructions);
@@ -126,12 +125,12 @@ public class TryCatch_FindTryCatch
         Assert.Empty(blocks[3].Instructions);
         Assert.Equal(blocks[1], tc.Try);
         Assert.Empty(tc.Try.Predecessors);
-        Assert.Single(blocks[1].Successors);
-        Assert.IsType<EmptyNode>(blocks[1].Successors[0]);
+        var item_2 = Assert.Single(blocks[1].Successors);
+        Assert.IsType<EmptyNode>(item_2);
         Assert.Equal(blocks[2], tc.Catch);
-        Assert.Empty(tc.Catch!.Predecessors);
-        Assert.Single(blocks[2].Successors);
-        Assert.IsType<EmptyNode>(blocks[2].Successors[0]);
+        Assert.Empty(tc.Catch.Predecessors);
+        var item_3 = Assert.Single(blocks[2].Successors);
+        Assert.IsType<EmptyNode>(item_3);
 
         TestUtil.VerifyFlowDirections(blocks);
         TestUtil.VerifyFlowDirections(fragments);
@@ -141,7 +140,7 @@ public class TryCatch_FindTryCatch
     [Fact]
     public void TestNestedTryCatch()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             push.i 252
@@ -218,15 +217,15 @@ public class TryCatch_FindTryCatch
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<TryCatch> tryCatch = TryCatch.FindTryCatch(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var tryCatch = TryCatch.FindTryCatch(ctx);
 
         Assert.Equal(14, blocks.Count);
         Assert.Equal(3, tryCatch.Count);
-        TryCatch tc0 = tryCatch[0];
-        TryCatch tc1 = tryCatch[1];
-        TryCatch tc2 = tryCatch[2];
+        var tc0 = tryCatch[0];
+        var tc1 = tryCatch[1];
+        var tc2 = tryCatch[2];
 
         Assert.Equal([blocks[0]], tc0.Predecessors);
         Assert.Equal([blocks[12]], tc0.Successors);
@@ -234,11 +233,11 @@ public class TryCatch_FindTryCatch
         Assert.Equal(blocks[1], tc0.Try);
         Assert.Equal(blocks[6], tc0.Catch);
         Assert.Empty(tc0.Try.Predecessors);
-        Assert.Empty(tc0.Catch!.Predecessors);
-        Assert.Single(blocks[5].Successors);
-        Assert.IsType<EmptyNode>(blocks[5].Successors[0]);
-        Assert.Single(blocks[11].Successors);
-        Assert.IsType<EmptyNode>(blocks[11].Successors[0]);
+        Assert.Empty(tc0.Catch.Predecessors);
+        var item = Assert.Single(blocks[5].Successors);
+        Assert.IsType<EmptyNode>(item);
+        var item_2 = Assert.Single(blocks[11].Successors);
+        Assert.IsType<EmptyNode>(item_2);
 
         Assert.Equal([blocks[1]], tc1.Predecessors);
         Assert.Equal([blocks[4]], tc1.Successors);
@@ -246,11 +245,11 @@ public class TryCatch_FindTryCatch
         Assert.Equal(blocks[2], tc1.Try);
         Assert.Equal(blocks[3], tc1.Catch);
         Assert.Empty(tc1.Try.Predecessors);
-        Assert.Empty(tc1.Catch!.Predecessors);
-        Assert.Single(blocks[2].Successors);
-        Assert.IsType<EmptyNode>(blocks[2].Successors[0]);
-        Assert.Single(blocks[3].Successors);
-        Assert.IsType<EmptyNode>(blocks[3].Successors[0]);
+        Assert.Empty(tc1.Catch.Predecessors);
+        var item_3 = Assert.Single(blocks[2].Successors);
+        Assert.IsType<EmptyNode>(item_3);
+        var item_4 = Assert.Single(blocks[3].Successors);
+        Assert.IsType<EmptyNode>(item_4);
 
         Assert.Equal([blocks[7]], tc2.Predecessors);
         Assert.Equal([blocks[10]], tc2.Successors);
@@ -258,11 +257,11 @@ public class TryCatch_FindTryCatch
         Assert.Equal(blocks[8], tc2.Try);
         Assert.Equal(blocks[9], tc2.Catch);
         Assert.Empty(tc2.Try.Predecessors);
-        Assert.Empty(tc2.Catch!.Predecessors);
-        Assert.Single(blocks[8].Successors);
-        Assert.IsType<EmptyNode>(blocks[8].Successors[0]);
-        Assert.Single(blocks[9].Successors);
-        Assert.IsType<EmptyNode>(blocks[9].Successors[0]);
+        Assert.Empty(tc2.Catch.Predecessors);
+        var item_5 = Assert.Single(blocks[8].Successors);
+        Assert.IsType<EmptyNode>(item_5);
+        var item_6 = Assert.Single(blocks[9].Successors);
+        Assert.IsType<EmptyNode>(item_6);
 
         TestUtil.VerifyFlowDirections(blocks);
         TestUtil.VerifyFlowDirections(fragments);

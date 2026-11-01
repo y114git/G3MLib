@@ -7,7 +7,6 @@
 using G3MLib.Analyzer;
 using G3MLib.Analyzer.Decompiler;
 using G3MLib.Analyzer.Decompiler.ControlFlow;
-using G3MLib.Analyzer.Mock;
 
 namespace G3MLib.Tests;
 
@@ -16,12 +15,12 @@ public class Block_FindBlocks
     [Fact]
     public void TestEmpty()
     {
-        GMCode code = TestUtil.GetCode("");
+        var code = TestUtil.GetCode("");
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
+        var blocks = Block.FindBlocks(ctx);
 
-        Assert.Single(blocks);
-        Assert.Equal(0, blocks[0].StartAddress);
+        var item = Assert.Single(blocks);
+        Assert.Equal(0, item.StartAddress);
         Assert.Equal(0, blocks[0].EndAddress);
         Assert.Empty(blocks[0].Instructions);
     }
@@ -29,21 +28,21 @@ public class Block_FindBlocks
     [Fact]
     public void TestSingle()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             pushi.e 123
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
+        var blocks = Block.FindBlocks(ctx);
 
         Assert.Equal(2, blocks.Count);
         Assert.Equal(0, blocks[0].StartAddress);
         Assert.Equal(4, blocks[0].EndAddress);
         Assert.Equal(4, blocks[1].StartAddress);
         Assert.Equal(4, blocks[1].EndAddress);
-        Assert.Single(blocks[0].Instructions);
-        Assert.Equal(IGMInstruction.Opcode.PushImmediate, blocks[0].Instructions[0].Kind);
+        var item = Assert.Single(blocks[0].Instructions);
+        Assert.Equal(IGMInstruction.Opcode.PushImmediate, item.Kind);
         Assert.Empty(blocks[1].Instructions);
         Assert.Equal(blocks[1], blocks[0].Successors[0]);
         Assert.Single(blocks[0].Successors);
@@ -56,7 +55,7 @@ public class Block_FindBlocks
     [Fact]
     public void TestIfElse()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             pushi.e 0
@@ -74,10 +73,10 @@ public class Block_FindBlocks
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
+        var blocks = Block.FindBlocks(ctx);
 
         Assert.Equal(5, blocks.Count);
-        for (int i = 0; i <= 3; i++)
+        for (var i = 0; i <= 3; i++)
             Assert.Equal(i, blocks[i].Instructions[0].ValueShort);
         Assert.Empty(blocks[4].Instructions);
 
@@ -109,7 +108,7 @@ public class Block_FindBlocks
     [Fact]
     public void TestLoop()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             pushi.e 0
@@ -123,10 +122,10 @@ public class Block_FindBlocks
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
+        var blocks = Block.FindBlocks(ctx);
 
         Assert.Equal(3, blocks.Count);
-        for (int i = 0; i <= 1; i++)
+        for (var i = 0; i <= 1; i++)
             Assert.Equal(i, blocks[i].Instructions[0].ValueShort);
         Assert.Empty(blocks[2].Instructions);
 
@@ -151,7 +150,7 @@ public class Block_FindBlocks
     [Fact]
     public void TestWith()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             pushi.e 0
@@ -172,7 +171,7 @@ public class Block_FindBlocks
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
+        var blocks = Block.FindBlocks(ctx);
 
         Assert.Equal(5, blocks.Count);
         Assert.Equal(0, blocks[0].Instructions[0].ValueShort);
@@ -210,7 +209,7 @@ public class Block_FindBlocks
     [Fact]
     public void TestBreakWith()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             pushi.e 0
@@ -236,7 +235,7 @@ public class Block_FindBlocks
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
+        var blocks = Block.FindBlocks(ctx);
 
         Assert.Equal(7, blocks.Count);
         Assert.Equal(0, blocks[0].Instructions[0].ValueShort);
@@ -255,16 +254,16 @@ public class Block_FindBlocks
         Assert.Single(blocks[1].Successors);
         Assert.Contains(blocks[4], blocks[1].Successors);
 
-        Assert.Single(blocks[2].Predecessors);
-        Assert.Equal(blocks[0], blocks[2].Predecessors[0]);
+        var item = Assert.Single(blocks[2].Predecessors);
+        Assert.Equal(blocks[0], item);
         Assert.Equal(2, blocks[2].Successors.Count);
         Assert.Equal(blocks[3], blocks[2].Successors[0]);
         Assert.Equal(blocks[1], blocks[2].Successors[1]);
 
-        Assert.Single(blocks[3].Predecessors);
-        Assert.Equal(blocks[2], blocks[3].Predecessors[0]);
-        Assert.Single(blocks[3].Successors);
-        Assert.Equal(blocks[5], blocks[3].Successors[0]);
+        var item_2 = Assert.Single(blocks[3].Predecessors);
+        Assert.Equal(blocks[2], item_2);
+        var item_3 = Assert.Single(blocks[3].Successors);
+        Assert.Equal(blocks[5], item_3);
 
         Assert.Equal([blocks[3], blocks[4]], blocks[5].Predecessors);
 
@@ -277,7 +276,7 @@ public class Block_FindBlocks
     [Fact]
     public void TestUnreachableBranch()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             pushi.e 0
@@ -291,7 +290,7 @@ public class Block_FindBlocks
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
+        var blocks = Block.FindBlocks(ctx);
 
         Assert.Equal(4, blocks.Count);
 
@@ -315,7 +314,7 @@ public class Block_FindBlocks
     [Fact]
     public void TestUnreachableExit()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             pushi.e 0
@@ -326,7 +325,7 @@ public class Block_FindBlocks
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
+        var blocks = Block.FindBlocks(ctx);
 
         Assert.Equal(3, blocks.Count);
 
@@ -347,7 +346,7 @@ public class Block_FindBlocks
     [Fact]
     public void TestTry()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             push.i 48
@@ -374,7 +373,7 @@ public class Block_FindBlocks
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
+        var blocks = Block.FindBlocks(ctx);
 
         Assert.Equal(4, blocks.Count);
 
@@ -396,7 +395,7 @@ public class Block_FindBlocks
     [Fact]
     public void TestTryCatch()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             push.i 108
@@ -430,7 +429,7 @@ public class Block_FindBlocks
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
+        var blocks = Block.FindBlocks(ctx);
 
         Assert.Equal(5, blocks.Count);
 

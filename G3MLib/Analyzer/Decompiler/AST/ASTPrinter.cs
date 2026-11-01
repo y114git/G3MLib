@@ -4,8 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System;
-using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Text;
 
@@ -24,17 +22,17 @@ public sealed class ASTPrinter(DecompileContext context)
     /// <summary>
     /// The current string output of this printer. This should be used only when the result is needed.
     /// </summary>
-    public string OutputString { get => stringBuilder.ToString(); }
+    public string OutputString => stringBuilder.ToString();
 
     /// <summary>
     /// List of arguments passed into a struct fragment.
     /// </summary>
-    internal List<IExpressionNode>? StructArguments { get => TopFragmentContext!.StructArguments; set => TopFragmentContext!.StructArguments = value; }
+    internal List<IExpressionNode>? StructArguments { get => TopFragmentContext.StructArguments; set => TopFragmentContext.StructArguments = value; }
 
     /// <summary>
     /// Set of all local variables present in the current fragment.
     /// </summary>
-    internal HashSet<string> LocalVariableNames { get => TopFragmentContext!.LocalVariableNames; }
+    internal HashSet<string> LocalVariableNames => TopFragmentContext.LocalVariableNames;
 
     /// <summary>
     /// Stack used to manage fragment contexts.
@@ -52,18 +50,42 @@ public sealed class ASTPrinter(DecompileContext context)
     /// <summary>
     /// The first warning index that has not yet been printed by this printer.
     /// </summary>
-    internal int FirstUnprintedWarningIndex { get; private set; } = 0;
+    internal int FirstUnprintedWarningIndex { get; private set; }
+
+    /// <summary>
+    /// Collects the text range of every printed node, or <see langword="null"/> when no source map is requested.
+    /// </summary>
+    internal SourceMapRecorder? Recorder { get; set; }
+
+    /// <summary>
+    /// Prints a node, recording its text range when a source map is being built.
+    /// </summary>
+    internal void PrintNode(IBaseASTNode? node)
+    {
+        if (node is null)
+        {
+            return;
+        }
+        if (Recorder is null)
+        {
+            node.Print(this);
+            return;
+        }
+        var index = Recorder.Begin(node, stringBuilder.Length);
+        node.Print(this);
+        Recorder.End(index, stringBuilder.Length);
+    }
 
     // Builder used to store resulting code
     private readonly StringBuilder stringBuilder = new(128);
 
     // Management of indentation level
-    private int indentLevel = 0;
+    private int indentLevel;
     private readonly List<string> indentStrings = new(4) { "" };
     private string indentString = "";
 
     // Management of newline placement
-    private bool lineActive = false;
+    private bool lineActive;
 
     /// <summary>
     /// Pushes a context onto the fragment context stack.
@@ -100,7 +122,7 @@ public sealed class ASTPrinter(DecompileContext context)
         indentLevel += times;
 
         // Update cache of indent strings if needed
-        for (int i = indentStrings.Count; i <= indentLevel; i++)
+        for (var i = indentStrings.Count; i <= indentLevel; i++)
         {
             indentStrings.Add(indentStrings[i - 1] + Context.Settings.IndentString);
         }
@@ -140,7 +162,7 @@ public sealed class ASTPrinter(DecompileContext context)
     {
         Write(keyword);
         Write(" (");
-        expression.Print(this);
+        PrintNode(expression);
         Write(')');
         if (Context.Settings.RemoveSingleLineBlockBraces && !body.RequiresMultipleLines(this, false))
         {
@@ -150,7 +172,7 @@ public sealed class ASTPrinter(DecompileContext context)
         {
             if (Context.Settings.OpenBlockBraceOnSameLine)
                 Write(' ');
-            body.Print(this);
+            PrintNode(body);
         }
     }
 
@@ -271,20 +293,21 @@ public sealed class ASTPrinter(DecompileContext context)
     /// </summary>
     public string LookupFunction(IGMFunction function)
     {
-        if (Context.GameContext.GlobalFunctions.TryGetFunctionName(function, out string? name))
+        ArgumentNullException.ThrowIfNull(function);
+        if (Context.GameContext.GlobalFunctions.TryGetFunctionName(function, out var name))
         {
             // We found a global function name!
             return name;
         }
 
-        string funcName = function.Name.Content;
-        ASTFragmentContext fragmentContext = TopFragmentContext!;
+        var funcName = function.Name.Content;
+        var fragmentContext = TopFragmentContext;
         if (fragmentContext.InFunctionDeclHeader)
         {
             // If within a function declaration header (arguments, inheritance call), use parent fragment
-            fragmentContext = fragmentContext.Parent!;
+            fragmentContext = fragmentContext.Parent;
         }
-        if (fragmentContext.SubFunctionNames.TryGetValue(funcName, out string? realName))
+        if (fragmentContext.SubFunctionNames.TryGetValue(funcName, out var realName))
         {
             // We found a sub-function name within this fragment!
             return realName;
@@ -337,7 +360,7 @@ public sealed class ASTPrinter(DecompileContext context)
             EndLine();
 
             // Print all remaining current warnings
-            for (int i = FirstUnprintedWarningIndex; i < Context.Warnings.Count; i++)
+            for (var i = FirstUnprintedWarningIndex; i < Context.Warnings.Count; i++)
             {
                 StartLine();
                 Write("// ");

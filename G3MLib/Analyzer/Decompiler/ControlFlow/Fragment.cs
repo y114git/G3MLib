@@ -4,8 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System;
-using System.Collections.Generic;
 using G3MLib.Analyzer.Decompiler.AST;
 
 namespace G3MLib.Analyzer.Decompiler.ControlFlow;
@@ -23,11 +21,11 @@ internal sealed class Fragment(int startAddr, int endAddr, IGMCode codeEntry, bo
 
     public List<IControlFlowNode> Successors { get; } = [];
 
-    public IControlFlowNode? Parent { get; set; } = null;
+    public IControlFlowNode? Parent { get; set; }
 
-    public List<IControlFlowNode?> Children { get; } = blocks!;
+    public List<IControlFlowNode?> Children { get; } = blocks;
 
-    public bool Unreachable { get; set; } = false;
+    public bool Unreachable { get; set; }
 
     /// <summary>
     /// Code entry that this fragment belongs to.
@@ -50,7 +48,7 @@ internal sealed class Fragment(int startAddr, int endAddr, IGMCode codeEntry, bo
     /// </summary>
     public static List<Fragment> FindFragments(DecompileContext ctx)
     {
-        List<Fragment> fragments = FindFragments(ctx.Code, ctx.Blocks!, ctx.CancellationToken);
+        var fragments = FindFragments(ctx.Code, ctx.Blocks, ctx.CancellationToken);
         ctx.FragmentNodes = fragments;
         return fragments;
     }
@@ -59,17 +57,17 @@ internal sealed class Fragment(int startAddr, int endAddr, IGMCode codeEntry, bo
     /// Finds code fragments from a code entry and its list of blocks.
     /// Note that this will modify the control flow and instructions of the existing blocks.
     /// </summary>
-    public static List<Fragment> FindFragments(IGMCode code, List<Block> blocks, System.Threading.CancellationToken cancellationToken = default)
+    public static List<Fragment> FindFragments(IGMCode code, List<Block> blocks, CancellationToken cancellationToken = default)
     {
         if (code.Parent is not null)
             throw new ArgumentException("Expected code entry to be root level.", nameof(code));
 
         // Map code entry addresses to code entries
         Dictionary<int, IGMCode> codeEntries = new(code.ChildCount);
-        for (int i = 0; i < code.ChildCount; i++)
+        for (var i = 0; i < code.ChildCount; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            IGMCode child = code.GetChild(i);
+            var child = code.GetChild(i);
             codeEntries.Add(child.StartOffset, child);
         }
 
@@ -78,10 +76,10 @@ internal sealed class Fragment(int startAddr, int endAddr, IGMCode codeEntry, bo
         Stack<Fragment> stack = new();
         Fragment current = new(code.StartOffset, code.Length, code, false, []);
         fragments.Add(current);
-        for (int i = 0; i < blocks.Count; i++)
+        for (var i = 0; i < blocks.Count; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            Block block = blocks[i];
+            var block = blocks[i];
 
             // Check if our current fragment is ending at this block
             if (block.StartAddress == current.EndAddress)
@@ -90,15 +88,15 @@ internal sealed class Fragment(int startAddr, int endAddr, IGMCode codeEntry, bo
                 {
                     // We're an inner fragment - mark first block as no longer unreachable, if it is
                     // (normally always unreachable, unless there's a loop header at the first block)
-                    if (current.Children[0]!.Unreachable)
+                    if (current.Children[0].Unreachable)
                     {
-                        current.Children[0]!.Unreachable = false;
-                        IControlFlowNode.DisconnectPredecessor(current.Children[0]!, 0);
+                        current.Children[0].Unreachable = false;
+                        IControlFlowNode.DisconnectPredecessor(current.Children[0], 0);
                     }
 
                     // We're an inner fragment - remove "exit" instruction
                     var lastBlockInstructions = current.Blocks[^1].Instructions;
-                    if (lastBlockInstructions is not [.., { Kind: IGMInstruction.Opcode.Exit } ])
+                    if (lastBlockInstructions is not [.., { Kind: IGMInstruction.Opcode.Exit }])
                     {
                         throw new DecompilerException("Expected exit at end of fragment.");
                     }
@@ -123,18 +121,18 @@ internal sealed class Fragment(int startAddr, int endAddr, IGMCode codeEntry, bo
             }
 
             // Check for new fragment starting at this block
-            if (codeEntries.TryGetValue(block.StartAddress, out IGMCode? newCode))
+            if (codeEntries.TryGetValue(block.StartAddress, out var newCode))
             {
                 // Our "current" is now the next level up
                 stack.Push(current);
 
                 // Compute the end address of this fragment, by looking at previous block
-                Block previous = blocks[i - 1];
+                var previous = blocks[i - 1];
                 if (previous.Instructions[^1].Kind != IGMInstruction.Opcode.Branch)
                 {
                     throw new DecompilerException("Expected branch before fragment start.");
                 }
-                int endAddr = previous.Successors[0].StartAddress;
+                var endAddr = previous.Successors[0].StartAddress;
 
                 // Remove previous block's branch instruction
                 previous.Instructions.RemoveAt(previous.Instructions.Count - 1);
@@ -174,7 +172,7 @@ internal sealed class Fragment(int startAddr, int endAddr, IGMCode codeEntry, bo
 
     public void BuildAST(ASTBuilder builder, List<IStatementNode> output)
     {
-        IFragmentNode node = IFragmentNode.Create(builder, this);
+        var node = IFragmentNode.Create(builder, this);
         if (node is IExpressionNode exprNode)
         {
             builder.ExpressionStack.Push(exprNode);

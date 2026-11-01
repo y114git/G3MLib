@@ -11,8 +11,8 @@ public sealed class ApiCompatibilityTests
     [Fact]
     public void ExposesUpstreamMetadataTypesAndVersionHelper()
     {
-        Assert.Equal("OpcodeInfo", typeof(IGMInstruction.OpcodeInfo).Name);
-        Assert.Equal("DataTypeInfo", typeof(IGMInstruction.DataTypeInfo).Name);
+        Assert.Equal("OpcodeInfo", nameof(IGMInstruction.OpcodeInfo));
+        Assert.Equal("DataTypeInfo", nameof(IGMInstruction.DataTypeInfo));
         Assert.False(string.IsNullOrWhiteSpace(GitVersion.GetGitVersion()));
         Assert.NotNull(typeof(DebugUtil).GetConstructor(Type.EmptyTypes));
         Assert.NotNull(typeof(GameMakerResourceById<GameMakerSprite, GameMakerChunkSPRT>).GetConstructor([typeof(GameMakerSprite)]));

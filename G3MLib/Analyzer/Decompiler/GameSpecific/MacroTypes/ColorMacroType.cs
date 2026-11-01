@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using System.Globalization;
 using G3MLib.Analyzer.Decompiler.AST;
 
@@ -40,8 +39,9 @@ public class ColorMacroType : IMacroTypeInt32
 
     public IExpressionNode Resolve(ASTCleaner cleaner, IMacroResolvableNode node, int data)
     {
+        ArgumentNullException.ThrowIfNull(cleaner);
         // Check if in constant list
-        if (Constants.TryGetValue(data, out string? name))
+        if (Constants.TryGetValue(data, out var name))
         {
             return new MacroValueNode(name);
         }
@@ -56,13 +56,13 @@ public class ColorMacroType : IMacroTypeInt32
         if (data <= 0xffffff && cleaner.Context.Settings.UseCSSColors)
         {
             // Return RGB hex literal (reverse byte order). Swap R and B.
-            int rgb = ((data & 0xff) << 16) | ((data & 0xff0000) >> 16) | (data & 0xff00);
+            var rgb = ((data & 0xff) << 16) | ((data & 0xff0000) >> 16) | (data & 0xff00);
             return new MacroValueNode("#" + rgb.ToString("X6", CultureInfo.InvariantCulture));
         }
         else
         {
             // Return normal hex literal (BGR)
-            string notation = cleaner.Context.GameContext.UsingGMS2OrLater ? "0x" : "$";
+            var notation = cleaner.Context.GameContext.UsingGMS2OrLater ? "0x" : "$";
             return new MacroValueNode(notation + data.ToString((data > 0xffffff) ? "X8" : "X6", CultureInfo.InvariantCulture));
         }
     }

@@ -7,7 +7,8 @@ public static class GeneralInfoUtil
 {
 	public static GeneralInfoData? ExtractGeneralInfo(GameMakerData data)
 	{
-		GameMakerGeneralInfo gi = data.GeneralInfo;
+		ArgumentNullException.ThrowIfNull(data);
+		var gi = data.GeneralInfo;
 		if (gi == null)
 		{
 			return null;
@@ -33,9 +34,9 @@ public static class GeneralInfoUtil
 			FunctionClassifications = (ulong)gi.FunctionClassifications,
 			SteamAppID = gi.SteamAppID,
 			DebuggerPort = (int)((gi.BytecodeVersion >= 14) ? gi.DebuggerPort : 0),
-			GMS2FPS = ((gi.Major >= 2) ? gi.GMS2FPS : 0f),
-			GMS2AllowStatistics = (gi.Major >= 2 && gi.GMS2AllowStatistics),
-			RoomOrderCount = (gi.RoomOrder?.Count ?? 0)
+			GMS2FPS = (gi.Major >= 2) ? gi.GMS2FPS : 0f,
+			GMS2AllowStatistics = gi.Major >= 2 && gi.GMS2AllowStatistics,
+			RoomOrderCount = gi.RoomOrder?.Count ?? 0
 		};
 	}
 
@@ -45,34 +46,40 @@ public static class GeneralInfoUtil
 		{
 			return "Unknown";
 		}
-		string rawVersion = $"{info.Major}.{info.Minor}.{info.Release}.{info.Build}";
-		string interpretedVersion;
-		if (info.Branch == GameMakerGeneralInfo.BranchType.LTS2022_0)
+		var rawVersion = $"{info.Major}.{info.Minor}.{info.Release}.{info.Build}";
+		if (info.Major == 1)
 		{
-			interpretedVersion = "2022.0";
+			return "GMS " + rawVersion;
 		}
-		else
+		var interpretedVersion = $"{info.Major}.{info.Minor}";
+		if (info.Release != 0)
 		{
-			if (info.Major == 1)
+			interpretedVersion += $".{info.Release}";
+			if (info.Build != 0)
 			{
-				return "GMS " + rawVersion;
-			}
-			interpretedVersion = $"{info.Major}.{info.Minor}";
-			if (info.Release != 0)
-			{
-				interpretedVersion += $".{info.Release}";
-				if (info.Build != 0)
-				{
-					interpretedVersion += $".{info.Build}";
-				}
+				interpretedVersion += $".{info.Build}";
 			}
 		}
-		string prefix = ((info.Major < 2022 || (info.Major == 2022 && info.Minor < 3)) ? "GMS" : "GM");
-		if (rawVersion != interpretedVersion && info.Branch == GameMakerGeneralInfo.BranchType.LTS2022_0)
+		// No format marker separates 2024.14 from the later runtimes until 2026.1, so the exact release is unknown.
+		if (info.Major == 2024 && info.Minor == 14 && info.Release == 0 && info.Build == 0)
 		{
-			return $"{prefix} {interpretedVersion} (raw: {rawVersion})";
+			interpretedVersion += " or later";
 		}
-		return prefix + " " + interpretedVersion;
+		var prefix = (info.Major < 2022 || info.Major == 2022 && info.Minor < 3) ? "GMS" : "GM";
+		var suffix = info.Branch == GameMakerGeneralInfo.BranchType.LTS2022_0 ? " LTS" : "";
+		return prefix + " " + interpretedVersion + suffix;
+	}
+
+	/// <summary>
+	/// Describes where the version of the data file came from: the value stored in GEN8 or the chunk that raised it.
+	/// </summary>
+	public static string GetVersionBasis(GameMakerGeneralInfo? info)
+	{
+		if (info == null)
+		{
+			return "Unknown";
+		}
+		return info.VersionSource == null ? "stored in GEN8" : "detected from " + info.VersionSource;
 	}
 
 }

@@ -24,7 +24,7 @@ public abstract class ConditionalMacroType(IMacroType? innerType)
     public IMacroType? InnerType { get; } = innerType;
 
     // We make this macro type required when we aren't trying to satisfy for any inner type
-    public bool Required { get => InnerType is null; }
+    public bool Required => InnerType is null;
 
     /// <summary>
     /// Evaluates the condition on the given node, returning true if successful, or false if not.

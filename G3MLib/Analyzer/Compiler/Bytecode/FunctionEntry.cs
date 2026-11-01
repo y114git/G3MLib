@@ -4,8 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System;
-
 namespace G3MLib.Analyzer.Compiler.Bytecode;
 
 /// <summary>
@@ -65,12 +63,12 @@ public sealed record FunctionEntry
     public FunctionEntryKind Kind { get; }
 
     /// <summary>
-    /// Function as found in the game data, when resolved using <see cref="ResolveFunction(IGMFunction)"/>.
+    /// Function as found in the game data, when resolved using <see cref="ResolveFunction(IGMFunction, string)"/>.
     /// </summary>
     public IGMFunction? Function { get; private set; }
 
     /// <summary>
-    /// Name that child functions can reference this function entry as, when resolved using <see cref="ResolveFunction(IGMFunction)"/>.
+    /// Name that child functions can reference this function entry as, when resolved using <see cref="ResolveFunction(IGMFunction, string)"/>.
     /// </summary>
     public string? ChildFunctionName { get; private set; }
 

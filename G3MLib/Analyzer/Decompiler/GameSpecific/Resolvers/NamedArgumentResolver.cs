@@ -4,8 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
-
 namespace G3MLib.Analyzer.Decompiler.GameSpecific;
 
 public class NamedArgumentResolver
@@ -25,7 +23,7 @@ public class NamedArgumentResolver
     /// </summary>
     public void DefineCodeEntry(string codeEntry, IEnumerable<string> names)
     {
-        FunctionArgumentNames.Add(codeEntry, new(names));
+        FunctionArgumentNames.Add(codeEntry, [.. names]);
     }
 
     /// <summary>
@@ -34,7 +32,7 @@ public class NamedArgumentResolver
     /// </summary>
     public string? ResolveArgument(string codeEntryName, int argumentIndex)
     {
-        if (FunctionArgumentNames.TryGetValue(codeEntryName, out List<string>? names) &&
+        if (FunctionArgumentNames.TryGetValue(codeEntryName, out var names) &&
             argumentIndex >= 0 && argumentIndex < names.Count)
         {
             return names[argumentIndex];

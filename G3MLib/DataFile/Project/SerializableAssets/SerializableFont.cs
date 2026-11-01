@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -127,15 +125,15 @@ internal sealed class SerializableFont : ISerializableTextureProjectAsset
     public int OverrideOrder { get; set; }
 
     // Data asset that was located during pre-import.
-    private GameMakerFont _dataAsset = null;
+    private GameMakerFont? _dataAsset;
 
     // Texture image created for the asset during texture import.
-    private GameMakerTexturePageItem _textureImage = null;
+    private GameMakerTexturePageItem? _textureImage;
 
     /// <summary>
     /// Populates this serializable font with data from an actual font.
     /// </summary>
-    internal void PopulateFromData(ProjectContext projectContext, GameMakerFont fnt)
+    internal void PopulateFromData(GameMakerFont fnt)
     {
         // Update all main properties
         DataName = fnt.Name.Content;
@@ -157,7 +155,7 @@ internal sealed class SerializableFont : ISerializableTextureProjectAsset
 
         // Update glyphs
         Glyphs = new(fnt.Glyphs.Count);
-        foreach (GameMakerFont.Glyph glyph in fnt.Glyphs)
+        foreach (var glyph in fnt.Glyphs)
         {
             Glyph newGlyph = new()
             {
@@ -170,7 +168,7 @@ internal sealed class SerializableFont : ISerializableTextureProjectAsset
                 Offset = glyph.Offset,
                 Kerning = new(glyph.Kerning.Count)
             };
-            foreach (GameMakerFont.Glyph.GlyphKerning kerning in glyph.Kerning)
+            foreach (var kerning in glyph.Kerning)
             {
                 newGlyph.Kerning.Add(new()
                 {
@@ -192,8 +190,8 @@ internal sealed class SerializableFont : ISerializableTextureProjectAsset
         JsonSerializer.Serialize<ISerializableProjectAsset>(fs, this, ProjectContext.JsonOptions);
 
         // Write image as a PNG
-        string filename = $"{Path.GetFileNameWithoutExtension(destinationFile)}.png";
-        string directory = Path.GetDirectoryName(destinationFile);
+        var filename = $"{Path.GetFileNameWithoutExtension(destinationFile)}.png";
+        var directory = Path.GetDirectoryName(destinationFile);
         projectContext.TextureWorker.ExportAsPNG(_dataAsset.Texture, Path.Join(directory, filename), DataName, true);
     }
 
@@ -219,7 +217,7 @@ internal sealed class SerializableFont : ISerializableTextureProjectAsset
     /// <inheritdoc/>
     public IProjectAsset Import(ProjectContext projectContext)
     {
-        GameMakerFont fnt = _dataAsset;
+        var fnt = _dataAsset;
 
         // Update all main properties
         fnt.DisplayName = projectContext.MakeString(DisplayName);
@@ -240,7 +238,7 @@ internal sealed class SerializableFont : ISerializableTextureProjectAsset
 
         // Update glyphs
         fnt.Glyphs = new(Glyphs?.Count ?? 0);
-        foreach (Glyph glyph in Glyphs ?? [])
+        foreach (var glyph in Glyphs ?? [])
         {
             GameMakerFont.Glyph newGlyph = new()
             {
@@ -253,7 +251,7 @@ internal sealed class SerializableFont : ISerializableTextureProjectAsset
                 Offset = glyph.Offset,
                 Kerning = new(glyph.Kerning?.Count ?? 0)
             };
-            foreach (GlyphKerning kerning in glyph.Kerning ?? [])
+            foreach (var kerning in glyph.Kerning ?? [])
             {
                 newGlyph.Kerning.Add(new()
                 {
@@ -274,14 +272,14 @@ internal sealed class SerializableFont : ISerializableTextureProjectAsset
     public void ImportTextures(ProjectContext projectContext, TextureGroupPacker texturePacker)
     {
         // Get JSON filename (of main asset file)
-        if (!projectContext.AssetDataNamesToPaths.TryGetValue(new(DataName, AssetType), out string jsonFilename))
+        if (!projectContext.AssetDataNamesToPaths.TryGetValue(new(DataName, AssetType), out var jsonFilename))
         {
             throw new ProjectException("Failed to get font asset path");
         }
 
         // Awaiting official Underminers resolution: project assets do not preserve texture-group or external-page metadata.
-        string directory = Path.GetDirectoryName(jsonFilename);
-        string filename = TextureWorker.FindImageFile(directory, Path.GetFileNameWithoutExtension(jsonFilename));
+        var directory = Path.GetDirectoryName(jsonFilename);
+        var filename = TextureWorker.FindImageFile(directory, Path.GetFileNameWithoutExtension(jsonFilename));
         try
         {
             // Add image to packer

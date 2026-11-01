@@ -6,7 +6,6 @@
 
 using G3MLib.Analyzer.Decompiler;
 using G3MLib.Analyzer.Decompiler.ControlFlow;
-using G3MLib.Analyzer.Mock;
 
 namespace G3MLib.Tests;
 
@@ -15,7 +14,7 @@ public class BinaryBranch_FindBinaryBranches_Switch
     [Fact]
     public void TestSwitchDefaultBreak()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             # switch (a) { default: break; }
 
@@ -34,20 +33,20 @@ public class BinaryBranch_FindBinaryBranches_Switch
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
 
         Assert.Empty(branches);
 
         Assert.Empty(blocks[2].Instructions);
-        Assert.Single(blocks[2].Successors);
-        Assert.IsType<BreakNode>(blocks[2].Successors[0]);
+        var item = Assert.Single(blocks[2].Successors);
+        Assert.IsType<BreakNode>(item);
         Assert.Equal([blocks[3]], blocks[2].Successors[0].Successors); // specifically, break goes to the following block, always
-        Assert.Contains(blocks[3], ctx.SwitchEndNodes!);
-        Assert.DoesNotContain(blocks[3], ctx.SwitchContinueBlocks!);
+        Assert.Contains(blocks[3], ctx.SwitchEndNodes);
+        Assert.DoesNotContain(blocks[3], ctx.SwitchContinueBlocks);
 
         TestUtil.VerifyFlowDirections(blocks);
         TestUtil.VerifyFlowDirections(fragments);
@@ -59,7 +58,7 @@ public class BinaryBranch_FindBinaryBranches_Switch
     [Fact]
     public void TestSwitchCaseBreak()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             # switch (a) { case 1: break; case 2: break; }
 
@@ -90,23 +89,23 @@ public class BinaryBranch_FindBinaryBranches_Switch
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
 
         Assert.Empty(branches);
 
-        for (int i = 3; i <= 4; i++)
+        for (var i = 3; i <= 4; i++)
         {
             Assert.Empty(blocks[i].Instructions);
-            Assert.Single(blocks[i].Successors);
-            Assert.IsType<BreakNode>(blocks[i].Successors[0]);
+            var item = Assert.Single(blocks[i].Successors);
+            Assert.IsType<BreakNode>(item);
             Assert.Equal([blocks[i + 1]], blocks[i].Successors[0].Successors);
         }
-        Assert.Contains(blocks[5], ctx.SwitchEndNodes!);
-        Assert.DoesNotContain(blocks[5], ctx.SwitchContinueBlocks!);
+        Assert.Contains(blocks[5], ctx.SwitchEndNodes);
+        Assert.DoesNotContain(blocks[5], ctx.SwitchContinueBlocks);
 
         TestUtil.VerifyFlowDirections(blocks);
         TestUtil.VerifyFlowDirections(fragments);
@@ -118,7 +117,7 @@ public class BinaryBranch_FindBinaryBranches_Switch
     [Fact]
     public void TestWhileSwitchDefaultContinue()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             # while (1) { switch(a) { default: continue; } }
 
@@ -152,28 +151,28 @@ public class BinaryBranch_FindBinaryBranches_Switch
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
 
-        Assert.Single(loops);
-        Assert.IsType<WhileLoop>(loops[0]);
-        WhileLoop loop = (WhileLoop)loops[0];
+        var item = Assert.Single(loops);
+        Assert.IsType<WhileLoop>(item);
+        var loop = (WhileLoop)loops[0];
 
         Assert.Empty(branches);
 
         Assert.Null(loop.ForLoopIncrementor);
 
-        Assert.Contains(blocks[6], ctx.SwitchEndNodes!);
-        Assert.DoesNotContain(blocks[5], ctx.SwitchEndNodes!);
-        Assert.Contains(blocks[5], ctx.SwitchContinueBlocks!);
-        Assert.DoesNotContain(blocks[6], ctx.SwitchContinueBlocks!);
-        Assert.Contains(blocks[4], ctx.SwitchIgnoreJumpBlocks!);
-        Assert.DoesNotContain(blocks[5], ctx.SwitchIgnoreJumpBlocks!);
-        Assert.Single(blocks[3].Successors);
-        Assert.IsType<ContinueNode>(blocks[3].Successors[0]);
+        Assert.Contains(blocks[6], ctx.SwitchEndNodes);
+        Assert.DoesNotContain(blocks[5], ctx.SwitchEndNodes);
+        Assert.Contains(blocks[5], ctx.SwitchContinueBlocks);
+        Assert.DoesNotContain(blocks[6], ctx.SwitchContinueBlocks);
+        Assert.Contains(blocks[4], ctx.SwitchIgnoreJumpBlocks);
+        Assert.DoesNotContain(blocks[5], ctx.SwitchIgnoreJumpBlocks);
+        var item_2 = Assert.Single(blocks[3].Successors);
+        Assert.IsType<ContinueNode>(item_2);
         Assert.Equal([blocks[4]], blocks[3].Successors[0].Successors);
 
         TestUtil.VerifyFlowDirections(blocks);
@@ -186,7 +185,7 @@ public class BinaryBranch_FindBinaryBranches_Switch
     [Fact]
     public void TestWhileSwitchCaseContinue()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             # while (1) { switch(a) { case 1: continue; case 2: continue; } }
 
@@ -232,31 +231,31 @@ public class BinaryBranch_FindBinaryBranches_Switch
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
 
-        Assert.Single(loops);
-        Assert.IsType<WhileLoop>(loops[0]);
-        WhileLoop loop = (WhileLoop)loops[0];
+        var item = Assert.Single(loops);
+        Assert.IsType<WhileLoop>(item);
+        var loop = (WhileLoop)loops[0];
 
         Assert.Empty(branches);
 
         Assert.Null(loop.ForLoopIncrementor);
 
-        Assert.Contains(blocks[8], ctx.SwitchEndNodes!);
-        Assert.DoesNotContain(blocks[7], ctx.SwitchEndNodes!);
-        Assert.Contains(blocks[7], ctx.SwitchContinueBlocks!);
-        Assert.DoesNotContain(blocks[8], ctx.SwitchContinueBlocks!);
-        Assert.Contains(blocks[3], ctx.SwitchIgnoreJumpBlocks!);
-        Assert.Contains(blocks[6], ctx.SwitchIgnoreJumpBlocks!);
-        Assert.DoesNotContain(blocks[7], ctx.SwitchIgnoreJumpBlocks!);
-        for (int i = 4; i <= 5; i++)
+        Assert.Contains(blocks[8], ctx.SwitchEndNodes);
+        Assert.DoesNotContain(blocks[7], ctx.SwitchEndNodes);
+        Assert.Contains(blocks[7], ctx.SwitchContinueBlocks);
+        Assert.DoesNotContain(blocks[8], ctx.SwitchContinueBlocks);
+        Assert.Contains(blocks[3], ctx.SwitchIgnoreJumpBlocks);
+        Assert.Contains(blocks[6], ctx.SwitchIgnoreJumpBlocks);
+        Assert.DoesNotContain(blocks[7], ctx.SwitchIgnoreJumpBlocks);
+        for (var i = 4; i <= 5; i++)
         {
-            Assert.Single(blocks[i].Successors);
-            Assert.IsType<ContinueNode>(blocks[i].Successors[0]);
+            var item_2 = Assert.Single(blocks[i].Successors);
+            Assert.IsType<ContinueNode>(item_2);
             Assert.Equal([blocks[i + 1]], blocks[i].Successors[0].Successors);
         }
 
@@ -270,7 +269,7 @@ public class BinaryBranch_FindBinaryBranches_Switch
     [Fact]
     public void TestWhileSwitchCaseIfContinue()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             # while (1) { switch(a) { case 1: if (a) { continue; } } }
 
@@ -312,20 +311,20 @@ public class BinaryBranch_FindBinaryBranches_Switch
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
 
-        Assert.Single(loops);
-        Assert.IsType<WhileLoop>(loops[0]);
-        WhileLoop loop = (WhileLoop)loops[0];
+        var item = Assert.Single(loops);
+        Assert.IsType<WhileLoop>(item);
+        var loop = (WhileLoop)loops[0];
 
         Assert.Null(loop.ForLoopIncrementor);
 
-        Assert.Single(branches);
-        BinaryBranch b = branches[0];
+        var item_2 = Assert.Single(branches);
+        var b = item_2;
         Assert.Equal(blocks[1], b.Predecessors[0]);
         Assert.Equal([blocks[5]], b.Successors);
         Assert.Equal(blocks[4], b.True);
@@ -333,15 +332,15 @@ public class BinaryBranch_FindBinaryBranches_Switch
         Assert.Null(b.Else);
         Assert.Empty(b.True.Predecessors);
 
-        Assert.Contains(blocks[7], ctx.SwitchEndNodes!);
-        Assert.DoesNotContain(blocks[6], ctx.SwitchEndNodes!);
-        Assert.Contains(blocks[6], ctx.SwitchContinueBlocks!);
-        Assert.DoesNotContain(blocks[7], ctx.SwitchContinueBlocks!);
-        Assert.Contains(blocks[2], ctx.SwitchIgnoreJumpBlocks!);
-        Assert.Contains(blocks[5], ctx.SwitchIgnoreJumpBlocks!);
-        Assert.DoesNotContain(blocks[6], ctx.SwitchIgnoreJumpBlocks!);
-        Assert.Single(blocks[4].Successors);
-        Assert.IsType<ContinueNode>(blocks[4].Successors[0]);
+        Assert.Contains(blocks[7], ctx.SwitchEndNodes);
+        Assert.DoesNotContain(blocks[6], ctx.SwitchEndNodes);
+        Assert.Contains(blocks[6], ctx.SwitchContinueBlocks);
+        Assert.DoesNotContain(blocks[7], ctx.SwitchContinueBlocks);
+        Assert.Contains(blocks[2], ctx.SwitchIgnoreJumpBlocks);
+        Assert.Contains(blocks[5], ctx.SwitchIgnoreJumpBlocks);
+        Assert.DoesNotContain(blocks[6], ctx.SwitchIgnoreJumpBlocks);
+        var item_3 = Assert.Single(blocks[4].Successors);
+        Assert.IsType<ContinueNode>(item_3);
         Assert.Empty(blocks[4].Successors[0].Successors);
 
         TestUtil.VerifyFlowDirections(blocks);
@@ -354,7 +353,7 @@ public class BinaryBranch_FindBinaryBranches_Switch
     [Fact]
     public void TestWhileSwitchCaseNestedIfContinue()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             # while (1) { switch(a) { case 1: if (a) { if (b) { continue; } } break; case 2: break; } }
 
@@ -413,21 +412,21 @@ public class BinaryBranch_FindBinaryBranches_Switch
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
 
-        Assert.Single(loops);
-        Assert.IsType<WhileLoop>(loops[0]);
-        WhileLoop loop = (WhileLoop)loops[0];
+        var item = Assert.Single(loops);
+        Assert.IsType<WhileLoop>(item);
+        var loop = (WhileLoop)loops[0];
 
         Assert.Null(loop.ForLoopIncrementor);
 
         Assert.Equal(2, branches.Count);
-        BinaryBranch b0 = branches[0];
-        BinaryBranch b1 = branches[1];
+        var b0 = branches[0];
+        var b1 = branches[1];
 
         Assert.Equal(blocks[1], b0.Predecessors[0]);
         Assert.Equal([blocks[7]], b0.Successors);
@@ -443,22 +442,22 @@ public class BinaryBranch_FindBinaryBranches_Switch
         Assert.Null(b1.Else);
         Assert.Empty(b1.True.Predecessors);
 
-        Assert.Contains(blocks[11], ctx.SwitchEndNodes!);
-        Assert.DoesNotContain(blocks[10], ctx.SwitchEndNodes!);
-        Assert.Contains(blocks[10], ctx.SwitchContinueBlocks!);
-        Assert.DoesNotContain(blocks[11], ctx.SwitchContinueBlocks!);
-        Assert.Contains(blocks[3], ctx.SwitchIgnoreJumpBlocks!);
-        Assert.Contains(blocks[9], ctx.SwitchIgnoreJumpBlocks!);
-        Assert.DoesNotContain(blocks[10], ctx.SwitchIgnoreJumpBlocks!);
+        Assert.Contains(blocks[11], ctx.SwitchEndNodes);
+        Assert.DoesNotContain(blocks[10], ctx.SwitchEndNodes);
+        Assert.Contains(blocks[10], ctx.SwitchContinueBlocks);
+        Assert.DoesNotContain(blocks[11], ctx.SwitchContinueBlocks);
+        Assert.Contains(blocks[3], ctx.SwitchIgnoreJumpBlocks);
+        Assert.Contains(blocks[9], ctx.SwitchIgnoreJumpBlocks);
+        Assert.DoesNotContain(blocks[10], ctx.SwitchIgnoreJumpBlocks);
 
-        Assert.Single(blocks[6].Successors);
-        Assert.IsType<ContinueNode>(blocks[6].Successors[0]);
+        var item_2 = Assert.Single(blocks[6].Successors);
+        Assert.IsType<ContinueNode>(item_2);
         Assert.Empty(blocks[6].Successors[0].Successors);
 
-        for (int i = 7; i <= 8; i++)
+        for (var i = 7; i <= 8; i++)
         {
-            Assert.Single(blocks[i].Successors);
-            Assert.IsType<BreakNode>(blocks[i].Successors[0]);
+            var item_3 = Assert.Single(blocks[i].Successors);
+            Assert.IsType<BreakNode>(item_3);
             Assert.Equal([blocks[i + 1]], blocks[i].Successors[0].Successors);
         }
 
@@ -472,7 +471,7 @@ public class BinaryBranch_FindBinaryBranches_Switch
     [Fact]
     public void TestSwitchExitProblem()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             # switch (a) { default: return; }
 
@@ -492,19 +491,19 @@ public class BinaryBranch_FindBinaryBranches_Switch
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
 
         Assert.Empty(loops);
         Assert.Empty(branches);
 
-        Assert.Contains(blocks[3], ctx.SwitchEndNodes!);
-        Assert.DoesNotContain(blocks[3], ctx.SwitchContinueBlocks!);
-        Assert.DoesNotContain(blocks[2], ctx.SwitchEndNodes!);
-        Assert.DoesNotContain(blocks[2], ctx.SwitchContinueBlocks!);
+        Assert.Contains(blocks[3], ctx.SwitchEndNodes);
+        Assert.DoesNotContain(blocks[3], ctx.SwitchContinueBlocks);
+        Assert.DoesNotContain(blocks[2], ctx.SwitchEndNodes);
+        Assert.DoesNotContain(blocks[2], ctx.SwitchContinueBlocks);
 
         TestUtil.VerifyFlowDirections(blocks);
         TestUtil.VerifyFlowDirections(fragments);
@@ -516,7 +515,7 @@ public class BinaryBranch_FindBinaryBranches_Switch
     [Fact]
     public void TestSwitchExitProblem2()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             # switch (a)
             # {
@@ -556,19 +555,19 @@ public class BinaryBranch_FindBinaryBranches_Switch
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
 
         Assert.Empty(loops);
         Assert.Empty(branches);
 
-        Assert.Contains(blocks[5], ctx.SwitchEndNodes!);
-        Assert.DoesNotContain(blocks[5], ctx.SwitchContinueBlocks!);
-        Assert.Contains(blocks[6], ctx.SwitchEndNodes!);
-        Assert.DoesNotContain(blocks[6], ctx.SwitchContinueBlocks!);
+        Assert.Contains(blocks[5], ctx.SwitchEndNodes);
+        Assert.DoesNotContain(blocks[5], ctx.SwitchContinueBlocks);
+        Assert.Contains(blocks[6], ctx.SwitchEndNodes);
+        Assert.DoesNotContain(blocks[6], ctx.SwitchContinueBlocks);
 
         TestUtil.VerifyFlowDirections(blocks);
         TestUtil.VerifyFlowDirections(fragments);

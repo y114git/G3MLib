@@ -4,8 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
-
 namespace G3MLib.Analyzer.Decompiler.AST;
 
 /// <summary>
@@ -61,7 +59,7 @@ internal sealed class LocalScope(LocalScope? parent, BlockNode containingBlock, 
     public List<string> HoistedLocals { get; } = new(4);
 
     // Prevents scope from being considered too many times during certain search operations
-    private bool _ignoreInSearch = false;
+    private bool _ignoreInSearch;
 
     /// <summary>
     /// Inserts this local scope as a child of another existing local scope.
@@ -96,7 +94,7 @@ internal sealed class LocalScope(LocalScope? parent, BlockNode containingBlock, 
     /// </summary>
     public LocalScope? FindLocalDeclaredInAnyChild(string localName)
     {
-        foreach (LocalScope child in Children)
+        foreach (var child in Children)
         {
             if (child._ignoreInSearch)
             {
@@ -137,7 +135,7 @@ internal sealed class LocalScope(LocalScope? parent, BlockNode containingBlock, 
             // Prevent this scope from being searched for locals (we already considered it)
             _ignoreInSearch = true;
 
-            LocalScope? parentResult = Parent.FindBestHoistLocation(localName);
+            var parentResult = Parent.FindBestHoistLocation(localName);
 
             _ignoreInSearch = false;
             return parentResult;
@@ -155,7 +153,7 @@ internal sealed class LocalScope(LocalScope? parent, BlockNode containingBlock, 
     {
         // First, hoist local variables from child scopes.
         HashSet<string> hoistedLocals = new(8);
-        foreach (LocalScope child in Children)
+        foreach (var child in Children)
         {
             if (child.HoistedLocals.Count > 0)
             {
@@ -163,8 +161,8 @@ internal sealed class LocalScope(LocalScope? parent, BlockNode containingBlock, 
 
                 // Generate a local var declaration, and add those locals to it.
                 LocalVarDeclNode? localDecl = null;
-                bool anyNew = false;
-                foreach (string hoistedLocal in child.HoistedLocals)
+                var anyNew = false;
+                foreach (var hoistedLocal in child.HoistedLocals)
                 {
                     if (Parent is null || !Parent.LocalDeclaredInAnyParentOrSelf(hoistedLocal))
                     {
@@ -183,20 +181,20 @@ internal sealed class LocalScope(LocalScope? parent, BlockNode containingBlock, 
                 }
 
                 // Find start statement and insert just before it
-                List<IStatementNode> blockChildren = child.ContainingBlock.Children;
-                int index = blockChildren.IndexOf(child.StartStatement);
+                var blockChildren = child.ContainingBlock.Children;
+                var index = blockChildren.IndexOf(child.StartStatement);
                 if (index == -1)
                 {
                     // Failsafe; start at 0. This usually shouldn't happen, though.
                     index = 0;
                 }
-                blockChildren.Insert(index, localDecl!);
+                blockChildren.Insert(index, localDecl);
 
             }
         }
 
         // For remaining locals to be declared in this scope, declare them on their first assignments
-        foreach (string local in DeclaredLocals)
+        foreach (var local in DeclaredLocals)
         {
             if (hoistedLocals.Contains(local))
             {
@@ -210,7 +208,7 @@ internal sealed class LocalScope(LocalScope? parent, BlockNode containingBlock, 
         }
 
         // Generate declarations for child scopes
-        foreach (LocalScope child in Children)
+        foreach (var child in Children)
         {
             child.GenerateDeclarations(declaredAnywhere);
         }

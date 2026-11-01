@@ -1,5 +1,3 @@
-using System;
-
 namespace G3MLib.DataFile.Models;
 
 /// <summary>
@@ -28,11 +26,12 @@ public class GameMakerAudioGroup : GameMakerNamedResource, IStaticChildObjectsSi
     /// <remarks>
     /// Prior to 2024.14, audio groups were all numerically assigned filenames and all in the root directory.
     /// </remarks>
-    public GameMakerString Path { get; set; } = null;
+    public GameMakerString Path { get; set; }
 
     /// <inheritdoc />
     public void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         writer.WriteGameMakerString(Name);
         if (writer.gameMakerData.IsVersionAtLeast(2024, 14))
         {
@@ -43,6 +42,7 @@ public class GameMakerAudioGroup : GameMakerNamedResource, IStaticChildObjectsSi
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         Name = reader.ReadGameMakerString();
         if (reader.gameMakerData.IsVersionAtLeast(2024, 14))
         {

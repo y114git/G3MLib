@@ -1,15 +1,8 @@
-using System;
-using System.CodeDom.Compiler;
-using System.Collections;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
+using System.Globalization;
 using System.IO;
-using System.Linq;
-using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using System.Text.RegularExpressions.Generated;
 using G3MLib.DataFile;
 using G3MLib.DataFile.Models;
 using G3MLib.DataFile.Project;
@@ -38,43 +31,43 @@ public static partial class ResourceImportService
 
 		public static RoomImportLookup Build(GameMakerData data)
 		{
-			RoomImportLookup lookup = new RoomImportLookup();
-			foreach (GameMakerRoom room in data.Rooms)
+			var lookup = new RoomImportLookup();
+			foreach (var room in data.Rooms)
 			{
 				if (room != null && room.Name?.Content != null)
 				{
 					lookup.Rooms.TryAdd(room.Name.Content, room);
 				}
 			}
-			foreach (GameMakerCode code in data.Code)
+			foreach (var code in data.Code)
 			{
 				if (code != null && code.Name?.Content != null)
 				{
 					lookup.Code.TryAdd(code.Name.Content, code);
 				}
 			}
-			foreach (GameMakerBackground bg in data.Backgrounds)
+			foreach (var bg in data.Backgrounds)
 			{
 				if (bg != null && bg.Name?.Content != null)
 				{
 					lookup.Backgrounds.TryAdd(bg.Name.Content, bg);
 				}
 			}
-			foreach (GameMakerGameObject obj in data.GameObjects)
+			foreach (var obj in data.GameObjects)
 			{
 				if (obj != null && obj.Name?.Content != null)
 				{
 					lookup.GameObjects.TryAdd(obj.Name.Content, obj);
 				}
 			}
-			foreach (GameMakerSprite sprite in data.Sprites)
+			foreach (var sprite in data.Sprites)
 			{
 				if (sprite != null && sprite.Name?.Content != null)
 				{
 					lookup.Sprites.TryAdd(sprite.Name.Content, sprite);
 				}
 			}
-			foreach (GameMakerString str in data.Strings)
+			foreach (var str in data.Strings)
 			{
 				if (str != null && str.Content != null)
 				{
@@ -83,7 +76,7 @@ public static partial class ResourceImportService
 			}
 			if (data.Sequences != null)
 			{
-				foreach (GameMakerSequence sequence in data.Sequences)
+				foreach (var sequence in data.Sequences)
 				{
 					if (sequence != null && sequence.Name?.Content != null)
 					{
@@ -114,281 +107,7 @@ public static partial class ResourceImportService
 		public bool HasValidTextureIndex;
 	}
 
-	private sealed class PackerTextureInfo
-	{
-		public string Source = "";
-
-		public int Width;
-
-		public int Height;
-
-		public int TargetX;
-
-		public int TargetY;
-
-		public int BoundingWidth;
-
-		public int BoundingHeight;
-
-		public MagickImage? Image;
-	}
-
-	private enum PackerSplitType
-	{
-		Horizontal,
-		Vertical
-	}
-
-	private struct PackerRect
-	{
-		public int X;
-
-		public int Y;
-
-		public int Width;
-
-		public int Height;
-	}
-
-	private sealed class PackerNode
-	{
-		public PackerRect Bounds;
-
-		public PackerTextureInfo? Texture;
-
-		public PackerSplitType SplitType;
-	}
-
-	private sealed class PackerAtlas
-	{
-		public int Width;
-
-		public int Height;
-
-		public List<PackerNode> Nodes = new List<PackerNode>();
-	}
-
-	private sealed class SpritePacker
-	{
-		public List<PackerTextureInfo> SourceTextures = new List<PackerTextureInfo>();
-
-		public int Padding;
-
-		public int AtlasSize;
-
-		public List<PackerAtlas> Atlasses = new List<PackerAtlas>();
-
-		public void ProcessFiles(IReadOnlyList<string> sourceFiles, int atlasSize, int padding, List<MagickImage> cleanup, Action<int, int>? progressCallback = null)
-		{
-			Padding = padding;
-			AtlasSize = atlasSize;
-			ScanForTextures(sourceFiles, cleanup, progressCallback);
-			List<PackerTextureInfo> textures = SourceTextures.ToList();
-			Atlasses = new List<PackerAtlas>();
-			while (textures.Count > 0)
-			{
-				PackerAtlas atlas = new PackerAtlas
-				{
-					Width = atlasSize,
-					Height = atlasSize
-				};
-				List<PackerTextureInfo> leftovers = LayoutAtlas(textures, atlas);
-				if (leftovers.Count == 0)
-				{
-					while (leftovers.Count == 0)
-					{
-						atlas.Width /= 2;
-						atlas.Height /= 2;
-						leftovers = LayoutAtlas(textures, atlas);
-					}
-					atlas.Width = ((atlas.Width == 0) ? 1 : (atlas.Width * 2));
-					atlas.Height = ((atlas.Height == 0) ? 1 : (atlas.Height * 2));
-					leftovers = LayoutAtlas(textures, atlas);
-				}
-				Atlasses.Add(atlas);
-				textures = leftovers;
-			}
-		}
-
-		private void ScanForTextures(IReadOnlyList<string> sourceFiles, List<MagickImage> cleanup, Action<int, int>? progressCallback)
-		{
-			SourceTextures = new List<PackerTextureInfo>(sourceFiles.Count);
-			for (int i = 0; i < sourceFiles.Count; i++)
-			{
-				string sourceFile = sourceFiles[i];
-				MagickImage img = ((GetPatchFileSystem() != null) ? new MagickImage(FReadBytes(sourceFile)) : new MagickImage(sourceFile));
-				int w = (int)img.Width;
-				int h = (int)img.Height;
-				if (w > AtlasSize || h > AtlasSize)
-				{
-					img.Dispose();
-					continue;
-				}
-				cleanup.Add(img);
-				PackerTextureInfo ti = new PackerTextureInfo
-				{
-					Source = sourceFile,
-					Width = w,
-					Height = h,
-					BoundingWidth = w,
-					BoundingHeight = h,
-					TargetX = 0,
-					TargetY = 0,
-					Image = img
-				};
-				SourceTextures.Add(ti);
-				progressCallback?.Invoke(i + 1, sourceFiles.Count);
-			}
-		}
-
-		private List<PackerTextureInfo> LayoutAtlas(List<PackerTextureInfo> textures, PackerAtlas atlas)
-		{
-			List<PackerNode> freeList = new List<PackerNode>();
-			List<PackerTextureInfo> remaining = textures.ToList();
-			atlas.Nodes = new List<PackerNode>();
-			PackerNode root = new PackerNode
-			{
-				Bounds = new PackerRect
-				{
-					Width = atlas.Width,
-					Height = atlas.Height
-				},
-				SplitType = PackerSplitType.Horizontal
-			};
-			freeList.Add(root);
-			while (freeList.Count > 0 && remaining.Count > 0)
-			{
-				PackerNode node = freeList[0];
-				freeList.RemoveAt(0);
-				PackerTextureInfo best = FindBestFit(node, remaining);
-				if (best != null)
-				{
-					if (node.SplitType == PackerSplitType.Horizontal)
-					{
-						HorizontalSplit(node, best.Width, best.Height, freeList);
-					}
-					else
-					{
-						VerticalSplit(node, best.Width, best.Height, freeList);
-					}
-					node.Texture = best;
-					node.Bounds = new PackerRect
-					{
-						X = node.Bounds.X,
-						Y = node.Bounds.Y,
-						Width = best.Width,
-						Height = best.Height
-					};
-					remaining.Remove(best);
-				}
-				atlas.Nodes.Add(node);
-			}
-			return remaining;
-		}
-
-		private void HorizontalSplit(PackerNode toSplit, int w, int h, List<PackerNode> list)
-		{
-			PackerNode n1 = new PackerNode
-			{
-				Bounds = new PackerRect
-				{
-					X = toSplit.Bounds.X + w + Padding,
-					Y = toSplit.Bounds.Y,
-					Width = toSplit.Bounds.Width - w - Padding,
-					Height = h
-				},
-				SplitType = PackerSplitType.Vertical
-			};
-			PackerNode n2 = new PackerNode
-			{
-				Bounds = new PackerRect
-				{
-					X = toSplit.Bounds.X,
-					Y = toSplit.Bounds.Y + h + Padding,
-					Width = toSplit.Bounds.Width,
-					Height = toSplit.Bounds.Height - h - Padding
-				},
-				SplitType = PackerSplitType.Horizontal
-			};
-			if (n1.Bounds.Width > 0 && n1.Bounds.Height > 0)
-			{
-				list.Add(n1);
-			}
-			if (n2.Bounds.Width > 0 && n2.Bounds.Height > 0)
-			{
-				list.Add(n2);
-			}
-		}
-
-		private void VerticalSplit(PackerNode toSplit, int w, int h, List<PackerNode> list)
-		{
-			PackerNode n1 = new PackerNode
-			{
-				Bounds = new PackerRect
-				{
-					X = toSplit.Bounds.X + w + Padding,
-					Y = toSplit.Bounds.Y,
-					Width = toSplit.Bounds.Width - w - Padding,
-					Height = toSplit.Bounds.Height
-				},
-				SplitType = PackerSplitType.Vertical
-			};
-			PackerNode n2 = new PackerNode
-			{
-				Bounds = new PackerRect
-				{
-					X = toSplit.Bounds.X,
-					Y = toSplit.Bounds.Y + h + Padding,
-					Width = w,
-					Height = toSplit.Bounds.Height - h - Padding
-				},
-				SplitType = PackerSplitType.Horizontal
-			};
-			if (n1.Bounds.Width > 0 && n1.Bounds.Height > 0)
-			{
-				list.Add(n1);
-			}
-			if (n2.Bounds.Width > 0 && n2.Bounds.Height > 0)
-			{
-				list.Add(n2);
-			}
-		}
-
-		private static PackerTextureInfo? FindBestFit(PackerNode node, List<PackerTextureInfo> textures)
-		{
-			PackerTextureInfo best = null;
-			float maxCrit = 0f;
-			foreach (PackerTextureInfo ti in textures)
-			{
-				if (ti.Width <= node.Bounds.Width && ti.Height <= node.Bounds.Height)
-				{
-					float wR = (float)ti.Width / (float)node.Bounds.Width;
-					float hR = (float)ti.Height / (float)node.Bounds.Height;
-					float ratio = ((wR > hR) ? wR : hR);
-					if (ratio > maxCrit)
-					{
-						maxCrit = ratio;
-						best = ti;
-					}
-				}
-			}
-			return best;
-		}
-
-		internal static MagickImage CreateAtlasImage(PackerAtlas atlas)
-		{
-			MagickImage img = new MagickImage(MagickColors.Transparent, (uint)atlas.Width, (uint)atlas.Height);
-			foreach (PackerNode n in atlas.Nodes)
-			{
-				if (n.Texture?.Image != null)
-				{
-					using IMagickImage<byte> resized = TextureWorker.ResizeImage(n.Texture.Image, n.Bounds.Width, n.Bounds.Height);
-					img.Composite(resized, n.Bounds.X, n.Bounds.Y, CompositeOperator.Copy);
-				}
-			}
-			return img;
-		}
-	}
+	private sealed record PlacedFrame(string Source, GameMakerTexturePageItem Item);
 
 	private static readonly AsyncLocal<PatchFileSystem?> PatchFileSystemContext = new();
 	private static readonly AsyncLocal<(int Start, int End)?> ProgressRangeContext = new();
@@ -402,66 +121,44 @@ public static partial class ResourceImportService
 
 	private static void ImportGameObjects(GameMakerData data, string inputDir)
 	{
-		string[] objDirs = GetDirs(inputDir);
+		var objDirs = GetDirs(inputDir);
 		if (objDirs.Length == 0)
 		{
 			return;
 		}
 		Log($"[ImportGameObjects] Found {objDirs.Length} game object folders to import");
-		Dictionary<string, GameMakerGameObject> objectsByName = new Dictionary<string, GameMakerGameObject>(StringComparer.Ordinal);
-		for (int i = 0; i < data.GameObjects.Count; i++)
-		{
-			GameMakerGameObject obj = data.GameObjects[i];
-			if (obj != null && obj.Name?.Content != null)
-			{
-				objectsByName.TryAdd(obj.Name.Content, obj);
-			}
-		}
-		Dictionary<GameMakerGameObject, int> objectIndices = new Dictionary<GameMakerGameObject, int>();
-		for (int j = 0; j < data.GameObjects.Count; j++)
+		BatchRun.Expect(objDirs.Length);
+		var lookup = DataLookup.Build(data);
+		Dictionary<GameMakerGameObject, int> objectIndices = [];
+		for (var j = 0; j < data.GameObjects.Count; j++)
 		{
 			if (data.GameObjects[j] != null)
 			{
 				objectIndices[data.GameObjects[j]] = j;
 			}
 		}
-		Dictionary<string, GameMakerSprite> spritesByName = new Dictionary<string, GameMakerSprite>(StringComparer.Ordinal);
-		foreach (GameMakerSprite sprite in data.Sprites)
+		List<(int, string, JsonElement, bool, int)> importDataList = [];
+		var array = objDirs;
+		foreach (var objDir in array)
 		{
-			if (sprite != null && sprite.Name?.Content != null)
-			{
-				spritesByName.TryAdd(sprite.Name.Content, sprite);
-			}
-		}
-		Dictionary<string, GameMakerString> stringLookup = new Dictionary<string, GameMakerString>(StringComparer.Ordinal);
-		foreach (GameMakerString str in data.Strings)
-		{
-			if (str != null && str.Content != null)
-			{
-				stringLookup.TryAdd(str.Content, str);
-			}
-		}
-		List<(int, string, JsonElement, bool, int)> importDataList = new List<(int, string, JsonElement, bool, int)>();
-		string[] array = objDirs;
-		foreach (string objDir in array)
-		{
-			string jsonFile = Path.Combine(objDir, "object.json");
+			var jsonFile = Path.Combine(objDir, "object.json");
 			if (!FExists(jsonFile))
 			{
+				BatchRun.Item(Path.GetFileName(objDir), ResultKind.Skipped, "Missing object.json");
 				continue;
 			}
 			try
 			{
-				using JsonDocument jsonDoc = JsonDocument.Parse(FReadText(jsonFile));
-				JsonElement root = jsonDoc.RootElement.Clone();
-				string objName = "";
-				int targetIndex = -1;
+				using var jsonDoc = JsonDocument.Parse(FReadText(jsonFile));
+				var root = jsonDoc.RootElement.Clone();
+				var objName = "";
+				var targetIndex = -1;
 				if (root.TryGetProperty("index", out var indexElm))
 				{
 					targetIndex = indexElm.GetInt32();
 				}
-				string folderName = Path.GetFileName(objDir);
-				int idxPos = folderName.LastIndexOf("__idx");
+				var folderName = Path.GetFileName(objDir);
+				var idxPos = folderName.LastIndexOf("__idx", StringComparison.Ordinal);
 				if (idxPos > 0 && folderName.Length >= idxPos + 9 && int.TryParse(folderName.AsSpan(idxPos + 5, 4), out var parsedIdx))
 				{
 					targetIndex = parsedIdx;
@@ -472,24 +169,29 @@ public static partial class ResourceImportService
 				}
 				else
 				{
-					objName = ((idxPos > 0) ? folderName.Substring(0, idxPos) : folderName);
+					objName = (idxPos > 0) ? folderName[..idxPos] : folderName;
 				}
 				if (!string.IsNullOrEmpty(objName))
 				{
-					int nameCount = importDataList.Count<(int, string, JsonElement, bool, int)>(((int TargetIndex, string Name, JsonElement Root, bool IsNew, int ActualIndex) d) => d.Name == objName);
-					bool isNew = FindObject(objName) == null || nameCount > 0;
+					var nameCount = importDataList.Count(((int TargetIndex, string Name, JsonElement Root, bool IsNew, int ActualIndex) d) => d.Name == objName);
+					var isNew = FindObject(objName) == null || nameCount > 0;
 					importDataList.Add((targetIndex, objName, root, isNew, -1));
 				}
+				else
+				{
+					BatchRun.Item(Path.GetFileName(objDir), ResultKind.Skipped, "Object has no name");
+				}
 			}
-			catch (Exception ex)
+			catch (Exception ex) when (!ModdingCancellation.IsCancellation(ex))
 			{
 				Log("[ImportGameObjects] Parse error: " + Path.GetFileName(objDir) + ": " + ex.Message);
+				BatchRun.Failed(Path.GetFileName(objDir), ex);
 			}
 		}
-		int created = 0;
-		int updated = 0;
-		int imported = 0;
-		for (int i2 = 0; i2 < importDataList.Count; i2++)
+		var created = 0;
+		var updated = 0;
+		var imported = 0;
+		for (var i2 = 0; i2 < importDataList.Count; i2++)
 		{
 			var (targetIndex2, name, root2, isNew2, _) = importDataList[i2];
 			if (isNew2)
@@ -500,13 +202,12 @@ public static partial class ResourceImportService
 					updated++;
 					continue;
 				}
-				GameMakerGameObject go = new GameMakerGameObject
+				var go = new GameMakerGameObject
 				{
 					Name = MakeObjectString(name)
 				};
-				data.GameObjects.Add(go);
+				lookup.Add(go);
 				objectIndices[go] = data.GameObjects.Count - 1;
-				objectsByName.TryAdd(name, go);
 				importDataList[i2] = (targetIndex2, name, root2, isNew2, data.GameObjects.Count - 1);
 				created++;
 			}
@@ -515,7 +216,7 @@ public static partial class ResourceImportService
 		{
 			try
 			{
-				GameMakerGameObject go2 = null;
+				GameMakerGameObject? go2 = null;
 				if (targetIndex3 >= 0 && targetIndex3 < data.GameObjects.Count && string.Equals(data.GameObjects[targetIndex3]?.Name?.Content, name2, StringComparison.Ordinal))
 				{
 					go2 = data.GameObjects[targetIndex3];
@@ -538,19 +239,20 @@ public static partial class ResourceImportService
 				}
 				if (go2 == null)
 				{
+					BatchRun.Item(name2, ResultKind.Skipped, "Object not found in the target data");
 					continue;
 				}
 				if (root3.TryGetProperty("parent", out var parentElm))
 				{
-					string pName = parentElm.GetString() ?? "";
-					go2.ParentId = ((pName.Length > 0) ? FindObject(pName) : null);
+					var pName = parentElm.GetString() ?? "";
+					go2.ParentId = (pName.Length > 0) ? FindObject(pName) : null;
 				}
 				if (root3.TryGetProperty("sprite", out var sprElm))
 				{
-					string sn = sprElm.GetString() ?? "";
+					var sn = sprElm.GetString() ?? "";
 					if (sn.Length > 0)
 					{
-						GameMakerSprite spr = FindSprite(sn);
+						var spr = FindSprite(sn);
 						if (spr != null)
 						{
 							go2.Sprite = spr;
@@ -579,8 +281,8 @@ public static partial class ResourceImportService
 				}
 				if (root3.TryGetProperty("textureMask", out var tmElm))
 				{
-					string tmName = tmElm.GetString() ?? "";
-					go2.TextureMaskId = ((tmName.Length > 0) ? FindSprite(tmName) : null);
+					var tmName = tmElm.GetString() ?? "";
+					go2.TextureMaskId = (tmName.Length > 0) ? FindSprite(tmName) : null;
 				}
 				if (data.IsVersionAtLeast(2022u, 5u) && root3.TryGetProperty("managed", out var mngElm))
 				{
@@ -633,12 +335,12 @@ public static partial class ResourceImportService
 				if (root3.TryGetProperty("physicsVertices", out var pvElm) && pvElm.ValueKind == JsonValueKind.Array)
 				{
 					go2.PhysicsVertices.Clear();
-					GameMakerObservableList<GameMakerGameObject.GameMakerPhysicsVertex> collection = go2.PhysicsVertices;
-					MethodInfo addMethod = collection.GetType().GetMethod("Add");
-					Type vertexType = collection.GetType().GetGenericArguments()[0];
-					foreach (JsonElement ve in pvElm.EnumerateArray())
+					var collection = go2.PhysicsVertices;
+					var addMethod = collection.GetType().GetMethod("Add");
+					var vertexType = collection.GetType().GetGenericArguments()[0];
+					foreach (var ve in pvElm.EnumerateArray())
 					{
-						object vertex = Activator.CreateInstance(vertexType);
+						var vertex = Activator.CreateInstance(vertexType);
 						if (ve.TryGetProperty("x", out var vxElm))
 						{
 							vertexType.GetProperty("X").SetValue(vertex, (float)vxElm.GetDouble());
@@ -647,29 +349,29 @@ public static partial class ResourceImportService
 						{
 							vertexType.GetProperty("Y").SetValue(vertex, (float)vyElm.GetDouble());
 						}
-						addMethod.Invoke(collection, new object[1] { vertex });
+						addMethod.Invoke(collection, [vertex]);
 					}
 				}
 				if (root3.TryGetProperty("events", out var evtsElm) && evtsElm.ValueKind == JsonValueKind.Array)
 				{
-					for (int ei = 0; ei < go2.Events.Count; ei++)
+					for (var ei = 0; ei < go2.Events.Count; ei++)
 					{
 						go2.Events[ei].Clear();
 					}
-					foreach (JsonElement evtElm in evtsElm.EnumerateArray())
+					foreach (var evtElm in evtsElm.EnumerateArray())
 					{
 						if (!evtElm.TryGetProperty("eventType", out var etElm) || !evtElm.TryGetProperty("eventSubtype", out var esElm))
 						{
 							continue;
 						}
-						int eventType = etElm.GetInt32();
-						uint eventSubtype = (uint)esElm.GetInt64();
+						var eventType = etElm.GetInt32();
+						var eventSubtype = (uint)esElm.GetInt64();
 						if (eventType == 4 && evtElm.TryGetProperty("collisionObjectName", out var coElm))
 						{
-							string coName = coElm.GetString() ?? "";
+							var coName = coElm.GetString() ?? "";
 							if (coName.Length > 0)
 							{
-								GameMakerGameObject co = FindObject(coName);
+								var co = FindObject(coName);
 								if (co == null || !objectIndices.TryGetValue(co, out var coIndex))
 								{
 									continue;
@@ -681,8 +383,8 @@ public static partial class ResourceImportService
 						{
 							continue;
 						}
-						GameMakerGameObject.Event existingEvt = null;
-						foreach (GameMakerGameObject.Event e in go2.Events[eventType])
+						GameMakerGameObject.Event? existingEvt = null;
+						foreach (var e in go2.Events[eventType])
 						{
 							if (e.EventSubtype == eventSubtype)
 							{
@@ -702,8 +404,8 @@ public static partial class ResourceImportService
 						{
 							continue;
 						}
-						int ai = 0;
-						foreach (JsonElement aElm in actsElm.EnumerateArray())
+						var ai = 0;
+						foreach (var aElm in actsElm.EnumerateArray())
 						{
 							GameMakerGameObject.EventAction action;
 							if (ai < existingEvt.Actions.Count)
@@ -725,76 +427,56 @@ public static partial class ResourceImportService
 					updated++;
 				}
 				imported++;
+				BatchRun.Item(name2);
 			}
-			catch (Exception ex2)
+			catch (Exception ex2) when (!ModdingCancellation.IsCancellation(ex2))
 			{
 				Log("[ImportGameObjects] Error: " + name2 + ": " + ex2.Message);
+				BatchRun.Failed(name2, ex2);
 			}
 		}
 		Log($"[ImportGameObjects] Done. {imported} imported ({created} new, {updated} updated)");
 		GameMakerGameObject? FindObject(string key)
 		{
-			if (!objectsByName.TryGetValue(key, out GameMakerGameObject obj2))
-			{
-				return null;
-			}
-			return obj2;
+			return lookup.TryGet(key, out GameMakerGameObject obj2, out _) ? obj2 : null;
 		}
 		GameMakerSprite? FindSprite(string key)
 		{
-			if (!spritesByName.TryGetValue(key, out GameMakerSprite sprite2))
-			{
-				return null;
-			}
-			return sprite2;
+			return lookup.TryGet(key, out GameMakerSprite sprite2, out _) ? sprite2 : null;
 		}
 		GameMakerString MakeObjectString(string content)
 		{
-			if (stringLookup.TryGetValue(content, out GameMakerString existing))
-			{
-				return existing;
-			}
-			GameMakerString created2 = new GameMakerString(content);
-			if (data.Strings is GameMakerObservableList<GameMakerString> stringList)
-			{
-				stringList.InternalAdd(created2);
-			}
-			else
-			{
-				data.Strings.Add(created2);
-			}
-			stringLookup[content] = created2;
-			return created2;
+			return lookup.GetOrAddString(content);
 		}
 	}
 
 	private static void ImportAssetOrderInternal(GameMakerData data, string inputDir)
 	{
-		string assetOrderPath = Path.Combine(inputDir, "asset_order.txt");
+		var assetOrderPath = Path.Combine(inputDir, "asset_order.txt");
 		if (!FExists(assetOrderPath))
 		{
 			Log("[ImportAssetOrder] No asset_order.txt found - skipping");
 			return;
 		}
 		Log("[ImportAssetOrder] Loading asset order from: " + assetOrderPath);
-		string[] array = FReadLines(assetOrderPath);
-		string currentType = "";
-		List<string> currentList = new List<string>();
-		int totalReorganized = 0;
-		Dictionary<string, int> targetCounts = new Dictionary<string, int>();
-		string[] array2 = array;
-		foreach (string line in array2)
+		var array = FReadLines(assetOrderPath);
+		var currentType = "";
+		List<string> currentList = [];
+		var totalReorganized = 0;
+		Dictionary<string, int> targetCounts = [];
+		var array2 = array;
+		foreach (var line in array2)
 		{
-			if (line.StartsWith("@@") && line.EndsWith("@@"))
+			if (line.StartsWith("@@", StringComparison.Ordinal) && line.EndsWith("@@", StringComparison.Ordinal))
 			{
 				SubmitList();
-				string text = line;
-				currentType = text.Substring(2, text.Length - 2 - 2).ToLower();
+				var text = line;
+				currentType = text[2..^2].ToLowerInvariant();
 				currentList.Clear();
 			}
-			else if (currentType == "counts" && line.Contains('='))
+			else if (currentType == "counts" && line.Contains('=', StringComparison.Ordinal))
 			{
-				string[] parts = line.Trim().Split('=', 2);
+				var parts = line.Trim().Split('=', 2);
 				if (parts.Length == 2 && int.TryParse(parts[1], out var count))
 				{
 					targetCounts[parts[0]] = count;
@@ -807,47 +489,46 @@ public static partial class ResourceImportService
 		}
 		SubmitList();
 		Log($"[ImportAssetOrder] Reorganized {totalReorganized} asset types");
-		string eventsPath = Path.Combine(inputDir, "object_events.json");
+		var eventsPath = Path.Combine(inputDir, "object_events.json");
 		if (FExists(eventsPath))
 		{
-			JsonElement targetEventsRoot = JsonSerializer.Deserialize<JsonElement>(FReadText(eventsPath));
-			int eventsRemoved = 0;
-			int objectsFixed = 0;
-			foreach (GameMakerGameObject obj in data.GameObjects)
+			var targetEventsRoot = JsonSerializer.Deserialize<JsonElement>(FReadText(eventsPath));
+			var eventsRemoved = 0;
+			var objectsFixed = 0;
+			foreach (var obj in data.GameObjects)
 			{
 				if (obj == null || obj.Name?.Content == null || !targetEventsRoot.TryGetProperty(obj.Name.Content, out var targetEvents))
 				{
 					continue;
 				}
-				HashSet<string> keys = new HashSet<string>();
-				HashSet<string> collisionNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-				foreach (JsonElement evt in targetEvents.EnumerateArray())
+				HashSet<string> keys = [];
+				var collisionNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+				foreach (var evt in targetEvents.EnumerateArray())
 				{
-					int t = evt.GetProperty("t").GetInt32();
+					var t = evt.GetProperty("t").GetInt32();
 					if (t == 4 && evt.TryGetProperty("cn", out var cnElem))
 					{
-						string cn = cnElem.GetString();
+						var cn = cnElem.GetString();
 						if (!string.IsNullOrEmpty(cn))
 						{
-							JsonElement coElem;
-							int occurrence = (evt.TryGetProperty("co", out coElem) ? coElem.GetInt32() : (-1));
+							var occurrence = evt.TryGetProperty("co", out var coElem) ? coElem.GetInt32() : (-1);
 							collisionNames.Add($"{cn}#{occurrence}");
 							continue;
 						}
 					}
 					keys.Add($"{t}_{evt.GetProperty("s").GetUInt32()}");
 				}
-				bool fixedObj = false;
-				for (int et = 0; et < obj.Events.Count; et++)
+				var fixedObj = false;
+				for (var et = 0; et < obj.Events.Count; et++)
 				{
-					for (int j = obj.Events[et].Count - 1; j >= 0; j--)
+					for (var j = obj.Events[et].Count - 1; j >= 0; j--)
 					{
 						bool shouldKeep;
 						if (et == 4)
 						{
-							int collObjIdx = (int)obj.Events[et][j].EventSubtype;
-							string collObjName = ((collObjIdx < 0 || collObjIdx >= data.GameObjects.Count) ? null : data.GameObjects[collObjIdx]?.Name?.Content);
-							int occurrence2 = ((!string.IsNullOrEmpty(collObjName)) ? ResourceAssetUtil.GetGameObjectOccurrence(data, collObjIdx) : (-1));
+							var collObjIdx = (int)obj.Events[et][j].EventSubtype;
+							var collObjName = (collObjIdx < 0 || collObjIdx >= data.GameObjects.Count) ? null : data.GameObjects[collObjIdx]?.Name?.Content;
+							var occurrence2 = (!string.IsNullOrEmpty(collObjName)) ? ResourceAssetUtil.GetGameObjectOccurrence(data, collObjIdx) : (-1);
 							shouldKeep = !string.IsNullOrEmpty(collObjName) && (collisionNames.Contains($"{collObjName}#{occurrence2}") || collisionNames.Contains(collObjName + "#-1"));
 						}
 						else
@@ -856,8 +537,8 @@ public static partial class ResourceImportService
 						}
 						if (!shouldKeep)
 						{
-							GameMakerGameObject.Event removedEvt = obj.Events[et][j];
-							string evtCode = ((removedEvt.Actions.Count <= 0) ? "?" : (removedEvt.Actions[0].CodeId?.Name?.Content ?? "?"));
+							var removedEvt = obj.Events[et][j];
+							var evtCode = (removedEvt.Actions.Count <= 0) ? "?" : (removedEvt.Actions[0].CodeId?.Name?.Content ?? "?");
 							Log($"  EventSync: removing {obj.Name.Content} event type={et} sub={removedEvt.EventSubtype} code={evtCode}");
 							obj.Events[et].RemoveAt(j);
 							eventsRemoved++;
@@ -878,66 +559,66 @@ public static partial class ResourceImportService
 		ImportEmbeddedTexturesForAssetOrder(data, inputDir);
 		if (targetCounts.TryGetValue("EmbeddedTextures", out var targetTexCount))
 		{
-			int cur = data.EmbeddedTextures.Count;
+			var cur = data.EmbeddedTextures.Count;
 			if (cur > targetTexCount)
 			{
-				for (int i2 = cur - 1; i2 >= targetTexCount; i2--)
+				for (var i2 = cur - 1; i2 >= targetTexCount; i2--)
 				{
 					data.EmbeddedTextures.RemoveAt(i2);
 				}
 				Log($"[ImportAssetOrder] EmbeddedTextures: trimmed from {cur} to {targetTexCount}");
 			}
 		}
-		string tpiPath = Path.Combine(inputDir, "texture_page_items.json");
-		string fmPath = Path.Combine(inputDir, "sprite_frame_map.json");
+		var tpiPath = Path.Combine(inputDir, "texture_page_items.json");
+		var fmPath = Path.Combine(inputDir, "sprite_frame_map.json");
 		if (FExists(tpiPath) && FExists(fmPath))
 		{
-			int oldCount = data.TexturePageItems.Count;
-			List<int[]> tpiData = JsonSerializer.Deserialize<List<int[]>>(FReadText(tpiPath));
+			var oldCount = data.TexturePageItems.Count;
+			var tpiData = JsonSerializer.Deserialize<List<int[]>>(FReadText(tpiPath));
 			if (!CanResolveTexturePages(tpiData, data.EmbeddedTextures.Count))
 			{
 				Log("[ImportAssetOrder] Skipping TexturePageItems relink because texture pages are not present in this patch");
 				return;
 			}
-			int newCount = tpiData.Count;
-			int upd = Math.Min(oldCount, newCount);
-			for (int k = 0; k < upd; k++)
+			var newCount = tpiData.Count;
+			var upd = Math.Min(oldCount, newCount);
+			for (var k = 0; k < upd; k++)
 			{
 				ApplyTpi(data.TexturePageItems[k], tpiData[k]);
 			}
-			for (int l = oldCount; l < newCount; l++)
+			for (var l = oldCount; l < newCount; l++)
 			{
-				GameMakerTexturePageItem tpi = new GameMakerTexturePageItem();
+				var tpi = new GameMakerTexturePageItem();
 				ApplyTpi(tpi, tpiData[l]);
 				data.TexturePageItems.Add(tpi);
 			}
-			for (int i3 = oldCount - 1; i3 >= newCount; i3--)
+			for (var i3 = oldCount - 1; i3 >= newCount; i3--)
 			{
 				data.TexturePageItems.RemoveAt(i3);
 			}
 			Log($"[ImportAssetOrder] TexturePageItems: {oldCount} -> {data.TexturePageItems.Count}");
-			JsonElement fmRoot = JsonSerializer.Deserialize<JsonElement>(FReadText(fmPath));
-			int sprRelinked = 0;
+			var fmRoot = JsonSerializer.Deserialize<JsonElement>(FReadText(fmPath));
+			var sprRelinked = 0;
 			if (fmRoot.TryGetProperty("sprites", out var sprMap))
 			{
-				foreach (GameMakerSprite spr in data.Sprites)
+				foreach (var spr in data.Sprites)
 				{
 					if (spr?.Textures == null)
 					{
 						continue;
 					}
-					string key = spr.Name?.Content ?? data.Sprites.IndexOf(spr).ToString();
+					var key = spr.Name?.Content ?? data.Sprites.IndexOf(spr).ToString(CultureInfo.InvariantCulture);
 					if (!sprMap.TryGetProperty(key, out var indices))
 					{
 						continue;
 					}
-					int[] array3 = (from e in indices.EnumerateArray()
-						select e.GetInt32()).ToArray();
+					int[] array3 = [.. from e in indices.EnumerateArray()
+									select e.GetInt32()];
 					spr.Textures.Clear();
-					int[] array4 = array3;
-					foreach (int tpiIdx in array4)
+					var array4 = array3;
+					foreach (var tpiIdx in array4)
 					{
-						GameMakerSprite.TextureEntry entry = new GameMakerSprite.TextureEntry();
+						var entry = new GameMakerSprite.TextureEntry();
 						if (tpiIdx >= 0 && tpiIdx < data.TexturePageItems.Count)
 						{
 							entry.Texture = data.TexturePageItems[tpiIdx];
@@ -947,19 +628,19 @@ public static partial class ResourceImportService
 					sprRelinked++;
 				}
 			}
-			int bgRelinked = 0;
+			var bgRelinked = 0;
 			if (fmRoot.TryGetProperty("backgrounds", out var bgMap))
 			{
-				foreach (GameMakerBackground bg in data.Backgrounds)
+				foreach (var bg in data.Backgrounds)
 				{
 					if (bg == null)
 					{
 						continue;
 					}
-					string key2 = bg.Name?.Content ?? data.Backgrounds.IndexOf(bg).ToString();
+					var key2 = bg.Name?.Content ?? data.Backgrounds.IndexOf(bg).ToString(CultureInfo.InvariantCulture);
 					if (bgMap.TryGetProperty(key2, out var idx))
 					{
-						int ti = idx.GetInt32();
+						var ti = idx.GetInt32();
 						if (ti >= 0 && ti < data.TexturePageItems.Count)
 						{
 							bg.Texture = data.TexturePageItems[ti];
@@ -968,19 +649,19 @@ public static partial class ResourceImportService
 					}
 				}
 			}
-			int fontRelinked = 0;
+			var fontRelinked = 0;
 			if (fmRoot.TryGetProperty("fonts", out var fontMap))
 			{
-				foreach (GameMakerFont font in data.Fonts)
+				foreach (var font in data.Fonts)
 				{
 					if (font == null)
 					{
 						continue;
 					}
-					string key3 = font.Name?.Content ?? data.Fonts.IndexOf(font).ToString();
+					var key3 = font.Name?.Content ?? data.Fonts.IndexOf(font).ToString(CultureInfo.InvariantCulture);
 					if (fontMap.TryGetProperty(key3, out var idx2))
 					{
-						int ti2 = idx2.GetInt32();
+						var ti2 = idx2.GetInt32();
 						if (ti2 >= 0 && ti2 < data.TexturePageItems.Count)
 						{
 							font.Texture = data.TexturePageItems[ti2];
@@ -997,10 +678,10 @@ public static partial class ResourceImportService
 			{
 				return;
 			}
-			int cur2 = data.TexturePageItems.Count;
+			var cur2 = data.TexturePageItems.Count;
 			if (cur2 > targetTpiCount)
 			{
-				for (int i4 = cur2 - 1; i4 >= targetTpiCount; i4--)
+				for (var i4 = cur2 - 1; i4 >= targetTpiCount; i4--)
 				{
 					data.TexturePageItems.RemoveAt(i4);
 				}
@@ -1009,8 +690,8 @@ public static partial class ResourceImportService
 		}
 		void ApplyTpi(GameMakerTexturePageItem gameMakerTexturePageItem, int[] arr)
 		{
-			int texIdx = arr[0];
-			gameMakerTexturePageItem.TexturePage = ((texIdx >= 0 && texIdx < data.EmbeddedTextures.Count) ? data.EmbeddedTextures[texIdx] : ((data.EmbeddedTextures.Count > 0) ? data.EmbeddedTextures[0] : null));
+			var texIdx = arr[0];
+			gameMakerTexturePageItem.TexturePage = (texIdx >= 0 && texIdx < data.EmbeddedTextures.Count) ? data.EmbeddedTextures[texIdx] : ((data.EmbeddedTextures.Count > 0) ? data.EmbeddedTextures[0] : null);
 			gameMakerTexturePageItem.SourceX = (ushort)arr[1];
 			gameMakerTexturePageItem.SourceY = (ushort)arr[2];
 			gameMakerTexturePageItem.SourceWidth = (ushort)arr[3];
@@ -1026,180 +707,180 @@ public static partial class ResourceImportService
 		{
 			if (currentList.Count != 0)
 			{
-				string text2 = currentType;
+				var text2 = currentType;
 				if (text2 != null)
 				{
 					switch (text2.Length)
 					{
-					case 7:
-						switch (text2[1])
-						{
-						case 'p':
-							if (text2 == "sprites")
+						case 7:
+							switch (text2[1])
 							{
-								Reorganize(data.Sprites, currentList, "Sprites");
-								totalReorganized++;
-							}
-							break;
-						case 'c':
-							if (text2 == "scripts")
-							{
-								int createdScripts = 0;
-								foreach (string sn in currentList)
-								{
-									if (data.Scripts.ByName(sn) == null)
+								case 'p':
+									if (text2 == "sprites")
 									{
-										GameMakerScript script = new GameMakerScript
-										{
-											Name = data.Strings.MakeString(sn),
-											Code = PatchService.ScriptCodeResolver.Resolve(data, sn)
-										};
-										data.Scripts.Add(script);
-										createdScripts++;
+										Reorganize(data.Sprites, currentList, "Sprites");
+										totalReorganized++;
 									}
-								}
-								if (createdScripts > 0)
-								{
-									Log($"[ImportAssetOrder] Scripts: Created {createdScripts} new script entries");
-								}
-								Reorganize(data.Scripts, currentList, "Scripts");
-								totalReorganized++;
-								while (data.Scripts.Count > currentList.Count)
-								{
-									data.Scripts.RemoveAt(data.Scripts.Count - 1);
-								}
-							}
-							break;
-						case 'b':
-							if (text2 == "objects")
-							{
-								List<(GameMakerGameObject, int, string)> collisionInfo = new List<(GameMakerGameObject, int, string)>();
-								foreach (GameMakerGameObject obj2 in data.GameObjects)
-								{
-									if (obj2 != null)
+									break;
+								case 'c':
+									if (text2 == "scripts")
 									{
-										GameMakerPointerList<GameMakerGameObject.Event> collisions = obj2.Events[4];
-										for (int ci = 0; ci < collisions.Count; ci++)
+										var createdScripts = 0;
+										foreach (var sn in currentList)
 										{
-											uint sub = collisions[ci].EventSubtype;
-											if (sub < (uint)data.GameObjects.Count)
+											if (data.Scripts.ByName(sn) == null)
 											{
-												GameMakerGameObject target = data.GameObjects[(int)sub];
-												if (target != null && target.Name?.Content != null)
+												var script = new GameMakerScript
 												{
-													collisionInfo.Add((obj2, ci, target.Name.Content));
+													Name = data.Strings.MakeString(sn),
+													Code = PatchService.ScriptCodeResolver.Resolve(data, sn)
+												};
+												data.Scripts.Add(script);
+												createdScripts++;
+											}
+										}
+										if (createdScripts > 0)
+										{
+											Log($"[ImportAssetOrder] Scripts: Created {createdScripts} new script entries");
+										}
+										Reorganize(data.Scripts, currentList, "Scripts");
+										totalReorganized++;
+										while (data.Scripts.Count > currentList.Count)
+										{
+											data.Scripts.RemoveAt(data.Scripts.Count - 1);
+										}
+									}
+									break;
+								case 'b':
+									if (text2 == "objects")
+									{
+										List<(GameMakerGameObject, int, string)> collisionInfo = [];
+										foreach (var obj2 in data.GameObjects)
+										{
+											if (obj2 != null)
+											{
+												var collisions = obj2.Events[4];
+												for (var ci = 0; ci < collisions.Count; ci++)
+												{
+													var sub = collisions[ci].EventSubtype;
+													if (sub < (uint)data.GameObjects.Count)
+													{
+														var target = data.GameObjects[(int)sub];
+														if (target != null && target.Name?.Content != null)
+														{
+															collisionInfo.Add((obj2, ci, target.Name.Content));
+														}
+													}
 												}
 											}
 										}
-									}
-								}
-								Reorganize(data.GameObjects, currentList, "GameObjects");
-								Dictionary<string, uint> objectIndicesByName = new Dictionary<string, uint>(StringComparer.Ordinal);
-								for (int objectIndex = 0; objectIndex < data.GameObjects.Count; objectIndex++)
-								{
-									string objectName = data.GameObjects[objectIndex]?.Name?.Content;
-									if (objectName != null)
-									{
-										objectIndicesByName.TryAdd(objectName, (uint)objectIndex);
-									}
-								}
-								int fixedCollisions = 0;
-								foreach (var (obj3, evtIdx, tName) in collisionInfo)
-								{
-									if (objectIndicesByName.TryGetValue(tName, out var newIdx) && evtIdx < obj3.Events[4].Count)
-									{
-										GameMakerPointerList<GameMakerGameObject.Event> collisions2 = obj3.Events[4];
-										if (collisions2[evtIdx].EventSubtype != newIdx)
+										Reorganize(data.GameObjects, currentList, "GameObjects");
+										var objectIndicesByName = new Dictionary<string, uint>(StringComparer.Ordinal);
+										for (var objectIndex = 0; objectIndex < data.GameObjects.Count; objectIndex++)
 										{
-											collisions2[evtIdx].EventSubtype = newIdx;
-											fixedCollisions++;
+											var objectName = data.GameObjects[objectIndex]?.Name?.Content;
+											if (objectName != null)
+											{
+												objectIndicesByName.TryAdd(objectName, (uint)objectIndex);
+											}
 										}
+										var fixedCollisions = 0;
+										foreach (var (obj3, evtIdx, tName) in collisionInfo)
+										{
+											if (objectIndicesByName.TryGetValue(tName, out var newIdx) && evtIdx < obj3.Events[4].Count)
+											{
+												var collisions2 = obj3.Events[4];
+												if (collisions2[evtIdx].EventSubtype != newIdx)
+												{
+													collisions2[evtIdx].EventSubtype = newIdx;
+													fixedCollisions++;
+												}
+											}
+										}
+										if (fixedCollisions > 0)
+										{
+											Log($"[ImportAssetOrder] Fixed {fixedCollisions} collision event subtypes");
+										}
+										totalReorganized++;
 									}
-								}
-								if (fixedCollisions > 0)
-								{
-									Log($"[ImportAssetOrder] Fixed {fixedCollisions} collision event subtypes");
-								}
-								totalReorganized++;
+									break;
+								case 'h':
+									if (text2 == "shaders")
+									{
+										Reorganize(data.Shaders, currentList, "Shaders");
+										totalReorganized++;
+									}
+									break;
 							}
 							break;
-						case 'h':
-							if (text2 == "shaders")
+						case 11:
+							switch (text2[0])
 							{
-								Reorganize(data.Shaders, currentList, "Shaders");
-								totalReorganized++;
+								case 'b':
+									if (text2 == "backgrounds")
+									{
+										Reorganize(data.Backgrounds, currentList, "Backgrounds");
+										totalReorganized++;
+									}
+									break;
+								case 'a':
+									if (text2 == "audiogroups")
+									{
+										Reorganize(data.AudioGroups, currentList, "AudioGroups");
+										totalReorganized++;
+									}
+									break;
 							}
 							break;
-						}
-						break;
-					case 11:
-						switch (text2[0])
-						{
-						case 'b':
-							if (text2 == "backgrounds")
+						case 5:
+							switch (text2[0])
 							{
-								Reorganize(data.Backgrounds, currentList, "Backgrounds");
-								totalReorganized++;
+								case 'p':
+									if (text2 == "paths")
+									{
+										Reorganize(data.Paths, currentList, "Paths");
+										totalReorganized++;
+									}
+									break;
+								case 'f':
+									if (text2 == "fonts")
+									{
+										Reorganize(data.Fonts, currentList, "Fonts");
+										totalReorganized++;
+									}
+									break;
+								case 'r':
+									if (text2 == "rooms")
+									{
+										Reorganize(data.Rooms, currentList, "Rooms");
+										totalReorganized++;
+									}
+									break;
 							}
 							break;
-						case 'a':
-							if (text2 == "audiogroups")
+						case 6:
+							if (text2 == "sounds")
 							{
-								Reorganize(data.AudioGroups, currentList, "AudioGroups");
+								Reorganize(data.Sounds, currentList, "Sounds");
 								totalReorganized++;
 							}
 							break;
-						}
-						break;
-					case 5:
-						switch (text2[0])
-						{
-						case 'p':
-							if (text2 == "paths")
+						case 9:
+							if (text2 == "timelines")
 							{
-								Reorganize(data.Paths, currentList, "Paths");
+								Reorganize(data.Timelines, currentList, "Timelines");
 								totalReorganized++;
 							}
 							break;
-						case 'f':
-							if (text2 == "fonts")
+						case 10:
+							if (text2 == "extensions")
 							{
-								Reorganize(data.Fonts, currentList, "Fonts");
+								Reorganize(data.Extensions, currentList, "Extensions");
 								totalReorganized++;
 							}
 							break;
-						case 'r':
-							if (text2 == "rooms")
-							{
-								Reorganize(data.Rooms, currentList, "Rooms");
-								totalReorganized++;
-							}
+						case 8:
 							break;
-						}
-						break;
-					case 6:
-						if (text2 == "sounds")
-						{
-							Reorganize(data.Sounds, currentList, "Sounds");
-							totalReorganized++;
-						}
-						break;
-					case 9:
-						if (text2 == "timelines")
-						{
-							Reorganize(data.Timelines, currentList, "Timelines");
-							totalReorganized++;
-						}
-						break;
-					case 10:
-						if (text2 == "extensions")
-						{
-							Reorganize(data.Extensions, currentList, "Extensions");
-							totalReorganized++;
-						}
-						break;
-					case 8:
-						break;
 					}
 				}
 			}
@@ -1208,7 +889,7 @@ public static partial class ResourceImportService
 
 	private static bool CanResolveTexturePages(List<int[]> tpiData, int embeddedTextureCount)
 	{
-		foreach (int[] tpi in tpiData)
+		foreach (var tpi in tpiData)
 		{
 			if (tpi.Length != 0 && tpi[0] >= embeddedTextureCount)
 			{
@@ -1220,44 +901,44 @@ public static partial class ResourceImportService
 
 	private static int ImportEmbeddedTexturesForAssetOrder(GameMakerData data, string inputDir)
 	{
-		string embeddedDir = Path.Combine(inputDir, "EmbeddedTextures");
+		var embeddedDir = Path.Combine(inputDir, "EmbeddedTextures");
 		if (!DirExists(embeddedDir))
 		{
-			string parent = Path.GetDirectoryName(inputDir);
-			embeddedDir = (string.IsNullOrEmpty(parent) ? "EmbeddedTextures" : Path.Combine(parent, "EmbeddedTextures"));
+			var parent = Path.GetDirectoryName(inputDir);
+			embeddedDir = string.IsNullOrEmpty(parent) ? "EmbeddedTextures" : Path.Combine(parent, "EmbeddedTextures");
 		}
 		if (!DirExists(embeddedDir))
 		{
+			BatchRun.Item("EmbeddedTextures", ResultKind.Skipped, "Folder not found");
 			return 0;
 		}
-		int imported = 0;
-		string[] dirs = GetDirs(embeddedDir);
-		foreach (string texDir in dirs)
+		var imported = 0;
+		var dirs = GetDirs(embeddedDir);
+		BatchRun.Expect(dirs.Length);
+		foreach (var texDir in dirs)
 		{
-			string folderName = Path.GetFileName(texDir.TrimEnd(new char[2]
-			{
+			var folderName = Path.GetFileName(texDir.TrimEnd(
+			[
 				Path.DirectorySeparatorChar,
 				Path.AltDirectorySeparatorChar
-			}));
-			string jsonPath = Path.Combine(texDir, folderName + ".json");
-			string pngPath = Path.Combine(texDir, folderName + ".png");
-			string binPath = Path.Combine(texDir, folderName + ".bin");
-			if (!FExists(jsonPath) || (!FExists(binPath) && !FExists(pngPath)))
+			]));
+			var jsonPath = Path.Combine(texDir, folderName + ".json");
+			var pngPath = Path.Combine(texDir, folderName + ".png");
+			var binPath = Path.Combine(texDir, folderName + ".bin");
+			if (!FExists(jsonPath) || !FExists(binPath) && !FExists(pngPath))
 			{
+				BatchRun.Item(folderName, ResultKind.Skipped, "Missing json or image file");
 				continue;
 			}
 			try
 			{
-				using JsonDocument doc = JsonDocument.Parse(FReadText(jsonPath));
-				JsonElement root = doc.RootElement;
-				int folderIndex = ParseTrailingResourceIndex(folderName);
-				JsonElement idxElm;
-				int jsonIndex = ((root.TryGetProperty("index", out idxElm) && idxElm.ValueKind == JsonValueKind.Number) ? idxElm.GetInt32() : data.EmbeddedTextures.Count);
-				int index = ((folderIndex >= 0) ? folderIndex : jsonIndex);
-				JsonElement nameElm;
-				string name = ((root.TryGetProperty("name", out nameElm) && nameElm.ValueKind == JsonValueKind.String) ? (nameElm.GetString() ?? "") : "");
-				JsonElement formatElm;
-				string format = ((root.TryGetProperty("format", out formatElm) && formatElm.ValueKind == JsonValueKind.String) ? (formatElm.GetString() ?? "Png") : "Png");
+				using var doc = JsonDocument.Parse(FReadText(jsonPath));
+				var root = doc.RootElement;
+				var folderIndex = ParseTrailingResourceIndex(folderName);
+				var jsonIndex = (root.TryGetProperty("index", out var idxElm) && idxElm.ValueKind == JsonValueKind.Number) ? idxElm.GetInt32() : data.EmbeddedTextures.Count;
+				var index = (folderIndex >= 0) ? folderIndex : jsonIndex;
+				var name = (root.TryGetProperty("name", out var nameElm) && nameElm.ValueKind == JsonValueKind.String) ? (nameElm.GetString() ?? "") : "";
+				var format = (root.TryGetProperty("format", out var formatElm) && formatElm.ValueKind == JsonValueKind.String) ? (formatElm.GetString() ?? "Png") : "Png";
 				while (data.EmbeddedTextures.Count <= index)
 				{
 					data.EmbeddedTextures.Add(new GameMakerEmbeddedTexture
@@ -1265,23 +946,23 @@ public static partial class ResourceImportService
 						Name = new GameMakerString($"Texture {data.EmbeddedTextures.Count}")
 					});
 				}
-				GameMakerEmbeddedTexture texture = data.EmbeddedTextures[index];
+				var texture = data.EmbeddedTextures[index];
 				texture.Name = new GameMakerString(string.IsNullOrWhiteSpace(name) ? $"Texture {index}" : name);
 				if (root.TryGetProperty("scaled", out var scaledElm))
 				{
-					texture.Scaled = ((scaledElm.ValueKind == JsonValueKind.Number) ? scaledElm.GetUInt32() : (scaledElm.GetBoolean() ? 1u : 0u));
+					texture.Scaled = (scaledElm.ValueKind == JsonValueKind.Number) ? scaledElm.GetUInt32() : (scaledElm.GetBoolean() ? 1u : 0u);
 				}
 				if (root.TryGetProperty("generatedMips", out var mipsElm))
 				{
-					texture.GeneratedMips = ((mipsElm.ValueKind == JsonValueKind.Number) ? mipsElm.GetUInt32() : (mipsElm.GetBoolean() ? 1u : 0u));
+					texture.GeneratedMips = (mipsElm.ValueKind == JsonValueKind.Number) ? mipsElm.GetUInt32() : (mipsElm.GetBoolean() ? 1u : 0u);
 				}
-				bool loadedImage = false;
+				var loadedImage = false;
 				if (FExists(binPath))
 				{
 					try
 					{
-						using MemoryStream stream = new MemoryStream(FReadBytes(binPath), writable: false);
-						using FileBinaryReader reader = new FileBinaryReader(stream);
+						using var stream = new MemoryStream(FReadBytes(binPath), writable: false);
+						using var reader = new FileBinaryReader(stream);
 						texture.TextureData.Image = GMImage.FromBinaryReader(reader, stream.Length, data.IsVersionAtLeast(2022u, 5u));
 						loadedImage = true;
 					}
@@ -1292,16 +973,18 @@ public static partial class ResourceImportService
 				}
 				if (!loadedImage)
 				{
-					using MagickImage image = new MagickImage(FReadBytes(pngPath));
-					GMImage gmImage = GMImage.FromMagickImage(image);
-					gmImage = ((!Enum.TryParse<GMImage.ImageFormat>(format, out var targetFormat) || targetFormat == GMImage.ImageFormat.Png) ? gmImage.ConvertToPng() : gmImage.ConvertToFormat(targetFormat));
+					using var image = new MagickImage(FReadBytes(pngPath));
+					var gmImage = GMImage.FromMagickImage(image);
+					gmImage = (!Enum.TryParse<GMImage.ImageFormat>(format, out var targetFormat) || targetFormat == GMImage.ImageFormat.Png) ? gmImage.ConvertToPng() : gmImage.ConvertToFormat(targetFormat);
 					texture.TextureData.Image = gmImage;
 				}
 				imported++;
+				BatchRun.Item(folderName);
 			}
-			catch (Exception ex2)
+			catch (Exception ex2) when (!ModdingCancellation.IsCancellation(ex2))
 			{
 				Log("[ImportAssetOrder] EmbeddedTexture import error '" + folderName + "': " + ex2.Message);
+				BatchRun.Failed(folderName, ex2);
 			}
 		}
 		if (imported > 0)
@@ -1313,7 +996,7 @@ public static partial class ResourceImportService
 
 	private static int ParseTrailingResourceIndex(string value)
 	{
-		Match match = TrailingNumberRegex().Match(value);
+		var match = TrailingNumberRegex().Match(value);
 		if (!match.Success || !int.TryParse(match.Groups[1].Value, out var index))
 		{
 			return -1;
@@ -1330,57 +1013,56 @@ public static partial class ResourceImportService
 		{
 			return;
 		}
-		Dictionary<string, List<int>> nameToIndices = new Dictionary<string, List<int>>();
-		List<int> emptyNameIndices = new List<int>();
-		Queue<int> nullIndices = new Queue<int>();
-		for (int i = 0; i < list.Count; i++)
+		Dictionary<string, List<int>> nameToIndices = [];
+		List<int> emptyNameIndices = [];
+		var nullIndices = new Queue<int>();
+		for (var i = 0; i < list.Count; i++)
 		{
-			T asset = list[i];
+			var asset = list[i];
 			if (asset == null)
 			{
 				nullIndices.Enqueue(i);
 				continue;
 			}
-			string name = asset.Name?.Content;
+			var name = asset.Name?.Content;
 			if (string.IsNullOrEmpty(name))
 			{
 				emptyNameIndices.Add(i);
 				continue;
 			}
-			if (!nameToIndices.ContainsKey(name))
+			if (!nameToIndices.TryGetValue(name, out var indices))
 			{
-				nameToIndices[name] = new List<int>();
+				nameToIndices[name] = indices = [];
 			}
-			nameToIndices[name].Add(i);
+			indices.Add(i);
 		}
-		List<T> newOrder = new List<T>();
-		HashSet<int> usedIndices = new HashSet<int>();
-		int missingCount = 0;
-		int emptyNameIdx = 0;
-		foreach (string name2 in order)
+		List<T> newOrder = [];
+		HashSet<int> usedIndices = [];
+		var missingCount = 0;
+		var emptyNameIdx = 0;
+		foreach (var name2 in order)
 		{
-			int result;
 			if (name2 == "(null)")
 			{
 				if (nullIndices.Count > 0)
 				{
-					int idx = nullIndices.Dequeue();
+					var idx = nullIndices.Dequeue();
 					if (!usedIndices.Contains(idx))
 					{
-						newOrder.Add(default(T));
+						newOrder.Add(default);
 						usedIndices.Add(idx);
 					}
 				}
 				else if (typeName.Equals("Sprites", StringComparison.OrdinalIgnoreCase))
 				{
-					newOrder.Add(default(T));
+					newOrder.Add(default);
 				}
 			}
-			else if (int.TryParse(name2, out result))
+			else if (int.TryParse(name2, out var result))
 			{
 				if (emptyNameIdx < emptyNameIndices.Count)
 				{
-					int idx2 = emptyNameIndices[emptyNameIdx];
+					var idx2 = emptyNameIndices[emptyNameIdx];
 					if (!usedIndices.Contains(idx2))
 					{
 						newOrder.Add(list[idx2]);
@@ -1390,7 +1072,7 @@ public static partial class ResourceImportService
 				}
 				else
 				{
-					newOrder.Add(default(T));
+					newOrder.Add(default);
 				}
 			}
 			else
@@ -1401,7 +1083,7 @@ public static partial class ResourceImportService
 				}
 				if (nameToIndices.TryGetValue(name2, out var indices))
 				{
-					foreach (int idx3 in indices)
+					foreach (var idx3 in indices)
 					{
 						if (!usedIndices.Contains(idx3))
 						{
@@ -1417,8 +1099,8 @@ public static partial class ResourceImportService
 				}
 			}
 		}
-		int preservedCount = 0;
-		for (int j = 0; j < list.Count; j++)
+		var preservedCount = 0;
+		for (var j = 0; j < list.Count; j++)
 		{
 			if (!usedIndices.Contains(j) && list[j] != null)
 			{
@@ -1432,7 +1114,7 @@ public static partial class ResourceImportService
 			Log($"[ImportAssetOrder] {typeName}: Preserved {preservedCount} resource(s) not in TARGET order");
 		}
 		list.Clear();
-		foreach (T asset2 in newOrder)
+		foreach (var asset2 in newOrder)
 		{
 			list.Add(asset2);
 		}
@@ -1457,35 +1139,37 @@ public static partial class ResourceImportService
 
 	public static void SetProgressRange(int? startPercent = null, int? endPercent = null)
 	{
-		_progressRange = ((startPercent.HasValue && endPercent.HasValue) ? new(int, int)?((startPercent.Value, endPercent.Value)) : (((int, int)?)null));
+		_progressRange = (startPercent.HasValue && endPercent.HasValue) ? new (int, int)?((startPercent.Value, endPercent.Value)) : null;
 	}
 
 	private static void ReportProgress(int current, int total)
 	{
+		ModdingCancellation.Throw();
 		(int, int)? progressRange = _progressRange;
 		if (progressRange.HasValue)
 		{
-			(int, int) range = progressRange.GetValueOrDefault();
+			var range = progressRange.GetValueOrDefault();
 			LogService.ProgressRange(current, total, range.Item1, range.Item2);
 		}
 	}
 
+	// Linux and macOS return directory entries in no fixed order; sorting keeps import order the same on every platform.
+	private static string[] Sorted(string[] paths)
+	{
+		Array.Sort(paths, StringComparer.OrdinalIgnoreCase);
+		return paths;
+	}
+
 	private static string[] GetDirs(string path)
 	{
-		if (_pfs == null)
-		{
-			return Directory.GetDirectories(path);
-		}
-		return _pfs.GetDirectories(path);
+		ModdingCancellation.Throw();
+		return Sorted(_pfs == null ? Directory.GetDirectories(path) : _pfs.GetDirectories(path));
 	}
 
 	private static string[] GetFilesIn(string path, string pattern = "*")
 	{
-		if (_pfs == null)
-		{
-			return Directory.GetFiles(path, pattern);
-		}
-		return _pfs.GetFiles(path, pattern);
+		ModdingCancellation.Throw();
+		return Sorted(_pfs == null ? Directory.GetFiles(path, pattern) : _pfs.GetFiles(path, pattern));
 	}
 
 	private static bool FExists(string path)
@@ -1499,6 +1183,7 @@ public static partial class ResourceImportService
 
 	private static string FReadText(string path)
 	{
+		ModdingCancellation.Throw();
 		if (_pfs == null)
 		{
 			return File.ReadAllText(path, Encoding.UTF8);
@@ -1508,6 +1193,7 @@ public static partial class ResourceImportService
 
 	private static byte[] FReadBytes(string path)
 	{
+		ModdingCancellation.Throw();
 		if (_pfs == null)
 		{
 			return File.ReadAllBytes(path);
@@ -1517,6 +1203,7 @@ public static partial class ResourceImportService
 
 	private static string[] FReadLines(string path)
 	{
+		ModdingCancellation.Throw();
 		if (_pfs == null)
 		{
 			return File.ReadAllLines(path);
@@ -1538,104 +1225,159 @@ public static partial class ResourceImportService
 		return ResourceExportService.SafeName(name);
 	}
 
+	/// <summary>Cancelling throws <see cref="OperationCanceledException"/>. The input folder is never changed; <paramref name="data"/> may hold part of the import, so discard it.</summary>
+	public static bool Import(string resourceType, GameMakerData data, string inputDir, CancellationToken cancellationToken)
+	{
+		using var cancellationScope = ModdingCancellation.Begin(cancellationToken);
+		cancellationToken.ThrowIfCancellationRequested();
+		try
+		{
+			var imported = Import(resourceType, data, inputDir);
+			cancellationToken.ThrowIfCancellationRequested();
+			return imported;
+		}
+		catch (Exception ex) when (ModdingCancellation.IsCancellation(ex))
+		{
+			ModdingCancellation.Rethrow(ex, cancellationToken);
+			throw;
+		}
+	}
+
+	/// <summary>Imports one resource type and returns one result per item. The input folder is never changed; cancelling throws <see cref="OperationCanceledException"/> and <paramref name="data"/> may hold part of the import.</summary>
+	public static IReadOnlyList<ItemResult> Import(string resourceType, GameMakerData data, string inputDir, IProgress<BatchProgress>? progress, CancellationToken cancellationToken)
+	{
+		return BatchRun.RunImport(progress, cancellationToken, delegate
+		{
+			try
+			{
+				if (!Import(resourceType, data, inputDir))
+				{
+					throw new ArgumentException("Unknown resource type: " + resourceType, nameof(resourceType));
+				}
+			}
+			catch (Exception ex) when (ex is not ArgumentException && !ModdingCancellation.IsCancellation(ex))
+			{
+				BatchRun.Failed(resourceType, ex);
+			}
+		});
+	}
+
 	public static bool Import(string resourceType, GameMakerData data, string inputDir)
 	{
+		ArgumentNullException.ThrowIfNull(data);
 		switch (resourceType)
 		{
-		case "Language":
-			ImportLanguage(data, inputDir);
-			return true;
-		case "Options":
-			ImportOptions(data, inputDir);
-			return true;
-		case "GlobalScripts":
-			ImportGlobalScripts(data, inputDir);
-			return true;
-		case "Scripts":
-			ImportScripts(data, inputDir);
-			return true;
-		case "FeatureFlags":
-			ImportFeatureFlags(data, inputDir);
-			return true;
-		case "Tags":
-			ImportTags(data, inputDir);
-			return true;
-		case "FilterEffects":
-			ImportFilterEffects(data, inputDir);
-			return true;
-		case "AudioGroups":
-			ImportAudioGroups(data, inputDir);
-			return true;
-		case "EmbeddedAudio":
-			ImportEmbeddedAudio(data, inputDir);
-			return true;
-		case "TextureGroupInfo":
-			ImportTextureGroupInfo(data, inputDir);
-			return true;
-		case "EmbeddedTextures":
-			ImportEmbeddedTexturesForAssetOrder(data, inputDir);
-			return true;
-		case "Sprites":
-			ImportSprites(data, inputDir);
-			return true;
-		case "EmbeddedImages":
-			ImportEmbeddedImages(data, inputDir);
-			return true;
-		case "Fonts":
-			ImportFonts(data, inputDir);
-			return true;
-		case "Sounds":
-			ImportSounds(data, inputDir);
-			return true;
-		case "Paths":
-			ImportPaths(data, inputDir);
-			return true;
-		case "Shaders":
-			ImportShaders(data, inputDir);
-			return true;
-		case "GameObjects":
-			ImportGameObjects(data, inputDir);
-			return true;
-		case "Rooms":
-			ImportRooms(data, inputDir);
-			return true;
-		case "Sequences":
-			ImportSequences(data, inputDir);
-			return true;
-		case "Tilesets":
-			ImportTilesets(data, inputDir);
-			return true;
-		case "Backgrounds":
-			ImportBackgrounds(data, inputDir);
-			return true;
-		case "Extensions":
-			ImportExtensions(data, inputDir);
-			return true;
-		case "Timelines":
-			ImportTimelines(data, inputDir);
-			return true;
-		case "AnimationCurves":
-			ImportAnimationCurves(data, inputDir);
-			return true;
-		case "ParticleSystemEmitters":
-			ImportParticleSystemEmitters(data, inputDir);
-			return true;
-		case "ParticleSystems":
-			ImportParticleSystems(data, inputDir);
-			return true;
-		case "GeneralInfo":
-			ImportGeneralInfo(data, inputDir);
-			return true;
-		case "TexturePageItems":
-			ImportTexturePageItems(data, inputDir);
-			return true;
-		default:
-			return false;
+			case "Language":
+				ImportLanguage(data, inputDir);
+				return true;
+			case "Options":
+				ImportOptions(data, inputDir);
+				return true;
+			case "GlobalScripts":
+				ImportGlobalScripts(data, inputDir);
+				return true;
+			case "Scripts":
+				ImportScripts(data, inputDir);
+				return true;
+			case "FeatureFlags":
+				ImportFeatureFlags(data, inputDir);
+				return true;
+			case "Tags":
+				ImportTags(data, inputDir);
+				return true;
+			case "FilterEffects":
+				ImportFilterEffects(data, inputDir);
+				return true;
+			case "AudioGroups":
+				ImportAudioGroups(data, inputDir);
+				return true;
+			case "EmbeddedAudio":
+				ImportEmbeddedAudio(data, inputDir);
+				return true;
+			case "TextureGroupInfo":
+				ImportTextureGroupInfo(data, inputDir);
+				return true;
+			case "EmbeddedTextures":
+				ImportEmbeddedTexturesForAssetOrder(data, inputDir);
+				return true;
+			case "Sprites":
+				ImportSprites(data, inputDir);
+				return true;
+			case "EmbeddedImages":
+				ImportEmbeddedImages(data, inputDir);
+				return true;
+			case "Fonts":
+				ImportFonts(data, inputDir);
+				return true;
+			case "Sounds":
+				ImportSounds(data, inputDir);
+				return true;
+			case "Paths":
+				ImportPaths(data, inputDir);
+				return true;
+			case "Shaders":
+				ImportShaders(data, inputDir);
+				return true;
+			case "GameObjects":
+				ImportGameObjects(data, inputDir);
+				return true;
+			case "Rooms":
+				ImportRooms(data, inputDir);
+				return true;
+			case "Sequences":
+				ImportSequences(data, inputDir);
+				return true;
+			case "Tilesets":
+				ImportTilesets(data, inputDir);
+				return true;
+			case "Backgrounds":
+				ImportBackgrounds(data, inputDir);
+				return true;
+			case "Extensions":
+				ImportExtensions(data, inputDir);
+				return true;
+			case "Timelines":
+				ImportTimelines(data, inputDir);
+				return true;
+			case "AnimationCurves":
+				ImportAnimationCurves(data, inputDir);
+				return true;
+			case "ParticleSystemEmitters":
+				ImportParticleSystemEmitters(data, inputDir);
+				return true;
+			case "ParticleSystems":
+				ImportParticleSystems(data, inputDir);
+				return true;
+			case "GeneralInfo":
+				ImportGeneralInfo(data, inputDir);
+				return true;
+			case "TexturePageItems":
+				ImportTexturePageItems(data, inputDir);
+				return true;
+			default:
+				return false;
+		}
+	}
+
+	public static void ImportAssetOrder(GameMakerData data, string inputDir, CancellationToken cancellationToken)
+	{
+		using var cancellationScope = ModdingCancellation.Begin(cancellationToken);
+		cancellationToken.ThrowIfCancellationRequested();
+		try
+		{
+			ImportAssetOrder(data, inputDir);
+			cancellationToken.ThrowIfCancellationRequested();
+		}
+		catch (Exception ex) when (ModdingCancellation.IsCancellation(ex))
+		{
+			ModdingCancellation.Rethrow(ex, cancellationToken);
+			throw;
 		}
 	}
 
 	public static void ImportAssetOrder(GameMakerData data, string inputDir)
 	{
+		ArgumentNullException.ThrowIfNull(data);
 		ImportAssetOrderInternal(data, inputDir);
 	}
 
@@ -1646,28 +1388,32 @@ public static partial class ResourceImportService
 
 	private static void ImportNamedJsonResources(string inputDir, string operation, Action<string, JsonElement> import)
 	{
-		string[] dirs = GetDirs(inputDir);
-		foreach (string obj in dirs)
+		var dirs = GetDirs(inputDir);
+		BatchRun.Expect(dirs.Length);
+		foreach (var obj in dirs)
 		{
-			string name = Path.GetFileName(obj);
-			string jsonFile = Path.Combine(obj, name + ".json");
+			var name = Path.GetFileName(obj);
+			var jsonFile = Path.Combine(obj, name + ".json");
 			if (!FExists(jsonFile))
 			{
+				BatchRun.Item(name, ResultKind.Skipped, "Missing json file");
 				continue;
 			}
 			try
 			{
-				using JsonDocument jsonDoc = JsonDocument.Parse(FReadText(jsonFile));
-				JsonElement root = jsonDoc.RootElement;
+				using var jsonDoc = JsonDocument.Parse(FReadText(jsonFile));
+				var root = jsonDoc.RootElement;
 				if (root.TryGetProperty("name", out var nameElm))
 				{
 					name = nameElm.GetString() ?? name;
 				}
 				import(name, root);
+				BatchRun.Item(name);
 			}
-			catch (Exception ex)
+			catch (Exception ex) when (!ModdingCancellation.IsCancellation(ex))
 			{
 				Log($"[{operation}] Error: {name}: {ex.Message}");
+				BatchRun.Failed(name, ex);
 			}
 		}
 	}
@@ -1676,16 +1422,18 @@ public static partial class ResourceImportService
 	{
 		if (data.Options == null)
 		{
+			BatchRun.Item("Options", ResultKind.Skipped, "Target data has no OPTN chunk");
 			return;
 		}
-		string jsonPath = Path.Combine(inputDir, "options.json");
+		var jsonPath = Path.Combine(inputDir, "options.json");
 		if (!FExists(jsonPath))
 		{
+			BatchRun.Item("Options", ResultKind.Skipped, "File not found");
 			return;
 		}
-		using JsonDocument jsonDoc = JsonDocument.Parse(FReadText(jsonPath));
-		JsonElement root = jsonDoc.RootElement;
-		GameMakerOptions options = data.Options;
+		using var jsonDoc = JsonDocument.Parse(FReadText(jsonPath));
+		var root = jsonDoc.RootElement;
+		var options = data.Options;
 		if (root.TryGetProperty("newFormat", out var nf))
 		{
 			options.NewFormat = nf.GetBoolean();
@@ -1736,32 +1484,33 @@ public static partial class ResourceImportService
 		}
 		if (!root.TryGetProperty("constants", out var constants) || constants.ValueKind != JsonValueKind.Array)
 		{
+			BatchRun.Item("Options");
 			return;
 		}
 		options.Constants.Clear();
-		foreach (JsonElement constantJson in constants.EnumerateArray())
+		foreach (var constantJson in constants.EnumerateArray())
 		{
-			JsonElement nameEl;
-			string name = (constantJson.TryGetProperty("name", out nameEl) ? (nameEl.GetString() ?? "") : "");
-			JsonElement valueEl;
-			string value = (constantJson.TryGetProperty("value", out valueEl) ? (valueEl.GetString() ?? "") : "");
+			var name = constantJson.TryGetProperty("name", out var nameEl) ? (nameEl.GetString() ?? "") : "";
+			var value = constantJson.TryGetProperty("value", out var valueEl) ? (valueEl.GetString() ?? "") : "";
 			options.Constants.Add(new GameMakerOptions.Constant
 			{
 				Name = data.Strings.MakeString(name),
 				Value = data.Strings.MakeString(value)
 			});
 		}
+		BatchRun.Item("Options");
 	}
 
 	private static void ImportGlobalScripts(GameMakerData data, string inputDir)
 	{
-		string jsonPath = Path.Combine(inputDir, "global_scripts.json");
+		var jsonPath = Path.Combine(inputDir, "global_scripts.json");
 		if (!FExists(jsonPath))
 		{
+			BatchRun.Item("GlobalScripts", ResultKind.Skipped, "File not found");
 			return;
 		}
-		using JsonDocument jsonDoc = JsonDocument.Parse(FReadText(jsonPath));
-		JsonElement root = jsonDoc.RootElement;
+		using var jsonDoc = JsonDocument.Parse(FReadText(jsonPath));
+		var root = jsonDoc.RootElement;
 		if (data.GlobalInitScripts != null && root.TryGetProperty("globalInitScripts", out var globalInit))
 		{
 			ImportCodeRefList(data, data.GlobalInitScripts, globalInit);
@@ -1770,6 +1519,7 @@ public static partial class ResourceImportService
 		{
 			ImportCodeRefList(data, data.GameEndScripts, gameEnd);
 		}
+		BatchRun.Item("GlobalScripts");
 	}
 
 	private static void ImportCodeRefList(GameMakerData data, IList<GameMakerGlobalInit> target, JsonElement array)
@@ -1779,12 +1529,12 @@ public static partial class ResourceImportService
 			return;
 		}
 		target.Clear();
-		foreach (JsonElement item2 in array.EnumerateArray())
+		foreach (var item2 in array.EnumerateArray())
 		{
-			string codeName = item2.GetString();
+			var codeName = item2.GetString();
 			if (!string.IsNullOrWhiteSpace(codeName))
 			{
-				GameMakerCode code = data.Code?.ByName(codeName);
+				var code = data.Code?.ByName(codeName);
 				if (code == null)
 				{
 					Log("[ImportGlobalScripts] Missing code ref '" + codeName + "', skipped.");
@@ -1802,65 +1552,72 @@ public static partial class ResourceImportService
 	{
 		if (data.Scripts == null)
 		{
+			BatchRun.Item("Scripts", ResultKind.Skipped, "Target data has no SCPT chunk");
 			return;
 		}
-		Dictionary<string, GameMakerScript> scriptByExportFolder = BuildScriptExportFolderMap(data);
-		HashSet<GameMakerScript> usedScripts = new HashSet<GameMakerScript>();
-		int imported = 0;
-		int created = 0;
-		string[] dirs = GetDirs(inputDir);
-		foreach (string dir in dirs)
+		var scriptByExportFolder = BuildScriptExportFolderMap(data);
+		HashSet<GameMakerScript> usedScripts = [];
+		var imported = 0;
+		var created = 0;
+		var dirs = GetDirs(inputDir);
+		BatchRun.Expect(dirs.Length);
+		foreach (var dir in dirs)
 		{
-			string folderName = Path.GetFileName(dir);
+			var folderName = Path.GetFileName(dir);
 			if (string.IsNullOrWhiteSpace(folderName))
 			{
+				BatchRun.Item(dir, ResultKind.Skipped, "Empty folder name");
 				continue;
 			}
-			string jsonPath = Path.Combine(dir, folderName + ".json");
+			var jsonPath = Path.Combine(dir, folderName + ".json");
 			if (!FExists(jsonPath))
 			{
+				BatchRun.Item(folderName, ResultKind.Skipped, "Missing json file");
 				continue;
 			}
-			using JsonDocument jsonDoc = JsonDocument.Parse(FReadText(jsonPath));
-			JsonElement root = jsonDoc.RootElement;
-			JsonElement nameEl;
-			string name = (root.TryGetProperty("name", out nameEl) ? (nameEl.GetString() ?? folderName) : folderName);
-			JsonElement codeEl;
-			string codeName = (root.TryGetProperty("code", out codeEl) ? (codeEl.GetString() ?? "") : "");
-			JsonElement ctorEl;
-			bool isConstructor = root.TryGetProperty("isConstructor", out ctorEl) && ctorEl.GetBoolean();
-			GameMakerCode resolvedCode = PatchService.ScriptCodeResolver.Resolve(data, name, codeName);
-			GameMakerScript script = FindUnusedScriptByCode(data, resolvedCode, usedScripts);
-			if (script == null)
+			try
 			{
-				scriptByExportFolder.TryGetValue(folderName, out script);
-			}
-			if (script != null && usedScripts.Contains(script))
-			{
-				script = null;
-			}
-			if (script == null)
-			{
-				script = FindUnusedScriptByName(data, name, usedScripts);
-			}
-			if (script == null)
-			{
-				script = new GameMakerScript
+				using var jsonDoc = JsonDocument.Parse(FReadText(jsonPath));
+				var root = jsonDoc.RootElement;
+				var name = root.TryGetProperty("name", out var nameEl) ? (nameEl.GetString() ?? folderName) : folderName;
+				var codeName = root.TryGetProperty("code", out var codeEl) ? (codeEl.GetString() ?? "") : "";
+				var isConstructor = root.TryGetProperty("isConstructor", out var ctorEl) && ctorEl.GetBoolean();
+				var resolvedCode = PatchService.ScriptCodeResolver.Resolve(data, name, codeName);
+				var script = FindUnusedScriptByCode(data, resolvedCode, usedScripts);
+				if (script == null)
 				{
-					Name = data.Strings.MakeString(name)
-				};
-				data.Scripts.Add(script);
-				scriptByExportFolder[folderName] = script;
-				created++;
+					scriptByExportFolder.TryGetValue(folderName, out script);
+				}
+				if (script != null && usedScripts.Contains(script))
+				{
+					script = null;
+				}
+				script ??= FindUnusedScriptByName(data, name, usedScripts);
+				if (script == null)
+				{
+					script = new GameMakerScript
+					{
+						Name = data.Strings.MakeString(name)
+					};
+					data.Scripts.Add(script);
+					scriptByExportFolder[folderName] = script;
+					created++;
+				}
+				usedScripts.Add(script);
+				script.IsConstructor = isConstructor;
+				script.Code = resolvedCode;
+				if (script.Code == null && !string.IsNullOrWhiteSpace(codeName))
+				{
+					Log($"[ImportScripts] Missing code ref '{codeName}' for script '{name}'.");
+				}
+				imported++;
+				BatchRun.Item(folderName);
 			}
-			usedScripts.Add(script);
-			script.IsConstructor = isConstructor;
-			script.Code = resolvedCode;
-			if (script.Code == null && !string.IsNullOrWhiteSpace(codeName))
+			catch (Exception itemEx) when (BatchRun.Active && !ModdingCancellation.IsCancellation(itemEx))
 			{
-				Log($"[ImportScripts] Missing code ref '{codeName}' for script '{name}'.");
+				Log($"[ImportScripts] Error: {folderName}: {itemEx.Message}");
+				BatchRun.Failed(folderName, itemEx);
 			}
-			imported++;
 		}
 		Log($"[ImportScripts] Done. {imported} imported ({created} new).");
 	}
@@ -1871,7 +1628,7 @@ public static partial class ResourceImportService
 		{
 			return null;
 		}
-		foreach (GameMakerScript script in data.Scripts)
+		foreach (var script in data.Scripts)
 		{
 			if (script != null && !usedScripts.Contains(script) && script.Code == code)
 			{
@@ -1883,7 +1640,7 @@ public static partial class ResourceImportService
 
 	private static GameMakerScript? FindUnusedScriptByName(GameMakerData data, string name, HashSet<GameMakerScript> usedScripts)
 	{
-		foreach (GameMakerScript script in data.Scripts)
+		foreach (var script in data.Scripts)
 		{
 			if (script?.Name?.Content == name && !usedScripts.Contains(script))
 			{
@@ -1895,20 +1652,20 @@ public static partial class ResourceImportService
 
 	private static Dictionary<string, GameMakerScript> BuildScriptExportFolderMap(GameMakerData data)
 	{
-		Dictionary<string, GameMakerScript> result = new Dictionary<string, GameMakerScript>(StringComparer.OrdinalIgnoreCase);
+		var result = new Dictionary<string, GameMakerScript>(StringComparer.OrdinalIgnoreCase);
 		if (data.Scripts == null || data.Scripts.Count == 0)
 		{
 			return result;
 		}
-		Dictionary<string, int> used = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-		foreach (GameMakerScript script in data.Scripts)
+		var used = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+		foreach (var script in data.Scripts)
 		{
-			string originalName = script?.Name?.Content;
+			var originalName = script?.Name?.Content;
 			if (string.IsNullOrWhiteSpace(originalName) || script == null)
 			{
 				continue;
 			}
-			string safeName = SafeName(originalName);
+			var safeName = SafeName(originalName);
 			if (string.IsNullOrWhiteSpace(safeName))
 			{
 				safeName = "_";
@@ -1939,43 +1696,53 @@ public static partial class ResourceImportService
 	{
 		if (data.EmbeddedImages == null)
 		{
+			BatchRun.Item("EmbeddedImages", ResultKind.Skipped, "Target data has no EMBI chunk");
 			return;
 		}
-		int imported = 0;
-		int created = 0;
-		string[] dirs = GetDirs(inputDir);
-		foreach (string dir in dirs)
+		var imported = 0;
+		var created = 0;
+		var dirs = GetDirs(inputDir);
+		BatchRun.Expect(dirs.Length);
+		foreach (var dir in dirs)
 		{
-			string folderName = Path.GetFileName(dir);
+			var folderName = Path.GetFileName(dir);
 			if (string.IsNullOrWhiteSpace(folderName))
 			{
+				BatchRun.Item(dir, ResultKind.Skipped, "Empty folder name");
 				continue;
 			}
-			string jsonPath = Path.Combine(dir, folderName + ".json");
+			var jsonPath = Path.Combine(dir, folderName + ".json");
 			if (!FExists(jsonPath))
 			{
+				BatchRun.Item(folderName, ResultKind.Skipped, "Missing json file");
 				continue;
 			}
-			using JsonDocument jsonDoc = JsonDocument.Parse(FReadText(jsonPath));
-			JsonElement root = jsonDoc.RootElement;
-			JsonElement nameEl;
-			string name = (root.TryGetProperty("name", out nameEl) ? (nameEl.GetString() ?? folderName) : folderName);
-			JsonElement indexEl;
-			int tpiIndex = (root.TryGetProperty("texturePageItemIndex", out indexEl) ? indexEl.GetInt32() : (-1));
-			JsonElement tpiNameEl;
-			string tpiName = (root.TryGetProperty("texturePageItemName", out tpiNameEl) ? (tpiNameEl.GetString() ?? "") : "");
-			GameMakerEmbeddedImage image = data.EmbeddedImages.ByName(name);
-			if (image == null)
+			try
 			{
-				image = new GameMakerEmbeddedImage
+				using var jsonDoc = JsonDocument.Parse(FReadText(jsonPath));
+				var root = jsonDoc.RootElement;
+				var name = root.TryGetProperty("name", out var nameEl) ? (nameEl.GetString() ?? folderName) : folderName;
+				var tpiIndex = root.TryGetProperty("texturePageItemIndex", out var indexEl) ? indexEl.GetInt32() : (-1);
+				var tpiName = root.TryGetProperty("texturePageItemName", out var tpiNameEl) ? (tpiNameEl.GetString() ?? "") : "";
+				var image = data.EmbeddedImages.ByName(name);
+				if (image == null)
 				{
-					Name = data.Strings.MakeString(name)
-				};
-				data.EmbeddedImages.Add(image);
-				created++;
+					image = new GameMakerEmbeddedImage
+					{
+						Name = data.Strings.MakeString(name)
+					};
+					data.EmbeddedImages.Add(image);
+					created++;
+				}
+				image.TextureEntry = ResolveTexturePageItem(data, tpiIndex, tpiName);
+				imported++;
+				BatchRun.Item(folderName);
 			}
-			image.TextureEntry = ResolveTexturePageItem(data, tpiIndex, tpiName);
-			imported++;
+			catch (Exception itemEx) when (BatchRun.Active && !ModdingCancellation.IsCancellation(itemEx))
+			{
+				Log($"[ImportEmbeddedImages] Error: {folderName}: {itemEx.Message}");
+				BatchRun.Failed(folderName, itemEx);
+			}
 		}
 		Log($"[ImportEmbeddedImages] Done. {imported} imported ({created} new).");
 	}
@@ -1988,7 +1755,7 @@ public static partial class ResourceImportService
 		}
 		if (!string.IsNullOrWhiteSpace(name))
 		{
-			GameMakerTexturePageItem byName = data.TexturePageItems.ByName(name);
+			var byName = data.TexturePageItems.ByName(name);
 			if (byName != null)
 			{
 				return byName;
@@ -2003,80 +1770,85 @@ public static partial class ResourceImportService
 
 	private static void ImportFeatureFlags(GameMakerData data, string inputDir)
 	{
-		string jsonPath = Path.Combine(inputDir, "feature_flags.json");
+		var jsonPath = Path.Combine(inputDir, "feature_flags.json");
 		if (!FExists(jsonPath))
 		{
+			BatchRun.Item("FeatureFlags", ResultKind.Skipped, "File not found");
 			return;
 		}
 		if (data.FeatureFlags?.List == null)
 		{
 			Log("[ImportFeatureFlags] Skipped: target data has no FEAT chunk.");
+			BatchRun.Item("FeatureFlags", ResultKind.Skipped, "Target data has no FEAT chunk");
 			return;
 		}
-		using JsonDocument jsonDoc = JsonDocument.Parse(FReadText(jsonPath));
+		using var jsonDoc = JsonDocument.Parse(FReadText(jsonPath));
 		if (jsonDoc.RootElement.ValueKind != JsonValueKind.Array)
 		{
+			BatchRun.Item("FeatureFlags", ResultKind.Skipped, "Unexpected file format");
 			return;
 		}
 		data.FeatureFlags.List.Clear();
-		foreach (JsonElement item in jsonDoc.RootElement.EnumerateArray())
+		foreach (var item in jsonDoc.RootElement.EnumerateArray())
 		{
-			string flag = item.GetString();
+			var flag = item.GetString();
 			if (!string.IsNullOrEmpty(flag))
 			{
 				data.FeatureFlags.List.Add(data.Strings.MakeString(flag));
 			}
 		}
 		Log($"[ImportFeatureFlags] Done. {data.FeatureFlags.List.Count} flags.");
+		BatchRun.Item("FeatureFlags");
 	}
 
 	private static void ImportLanguage(GameMakerData data, string inputDir)
 	{
-		string jsonPath = Path.Combine(inputDir, "language.json");
+		var jsonPath = Path.Combine(inputDir, "language.json");
 		if (!FExists(jsonPath))
 		{
+			BatchRun.Item("Language", ResultKind.Skipped, "File not found");
 			return;
 		}
 		if (data.Language == null)
 		{
 			Log("[ImportLanguage] Skipped: target data has no LANG chunk.");
+			BatchRun.Item("Language", ResultKind.Skipped, "Target data has no LANG chunk");
 			return;
 		}
-		using JsonDocument jsonDoc = JsonDocument.Parse(FReadText(jsonPath));
-		JsonElement root = jsonDoc.RootElement;
+		using var jsonDoc = JsonDocument.Parse(FReadText(jsonPath));
+		var root = jsonDoc.RootElement;
 		if (root.ValueKind != JsonValueKind.Object)
 		{
+			BatchRun.Item("Language", ResultKind.Skipped, "Unexpected file format");
 			return;
 		}
 		data.Language.Unknown1 = GetJsonValue(root, "unknown1", data.Language.Unknown1);
-		data.Language.EntryIDs = new List<GameMakerString>();
+		data.Language.EntryIDs = [];
 		if (root.TryGetProperty("entryIds", out var entryIdsElm) && entryIdsElm.ValueKind == JsonValueKind.Array)
 		{
-			foreach (JsonElement entryElm in entryIdsElm.EnumerateArray())
+			foreach (var entryElm in entryIdsElm.EnumerateArray())
 			{
 				data.Language.EntryIDs.Add(data.Strings.MakeString(entryElm.GetString() ?? ""));
 			}
 		}
-		data.Language.Languages = new List<GameMakerLanguage.LanguageData>();
+		data.Language.Languages = [];
 		if (root.TryGetProperty("languages", out var languagesElm) && languagesElm.ValueKind == JsonValueKind.Array)
 		{
-			foreach (JsonElement languageElm in languagesElm.EnumerateArray())
+			foreach (var languageElm in languagesElm.EnumerateArray())
 			{
 				if (languageElm.ValueKind != JsonValueKind.Object)
 				{
 					continue;
 				}
-				JsonElement nameElm;
-				JsonElement regionElm;
-				GameMakerLanguage.LanguageData language = new GameMakerLanguage.LanguageData
+				var language = new GameMakerLanguage.LanguageData
 				{
-					Name = data.Strings.MakeString(languageElm.TryGetProperty("name", out nameElm) ? (nameElm.GetString() ?? "") : ""),
-					Region = data.Strings.MakeString(languageElm.TryGetProperty("region", out regionElm) ? (regionElm.GetString() ?? "") : ""),
-					Entries = new List<GameMakerString>()
+					Name = data.Strings.MakeString(languageElm.TryGetProperty("name", out var nameElm) ? (nameElm.GetString() ?? "") : ""),
+					Region = data.Strings.MakeString(languageElm.TryGetProperty("region", out var regionElm) ? (regionElm.GetString() ?? "") : ""),
+					Entries = []
 				};
 				if (languageElm.TryGetProperty("entries", out var entriesElm) && entriesElm.ValueKind == JsonValueKind.Array)
 				{
-					foreach (JsonElement entryElm2 in entriesElm.EnumerateArray())
+					foreach (var entryElm2 in entriesElm.EnumerateArray())
 					{
 						language.Entries.Add(data.Strings.MakeString(entryElm2.GetString() ?? ""));
 					}
@@ -2087,7 +1859,7 @@ public static partial class ResourceImportService
 				}
 				if (language.Entries.Count > data.Language.EntryIDs.Count)
 				{
-					language.Entries = language.Entries.Take(data.Language.EntryIDs.Count).ToList();
+					language.Entries = [.. language.Entries.Take(data.Language.EntryIDs.Count)];
 				}
 				data.Language.Languages.Add(language);
 			}
@@ -2095,37 +1867,41 @@ public static partial class ResourceImportService
 		data.Language.EntryCount = (uint)data.Language.EntryIDs.Count;
 		data.Language.LanguageCount = (uint)data.Language.Languages.Count;
 		Log($"[ImportLanguage] Done. {data.Language.LanguageCount} languages, {data.Language.EntryCount} entries.");
+		BatchRun.Item("Language");
 	}
 
 	private static void ImportTags(GameMakerData data, string inputDir)
 	{
-		string jsonPath = Path.Combine(inputDir, "tags.json");
+		var jsonPath = Path.Combine(inputDir, "tags.json");
 		if (!FExists(jsonPath))
 		{
+			BatchRun.Item("Tags", ResultKind.Skipped, "File not found");
 			return;
 		}
 		if (data.Tags == null)
 		{
 			Log("[ImportTags] Skipped: target data has no TAGS chunk.");
+			BatchRun.Item("Tags", ResultKind.Skipped, "Target data has no TAGS chunk");
 			return;
 		}
-		using JsonDocument jsonDoc = JsonDocument.Parse(FReadText(jsonPath));
-		JsonElement root = jsonDoc.RootElement;
+		using var jsonDoc = JsonDocument.Parse(FReadText(jsonPath));
+		var root = jsonDoc.RootElement;
 		if (root.ValueKind != JsonValueKind.Object)
 		{
+			BatchRun.Item("Tags", ResultKind.Skipped, "Unexpected file format");
 			return;
 		}
-		GameMakerTags tags = data.Tags;
+		var tags = data.Tags;
 		if (tags.Tags == null)
 		{
-			GameMakerSimpleListString gameMakerSimpleListString = (tags.Tags = new GameMakerSimpleListString());
+			var gameMakerSimpleListString = tags.Tags = [];
 		}
 		data.Tags.Tags.Clear();
 		if (root.TryGetProperty("tags", out var tagsElm) && tagsElm.ValueKind == JsonValueKind.Array)
 		{
-			foreach (JsonElement item in tagsElm.EnumerateArray())
+			foreach (var item in tagsElm.EnumerateArray())
 			{
-				string tag = item.GetString();
+				var tag = item.GetString();
 				if (!string.IsNullOrEmpty(tag))
 				{
 					data.Tags.Tags.Add(data.Strings.MakeString(tag));
@@ -2135,24 +1911,24 @@ public static partial class ResourceImportService
 		tags = data.Tags;
 		if (tags.AssetTags == null)
 		{
-			Dictionary<int, GameMakerSimpleListString> dictionary = (tags.AssetTags = new Dictionary<int, GameMakerSimpleListString>());
+			var dictionary = tags.AssetTags = [];
 		}
 		data.Tags.AssetTags.Clear();
 		if (root.TryGetProperty("assetTags", out var assetTagsElm) && assetTagsElm.ValueKind == JsonValueKind.Array)
 		{
-			foreach (JsonElement assetTagElm in assetTagsElm.EnumerateArray())
+			foreach (var assetTagElm in assetTagsElm.EnumerateArray())
 			{
 				if (!TryResolveAssetTagId(data, assetTagElm, out var assetId))
 				{
 					Log("[ImportTags] Skipped asset tag entry: unresolved asset identity.");
 					continue;
 				}
-				GameMakerSimpleListString list = new GameMakerSimpleListString();
+				GameMakerSimpleListString list = [];
 				if (assetTagElm.TryGetProperty("tags", out var itemTagsElm) && itemTagsElm.ValueKind == JsonValueKind.Array)
 				{
-					foreach (JsonElement item2 in itemTagsElm.EnumerateArray())
+					foreach (var item2 in itemTagsElm.EnumerateArray())
 					{
-						string tag2 = item2.GetString();
+						var tag2 = item2.GetString();
 						if (!string.IsNullOrEmpty(tag2))
 						{
 							list.Add(data.Strings.MakeString(tag2));
@@ -2163,6 +1939,7 @@ public static partial class ResourceImportService
 			}
 		}
 		Log($"[ImportTags] Done. {data.Tags.Tags.Count} global tags, {data.Tags.AssetTags.Count} asset tag entries.");
+		BatchRun.Item("Tags");
 	}
 
 	private static void ImportFilterEffects(GameMakerData data, string inputDir)
@@ -2170,13 +1947,14 @@ public static partial class ResourceImportService
 		if (data.FilterEffects == null)
 		{
 			Log("[ImportFilterEffects] Skipped: target data has no FEDS chunk.");
+			BatchRun.Item("FilterEffects", ResultKind.Skipped, "Target data has no FEDS chunk");
 			return;
 		}
-		int created = 0;
-		int updated = 0;
-		ImportNamedJsonResources(inputDir, "ImportFilterEffects", delegate(string name, JsonElement root)
+		var created = 0;
+		var updated = 0;
+		ImportNamedJsonResources(inputDir, "ImportFilterEffects", delegate (string name, JsonElement root)
 		{
-			GameMakerFilterEffect gameMakerFilterEffect = data.FilterEffects.ByName(name);
+			var gameMakerFilterEffect = data.FilterEffects.ByName(name);
 			if (gameMakerFilterEffect == null)
 			{
 				gameMakerFilterEffect = new GameMakerFilterEffect
@@ -2198,17 +1976,15 @@ public static partial class ResourceImportService
 	private static bool TryResolveAssetTagId(GameMakerData data, JsonElement assetTagElm, out int assetId)
 	{
 		assetId = 0;
-		JsonElement typeElm;
-		string assetType = (assetTagElm.TryGetProperty("assetType", out typeElm) ? (typeElm.GetString() ?? "") : "");
-		JsonElement nameElm;
-		string assetName = (assetTagElm.TryGetProperty("assetName", out nameElm) ? (nameElm.GetString() ?? "") : "");
+		var assetType = assetTagElm.TryGetProperty("assetType", out var typeElm) ? (typeElm.GetString() ?? "") : "";
+		var assetName = assetTagElm.TryGetProperty("assetName", out var nameElm) ? (nameElm.GetString() ?? "") : "";
 		if (!string.IsNullOrEmpty(assetType) && !string.IsNullOrEmpty(assetName) && TryEncodeAssetTagId(data, assetType, assetName, out assetId))
 		{
 			return true;
 		}
 		if (assetTagElm.TryGetProperty("assetId", out var assetIdElm))
 		{
-			int rawAssetId = assetIdElm.GetInt32();
+			var rawAssetId = assetIdElm.GetInt32();
 			if (IsAssetTagIdValid(data, rawAssetId))
 			{
 				assetId = rawAssetId;
@@ -2225,21 +2001,21 @@ public static partial class ResourceImportService
 		{
 			return false;
 		}
-		int index = GetAssetIndexByTagType(data, type, assetName);
+		var index = GetAssetIndexByTagType(data, type, assetName);
 		if (index < 0)
 		{
 			return false;
 		}
-		int storedIndex = ((type == ResourceType.Script) ? (index + 100000) : index);
+		var storedIndex = (type == ResourceType.Script) ? (index + 100000) : index;
 		assetId = ((int)type << 24) | (storedIndex & 0xFFFFFF);
 		return true;
 	}
 
 	private static bool IsAssetTagIdValid(GameMakerData data, int assetId)
 	{
-		ResourceType type = (ResourceType)(assetId >> 24);
-		int rawIndex = assetId & 0xFFFFFF;
-		int index = ((type == ResourceType.Script) ? (rawIndex - 100000) : rawIndex);
+		var type = (ResourceType)(assetId >> 24);
+		var rawIndex = assetId & 0xFFFFFF;
+		var index = (type == ResourceType.Script) ? (rawIndex - 100000) : rawIndex;
 		return ResourceAssetUtil.GetAssetNameByTagType(data, type, index) != null;
 	}
 
@@ -2247,44 +2023,44 @@ public static partial class ResourceImportService
 	{
 		switch (type)
 		{
-		case ResourceType.Object:
-			return data.GameObjects.IndexOfName(assetName);
-		case ResourceType.Sprite:
-			return data.Sprites.IndexOfName(assetName);
-		case ResourceType.Sound:
-			return data.Sounds.IndexOfName(assetName);
-		case ResourceType.Room:
-			return data.Rooms.IndexOfName(assetName);
-		case ResourceType.Path:
-			return data.Paths.IndexOfName(assetName);
-		case ResourceType.Script:
-			return data.Scripts.IndexOfName(assetName);
-		case ResourceType.Font:
-			return data.Fonts.IndexOfName(assetName);
-		case ResourceType.Timeline:
-			return data.Timelines.IndexOfName(assetName);
-		case ResourceType.Background:
-			return data.Backgrounds.IndexOfName(assetName);
-		case ResourceType.Shader:
-			return data.Shaders.IndexOfName(assetName);
-		case ResourceType.Sequence:
-			if (data.Sequences != null)
-			{
-				return data.Sequences.IndexOfName(assetName);
-			}
-			break;
-		case ResourceType.AnimCurve:
-			if (data.AnimationCurves != null)
-			{
-				return data.AnimationCurves.IndexOfName(assetName);
-			}
-			break;
-		case ResourceType.ParticleSystem:
-			if (data.ParticleSystems != null)
-			{
-				return data.ParticleSystems.IndexOfName(assetName);
-			}
-			break;
+			case ResourceType.Object:
+				return data.GameObjects.IndexOfName(assetName);
+			case ResourceType.Sprite:
+				return data.Sprites.IndexOfName(assetName);
+			case ResourceType.Sound:
+				return data.Sounds.IndexOfName(assetName);
+			case ResourceType.Room:
+				return data.Rooms.IndexOfName(assetName);
+			case ResourceType.Path:
+				return data.Paths.IndexOfName(assetName);
+			case ResourceType.Script:
+				return data.Scripts.IndexOfName(assetName);
+			case ResourceType.Font:
+				return data.Fonts.IndexOfName(assetName);
+			case ResourceType.Timeline:
+				return data.Timelines.IndexOfName(assetName);
+			case ResourceType.Background:
+				return data.Backgrounds.IndexOfName(assetName);
+			case ResourceType.Shader:
+				return data.Shaders.IndexOfName(assetName);
+			case ResourceType.Sequence:
+				if (data.Sequences != null)
+				{
+					return data.Sequences.IndexOfName(assetName);
+				}
+				break;
+			case ResourceType.AnimCurve:
+				if (data.AnimationCurves != null)
+				{
+					return data.AnimationCurves.IndexOfName(assetName);
+				}
+				break;
+			case ResourceType.ParticleSystem:
+				if (data.ParticleSystems != null)
+				{
+					return data.ParticleSystems.IndexOfName(assetName);
+				}
+				break;
 		}
 		return -1;
 	}
@@ -2341,29 +2117,31 @@ public static partial class ResourceImportService
 
 	private static void ImportAudioGroups(GameMakerData data, string inputDir)
 	{
-		string[] dirs = GetDirs(inputDir);
+		var dirs = GetDirs(inputDir);
 		if (dirs.Length == 0)
 		{
 			return;
 		}
 		Log($"[ImportAudioGroups] Found {dirs.Length} audio group(s) to import.");
-		int created = 0;
-		int updated = 0;
-		string[] array = dirs;
-		foreach (string obj in array)
+		BatchRun.Expect(dirs.Length);
+		var created = 0;
+		var updated = 0;
+		var array = dirs;
+		foreach (var obj in array)
 		{
-			string name = Path.GetFileName(obj);
-			string jsonFile = Path.Combine(obj, name + ".json");
+			var name = Path.GetFileName(obj);
+			var jsonFile = Path.Combine(obj, name + ".json");
 			if (!FExists(jsonFile))
 			{
+				BatchRun.Item(name, ResultKind.Skipped, "Missing json file");
 				continue;
 			}
 			try
 			{
-				using JsonDocument jsonDoc = JsonDocument.Parse(FReadText(jsonFile));
-				JsonElement root = jsonDoc.RootElement;
-				GameMakerAudioGroup ag = data.AudioGroups?.ByName(name);
-				bool num = ag == null;
+				using var jsonDoc = JsonDocument.Parse(FReadText(jsonFile));
+				var root = jsonDoc.RootElement;
+				var ag = data.AudioGroups?.ByName(name);
+				var num = ag == null;
 				if (num)
 				{
 					ag = new GameMakerAudioGroup
@@ -2373,7 +2151,7 @@ public static partial class ResourceImportService
 				}
 				if (root.TryGetProperty("path", out var pathElm))
 				{
-					string path = pathElm.GetString() ?? "";
+					var path = pathElm.GetString() ?? "";
 					if (!string.IsNullOrEmpty(path))
 					{
 						ag.Path = data.Strings.MakeString(path);
@@ -2388,10 +2166,12 @@ public static partial class ResourceImportService
 				{
 					updated++;
 				}
+				BatchRun.Item(name);
 			}
-			catch (Exception ex)
+			catch (Exception ex) when (!ModdingCancellation.IsCancellation(ex))
 			{
 				Log("[ImportAudioGroups] Error: " + name + ": " + ex.Message);
+				BatchRun.Failed(name, ex);
 			}
 		}
 		Log($"[ImportAudioGroups] Done. Created: {created}, Updated: {updated}");
@@ -2399,32 +2179,34 @@ public static partial class ResourceImportService
 
 	private static void ImportPaths(GameMakerData data, string inputDir)
 	{
-		string[] dirs = GetDirs(inputDir);
+		var dirs = GetDirs(inputDir);
 		if (dirs.Length == 0)
 		{
 			return;
 		}
-		string[] array = dirs;
-		foreach (string obj in array)
+		BatchRun.Expect(dirs.Length);
+		var array = dirs;
+		foreach (var obj in array)
 		{
-			string name = Path.GetFileName(obj);
-			string jsonFile = Path.Combine(obj, name + ".json");
+			var name = Path.GetFileName(obj);
+			var jsonFile = Path.Combine(obj, name + ".json");
 			if (!FExists(jsonFile))
 			{
+				BatchRun.Item(name, ResultKind.Skipped, "Missing json file");
 				continue;
 			}
 			try
 			{
-				using JsonDocument jsonDoc = JsonDocument.Parse(FReadText(jsonFile));
-				JsonElement root = jsonDoc.RootElement;
-				GameMakerPath path = data.Paths?.ByName(name);
-				bool isNew = path == null;
+				using var jsonDoc = JsonDocument.Parse(FReadText(jsonFile));
+				var root = jsonDoc.RootElement;
+				var path = data.Paths?.ByName(name);
+				var isNew = path == null;
 				if (isNew)
 				{
 					path = new GameMakerPath
 					{
 						Name = data.Strings.MakeString(name),
-						Points = new GameMakerSimpleList<GameMakerPath.PathPoint>(),
+						Points = [],
 						IsSmooth = false,
 						IsClosed = false,
 						Precision = 4u
@@ -2445,9 +2227,9 @@ public static partial class ResourceImportService
 				if (root.TryGetProperty("points", out var pointsElm) && pointsElm.ValueKind == JsonValueKind.Array)
 				{
 					path.Points.Clear();
-					foreach (JsonElement ptElm in pointsElm.EnumerateArray())
+					foreach (var ptElm in pointsElm.EnumerateArray())
 					{
-						GameMakerPath.PathPoint pt = new GameMakerPath.PathPoint();
+						var pt = new GameMakerPath.PathPoint();
 						if (ptElm.TryGetProperty("x", out var xElm))
 						{
 							pt.X = (float)xElm.GetDouble();
@@ -2467,61 +2249,55 @@ public static partial class ResourceImportService
 				{
 					data.Paths.Add(path);
 				}
+				BatchRun.Item(name);
 			}
-			catch (Exception ex)
+			catch (Exception ex) when (!ModdingCancellation.IsCancellation(ex))
 			{
 				Log("[ImportPaths] Error: " + name + ": " + ex.Message);
+				BatchRun.Failed(name, ex);
 			}
 		}
 	}
 
 	private static void ImportTexturePageItems(GameMakerData data, string inputDir)
 	{
-		string jsonPath = Path.Combine(inputDir, "texture_page_items.json");
+		var jsonPath = Path.Combine(inputDir, "texture_page_items.json");
 		if (!FExists(jsonPath))
 		{
+			BatchRun.Item("TexturePageItems", ResultKind.Skipped, "File not found");
 			return;
 		}
-		using JsonDocument jsonDoc = JsonDocument.Parse(FReadText(jsonPath));
+		using var jsonDoc = JsonDocument.Parse(FReadText(jsonPath));
 		if (jsonDoc.RootElement.ValueKind != JsonValueKind.Array)
 		{
+			BatchRun.Item("TexturePageItems", ResultKind.Skipped, "Unexpected file format");
 			return;
 		}
-		List<JsonElement> items = jsonDoc.RootElement.EnumerateArray().ToList();
-		int updated = 0;
-		int created = 0;
-		foreach (JsonElement itemElm in items)
+		List<JsonElement> items = [.. jsonDoc.RootElement.EnumerateArray()];
+		var updated = 0;
+		var created = 0;
+		var itemIndex = 0;
+		BatchRun.Expect(items.Count);
+		foreach (var itemElm in items)
 		{
+			var itemLabel = "PageItem " + itemIndex++;
 			try
 			{
 				if (!itemElm.TryGetProperty("isNull", out var nullElm) || !nullElm.GetBoolean())
 				{
-					JsonElement idxElm;
-					int index = (itemElm.TryGetProperty("index", out idxElm) ? idxElm.GetInt32() : (-1));
-					JsonElement nameElm;
-					string name = (itemElm.TryGetProperty("name", out nameElm) ? (nameElm.GetString() ?? "") : "");
-					JsonElement sxElm;
-					ushort sourceX = (ushort)(itemElm.TryGetProperty("sourceX", out sxElm) ? ((ushort)sxElm.GetInt32()) : 0);
-					JsonElement syElm;
-					ushort sourceY = (ushort)(itemElm.TryGetProperty("sourceY", out syElm) ? ((ushort)syElm.GetInt32()) : 0);
-					JsonElement swElm;
-					ushort sourceWidth = (ushort)(itemElm.TryGetProperty("sourceWidth", out swElm) ? ((ushort)swElm.GetInt32()) : 0);
-					JsonElement shElm;
-					ushort sourceHeight = (ushort)(itemElm.TryGetProperty("sourceHeight", out shElm) ? ((ushort)shElm.GetInt32()) : 0);
-					JsonElement txElm;
-					ushort targetX = (ushort)(itemElm.TryGetProperty("targetX", out txElm) ? ((ushort)txElm.GetInt32()) : 0);
-					JsonElement tyElm;
-					ushort targetY = (ushort)(itemElm.TryGetProperty("targetY", out tyElm) ? ((ushort)tyElm.GetInt32()) : 0);
-					JsonElement twElm;
-					ushort targetWidth = (ushort)(itemElm.TryGetProperty("targetWidth", out twElm) ? ((ushort)twElm.GetInt32()) : 0);
-					JsonElement thElm;
-					ushort targetHeight = (ushort)(itemElm.TryGetProperty("targetHeight", out thElm) ? ((ushort)thElm.GetInt32()) : 0);
-					JsonElement bwElm;
-					ushort boundingWidth = (ushort)(itemElm.TryGetProperty("boundingWidth", out bwElm) ? ((ushort)bwElm.GetInt32()) : 0);
-					JsonElement bhElm;
-					ushort boundingHeight = (ushort)(itemElm.TryGetProperty("boundingHeight", out bhElm) ? ((ushort)bhElm.GetInt32()) : 0);
-					JsonElement tpElm;
-					int texturePageIndex = (itemElm.TryGetProperty("texturePageIndex", out tpElm) ? tpElm.GetInt32() : (-1));
+					var index = itemElm.TryGetProperty("index", out var idxElm) ? idxElm.GetInt32() : (-1);
+					var name = itemElm.TryGetProperty("name", out var nameElm) ? (nameElm.GetString() ?? "") : "";
+					var sourceX = (ushort)(itemElm.TryGetProperty("sourceX", out var sxElm) ? ((ushort)sxElm.GetInt32()) : 0);
+					var sourceY = (ushort)(itemElm.TryGetProperty("sourceY", out var syElm) ? ((ushort)syElm.GetInt32()) : 0);
+					var sourceWidth = (ushort)(itemElm.TryGetProperty("sourceWidth", out var swElm) ? ((ushort)swElm.GetInt32()) : 0);
+					var sourceHeight = (ushort)(itemElm.TryGetProperty("sourceHeight", out var shElm) ? ((ushort)shElm.GetInt32()) : 0);
+					var targetX = (ushort)(itemElm.TryGetProperty("targetX", out var txElm) ? ((ushort)txElm.GetInt32()) : 0);
+					var targetY = (ushort)(itemElm.TryGetProperty("targetY", out var tyElm) ? ((ushort)tyElm.GetInt32()) : 0);
+					var targetWidth = (ushort)(itemElm.TryGetProperty("targetWidth", out var twElm) ? ((ushort)twElm.GetInt32()) : 0);
+					var targetHeight = (ushort)(itemElm.TryGetProperty("targetHeight", out var thElm) ? ((ushort)thElm.GetInt32()) : 0);
+					var boundingWidth = (ushort)(itemElm.TryGetProperty("boundingWidth", out var bwElm) ? ((ushort)bwElm.GetInt32()) : 0);
+					var boundingHeight = (ushort)(itemElm.TryGetProperty("boundingHeight", out var bhElm) ? ((ushort)bhElm.GetInt32()) : 0);
+					var texturePageIndex = itemElm.TryGetProperty("texturePageIndex", out var tpElm) ? tpElm.GetInt32() : (-1);
 					GameMakerTexturePageItem item;
 					if (index >= 0 && index < data.TexturePageItems.Count)
 					{
@@ -2551,14 +2327,20 @@ public static partial class ResourceImportService
 					{
 						item.TexturePage = data.EmbeddedTextures[texturePageIndex];
 					}
+					BatchRun.Item(name.Length > 0 ? name : itemLabel);
+				}
+				else
+				{
+					BatchRun.Item(itemLabel, ResultKind.Skipped, "Null entry");
 				}
 			}
-			catch (Exception ex)
+			catch (Exception ex) when (!ModdingCancellation.IsCancellation(ex))
 			{
 				Log("[ImportTexturePageItems] Error: " + ex.Message);
+				BatchRun.Failed(itemLabel, ex);
 			}
 		}
-		for (int i = data.TexturePageItems.Count - 1; i >= items.Count; i--)
+		for (var i = data.TexturePageItems.Count - 1; i >= items.Count; i--)
 		{
 			data.TexturePageItems.RemoveAt(i);
 		}
@@ -2567,13 +2349,13 @@ public static partial class ResourceImportService
 
 	private static GameMakerTexturePageItem AddTexturePageItem(GameMakerData data, MagickImage image)
 	{
-		GameMakerEmbeddedTexture texture = new GameMakerEmbeddedTexture
+		var texture = new GameMakerEmbeddedTexture
 		{
 			Name = new GameMakerString($"Texture {data.EmbeddedTextures.Count}")
 		};
 		texture.TextureData.Image = GMImage.FromMagickImage(image).ConvertToPng();
 		data.EmbeddedTextures.Add(texture);
-		GameMakerTexturePageItem item = new GameMakerTexturePageItem
+		var item = new GameMakerTexturePageItem
 		{
 			Name = new GameMakerString($"PageItem {data.TexturePageItems.Count}"),
 			SourceWidth = (ushort)image.Width,
@@ -2590,29 +2372,31 @@ public static partial class ResourceImportService
 
 	private static void ImportBackgrounds(GameMakerData data, string inputDir)
 	{
-		string[] dirs = GetDirs(inputDir);
+		var dirs = GetDirs(inputDir);
 		if (dirs.Length == 0)
 		{
 			return;
 		}
-		int imported = 0;
-		int created = 0;
+		BatchRun.Expect(dirs.Length);
+		var imported = 0;
+		var created = 0;
 		using (new TextureWorker())
 		{
-			string[] array = dirs;
-			foreach (string obj in array)
+			var array = dirs;
+			foreach (var obj in array)
 			{
-				string name = Path.GetFileName(obj);
-				string pngPath = Path.Combine(obj, name + ".png");
-				string jsonPath = Path.Combine(obj, name + ".json");
+				var name = Path.GetFileName(obj);
+				var pngPath = Path.Combine(obj, name + ".png");
+				var jsonPath = Path.Combine(obj, name + ".json");
 				if (!FExists(pngPath) && !FExists(jsonPath))
 				{
+					BatchRun.Item(name, ResultKind.Skipped, "Missing png and json files");
 					continue;
 				}
 				try
 				{
-					GameMakerBackground bg = data.Backgrounds.ByName(name);
-					bool isNew = bg == null;
+					var bg = data.Backgrounds.ByName(name);
+					var isNew = bg == null;
 					if (isNew)
 					{
 						bg = new GameMakerBackground
@@ -2636,13 +2420,13 @@ public static partial class ResourceImportService
 					}
 					if (FExists(pngPath))
 					{
-						using MagickImage img = new MagickImage(FReadBytes(pngPath));
+						using var img = new MagickImage(FReadBytes(pngPath));
 						bg.Texture = AddTexturePageItem(data, img);
 					}
 					if (FExists(jsonPath))
 					{
-						using JsonDocument jsonDoc = JsonDocument.Parse(FReadText(jsonPath));
-						JsonElement root = jsonDoc.RootElement;
+						using var jsonDoc = JsonDocument.Parse(FReadText(jsonPath));
+						var root = jsonDoc.RootElement;
 						bg.Transparent = GetJsonValue(root, "transparent", bg.Transparent);
 						bg.Smooth = GetJsonValue(root, "smooth", bg.Smooth);
 						bg.Preload = GetJsonValue(root, "preload", bg.Preload);
@@ -2656,10 +2440,12 @@ public static partial class ResourceImportService
 						data.Backgrounds.Add(bg);
 					}
 					imported++;
+					BatchRun.Item(name);
 				}
-				catch (Exception ex)
+				catch (Exception ex) when (!ModdingCancellation.IsCancellation(ex))
 				{
 					Log("[ImportBackgrounds] Failed: " + name + ": " + ex.Message);
+					BatchRun.Failed(name, ex);
 				}
 			}
 			Log($"[ImportBackgrounds] Done. {imported} processed ({created} new).");
@@ -2668,18 +2454,18 @@ public static partial class ResourceImportService
 
 	private static void ImportTimelines(GameMakerData data, string inputDir)
 	{
-		int created = 0;
-		int updated = 0;
-		ImportNamedJsonResources(inputDir, "ImportTimelines", delegate(string name, JsonElement root)
+		var created = 0;
+		var updated = 0;
+		ImportNamedJsonResources(inputDir, "ImportTimelines", delegate (string name, JsonElement root)
 		{
-			GameMakerTimeline tl = data.Timelines?.ByName(name);
-			bool isNew = tl == null;
+			var tl = data.Timelines?.ByName(name);
+			var isNew = tl == null;
 			if (isNew)
 			{
 				tl = new GameMakerTimeline
 				{
 					Name = data.Strings.MakeString(name),
-					Moments = new ObservableCollection<GameMakerTimeline.GameMakerTimelineMoment>()
+					Moments = []
 				};
 				created++;
 			}
@@ -2688,63 +2474,63 @@ public static partial class ResourceImportService
 				updated++;
 			}
 			if (root.TryGetProperty("moments", out var momentsElm) && momentsElm.ValueKind == JsonValueKind.Array)
+			{
+				JsonElement[] arr = [.. momentsElm.EnumerateArray()];
+				for (var mi = 0; mi < arr.Length; mi++)
 				{
-					JsonElement[] arr = momentsElm.EnumerateArray().ToArray();
-					for (int mi = 0; mi < arr.Length; mi++)
+					var mElm = arr[mi];
+					GameMakerTimeline.GameMakerTimelineMoment moment;
+					if (mi < tl.Moments.Count)
 					{
-						JsonElement mElm = arr[mi];
-						GameMakerTimeline.GameMakerTimelineMoment moment;
-						if (mi < tl.Moments.Count)
+						moment = tl.Moments[mi];
+					}
+					else
+					{
+						moment = new GameMakerTimeline.GameMakerTimelineMoment
 						{
-							moment = tl.Moments[mi];
+							Event = []
+						};
+						tl.Moments.Add(moment);
+					}
+					if (mElm.TryGetProperty("step", out var stepElm))
+					{
+						moment.Step = (uint)stepElm.GetInt64();
+					}
+					if (!mElm.TryGetProperty("actions", out var actionsElm) || actionsElm.ValueKind != JsonValueKind.Array)
+					{
+						continue;
+					}
+					var gameMakerTimelineMoment = moment;
+					if (gameMakerTimelineMoment.Event == null)
+					{
+						var gameMakerPointerList = gameMakerTimelineMoment.Event = [];
+					}
+					JsonElement[] actArr = [.. actionsElm.EnumerateArray()];
+					for (var ai = 0; ai < actArr.Length; ai++)
+					{
+						var aElm = actArr[ai];
+						GameMakerGameObject.EventAction action;
+						if (ai < moment.Event.Count)
+						{
+							action = moment.Event[ai];
 						}
 						else
 						{
-							moment = new GameMakerTimeline.GameMakerTimelineMoment
-							{
-								Event = new GameMakerPointerList<GameMakerGameObject.EventAction>()
-							};
-							tl.Moments.Add(moment);
+							action = new GameMakerGameObject.EventAction();
+							moment.Event.Add(action);
 						}
-						if (mElm.TryGetProperty("step", out var stepElm))
-						{
-							moment.Step = (uint)stepElm.GetInt64();
-						}
-						if (!mElm.TryGetProperty("actions", out var actionsElm) || actionsElm.ValueKind != JsonValueKind.Array)
-						{
-							continue;
-						}
-						GameMakerTimeline.GameMakerTimelineMoment gameMakerTimelineMoment = moment;
-						if (gameMakerTimelineMoment.Event == null)
-						{
-							GameMakerPointerList<GameMakerGameObject.EventAction> gameMakerPointerList = (gameMakerTimelineMoment.Event = new GameMakerPointerList<GameMakerGameObject.EventAction>());
-						}
-						JsonElement[] actArr = actionsElm.EnumerateArray().ToArray();
-						for (int ai = 0; ai < actArr.Length; ai++)
-						{
-							JsonElement aElm = actArr[ai];
-							GameMakerGameObject.EventAction action;
-							if (ai < moment.Event.Count)
-							{
-								action = moment.Event[ai];
-							}
-							else
-							{
-								action = new GameMakerGameObject.EventAction();
-								moment.Event.Add(action);
-							}
-							ApplyEventAction(data, action, aElm);
-						}
-						for (int ai2 = moment.Event.Count - 1; ai2 >= actArr.Length; ai2--)
-						{
-							moment.Event.RemoveAt(ai2);
-						}
+						ApplyEventAction(data, action, aElm);
 					}
-					for (int mi2 = tl.Moments.Count - 1; mi2 >= arr.Length; mi2--)
+					for (var ai2 = moment.Event.Count - 1; ai2 >= actArr.Length; ai2--)
 					{
-						tl.Moments.RemoveAt(mi2);
+						moment.Event.RemoveAt(ai2);
 					}
 				}
+				for (var mi2 = tl.Moments.Count - 1; mi2 >= arr.Length; mi2--)
+				{
+					tl.Moments.RemoveAt(mi2);
+				}
+			}
 			if (isNew)
 			{
 				data.Timelines.Add(tl);
@@ -2758,19 +2544,20 @@ public static partial class ResourceImportService
 		if (data.AnimationCurves == null)
 		{
 			Log("[ImportAnimationCurves] Skipped: target data has no ACRV chunk.");
+			BatchRun.Item("AnimationCurves", ResultKind.Skipped, "Target data has no ACRV chunk");
 			return;
 		}
-		int created = 0;
-		int updated = 0;
-		ImportNamedJsonResources(inputDir, "ImportAnimationCurves", delegate(string name, JsonElement root)
+		var created = 0;
+		var updated = 0;
+		ImportNamedJsonResources(inputDir, "ImportAnimationCurves", delegate (string name, JsonElement root)
 		{
-			GameMakerAnimationCurve gameMakerAnimationCurve = data.AnimationCurves.ByName(name);
+			var gameMakerAnimationCurve = data.AnimationCurves.ByName(name);
 			if (gameMakerAnimationCurve == null)
 			{
 				gameMakerAnimationCurve = new GameMakerAnimationCurve
 				{
 					Name = data.Strings.MakeString(name),
-					Channels = new GameMakerSimpleList<GameMakerAnimationCurve.Channel>()
+					Channels = []
 				};
 				data.AnimationCurves.Add(gameMakerAnimationCurve);
 				created++;
@@ -2780,29 +2567,28 @@ public static partial class ResourceImportService
 				updated++;
 			}
 			gameMakerAnimationCurve.GraphType = (GameMakerAnimationCurve.GraphTypeEnum)GetJsonValue(root, "graphType", (int)gameMakerAnimationCurve.GraphType);
-			GameMakerAnimationCurve gameMakerAnimationCurve2 = gameMakerAnimationCurve;
+			var gameMakerAnimationCurve2 = gameMakerAnimationCurve;
 			if (gameMakerAnimationCurve2.Channels == null)
 			{
-				GameMakerSimpleList<GameMakerAnimationCurve.Channel> gameMakerSimpleList = (gameMakerAnimationCurve2.Channels = new GameMakerSimpleList<GameMakerAnimationCurve.Channel>());
+				var gameMakerSimpleList = gameMakerAnimationCurve2.Channels = [];
 			}
 			gameMakerAnimationCurve.Channels.Clear();
 			if (root.TryGetProperty("channels", out var value) && value.ValueKind == JsonValueKind.Array)
 			{
-				foreach (JsonElement current in value.EnumerateArray())
+				foreach (var current in value.EnumerateArray())
 				{
 					if (current.ValueKind == JsonValueKind.Object)
 					{
-						JsonElement value2;
-						GameMakerAnimationCurve.Channel channel = new GameMakerAnimationCurve.Channel
+						var channel = new GameMakerAnimationCurve.Channel
 						{
-							Name = data.Strings.MakeString(current.TryGetProperty("name", out value2) ? (value2.GetString() ?? "") : ""),
+							Name = data.Strings.MakeString(current.TryGetProperty("name", out var value2) ? (value2.GetString() ?? "") : ""),
 							Curve = (GameMakerAnimationCurve.Channel.CurveType)GetJsonValue(current, "curve", 0),
 							Iterations = GetJsonValue(current, "iterations", 0u),
-							Points = new GameMakerSimpleList<GameMakerAnimationCurve.Channel.Point>()
+							Points = []
 						};
 						if (current.TryGetProperty("points", out var value3) && value3.ValueKind == JsonValueKind.Array)
 						{
-							foreach (JsonElement current2 in value3.EnumerateArray())
+							foreach (var current2 in value3.EnumerateArray())
 							{
 								if (current2.ValueKind == JsonValueKind.Object)
 								{
@@ -2831,45 +2617,59 @@ public static partial class ResourceImportService
 		if (data.Sequences == null)
 		{
 			Log("[ImportSequences] Skipped: target data has no SEQN chunk.");
+			BatchRun.Item("Sequences", ResultKind.Skipped, "Target data has no SEQN chunk");
 			return;
 		}
-		string[] dirs = GetDirs(inputDir);
+		var dirs = GetDirs(inputDir);
 		if (dirs.Length == 0)
 		{
 			return;
 		}
-		List<string> files = new List<string>();
-		string[] array = dirs;
-		foreach (string obj in array)
+		BatchRun.Expect(dirs.Length);
+		List<string> files = [];
+		var array = dirs;
+		foreach (var obj in array)
 		{
-			string name = Path.GetFileName(obj);
-			string jsonFile = Path.Combine(obj, name + ".json");
+			var name = Path.GetFileName(obj);
+			var jsonFile = Path.Combine(obj, name + ".json");
 			if (FExists(jsonFile))
 			{
 				files.Add(jsonFile);
+			}
+			else
+			{
+				BatchRun.Item(name, ResultKind.Skipped, "Missing json file");
 			}
 		}
 		if (files.Count == 0)
 		{
 			return;
 		}
-		string tempRoot = Path.Combine(Path.GetTempPath(), "g3mlib_seq_import", Guid.NewGuid().ToString("N"));
+		var tempRoot = Path.Combine(TempRoot.Path, "g3mlib_seq_import", Guid.NewGuid().ToString("N"));
 		Directory.CreateDirectory(tempRoot);
 		try
 		{
-			List<string> localFiles = new List<string>(files.Count);
-			foreach (string source in files)
+			var localFiles = new List<string>(files.Count);
+			foreach (var source in files)
 			{
-				string local = Path.Combine(tempRoot, Path.GetFileName(Path.GetDirectoryName(source)) + ".json");
+				var local = Path.Combine(tempRoot, Path.GetFileName(Path.GetDirectoryName(source)) + ".json");
 				File.WriteAllText(local, FReadText(source), Encoding.UTF8);
 				localFiles.Add(local);
 			}
 			SerializableProjectAssetBridge.ImportMany(ResourceAssetUtil.CreateProjectContext(data, Path.Combine(tempRoot, ".project_context")), localFiles);
 			Log($"[ImportSequences] Done. Imported: {localFiles.Count}");
+			foreach (var file in files)
+			{
+				BatchRun.Item(Path.GetFileName(Path.GetDirectoryName(file)));
+			}
 		}
-		catch (Exception ex)
+		catch (Exception ex) when (!ModdingCancellation.IsCancellation(ex))
 		{
 			Log("[ImportSequences] Error: " + ex.Message);
+			foreach (var file in files)
+			{
+				BatchRun.Failed(Path.GetFileName(Path.GetDirectoryName(file)), ex);
+			}
 		}
 		finally
 		{
@@ -2888,26 +2688,29 @@ public static partial class ResourceImportService
 		if (data.ParticleSystems == null)
 		{
 			Log("[ImportParticleSystems] Skipped: target data has no PSYS chunk.");
+			BatchRun.Item("ParticleSystems", ResultKind.Skipped, "Target data has no PSYS chunk");
 			return;
 		}
-		string[] dirs = GetDirs(inputDir);
-		foreach (string obj in dirs)
+		var dirs = GetDirs(inputDir);
+		BatchRun.Expect(dirs.Length);
+		foreach (var obj in dirs)
 		{
-			string name = Path.GetFileName(obj);
-			string jsonFile = Path.Combine(obj, name + ".json");
+			var name = Path.GetFileName(obj);
+			var jsonFile = Path.Combine(obj, name + ".json");
 			if (!FExists(jsonFile))
 			{
+				BatchRun.Item(name, ResultKind.Skipped, "Missing json file");
 				continue;
 			}
 			try
 			{
-				using JsonDocument jsonDoc = JsonDocument.Parse(FReadText(jsonFile));
-				JsonElement root = jsonDoc.RootElement;
+				using var jsonDoc = JsonDocument.Parse(FReadText(jsonFile));
+				var root = jsonDoc.RootElement;
 				if (root.TryGetProperty("name", out var nameElm))
 				{
 					name = nameElm.GetString() ?? name;
 				}
-				GameMakerParticleSystem ps = data.ParticleSystems.ByName(name);
+				var ps = data.ParticleSystems.ByName(name);
 				if (ps == null)
 				{
 					ps = new GameMakerParticleSystem
@@ -2920,24 +2723,27 @@ public static partial class ResourceImportService
 				ps.OriginY = GetJsonValue(root, "originY", ps.OriginY);
 				ps.DrawOrder = (GameMakerParticleSystem.DrawOrderEnum)GetJsonValue(root, "drawOrder", (int)ps.DrawOrder);
 				ps.GlobalSpaceParticles = GetJsonValue(root, "globalSpaceParticles", ps.GlobalSpaceParticles);
-				ps.Emitters = new GameMakerSimpleResourcesList<GameMakerParticleSystemEmitter, GameMakerChunkPSEM>();
+				ps.Emitters = [];
 				if (!root.TryGetProperty("emitters", out var emittersElm) || emittersElm.ValueKind != JsonValueKind.Array)
 				{
+					BatchRun.Item(name);
 					continue;
 				}
-				foreach (JsonElement item in emittersElm.EnumerateArray())
+				foreach (var item in emittersElm.EnumerateArray())
 				{
-					string emitterName = item.GetString();
-					GameMakerParticleSystemEmitter emitter = (string.IsNullOrEmpty(emitterName) ? null : data.ParticleSystemEmitters?.ByName(emitterName));
+					var emitterName = item.GetString();
+					var emitter = (string.IsNullOrEmpty(emitterName) || data.ParticleSystemEmitters == null) ? null : FindEmitter(data, emitterName);
 					if (emitter != null)
 					{
 						ps.Emitters.Add(new GameMakerResourceById<GameMakerParticleSystemEmitter, GameMakerChunkPSEM>(emitter));
 					}
 				}
+				BatchRun.Item(name);
 			}
-			catch (Exception ex)
+			catch (Exception ex) when (!ModdingCancellation.IsCancellation(ex))
 			{
 				Log("[ImportParticleSystems] Error: " + name + ": " + ex.Message);
+				BatchRun.Failed(name, ex);
 			}
 		}
 	}
@@ -2947,27 +2753,30 @@ public static partial class ResourceImportService
 		if (data.ParticleSystemEmitters == null)
 		{
 			Log("[ImportParticleSystemEmitters] Skipped: target data has no PSEM chunk.");
+			BatchRun.Item("ParticleSystemEmitters", ResultKind.Skipped, "Target data has no PSEM chunk");
 			return;
 		}
-		List<(GameMakerParticleSystemEmitter, string, string, string)> pendingRefs = new List<(GameMakerParticleSystemEmitter, string, string, string)>();
-		string[] dirs = GetDirs(inputDir);
-		foreach (string obj in dirs)
+		List<(GameMakerParticleSystemEmitter, string, string, string)> pendingRefs = [];
+		var dirs = GetDirs(inputDir);
+		BatchRun.Expect(dirs.Length);
+		foreach (var obj in dirs)
 		{
-			string name = Path.GetFileName(obj);
-			string jsonFile = Path.Combine(obj, name + ".json");
+			var name = Path.GetFileName(obj);
+			var jsonFile = Path.Combine(obj, name + ".json");
 			if (!FExists(jsonFile))
 			{
+				BatchRun.Item(name, ResultKind.Skipped, "Missing json file");
 				continue;
 			}
 			try
 			{
-				using JsonDocument jsonDoc = JsonDocument.Parse(FReadText(jsonFile));
-				JsonElement root = jsonDoc.RootElement;
+				using var jsonDoc = JsonDocument.Parse(FReadText(jsonFile));
+				var root = jsonDoc.RootElement;
 				if (root.TryGetProperty("name", out var nameElm))
 				{
 					name = nameElm.GetString() ?? name;
 				}
-				GameMakerParticleSystemEmitter emitter = data.ParticleSystemEmitters.ByName(name);
+				var emitter = FindEmitter(data, root.TryGetProperty("key", out var keyElm) ? (keyElm.GetString() ?? name) : name);
 				if (emitter == null)
 				{
 					emitter = new GameMakerParticleSystemEmitter
@@ -2977,17 +2786,16 @@ public static partial class ResourceImportService
 					data.ParticleSystemEmitters.Add(emitter);
 				}
 				ApplyParticleEmitterScalars(emitter, root);
-				JsonElement spriteElm;
-				string sprite = (root.TryGetProperty("sprite", out spriteElm) ? (spriteElm.GetString() ?? "") : "");
-				JsonElement sodElm;
-				string sod = (root.TryGetProperty("spawnOnDeath", out sodElm) ? (sodElm.GetString() ?? "") : "");
-				JsonElement souElm;
-				string sou = (root.TryGetProperty("spawnOnUpdate", out souElm) ? (souElm.GetString() ?? "") : "");
+				var sprite = root.TryGetProperty("sprite", out var spriteElm) ? (spriteElm.GetString() ?? "") : "";
+				var sod = root.TryGetProperty("spawnOnDeath", out var sodElm) ? (sodElm.GetString() ?? "") : "";
+				var sou = root.TryGetProperty("spawnOnUpdate", out var souElm) ? (souElm.GetString() ?? "") : "";
 				pendingRefs.Add((emitter, sprite, sod, sou));
+				BatchRun.Item(name);
 			}
-			catch (Exception ex)
+			catch (Exception ex) when (!ModdingCancellation.IsCancellation(ex))
 			{
 				Log("[ImportParticleSystemEmitters] Error: " + name + ": " + ex.Message);
+				BatchRun.Failed(name, ex);
 			}
 		}
 		foreach (var (emitter2, sprite2, spawnOnDeath, spawnOnUpdate) in pendingRefs)
@@ -2998,44 +2806,45 @@ public static partial class ResourceImportService
 			}
 			if (!string.IsNullOrEmpty(spawnOnDeath))
 			{
-				emitter2.SpawnOnDeath = data.ParticleSystemEmitters.ByName(spawnOnDeath);
+				emitter2.SpawnOnDeath = FindEmitter(data, spawnOnDeath);
 			}
 			if (!string.IsNullOrEmpty(spawnOnUpdate))
 			{
-				emitter2.SpawnOnUpdate = data.ParticleSystemEmitters.ByName(spawnOnUpdate);
+				emitter2.SpawnOnUpdate = FindEmitter(data, spawnOnUpdate);
 			}
 		}
 	}
 
+	// Resolves an emitter key: "name", or "name__idxNNNN" for one of several emitters sharing a name.
+	private static GameMakerParticleSystemEmitter FindEmitter(GameMakerData data, string key)
+	{
+		var marker = key.LastIndexOf("__idx", StringComparison.Ordinal);
+		if (marker > 0 && int.TryParse(key.AsSpan(marker + 5), out var index) && index >= 0 && index < data.ParticleSystemEmitters.Count
+			&& data.ParticleSystemEmitters[index]?.Name?.Content == key[..marker])
+		{
+			return data.ParticleSystemEmitters[index];
+		}
+		return data.ParticleSystemEmitters.ByName(key);
+	}
+
 	private static void ApplyParticleEmitterScalars(GameMakerParticleSystemEmitter emitter, JsonElement root)
 	{
-		PropertyInfo[] properties = typeof(GameMakerParticleSystemEmitter).GetProperties();
-		foreach (PropertyInfo prop in properties)
+		var properties = typeof(GameMakerParticleSystemEmitter).GetProperties();
+		foreach (var prop in properties)
 		{
 			if (!prop.CanRead || !prop.CanWrite)
 			{
 				continue;
 			}
-			bool flag;
-			switch (prop.Name)
+
+			var flag = prop.Name switch
 			{
-			case "SizeIncrease":
-			case "SpawnOnDeath":
-			case "SizeMax":
-			case "SizeMin":
-			case "Name":
-			case "Sprite":
-			case "SpawnOnUpdate":
-			case "SizeWiggle":
-				flag = true;
-				break;
-			default:
-				flag = false;
-				break;
-			}
+				"SizeIncrease" or "SpawnOnDeath" or "SizeMax" or "SizeMin" or "Name" or "Sprite" or "SpawnOnUpdate" or "SizeWiggle" => true,
+				_ => false,
+			};
 			if (!flag && root.TryGetProperty(prop.Name, out var value))
 			{
-				Type type = Nullable.GetUnderlyingType(prop.PropertyType) ?? prop.PropertyType;
+				var type = Nullable.GetUnderlyingType(prop.PropertyType) ?? prop.PropertyType;
 				if (type.IsEnum)
 				{
 					prop.SetValue(emitter, Enum.ToObject(type, value.GetInt32()));
@@ -3092,14 +2901,14 @@ public static partial class ResourceImportService
 		}
 		if (elm.TryGetProperty("actionName", out var actionNameElm))
 		{
-			string actionName = actionNameElm.GetString() ?? "";
-			action.ActionName = ((!string.IsNullOrEmpty(actionName)) ? data.Strings.MakeString(actionName) : null);
+			var actionName = actionNameElm.GetString() ?? "";
+			action.ActionName = (!string.IsNullOrEmpty(actionName)) ? data.Strings.MakeString(actionName) : null;
 		}
 		if (elm.TryGetProperty("codeId", out var codeIdElm))
 		{
 			if (codeIdElm.ValueKind == JsonValueKind.String)
 			{
-				string codeName = codeIdElm.GetString() ?? "";
+				var codeName = codeIdElm.GetString() ?? "";
 				if (!string.IsNullOrEmpty(codeName))
 				{
 					action.CodeId = data.Code.ByName(codeName);
@@ -3130,16 +2939,17 @@ public static partial class ResourceImportService
 
 	private static void ImportShaders(GameMakerData data, string inputDir)
 	{
-		string[] dirs = GetDirs(inputDir);
-		int imported = 0;
-		int updated = 0;
-		string[] array = dirs;
-		foreach (string dir in array)
+		var dirs = GetDirs(inputDir);
+		BatchRun.Expect(dirs.Length);
+		var imported = 0;
+		var updated = 0;
+		var array = dirs;
+		foreach (var dir in array)
 		{
-			string name = Path.GetFileName(dir);
+			var name = Path.GetFileName(dir);
 			try
 			{
-				bool num = data.Shaders.ByName(name) != null;
+				var num = data.Shaders.ByName(name) != null;
 				ImportShaderSingle(data, dir);
 				if (num)
 				{
@@ -3149,10 +2959,12 @@ public static partial class ResourceImportService
 				{
 					imported++;
 				}
+				BatchRun.Item(name);
 			}
-			catch (Exception ex)
+			catch (Exception ex) when (!ModdingCancellation.IsCancellation(ex))
 			{
 				Log("[ImportShaders] Error: " + name + ": " + ex.Message);
+				BatchRun.Failed(name, ex);
 			}
 		}
 		Log($"[ImportShaders] Done. {imported} new, {updated} updated.");
@@ -3160,12 +2972,12 @@ public static partial class ResourceImportService
 
 	private static void ImportShaderSingle(GameMakerData data, string shaderDir)
 	{
-		string name = Path.GetFileName(shaderDir);
+		var name = Path.GetFileName(shaderDir);
 		if (string.IsNullOrEmpty(name))
 		{
 			return;
 		}
-		GameMakerShader shader = data.Shaders.ByName(name);
+		var shader = data.Shaders.ByName(name);
 		if (shader == null)
 		{
 			shader = new GameMakerShader
@@ -3175,194 +2987,196 @@ public static partial class ResourceImportService
 			data.Strings.Add(shader.Name);
 			data.Shaders.Add(shader);
 		}
-		string typeFile = Path.Combine(shaderDir, "Type.txt");
+		var typeFile = Path.Combine(shaderDir, "Type.txt");
 		if (FExists(typeFile))
 		{
-			string typeStr = FReadText(typeFile);
+			var typeStr = FReadText(typeFile);
 			if (!string.IsNullOrEmpty(typeStr) && Enum.TryParse<GameMakerShader.ShaderType>(typeStr, out var st))
 			{
 				shader.Type = st;
 			}
 		}
-		string[] array = new string[6] { "GLSL_ES_Fragment.txt", "GLSL_ES_Vertex.txt", "GLSL_Fragment.txt", "GLSL_Vertex.txt", "HLSL9_Fragment.txt", "HLSL9_Vertex.txt" };
-		foreach (string fileName in array)
+		string[] array = ["GLSL_ES_Fragment.txt", "GLSL_ES_Vertex.txt", "GLSL_Fragment.txt", "GLSL_Vertex.txt", "HLSL9_Fragment.txt", "HLSL9_Vertex.txt"];
+		foreach (var fileName in array)
 		{
-			string fp = Path.Combine(shaderDir, fileName);
+			var fp = Path.Combine(shaderDir, fileName);
 			if (!FExists(fp))
 			{
 				continue;
 			}
 			try
 			{
-				string code = FReadText(fp);
-				GameMakerString shaderString = null;
+				var code = FReadText(fp);
+				GameMakerString? shaderString = null;
 				switch (fileName)
 				{
-				case "GLSL_ES_Fragment.txt":
-					shader.GLSL_ES_Fragment = data.Strings.MakeString(code);
-					shaderString = shader.GLSL_ES_Fragment;
-					break;
-				case "GLSL_ES_Vertex.txt":
-					shader.GLSL_ES_Vertex = data.Strings.MakeString(code);
-					shaderString = shader.GLSL_ES_Vertex;
-					break;
-				case "GLSL_Fragment.txt":
-					shader.GLSL_Fragment = data.Strings.MakeString(code);
-					shaderString = shader.GLSL_Fragment;
-					break;
-				case "GLSL_Vertex.txt":
-					shader.GLSL_Vertex = data.Strings.MakeString(code);
-					shaderString = shader.GLSL_Vertex;
-					break;
-				case "HLSL9_Fragment.txt":
-					shader.HLSL9_Fragment = data.Strings.MakeString(code);
-					shaderString = shader.HLSL9_Fragment;
-					break;
-				case "HLSL9_Vertex.txt":
-					shader.HLSL9_Vertex = data.Strings.MakeString(code);
-					shaderString = shader.HLSL9_Vertex;
-					break;
+					case "GLSL_ES_Fragment.txt":
+						shader.GLSL_ES_Fragment = data.Strings.MakeString(code);
+						shaderString = shader.GLSL_ES_Fragment;
+						break;
+					case "GLSL_ES_Vertex.txt":
+						shader.GLSL_ES_Vertex = data.Strings.MakeString(code);
+						shaderString = shader.GLSL_ES_Vertex;
+						break;
+					case "GLSL_Fragment.txt":
+						shader.GLSL_Fragment = data.Strings.MakeString(code);
+						shaderString = shader.GLSL_Fragment;
+						break;
+					case "GLSL_Vertex.txt":
+						shader.GLSL_Vertex = data.Strings.MakeString(code);
+						shaderString = shader.GLSL_Vertex;
+						break;
+					case "HLSL9_Fragment.txt":
+						shader.HLSL9_Fragment = data.Strings.MakeString(code);
+						shaderString = shader.HLSL9_Fragment;
+						break;
+					case "HLSL9_Vertex.txt":
+						shader.HLSL9_Vertex = data.Strings.MakeString(code);
+						shaderString = shader.HLSL9_Vertex;
+						break;
 				}
-				if (shaderString != null && !data.Strings.Any((GameMakerString s) => s == shaderString))
+				if (shaderString != null && !data.Strings.Any(s => s == shaderString))
 				{
 					data.Strings.Add(shaderString);
 				}
 			}
-			catch
+			catch (Exception ex) when (!ModdingCancellation.IsCancellation(ex))
 			{
+				BatchRun.Failed(name + "/" + fileName, ex);
 			}
 		}
-		array = new string[8] { "HLSL11_VertexData.bin", "HLSL11_PixelData.bin", "PSSL_VertexData.bin", "PSSL_PixelData.bin", "Cg_PSVita_VertexData.bin", "Cg_PSVita_PixelData.bin", "Cg_PS3_VertexData.bin", "Cg_PS3_PixelData.bin" };
-		foreach (string fileName2 in array)
+		array = ["HLSL11_VertexData.bin", "HLSL11_PixelData.bin", "PSSL_VertexData.bin", "PSSL_PixelData.bin", "Cg_PSVita_VertexData.bin", "Cg_PSVita_PixelData.bin", "Cg_PS3_VertexData.bin", "Cg_PS3_PixelData.bin"];
+		foreach (var fileName2 in array)
 		{
-			string fp2 = Path.Combine(shaderDir, fileName2);
+			var fp2 = Path.Combine(shaderDir, fileName2);
 			if (!FExists(fp2))
 			{
 				continue;
 			}
 			try
 			{
-				byte[] bytes = FReadBytes(fp2);
+				var bytes = FReadBytes(fp2);
 				if (bytes.Length == 0 || fileName2 == null)
 				{
 					continue;
 				}
 				switch (fileName2.Length)
 				{
-				case 21:
-					switch (fileName2[0])
-					{
-					case 'H':
-						if (fileName2 == "HLSL11_VertexData.bin")
+					case 21:
+						switch (fileName2[0])
 						{
-							GameMakerShader gameMakerShader = shader;
-							GameMakerShader.GameMakerRawShaderData obj7 = gameMakerShader.HLSL11_VertexData ?? (gameMakerShader.HLSL11_VertexData = new GameMakerShader.GameMakerRawShaderData());
-							obj7.Data = bytes;
-							obj7.IsNull = false;
+							case 'H':
+								if (fileName2 == "HLSL11_VertexData.bin")
+								{
+									var gameMakerShader = shader;
+									var obj7 = gameMakerShader.HLSL11_VertexData ??= new GameMakerShader.GameMakerRawShaderData();
+									obj7.Data = bytes;
+									obj7.IsNull = false;
+								}
+								break;
+							case 'C':
+								if (fileName2 == "Cg_PS3_VertexData.bin")
+								{
+									var gameMakerShader = shader;
+									var obj6 = gameMakerShader.Cg_PS3_VertexData ??= new GameMakerShader.GameMakerRawShaderData();
+									obj6.Data = bytes;
+									obj6.IsNull = false;
+								}
+								break;
 						}
 						break;
-					case 'C':
-						if (fileName2 == "Cg_PS3_VertexData.bin")
+					case 20:
+						switch (fileName2[0])
 						{
-							GameMakerShader gameMakerShader = shader;
-							GameMakerShader.GameMakerRawShaderData obj6 = gameMakerShader.Cg_PS3_VertexData ?? (gameMakerShader.Cg_PS3_VertexData = new GameMakerShader.GameMakerRawShaderData());
-							obj6.Data = bytes;
-							obj6.IsNull = false;
+							case 'H':
+								if (fileName2 == "HLSL11_PixelData.bin")
+								{
+									var gameMakerShader = shader;
+									var obj4 = gameMakerShader.HLSL11_PixelData ??= new GameMakerShader.GameMakerRawShaderData();
+									obj4.Data = bytes;
+									obj4.IsNull = false;
+								}
+								break;
+							case 'C':
+								if (fileName2 == "Cg_PS3_PixelData.bin")
+								{
+									var gameMakerShader = shader;
+									var obj3 = gameMakerShader.Cg_PS3_PixelData ??= new GameMakerShader.GameMakerRawShaderData();
+									obj3.Data = bytes;
+									obj3.IsNull = false;
+								}
+								break;
 						}
 						break;
-					}
-					break;
-				case 20:
-					switch (fileName2[0])
-					{
-					case 'H':
-						if (fileName2 == "HLSL11_PixelData.bin")
+					case 19:
+						if (fileName2 == "PSSL_VertexData.bin")
 						{
-							GameMakerShader gameMakerShader = shader;
-							GameMakerShader.GameMakerRawShaderData obj4 = gameMakerShader.HLSL11_PixelData ?? (gameMakerShader.HLSL11_PixelData = new GameMakerShader.GameMakerRawShaderData());
-							obj4.Data = bytes;
-							obj4.IsNull = false;
+							var gameMakerShader = shader;
+							var obj9 = gameMakerShader.PSSL_VertexData ??= new GameMakerShader.GameMakerRawShaderData();
+							obj9.Data = bytes;
+							obj9.IsNull = false;
 						}
 						break;
-					case 'C':
-						if (fileName2 == "Cg_PS3_PixelData.bin")
+					case 18:
+						if (fileName2 == "PSSL_PixelData.bin")
 						{
-							GameMakerShader gameMakerShader = shader;
-							GameMakerShader.GameMakerRawShaderData obj3 = gameMakerShader.Cg_PS3_PixelData ?? (gameMakerShader.Cg_PS3_PixelData = new GameMakerShader.GameMakerRawShaderData());
-							obj3.Data = bytes;
-							obj3.IsNull = false;
+							var gameMakerShader = shader;
+							var obj5 = gameMakerShader.PSSL_PixelData ??= new GameMakerShader.GameMakerRawShaderData();
+							obj5.Data = bytes;
+							obj5.IsNull = false;
 						}
 						break;
-					}
-					break;
-				case 19:
-					if (fileName2 == "PSSL_VertexData.bin")
-					{
-						GameMakerShader gameMakerShader = shader;
-						GameMakerShader.GameMakerRawShaderData obj9 = gameMakerShader.PSSL_VertexData ?? (gameMakerShader.PSSL_VertexData = new GameMakerShader.GameMakerRawShaderData());
-						obj9.Data = bytes;
-						obj9.IsNull = false;
-					}
-					break;
-				case 18:
-					if (fileName2 == "PSSL_PixelData.bin")
-					{
-						GameMakerShader gameMakerShader = shader;
-						GameMakerShader.GameMakerRawShaderData obj5 = gameMakerShader.PSSL_PixelData ?? (gameMakerShader.PSSL_PixelData = new GameMakerShader.GameMakerRawShaderData());
-						obj5.Data = bytes;
-						obj5.IsNull = false;
-					}
-					break;
-				case 24:
-					if (fileName2 == "Cg_PSVita_VertexData.bin")
-					{
-						GameMakerShader gameMakerShader = shader;
-						GameMakerShader.GameMakerRawShaderData obj8 = gameMakerShader.Cg_PSVita_VertexData ?? (gameMakerShader.Cg_PSVita_VertexData = new GameMakerShader.GameMakerRawShaderData());
-						obj8.Data = bytes;
-						obj8.IsNull = false;
-					}
-					break;
-				case 23:
-					if (fileName2 == "Cg_PSVita_PixelData.bin")
-					{
-						GameMakerShader gameMakerShader = shader;
-						GameMakerShader.GameMakerRawShaderData obj2 = gameMakerShader.Cg_PSVita_PixelData ?? (gameMakerShader.Cg_PSVita_PixelData = new GameMakerShader.GameMakerRawShaderData());
-						obj2.Data = bytes;
-						obj2.IsNull = false;
-					}
-					break;
-				case 22:
-					break;
+					case 24:
+						if (fileName2 == "Cg_PSVita_VertexData.bin")
+						{
+							var gameMakerShader = shader;
+							var obj8 = gameMakerShader.Cg_PSVita_VertexData ??= new GameMakerShader.GameMakerRawShaderData();
+							obj8.Data = bytes;
+							obj8.IsNull = false;
+						}
+						break;
+					case 23:
+						if (fileName2 == "Cg_PSVita_PixelData.bin")
+						{
+							var gameMakerShader = shader;
+							var obj2 = gameMakerShader.Cg_PSVita_PixelData ??= new GameMakerShader.GameMakerRawShaderData();
+							obj2.Data = bytes;
+							obj2.IsNull = false;
+						}
+						break;
+					case 22:
+						break;
 				}
 			}
-			catch
+			catch (Exception ex) when (!ModdingCancellation.IsCancellation(ex))
 			{
+				BatchRun.Failed(name + "/" + fileName2, ex);
 			}
 		}
-		string attrsFile = Path.Combine(shaderDir, "VertexShaderAttributes.txt");
+		var attrsFile = Path.Combine(shaderDir, "VertexShaderAttributes.txt");
 		if (!FExists(attrsFile))
 		{
 			return;
 		}
 		try
 		{
-			string text = FReadText(attrsFile);
+			var text = FReadText(attrsFile);
 			if (string.IsNullOrEmpty(text))
 			{
 				return;
 			}
-			GameMakerShader gameMakerShader = shader;
+			var gameMakerShader = shader;
 			if (gameMakerShader.VertexShaderAttributes == null)
 			{
-				GameMakerSimpleList<GameMakerShader.VertexShaderAttribute> gameMakerSimpleList = (gameMakerShader.VertexShaderAttributes = new GameMakerSimpleList<GameMakerShader.VertexShaderAttribute>());
+				var gameMakerSimpleList = gameMakerShader.VertexShaderAttributes = [];
 			}
 			shader.VertexShaderAttributes.Clear();
-			array = text.Split(new char[2] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-			foreach (string line in array)
+			array = text.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
+			foreach (var line in array)
 			{
 				if (!string.IsNullOrWhiteSpace(line))
 				{
-					GameMakerString attrName = data.Strings.MakeString(line.Trim());
+					var attrName = data.Strings.MakeString(line.Trim());
 					shader.VertexShaderAttributes.Add(new GameMakerShader.VertexShaderAttribute
 					{
 						Name = attrName
@@ -3370,8 +3184,9 @@ public static partial class ResourceImportService
 				}
 			}
 		}
-		catch
+		catch (Exception ex) when (!ModdingCancellation.IsCancellation(ex))
 		{
+			BatchRun.Failed(name + "/VertexShaderAttributes.txt", ex);
 		}
 	}
 
@@ -3379,21 +3194,23 @@ public static partial class ResourceImportService
 	{
 		if (data.GeneralInfo == null)
 		{
+			BatchRun.Item("GeneralInfo", ResultKind.Skipped, "Target data has no GEN8 chunk");
 			return;
 		}
-		string jsonPath = Path.Combine(inputDir, "GeneralInfo.json");
+		var jsonPath = Path.Combine(inputDir, "GeneralInfo.json");
 		if (!FExists(jsonPath))
 		{
 			jsonPath = Path.Combine(inputDir, "GeneralInfo", "GeneralInfo.json");
 		}
 		if (!FExists(jsonPath))
 		{
+			BatchRun.Item("GeneralInfo", ResultKind.Skipped, "File not found");
 			return;
 		}
 		try
 		{
-			using JsonDocument jsonDoc = JsonDocument.Parse(FReadText(jsonPath));
-			JsonElement root = jsonDoc.RootElement;
+			using var jsonDoc = JsonDocument.Parse(FReadText(jsonPath));
+			var root = jsonDoc.RootElement;
 			if (root.TryGetProperty("isDebuggerDisabled", out var dbgElm))
 			{
 				data.GeneralInfo.IsDebuggerDisabled = dbgElm.GetBoolean();
@@ -3408,7 +3225,7 @@ public static partial class ResourceImportService
 			}
 			if (root.TryGetProperty("fileName", out var fnElm))
 			{
-				string fn = fnElm.GetString() ?? "";
+				var fn = fnElm.GetString() ?? "";
 				if (fn.Length > 0)
 				{
 					data.GeneralInfo.FileName = data.Strings.MakeString(fn);
@@ -3416,7 +3233,7 @@ public static partial class ResourceImportService
 			}
 			if (root.TryGetProperty("config", out var cfgElm))
 			{
-				string cfg = cfgElm.GetString() ?? "";
+				var cfg = cfgElm.GetString() ?? "";
 				if (cfg.Length > 0)
 				{
 					data.GeneralInfo.Config = data.Strings.MakeString(cfg);
@@ -3440,7 +3257,7 @@ public static partial class ResourceImportService
 			}
 			if (root.TryGetProperty("name", out var nmElm))
 			{
-				string nm = nmElm.GetString() ?? "";
+				var nm = nmElm.GetString() ?? "";
 				if (nm.Length > 0)
 				{
 					data.GeneralInfo.Name = data.Strings.MakeString(nm);
@@ -3484,8 +3301,8 @@ public static partial class ResourceImportService
 			}
 			if (root.TryGetProperty("licenseMD5", out var lmElm) && lmElm.ValueKind == JsonValueKind.Array)
 			{
-				data.GeneralInfo.LicenseMD5 = (from e in lmElm.EnumerateArray()
-					select (byte)e.GetInt32()).ToArray();
+				data.GeneralInfo.LicenseMD5 = [.. from e in lmElm.EnumerateArray()
+											   select (byte)e.GetInt32()];
 			}
 			if (root.TryGetProperty("timestamp", out var tsElm))
 			{
@@ -3493,7 +3310,7 @@ public static partial class ResourceImportService
 			}
 			if (root.TryGetProperty("displayName", out var dnElm))
 			{
-				string dn = dnElm.GetString() ?? "";
+				var dn = dnElm.GetString() ?? "";
 				if (dn.Length > 0)
 				{
 					data.GeneralInfo.DisplayName = data.Strings.MakeString(dn);
@@ -3518,16 +3335,16 @@ public static partial class ResourceImportService
 			if (root.TryGetProperty("roomOrder", out var roElm) && roElm.ValueKind == JsonValueKind.Array)
 			{
 				data.GeneralInfo.RoomOrder.Clear();
-				foreach (JsonElement rElm in roElm.EnumerateArray())
+				foreach (var rElm in roElm.EnumerateArray())
 				{
 					if (rElm.ValueKind == JsonValueKind.Null)
 					{
 						continue;
 					}
-					string rn = rElm.GetString() ?? "";
+					var rn = rElm.GetString() ?? "";
 					if (!string.IsNullOrEmpty(rn))
 					{
-						GameMakerRoom room = data.Rooms.ByName(rn);
+						var room = data.Rooms.ByName(rn);
 						if (room != null)
 						{
 							data.GeneralInfo.RoomOrder.Add(new GameMakerResourceById<GameMakerRoom, GameMakerChunkROOM>
@@ -3542,8 +3359,8 @@ public static partial class ResourceImportService
 			{
 				if (root.TryGetProperty("gms2RandomUID", out var uidElm) && uidElm.ValueKind == JsonValueKind.Array)
 				{
-					data.GeneralInfo.GMS2RandomUID = (from e in uidElm.EnumerateArray()
-						select e.GetInt64()).ToList();
+					data.GeneralInfo.GMS2RandomUID = [.. from e in uidElm.EnumerateArray()
+													  select e.GetInt64()];
 				}
 				if (root.TryGetProperty("gms2FPS", out var fpsElm))
 				{
@@ -3555,13 +3372,14 @@ public static partial class ResourceImportService
 				}
 				if (root.TryGetProperty("gms2GameGUID", out var ggElm) && ggElm.ValueKind == JsonValueKind.Array)
 				{
-					data.GeneralInfo.GMS2GameGUID = (from e in ggElm.EnumerateArray()
-						select (byte)e.GetInt32()).ToArray();
+					data.GeneralInfo.GMS2GameGUID = [.. from e in ggElm.EnumerateArray()
+													 select (byte)e.GetInt32()];
 				}
 			}
 			Log("[ImportGeneralInfo] Done. Game: " + (data.GeneralInfo.DisplayName?.Content ?? "N/A"));
+			BatchRun.Item("GeneralInfo");
 		}
-		catch (Exception ex)
+		catch (Exception ex) when (!ModdingCancellation.IsCancellation(ex))
 		{
 			Log("[ImportGeneralInfo] Failed: " + ex.Message);
 			throw;
@@ -3572,27 +3390,30 @@ public static partial class ResourceImportService
 	{
 		if (data.TextureGroupInfo == null)
 		{
+			BatchRun.Item("TextureGroupInfo", ResultKind.Skipped, "Target data has no TGIN chunk");
 			return;
 		}
-		string[] dirs = GetDirs(inputDir);
+		var dirs = GetDirs(inputDir);
 		if (dirs.Length == 0)
 		{
 			return;
 		}
-		string[] array = dirs;
-		foreach (string dir in array)
+		BatchRun.Expect(dirs.Length);
+		var array = dirs;
+		foreach (var dir in array)
 		{
-			string name = Path.GetFileName(dir);
-			string jsonFile = Path.Combine(dir, name + ".json");
+			var name = Path.GetFileName(dir);
+			var jsonFile = Path.Combine(dir, name + ".json");
 			if (!FExists(jsonFile))
 			{
+				BatchRun.Item(name, ResultKind.Skipped, "Missing json file");
 				continue;
 			}
 			try
 			{
-				using JsonDocument jsonDoc = JsonDocument.Parse(FReadText(jsonFile));
-				JsonElement root = jsonDoc.RootElement;
-				GameMakerTextureGroupInfo tg = data.TextureGroupInfo.FirstOrDefault((GameMakerTextureGroupInfo t) => t.Name?.Content == name);
+				using var jsonDoc = JsonDocument.Parse(FReadText(jsonFile));
+				var root = jsonDoc.RootElement;
+				var tg = data.TextureGroupInfo.FirstOrDefault(t => t.Name?.Content == name);
 				if (tg == null)
 				{
 					tg = new GameMakerTextureGroupInfo
@@ -3623,16 +3444,16 @@ public static partial class ResourceImportService
 				if (root.TryGetProperty("texturePages", out var tpElm) && tpElm.ValueKind == JsonValueKind.Array)
 				{
 					tg.TexturePages.Clear();
-					foreach (JsonElement e in tpElm.EnumerateArray())
+					foreach (var e in tpElm.EnumerateArray())
 					{
 						if (e.ValueKind != JsonValueKind.String)
 						{
 							continue;
 						}
-						string tpName = e.GetString() ?? "";
+						var tpName = e.GetString() ?? "";
 						if (!string.IsNullOrEmpty(tpName))
 						{
-							GameMakerEmbeddedTexture tp = data.EmbeddedTextures.FirstOrDefault((GameMakerEmbeddedTexture t) => t.Name?.Content == tpName);
+							var tp = data.EmbeddedTextures.FirstOrDefault(t => t.Name?.Content == tpName);
 							if (tp != null)
 							{
 								tg.TexturePages.Add(new GameMakerResourceById<GameMakerEmbeddedTexture, GameMakerChunkTXTR>(tp));
@@ -3643,12 +3464,12 @@ public static partial class ResourceImportService
 				if (root.TryGetProperty("sprites", out var spElm) && spElm.ValueKind == JsonValueKind.Array)
 				{
 					tg.Sprites.Clear();
-					foreach (JsonElement e2 in spElm.EnumerateArray())
+					foreach (var e2 in spElm.EnumerateArray())
 					{
 						if (e2.ValueKind == JsonValueKind.String)
 						{
-							string sn = e2.GetString() ?? "";
-							GameMakerSprite spr = data.Sprites.ByName(sn);
+							var sn = e2.GetString() ?? "";
+							var spr = data.Sprites.ByName(sn);
 							if (spr != null)
 							{
 								tg.Sprites.Add(new GameMakerResourceById<GameMakerSprite, GameMakerChunkSPRT>(spr));
@@ -3659,12 +3480,12 @@ public static partial class ResourceImportService
 				if (!data.IsNonLTSVersionAtLeast(2023u, 1u) && root.TryGetProperty("spineSprites", out var ssElm) && ssElm.ValueKind == JsonValueKind.Array)
 				{
 					tg.SpineSprites.Clear();
-					foreach (JsonElement e3 in ssElm.EnumerateArray())
+					foreach (var e3 in ssElm.EnumerateArray())
 					{
 						if (e3.ValueKind == JsonValueKind.String)
 						{
-							string sn2 = e3.GetString() ?? "";
-							GameMakerSprite spr2 = data.Sprites.ByName(sn2);
+							var sn2 = e3.GetString() ?? "";
+							var spr2 = data.Sprites.ByName(sn2);
 							if (spr2 != null)
 							{
 								tg.SpineSprites.Add(new GameMakerResourceById<GameMakerSprite, GameMakerChunkSPRT>(spr2));
@@ -3675,12 +3496,12 @@ public static partial class ResourceImportService
 				if (root.TryGetProperty("fonts", out var fnElm) && fnElm.ValueKind == JsonValueKind.Array)
 				{
 					tg.Fonts.Clear();
-					foreach (JsonElement e4 in fnElm.EnumerateArray())
+					foreach (var e4 in fnElm.EnumerateArray())
 					{
 						if (e4.ValueKind == JsonValueKind.String)
 						{
-							string fn = e4.GetString() ?? "";
-							GameMakerFont font = data.Fonts.ByName(fn);
+							var fn = e4.GetString() ?? "";
+							var font = data.Fonts.ByName(fn);
 							if (font != null)
 							{
 								tg.Fonts.Add(new GameMakerResourceById<GameMakerFont, GameMakerChunkFONT>(font));
@@ -3690,25 +3511,28 @@ public static partial class ResourceImportService
 				}
 				if (!root.TryGetProperty("tilesets", out var tsElm) || tsElm.ValueKind != JsonValueKind.Array)
 				{
+					BatchRun.Item(name);
 					continue;
 				}
 				tg.Tilesets.Clear();
-				foreach (JsonElement e5 in tsElm.EnumerateArray())
+				foreach (var e5 in tsElm.EnumerateArray())
 				{
 					if (e5.ValueKind == JsonValueKind.String)
 					{
-						string tn = e5.GetString() ?? "";
-						GameMakerBackground tileset = data.Backgrounds.ByName(tn);
+						var tn = e5.GetString() ?? "";
+						var tileset = data.Backgrounds.ByName(tn);
 						if (tileset != null)
 						{
 							tg.Tilesets.Add(new GameMakerResourceById<GameMakerBackground, GameMakerChunkBGND>(tileset));
 						}
 					}
 				}
+				BatchRun.Item(name);
 			}
-			catch (Exception ex)
+			catch (Exception ex) when (!ModdingCancellation.IsCancellation(ex))
 			{
 				Log("[ImportTextureGroupInfo] Error: " + name + ": " + ex.Message);
+				BatchRun.Failed(name, ex);
 			}
 		}
 		Log("[ImportTextureGroupInfo] Done.");
@@ -3716,43 +3540,45 @@ public static partial class ResourceImportService
 
 	private static void ImportFonts(GameMakerData data, string inputDir)
 	{
-		string[] dirs = GetDirs(inputDir);
+		var dirs = GetDirs(inputDir);
 		if (dirs.Length == 0)
 		{
 			return;
 		}
-		int imported = 0;
-		int created = 0;
-		int skipped = 0;
-		string[] array = dirs;
-		foreach (string obj in array)
+		BatchRun.Expect(dirs.Length);
+		var imported = 0;
+		var created = 0;
+		var skipped = 0;
+		var array = dirs;
+		foreach (var obj in array)
 		{
-			string safeName = Path.GetFileName(obj);
-			string jsonPath = Path.Combine(obj, "font.json");
-			string pngPath = Path.Combine(obj, "texture.png");
+			var safeName = Path.GetFileName(obj);
+			var jsonPath = Path.Combine(obj, "font.json");
+			var pngPath = Path.Combine(obj, "texture.png");
 			if (!FExists(jsonPath))
 			{
 				skipped++;
+				BatchRun.Item(safeName, ResultKind.Skipped, "Missing font.json");
 				continue;
 			}
-			string fontName = safeName;
+			var fontName = safeName;
 			try
 			{
-				using JsonDocument jsonDoc = JsonDocument.Parse(FReadText(jsonPath));
-				JsonElement root = jsonDoc.RootElement;
+				using var jsonDoc = JsonDocument.Parse(FReadText(jsonPath));
+				var root = jsonDoc.RootElement;
 				if (root.TryGetProperty("name", out var nmElm))
 				{
 					fontName = nmElm.GetString() ?? safeName;
 				}
-				GameMakerFont font = data.Fonts.ByName(fontName);
-				bool isNew = font == null;
+				var font = data.Fonts.ByName(fontName);
+				var isNew = font == null;
 				if (isNew)
 				{
 					font = new GameMakerFont
 					{
 						Name = data.Strings.MakeString(fontName),
 						DisplayName = data.Strings.MakeString(fontName),
-						Glyphs = new GameMakerPointerList<GameMakerFont.Glyph>(),
+						Glyphs = [],
 						EmSize = 12f,
 						Bold = false,
 						Italic = false,
@@ -3765,20 +3591,20 @@ public static partial class ResourceImportService
 					};
 					created++;
 				}
-				if (FExists(pngPath))
+				if (FExists(pngPath) && !FontTextureUnchanged(font, pngPath))
 				{
-					using MagickImage img = new MagickImage(FReadBytes(pngPath));
-					GameMakerEmbeddedTexture newTex = new GameMakerEmbeddedTexture
+					using var img = new MagickImage(FReadBytes(pngPath));
+					var newTex = new GameMakerEmbeddedTexture
 					{
 						Name = new GameMakerString($"Texture {data.EmbeddedTextures.Count}")
 					};
 					newTex.TextureData.Image = GMImage.FromMagickImage(img).ConvertToPng();
 					data.EmbeddedTextures.Add(newTex);
-					ushort origTX = font.Texture?.TargetX ?? 0;
-					ushort origTY = font.Texture?.TargetY ?? 0;
-					ushort origBW = font.Texture?.BoundingWidth ?? ((ushort)img.Width);
-					ushort origBH = font.Texture?.BoundingHeight ?? ((ushort)img.Height);
-					GameMakerTexturePageItem newTPI = new GameMakerTexturePageItem
+					var origTX = font.Texture?.TargetX ?? 0;
+					var origTY = font.Texture?.TargetY ?? 0;
+					var origBW = font.Texture?.BoundingWidth ?? ((ushort)img.Width);
+					var origBH = font.Texture?.BoundingHeight ?? ((ushort)img.Height);
+					var newTPI = new GameMakerTexturePageItem
 					{
 						Name = new GameMakerString($"PageItem {data.TexturePageItems.Count}"),
 						SourceX = 0,
@@ -3798,7 +3624,7 @@ public static partial class ResourceImportService
 				}
 				if (root.TryGetProperty("displayName", out var dnElm))
 				{
-					string dn = dnElm.GetString() ?? "";
+					var dn = dnElm.GetString() ?? "";
 					if (dn.Length > 0)
 					{
 						font.DisplayName = data.Strings.MakeString(dn);
@@ -3863,9 +3689,9 @@ public static partial class ResourceImportService
 				if (root.TryGetProperty("glyphs", out var gElm) && gElm.ValueKind == JsonValueKind.Array)
 				{
 					font.Glyphs.Clear();
-					foreach (JsonElement ge in gElm.EnumerateArray())
+					foreach (var ge in gElm.EnumerateArray())
 					{
-						GameMakerFont.Glyph glyph = new GameMakerFont.Glyph();
+						var glyph = new GameMakerFont.Glyph();
 						if (ge.TryGetProperty("character", out var cElm2))
 						{
 							glyph.Character = (ushort)cElm2.GetInt32();
@@ -3896,10 +3722,10 @@ public static partial class ResourceImportService
 						}
 						if (ge.TryGetProperty("kerning", out var kElm) && kElm.ValueKind == JsonValueKind.Array)
 						{
-							glyph.Kerning = new GameMakerSimpleListShort<GameMakerFont.Glyph.GlyphKerning>();
-							foreach (JsonElement ke in kElm.EnumerateArray())
+							glyph.Kerning = [];
+							foreach (var ke in kElm.EnumerateArray())
 							{
-								GameMakerFont.Glyph.GlyphKerning kern = new GameMakerFont.Glyph.GlyphKerning();
+								var kern = new GameMakerFont.Glyph.GlyphKerning();
 								if (ke.TryGetProperty("character", out var kc))
 								{
 									kern.Character = (short)kc.GetInt32();
@@ -3919,10 +3745,12 @@ public static partial class ResourceImportService
 					data.Fonts.Add(font);
 				}
 				imported++;
+				BatchRun.Item(fontName);
 			}
-			catch (Exception ex)
+			catch (Exception ex) when (!ModdingCancellation.IsCancellation(ex))
 			{
 				Log("[ImportFonts] Failed: " + fontName + ": " + ex.Message);
+				BatchRun.Failed(fontName, ex);
 				skipped++;
 			}
 		}
@@ -3931,27 +3759,30 @@ public static partial class ResourceImportService
 
 	private static void ImportSounds(GameMakerData data, string inputDir)
 	{
-		List<string> soundDirs = GetDirs(inputDir).Select(Path.GetFileName).ToList();
+		List<string> soundDirs = [.. GetDirs(inputDir).Select(Path.GetFileName)];
 		if (soundDirs.Count == 0)
 		{
 			return;
 		}
-		int imported = 0;
-		int created = 0;
-		int skipped = 0;
-		int metadataApplied = 0;
-		foreach (string soundName in soundDirs)
+		BatchRun.Expect(soundDirs.Count);
+		var imported = 0;
+		var created = 0;
+		var skipped = 0;
+		var metadataApplied = 0;
+		using var groupBatch = new SoundGroupBatch();
+		foreach (var soundName in soundDirs)
 		{
 			if (soundName == null)
 			{
+				BatchRun.Item("(unnamed)", ResultKind.Skipped, "Empty folder name");
 				continue;
 			}
-			string path = Path.Combine(inputDir, soundName);
-			string oggFile = Path.Combine(path, soundName + ".ogg");
-			string wavFile = Path.Combine(path, soundName + ".wav");
-			string metaFile = Path.Combine(path, soundName + ".json");
-			string audioFile = null;
-			bool isOGG = false;
+			var path = Path.Combine(inputDir, soundName);
+			var oggFile = Path.Combine(path, soundName + ".ogg");
+			var wavFile = Path.Combine(path, soundName + ".wav");
+			var metaFile = Path.Combine(path, soundName + ".json");
+			string? audioFile = null;
+			var isOGG = false;
 			if (FExists(oggFile))
 			{
 				audioFile = oggFile;
@@ -3964,18 +3795,20 @@ public static partial class ResourceImportService
 			if (audioFile == null && !FExists(metaFile))
 			{
 				skipped++;
+				BatchRun.Item(soundName, ResultKind.Skipped, "No audio or metadata file");
 				continue;
 			}
 			if (audioFile == null && FExists(metaFile))
 			{
-				GameMakerSound existing = data.Sounds.ByName(soundName);
+				var existing = data.Sounds.ByName(soundName);
 				if (existing == null)
 				{
-					(int AudioId, int GroupId) tuple = ReadSoundAudioPlacement(metaFile);
+					var tuple = ReadSoundAudioPlacement(metaFile);
 					var (metadataAudioId, _) = tuple;
 					if (tuple.GroupId > 0 || metadataAudioId < 0)
 					{
 						skipped++;
+						BatchRun.Item(soundName, ResultKind.Skipped, "Audio is stored outside the main data file");
 						continue;
 					}
 					existing = new GameMakerSound
@@ -3986,7 +3819,7 @@ public static partial class ResourceImportService
 						Volume = 1f,
 						Pitch = 1f,
 						Preload = true,
-						Flags = (GameMakerSound.AudioEntryFlags.Regular | GameMakerSound.AudioEntryFlags.IsEmbedded),
+						Flags = GameMakerSound.AudioEntryFlags.Regular | GameMakerSound.AudioEntryFlags.IsEmbedded,
 						AudioID = metadataAudioId,
 						AudioFile = EnsureEmbeddedAudioSlot(data, metadataAudioId)
 					};
@@ -3998,26 +3831,29 @@ public static partial class ResourceImportService
 					ApplySoundMetadata(data, existing, metaFile);
 					metadataApplied++;
 					imported++;
+					BatchRun.Item(soundName);
 				}
-				catch (Exception ex)
+				catch (Exception ex) when (!ModdingCancellation.IsCancellation(ex))
 				{
 					Log("[ImportSounds] Metadata error: " + soundName + ": " + ex.Message);
+					BatchRun.Failed(soundName, ex);
 				}
 				continue;
 			}
 			try
 			{
-				byte[] audioData = FReadBytes(audioFile);
+				var audioData = FReadBytes(audioFile);
 				if (audioData.Length == 0)
 				{
 					skipped++;
+					BatchRun.Item(soundName, ResultKind.Skipped, "Empty audio file");
 					continue;
 				}
-				(int AudioId, int GroupId) tuple3 = ReadSoundAudioPlacement(metaFile);
-				int metadataAudioId2 = tuple3.AudioId;
-				int metadataGroupId = tuple3.GroupId;
-				GameMakerSound sound = data.Sounds.ByName(soundName);
-				bool isNew = sound == null;
+				(var AudioId, var GroupId) = ReadSoundAudioPlacement(metaFile);
+				var metadataAudioId2 = AudioId;
+				var metadataGroupId = GroupId;
+				var sound = data.Sounds.ByName(soundName);
+				var isNew = sound == null;
 				if (isNew)
 				{
 					sound = new GameMakerSound
@@ -4028,7 +3864,7 @@ public static partial class ResourceImportService
 						Volume = 1f,
 						Pitch = 1f,
 						Preload = true,
-						Flags = (GameMakerSound.AudioEntryFlags.Regular | GameMakerSound.AudioEntryFlags.IsEmbedded)
+						Flags = GameMakerSound.AudioEntryFlags.Regular | GameMakerSound.AudioEntryFlags.IsEmbedded
 					};
 					if (isOGG)
 					{
@@ -4046,7 +3882,7 @@ public static partial class ResourceImportService
 						sound.AudioID = data.EmbeddedAudio.Count - 1;
 					}
 					sound.AudioFile.Data = audioData;
-					IList<GameMakerAudioGroup> audioGroups = data.AudioGroups;
+					var audioGroups = data.AudioGroups;
 					if (audioGroups != null && audioGroups.Count > 0)
 					{
 						sound.AudioGroup = data.AudioGroups[0];
@@ -4078,6 +3914,7 @@ public static partial class ResourceImportService
 						sound.Flags &= ~GameMakerSound.AudioEntryFlags.IsCompressed;
 					}
 				}
+				string? metadataError = null;
 				if (FExists(metaFile))
 				{
 					try
@@ -4085,11 +3922,12 @@ public static partial class ResourceImportService
 						ApplySoundMetadata(data, sound, metaFile);
 						metadataApplied++;
 					}
-					catch
+					catch (Exception metaEx) when (!ModdingCancellation.IsCancellation(metaEx))
 					{
+						metadataError = "Metadata not applied: " + metaEx.Message;
 					}
 				}
-				if (TryWriteExternalSoundAudio(data, sound, audioData))
+				if (groupBatch.TryQueue(data, sound, audioData))
 				{
 					sound.AudioFile = null;
 					sound.Flags |= GameMakerSound.AudioEntryFlags.Regular;
@@ -4099,14 +3937,38 @@ public static partial class ResourceImportService
 					data.Sounds.Add(sound);
 				}
 				imported++;
+				BatchRun.Item(soundName, metadataError == null ? ResultKind.Written : ResultKind.Warning, metadataError);
 			}
-			catch (Exception ex2)
+			catch (Exception ex2) when (!ModdingCancellation.IsCancellation(ex2))
 			{
 				Log("[ImportSounds] Failed: " + soundName + ": " + ex2.Message);
+				BatchRun.Failed(soundName, ex2);
 				skipped++;
 			}
 		}
+		groupBatch.Flush(data);
 		Log($"[ImportSounds] Done. {imported} imported ({created} new, {metadataApplied} with metadata), {skipped} skipped.");
+	}
+
+	// Re-adding an identical glyph texture would append a new page and change the file for nothing.
+	private static bool FontTextureUnchanged(GameMakerFont font, string pngPath)
+	{
+		if (font.Texture == null)
+		{
+			return false;
+		}
+		try
+		{
+			using var worker = new TextureWorker();
+			using var current = worker.GetTextureFor(font.Texture, font.Name?.Content);
+			using var proposed = new MagickImage(FReadBytes(pngPath));
+			return current.Width == proposed.Width && current.Height == proposed.Height
+				&& current.ToByteArray(MagickFormat.Rgba).AsSpan().SequenceEqual(proposed.ToByteArray(MagickFormat.Rgba));
+		}
+		catch
+		{
+			return false;
+		}
 	}
 
 	private static GameMakerEmbeddedAudio EnsureEmbeddedAudioSlot(GameMakerData data, int audioId)
@@ -4120,41 +3982,44 @@ public static partial class ResourceImportService
 
 	private static void ImportEmbeddedAudio(GameMakerData data, string inputDir)
 	{
-		string[] audioDirs = GetDirs(inputDir);
+		var audioDirs = GetDirs(inputDir);
 		if (audioDirs.Length == 0)
 		{
 			return;
 		}
-		int imported = 0;
-		string[] array = audioDirs;
-		foreach (string audioDir in array)
+		BatchRun.Expect(audioDirs.Length);
+		var imported = 0;
+		var array = audioDirs;
+		foreach (var audioDir in array)
 		{
-			string folderName = Path.GetFileName(audioDir.TrimEnd(new char[2]
-			{
+			var folderName = Path.GetFileName(audioDir.TrimEnd(
+			[
 				Path.DirectorySeparatorChar,
 				Path.AltDirectorySeparatorChar
-			}));
-			string jsonPath = Path.Combine(audioDir, folderName + ".json");
-			string binPath = Path.Combine(audioDir, folderName + ".bin");
+			]));
+			var jsonPath = Path.Combine(audioDir, folderName + ".json");
+			var binPath = Path.Combine(audioDir, folderName + ".bin");
 			if (!FExists(jsonPath) || !FExists(binPath))
 			{
+				BatchRun.Item(folderName, ResultKind.Skipped, "Missing json or bin file");
 				continue;
 			}
 			try
 			{
-				using JsonDocument doc = JsonDocument.Parse(FReadText(jsonPath));
-				JsonElement idxElm;
-				int index = ((doc.RootElement.TryGetProperty("index", out idxElm) && idxElm.ValueKind == JsonValueKind.Number) ? idxElm.GetInt32() : data.EmbeddedAudio.Count);
+				using var doc = JsonDocument.Parse(FReadText(jsonPath));
+				var index = (doc.RootElement.TryGetProperty("index", out var idxElm) && idxElm.ValueKind == JsonValueKind.Number) ? idxElm.GetInt32() : data.EmbeddedAudio.Count;
 				while (data.EmbeddedAudio.Count <= index)
 				{
 					data.EmbeddedAudio.Add(new GameMakerEmbeddedAudio());
 				}
 				data.EmbeddedAudio[index].Data = FReadBytes(binPath);
 				imported++;
+				BatchRun.Item(folderName);
 			}
-			catch (Exception ex)
+			catch (Exception ex) when (!ModdingCancellation.IsCancellation(ex))
 			{
 				Log("[ImportEmbeddedAudio] Failed: " + folderName + ": " + ex.Message);
+				BatchRun.Failed(folderName, ex);
 			}
 		}
 		Log($"[ImportEmbeddedAudio] Imported {imported} embedded audio slot(s).");
@@ -4168,12 +4033,10 @@ public static partial class ResourceImportService
 		}
 		try
 		{
-			using JsonDocument jsonDoc = JsonDocument.Parse(FReadText(metaFile));
-			JsonElement root = jsonDoc.RootElement;
-			JsonElement audioIdElm;
-			int item = (root.TryGetProperty("audioID", out audioIdElm) ? audioIdElm.GetInt32() : (-1));
-			JsonElement groupIdElm;
-			int groupId = (root.TryGetProperty("groupID", out groupIdElm) ? groupIdElm.GetInt32() : (-1));
+			using var jsonDoc = JsonDocument.Parse(FReadText(metaFile));
+			var root = jsonDoc.RootElement;
+			var item = root.TryGetProperty("audioID", out var audioIdElm) ? audioIdElm.GetInt32() : (-1);
+			var groupId = root.TryGetProperty("groupID", out var groupIdElm) ? groupIdElm.GetInt32() : (-1);
 			return (AudioId: item, GroupId: groupId);
 		}
 		catch
@@ -4182,17 +4045,24 @@ public static partial class ResourceImportService
 		}
 	}
 
+	// A missing string is exported as "", so an empty value must not turn a missing string into an empty one.
+	private static GameMakerString KeepOrMakeString(GameMakerData data, GameMakerString current, string content)
+	{
+		content ??= "";
+		return (current?.Content ?? "") == content ? current : data.Strings.MakeString(content);
+	}
+
 	private static void ApplySoundMetadata(GameMakerData data, GameMakerSound sound, string metaFile)
 	{
-		using JsonDocument jsonDoc = JsonDocument.Parse(FReadText(metaFile));
-		JsonElement root = jsonDoc.RootElement;
+		using var jsonDoc = JsonDocument.Parse(FReadText(metaFile));
+		var root = jsonDoc.RootElement;
 		if (root.TryGetProperty("file", out var fileElm))
 		{
-			sound.File = data.Strings.MakeString(fileElm.GetString() ?? "");
+			sound.File = KeepOrMakeString(data, sound.File, fileElm.GetString());
 		}
 		if (root.TryGetProperty("type", out var typeElm))
 		{
-			sound.Type = data.Strings.MakeString(typeElm.GetString() ?? "");
+			sound.Type = KeepOrMakeString(data, sound.Type, typeElm.GetString());
 		}
 		if (root.TryGetProperty("volume", out var vElm))
 		{
@@ -4228,10 +4098,10 @@ public static partial class ResourceImportService
 		}
 		if (root.TryGetProperty("audioGroupName", out var agElm))
 		{
-			string agName = agElm.GetString() ?? "";
+			var agName = agElm.GetString() ?? "";
 			if (!string.IsNullOrEmpty(agName) && data.AudioGroups != null)
 			{
-				GameMakerAudioGroup ag = data.AudioGroups.ByName(agName);
+				var ag = data.AudioGroups.ByName(agName);
 				if (ag != null)
 				{
 					sound.AudioGroup = ag;
@@ -4239,7 +4109,7 @@ public static partial class ResourceImportService
 				}
 			}
 		}
-		if (root.TryGetProperty("audioLength", out var alElm) && data.IsNonLTSVersionAtLeast(2024u, 6u))
+		if (root.TryGetProperty("audioLength", out var alElm) && data.IsVersionAtLeast(2024u, 6u))
 		{
 			sound.AudioLength = (float)alElm.GetDouble();
 		}
@@ -4250,52 +4120,51 @@ public static partial class ResourceImportService
 		sound.Flags |= GameMakerSound.AudioEntryFlags.Regular;
 	}
 
-	private static bool TryWriteExternalSoundAudio(GameMakerData data, GameMakerSound sound, byte[] audioData)
+	// Audio group files are opened once per import and written once at the end, not once per sound.
+	private sealed class SoundGroupBatch : IDisposable
 	{
-		if (sound.GroupID <= 0 || string.IsNullOrWhiteSpace(_loadedDataPath) || string.IsNullOrWhiteSpace(_savingDataPath))
+		private sealed class Group
 		{
-			return false;
+			public AudioGroupFile? File;
+			public string SavePath = "";
+			public string? Error;
+			public List<(GameMakerSound Sound, byte[] Data)> Sounds = [];
 		}
-		string loadPath = ResourceAssetUtil.ResolveAudioGroupPathFromDataFile(data, _loadedDataPath, sound.GroupID);
-		string savePath = ResourceAssetUtil.ResolveAudioGroupPathFromDataFile(data, _savingDataPath, sound.GroupID);
-		if (loadPath == null || savePath == null)
+
+		private readonly Dictionary<int, Group> _groups = [];
+
+		public bool TryQueue(GameMakerData data, GameMakerSound sound, byte[] audioData)
 		{
-			return false;
-		}
-		string sourcePath = (File.Exists(savePath) ? savePath : loadPath);
-		if (!File.Exists(sourcePath))
-		{
-			return false;
-		}
-		try
-		{
-			string tempPath = savePath + ".g3mtmp";
-			using (FileStream stream = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.Read))
+			if (sound.GroupID <= 0 || string.IsNullOrWhiteSpace(_loadedDataPath) || string.IsNullOrWhiteSpace(_savingDataPath))
 			{
-				using GameMakerData groupData = GameMakerIO.Read(stream);
-				if (groupData.EmbeddedAudio == null)
-				{
-					return false;
-				}
-				int audioId = sound.AudioID;
-				if (audioId < 0 || audioId >= groupData.EmbeddedAudio.Count)
-				{
-					groupData.EmbeddedAudio.Add(new GameMakerEmbeddedAudio());
-					audioId = (sound.AudioID = groupData.EmbeddedAudio.Count - 1);
-				}
-				groupData.EmbeddedAudio[audioId].Data = audioData;
-				string outDir = Path.GetDirectoryName(savePath);
-				if (!string.IsNullOrWhiteSpace(outDir))
-				{
-					Directory.CreateDirectory(outDir);
-				}
-				using FileStream outStream = new FileStream(tempPath, FileMode.Create, FileAccess.Write);
-				GameMakerIO.Write(outStream, groupData);
+				return false;
 			}
-			File.Move(tempPath, savePath, overwrite: true);
+			if (!_groups.TryGetValue(sound.GroupID, out var group))
+			{
+				group = Open(data, sound.GroupID);
+				_groups[sound.GroupID] = group;
+			}
+			if (group == null)
+			{
+				return false;
+			}
+			if (group.File == null)
+			{
+				Log("[ImportSounds] External audiogroup write skipped for " + sound.Name?.Content + ": " + group.Error);
+				return false;
+			}
+			if (sound.AudioID < 0 || sound.AudioID >= group.File.Count)
+			{
+				sound.AudioID = group.File.Add(audioData);
+			}
+			else
+			{
+				group.File.Replace(sound.AudioID, audioData);
+			}
+			group.Sounds.Add((sound, audioData));
 			if (sound.AudioFile != null)
 			{
-				IList<GameMakerEmbeddedAudio> embeddedAudio = data.EmbeddedAudio;
+				var embeddedAudio = data.EmbeddedAudio;
 				if (embeddedAudio != null && embeddedAudio.Contains(sound.AudioFile))
 				{
 					data.EmbeddedAudio.Remove(sound.AudioFile);
@@ -4303,10 +4172,68 @@ public static partial class ResourceImportService
 			}
 			return true;
 		}
-		catch (Exception ex)
+
+		private static Group? Open(GameMakerData data, int groupId)
 		{
-			Log("[ImportSounds] External audiogroup write skipped for " + sound.Name?.Content + ": " + ex.Message);
-			return false;
+			var loadPath = ResourceAssetUtil.ResolveAudioGroupPathFromDataFile(data, _loadedDataPath, groupId);
+			var savePath = ResourceAssetUtil.ResolveAudioGroupPathFromDataFile(data, _savingDataPath, groupId);
+			if (loadPath == null || savePath == null)
+			{
+				return null;
+			}
+			var sourcePath = File.Exists(savePath) ? savePath : loadPath;
+			if (!File.Exists(sourcePath))
+			{
+				return null;
+			}
+			var group = new Group { SavePath = savePath };
+			try
+			{
+				group.File = AudioGroupFile.Open(sourcePath);
+			}
+			catch (Exception ex) when (!ModdingCancellation.IsCancellation(ex))
+			{
+				group.Error = ex.Message;
+			}
+			return group;
+		}
+
+		/// <summary>Writes every touched group file. When a write fails, its sounds keep their audio embedded in the data file.</summary>
+		public void Flush(GameMakerData data)
+		{
+			foreach (var group in _groups.Values)
+			{
+				if (group?.File == null || group.Sounds.Count == 0)
+				{
+					continue;
+				}
+				try
+				{
+					var outDir = Path.GetDirectoryName(group.SavePath);
+					if (!string.IsNullOrWhiteSpace(outDir))
+					{
+						Directory.CreateDirectory(outDir);
+					}
+					group.File.Save(group.SavePath, backup: false);
+				}
+				catch (Exception ex) when (!ModdingCancellation.IsCancellation(ex))
+				{
+					foreach ((var sound, var audio) in group.Sounds)
+					{
+						Log("[ImportSounds] External audiogroup write skipped for " + sound.Name?.Content + ": " + ex.Message);
+						sound.AudioFile = new GameMakerEmbeddedAudio { Data = audio };
+						data.EmbeddedAudio.Add(sound.AudioFile);
+					}
+				}
+			}
+		}
+
+		public void Dispose()
+		{
+			foreach (var group in _groups.Values)
+			{
+				group?.File?.Dispose();
+			}
 		}
 	}
 
@@ -4314,18 +4241,19 @@ public static partial class ResourceImportService
 	{
 		if (!data.IsGameMaker2())
 		{
+			BatchRun.Item("Tilesets", ResultKind.Skipped, "Target data is not GameMaker 2");
 			return;
 		}
-		HashSet<string> names = new HashSet<string>();
-		string[] filesIn = GetFilesIn(inputDir, "*.png");
-		foreach (string f in filesIn)
+		HashSet<string> names = [];
+		var filesIn = GetFilesIn(inputDir, "*.png");
+		foreach (var f in filesIn)
 		{
 			names.Add(Path.GetFileNameWithoutExtension(f));
 		}
 		filesIn = GetFilesIn(inputDir, "*.json");
-		for (int i = 0; i < filesIn.Length; i++)
+		for (var i = 0; i < filesIn.Length; i++)
 		{
-			string n = Path.GetFileNameWithoutExtension(filesIn[i]);
+			var n = Path.GetFileNameWithoutExtension(filesIn[i]);
 			if (!n.Equals("config", StringComparison.OrdinalIgnoreCase))
 			{
 				names.Add(n);
@@ -4335,22 +4263,24 @@ public static partial class ResourceImportService
 		{
 			return;
 		}
-		int imported = 0;
-		int created = 0;
+		BatchRun.Expect(names.Count);
+		var imported = 0;
+		var created = 0;
 		using (new TextureWorker())
 		{
-			foreach (string tsName in names)
+			foreach (var tsName in names)
 			{
-				string pngPath = Path.Combine(inputDir, tsName + ".png");
-				string jsonPath = Path.Combine(inputDir, tsName + ".json");
+				var pngPath = Path.Combine(inputDir, tsName + ".png");
+				var jsonPath = Path.Combine(inputDir, tsName + ".json");
 				if (!FExists(pngPath) && !FExists(jsonPath))
 				{
+					BatchRun.Item(tsName, ResultKind.Skipped, "Missing png and json files");
 					continue;
 				}
 				try
 				{
-					GameMakerBackground ts = data.Backgrounds.ByName(tsName);
-					bool isNew = ts == null;
+					var ts = data.Backgrounds.ByName(tsName);
+					var isNew = ts == null;
 					if (isNew)
 					{
 						ts = new GameMakerBackground
@@ -4364,7 +4294,7 @@ public static partial class ResourceImportService
 					}
 					if (FExists(pngPath))
 					{
-						using MagickImage img = new MagickImage(FReadBytes(pngPath));
+						using var img = new MagickImage(FReadBytes(pngPath));
 						if (!isNew && ts.Texture != null)
 						{
 							ts.Texture.SourceWidth = (ushort)img.Width;
@@ -4381,8 +4311,8 @@ public static partial class ResourceImportService
 					}
 					if (FExists(jsonPath))
 					{
-						using JsonDocument jsonDoc = JsonDocument.Parse(FReadText(jsonPath));
-						JsonElement root = jsonDoc.RootElement;
+						using var jsonDoc = JsonDocument.Parse(FReadText(jsonPath));
+						var root = jsonDoc.RootElement;
 						ts.Transparent = GetJsonValue(root, "transparent", ts.Transparent);
 						ts.Smooth = GetJsonValue(root, "smooth", ts.Smooth);
 						ts.Preload = GetJsonValue(root, "preload", ts.Preload);
@@ -4415,12 +4345,12 @@ public static partial class ResourceImportService
 						}
 						if (root.TryGetProperty("gms2TileIds", out var tileIdsElm) && tileIdsElm.ValueKind == JsonValueKind.Array)
 						{
-							int expected = (int)(ts.GMS2TileCount * ts.GMS2ItemsPerTileCount);
-							List<JsonElement> ids = tileIdsElm.EnumerateArray().ToList();
+							var expected = (int)(ts.GMS2TileCount * ts.GMS2ItemsPerTileCount);
+							List<JsonElement> ids = [.. tileIdsElm.EnumerateArray()];
 							if (ids.Count == expected)
 							{
 								ts.GMS2TileIds.Clear();
-								foreach (JsonElement id in ids)
+								foreach (var id in ids)
 								{
 									ts.GMS2TileIds.Add(new GameMakerBackground.TileID
 									{
@@ -4435,10 +4365,12 @@ public static partial class ResourceImportService
 						data.Backgrounds.Add(ts);
 					}
 					imported++;
+					BatchRun.Item(tsName);
 				}
-				catch (Exception ex)
+				catch (Exception ex) when (!ModdingCancellation.IsCancellation(ex))
 				{
 					Log("[ImportTilesets] Failed: " + tsName + ": " + ex.Message);
+					BatchRun.Failed(tsName, ex);
 				}
 			}
 			Log($"[ImportTilesets] Done. {imported} processed ({created} new).");
@@ -4447,19 +4379,20 @@ public static partial class ResourceImportService
 
 	private static void ImportExtensions(GameMakerData data, string inputDir)
 	{
-		int created = 0;
-		int updated = 0;
-		ImportNamedJsonResources(inputDir, "ImportExtensions", delegate(string name, JsonElement root)
+		var created = 0;
+		var updated = 0;
+		ImportNamedJsonResources(inputDir, "ImportExtensions", delegate (string name, JsonElement root)
 		{
-			GameMakerExtension ext = data.Extensions?.ByName(name);
-			bool isNew = ext == null;
+			var ext = data.Extensions?.ByName(name);
+			var isNew = ext == null;
 			if (isNew)
 			{
 				ext = new GameMakerExtension
 				{
 					Name = data.Strings.MakeString(name),
-					Files = new GameMakerPointerList<GameMakerExtensionFile>(),
-					Options = new GameMakerPointerList<GameMakerExtensionOption>()
+					FolderName = data.Strings.MakeString(""),
+					Files = [],
+					Options = []
 				};
 				created++;
 			}
@@ -4467,180 +4400,180 @@ public static partial class ResourceImportService
 			{
 				updated++;
 			}
-				if (root.TryGetProperty("folderName", out var fnElm))
+			if (root.TryGetProperty("folderName", out var fnElm))
+			{
+				var fn = fnElm.GetString() ?? "";
+				if (fn.Length > 0)
 				{
-					string fn = fnElm.GetString() ?? "";
-					if (fn.Length > 0)
-					{
-						ext.FolderName = data.Strings.MakeString(fn);
-					}
+					ext.FolderName = data.Strings.MakeString(fn);
 				}
-				if (root.TryGetProperty("version", out var verElm))
+			}
+			if (root.TryGetProperty("version", out var verElm))
+			{
+				var ver = verElm.GetString() ?? "";
+				if (ver.Length > 0)
 				{
-					string ver = verElm.GetString() ?? "";
-					if (ver.Length > 0)
-					{
-						ext.Version = data.Strings.MakeString(ver);
-					}
+					ext.Version = data.Strings.MakeString(ver);
 				}
-				if (root.TryGetProperty("className", out var cnElm))
+			}
+			if (root.TryGetProperty("className", out var cnElm))
+			{
+				var cn = cnElm.GetString() ?? "";
+				if (cn.Length > 0)
 				{
-					string cn = cnElm.GetString() ?? "";
-					if (cn.Length > 0)
-					{
-						ext.ClassName = data.Strings.MakeString(cn);
-					}
+					ext.ClassName = data.Strings.MakeString(cn);
 				}
-				if (root.TryGetProperty("files", out var filesElm) && filesElm.ValueKind == JsonValueKind.Array)
+			}
+			if (root.TryGetProperty("files", out var filesElm) && filesElm.ValueKind == JsonValueKind.Array)
+			{
+				JsonElement[] arr = [.. filesElm.EnumerateArray()];
+				for (var fi = 0; fi < arr.Length; fi++)
 				{
-					JsonElement[] arr = filesElm.EnumerateArray().ToArray();
-					for (int fi = 0; fi < arr.Length; fi++)
+					var fElm = arr[fi];
+					GameMakerExtensionFile file;
+					if (fi < ext.Files.Count)
 					{
-						JsonElement fElm = arr[fi];
-						GameMakerExtensionFile file;
-						if (fi < ext.Files.Count)
+						file = ext.Files[fi];
+					}
+					else
+					{
+						file = new GameMakerExtensionFile
 						{
-							file = ext.Files[fi];
+							Functions = []
+						};
+						ext.Files.Add(file);
+					}
+					if (fElm.TryGetProperty("filename", out var ffnElm))
+					{
+						var ffn = ffnElm.GetString() ?? "";
+						if (ffn.Length > 0)
+						{
+							file.Filename = data.Strings.MakeString(ffn);
+						}
+					}
+					if (fElm.TryGetProperty("kind", out var kElm))
+					{
+						file.Kind = (GameMakerExtensionKind)kElm.GetInt32();
+					}
+					if (fElm.TryGetProperty("initScript", out var isElm))
+					{
+						var s = isElm.GetString() ?? "";
+						file.InitScript = (s.Length > 0) ? data.Strings.MakeString(s) : null;
+					}
+					if (fElm.TryGetProperty("cleanupScript", out var csElm))
+					{
+						var s2 = csElm.GetString() ?? "";
+						file.CleanupScript = (s2.Length > 0) ? data.Strings.MakeString(s2) : null;
+					}
+					if (!fElm.TryGetProperty("functions", out var funsElm) || funsElm.ValueKind != JsonValueKind.Array)
+					{
+						continue;
+					}
+					JsonElement[] funArr = [.. funsElm.EnumerateArray()];
+					for (var fui = 0; fui < funArr.Length; fui++)
+					{
+						var fuElm = funArr[fui];
+						GameMakerExtensionFunction func;
+						if (fui < file.Functions.Count)
+						{
+							func = file.Functions[fui];
 						}
 						else
 						{
-							file = new GameMakerExtensionFile
+							func = new GameMakerExtensionFunction
 							{
-								Functions = new GameMakerPointerList<GameMakerExtensionFunction>()
+								Arguments = []
 							};
-							ext.Files.Add(file);
+							file.Functions.Add(func);
 						}
-						if (fElm.TryGetProperty("filename", out var ffnElm))
+						if (fuElm.TryGetProperty("name", out var funcNm))
 						{
-							string ffn = ffnElm.GetString() ?? "";
-							if (ffn.Length > 0)
+							var n = funcNm.GetString() ?? "";
+							if (n.Length > 0)
 							{
-								file.Filename = data.Strings.MakeString(ffn);
+								func.Name = data.Strings.MakeString(n);
 							}
 						}
-						if (fElm.TryGetProperty("kind", out var kElm))
+						if (fuElm.TryGetProperty("extName", out var enElm))
 						{
-							file.Kind = (GameMakerExtensionKind)kElm.GetInt32();
+							var n2 = enElm.GetString() ?? "";
+							if (n2.Length > 0)
+							{
+								func.ExtName = data.Strings.MakeString(n2);
+							}
 						}
-						if (fElm.TryGetProperty("initScript", out var isElm))
+						if (fuElm.TryGetProperty("id", out var idElm))
 						{
-							string s = isElm.GetString() ?? "";
-							file.InitScript = ((s.Length > 0) ? data.Strings.MakeString(s) : null);
+							func.ID = (uint)idElm.GetInt64();
 						}
-						if (fElm.TryGetProperty("cleanupScript", out var csElm))
+						if (fuElm.TryGetProperty("kind", out var fkElm))
 						{
-							string s2 = csElm.GetString() ?? "";
-							file.CleanupScript = ((s2.Length > 0) ? data.Strings.MakeString(s2) : null);
+							func.Kind = (uint)fkElm.GetInt64();
 						}
-						if (!fElm.TryGetProperty("functions", out var funsElm) || funsElm.ValueKind != JsonValueKind.Array)
+						if (fuElm.TryGetProperty("retType", out var rtElm))
+						{
+							func.RetType = (GameMakerExtensionVarType)rtElm.GetInt32();
+						}
+						if (!fuElm.TryGetProperty("arguments", out var argsElm) || argsElm.ValueKind != JsonValueKind.Array)
 						{
 							continue;
 						}
-						JsonElement[] funArr = funsElm.EnumerateArray().ToArray();
-						for (int fui = 0; fui < funArr.Length; fui++)
+						JsonElement[] argArr = [.. argsElm.EnumerateArray()];
+						for (var ai = 0; ai < argArr.Length; ai++)
 						{
-							JsonElement fuElm = funArr[fui];
-							GameMakerExtensionFunction func;
-							if (fui < file.Functions.Count)
+							var aElm = argArr[ai];
+							GameMakerExtensionFunctionArg arg;
+							if (ai < func.Arguments.Count)
 							{
-								func = file.Functions[fui];
+								arg = func.Arguments[ai];
 							}
 							else
 							{
-								func = new GameMakerExtensionFunction
-								{
-									Arguments = new GameMakerSimpleList<GameMakerExtensionFunctionArg>()
-								};
-								file.Functions.Add(func);
+								arg = new GameMakerExtensionFunctionArg();
+								func.Arguments.Add(arg);
 							}
-							if (fuElm.TryGetProperty("name", out var funcNm))
+							if (aElm.TryGetProperty("type", out var atElm))
 							{
-								string n = funcNm.GetString() ?? "";
-								if (n.Length > 0)
-								{
-									func.Name = data.Strings.MakeString(n);
-								}
-							}
-							if (fuElm.TryGetProperty("extName", out var enElm))
-							{
-								string n2 = enElm.GetString() ?? "";
-								if (n2.Length > 0)
-								{
-									func.ExtName = data.Strings.MakeString(n2);
-								}
-							}
-							if (fuElm.TryGetProperty("id", out var idElm))
-							{
-								func.ID = (uint)idElm.GetInt64();
-							}
-							if (fuElm.TryGetProperty("kind", out var fkElm))
-							{
-								func.Kind = (uint)fkElm.GetInt64();
-							}
-							if (fuElm.TryGetProperty("retType", out var rtElm))
-							{
-								func.RetType = (GameMakerExtensionVarType)rtElm.GetInt32();
-							}
-							if (!fuElm.TryGetProperty("arguments", out var argsElm) || argsElm.ValueKind != JsonValueKind.Array)
-							{
-								continue;
-							}
-							JsonElement[] argArr = argsElm.EnumerateArray().ToArray();
-							for (int ai = 0; ai < argArr.Length; ai++)
-							{
-								JsonElement aElm = argArr[ai];
-								GameMakerExtensionFunctionArg arg;
-								if (ai < func.Arguments.Count)
-								{
-									arg = func.Arguments[ai];
-								}
-								else
-								{
-									arg = new GameMakerExtensionFunctionArg();
-									func.Arguments.Add(arg);
-								}
-								if (aElm.TryGetProperty("type", out var atElm))
-								{
-									arg.Type = (GameMakerExtensionVarType)atElm.GetInt32();
-								}
+								arg.Type = (GameMakerExtensionVarType)atElm.GetInt32();
 							}
 						}
 					}
 				}
-				if (root.TryGetProperty("options", out var optsElm) && optsElm.ValueKind == JsonValueKind.Array)
+			}
+			if (root.TryGetProperty("options", out var optsElm) && optsElm.ValueKind == JsonValueKind.Array)
+			{
+				JsonElement[] optArr = [.. optsElm.EnumerateArray()];
+				for (var oi = 0; oi < optArr.Length; oi++)
 				{
-					JsonElement[] optArr = optsElm.EnumerateArray().ToArray();
-					for (int oi = 0; oi < optArr.Length; oi++)
+					var oElm = optArr[oi];
+					GameMakerExtensionOption opt;
+					if (oi < ext.Options.Count)
 					{
-						JsonElement oElm = optArr[oi];
-						GameMakerExtensionOption opt;
-						if (oi < ext.Options.Count)
+						opt = ext.Options[oi];
+					}
+					else
+					{
+						opt = new GameMakerExtensionOption();
+						ext.Options.Add(opt);
+					}
+					if (oElm.TryGetProperty("name", out var onElm))
+					{
+						var on = onElm.GetString() ?? "";
+						if (on.Length > 0)
 						{
-							opt = ext.Options[oi];
-						}
-						else
-						{
-							opt = new GameMakerExtensionOption();
-							ext.Options.Add(opt);
-						}
-						if (oElm.TryGetProperty("name", out var onElm))
-						{
-							string on = onElm.GetString() ?? "";
-							if (on.Length > 0)
-							{
-								opt.Name = data.Strings.MakeString(on);
-							}
-						}
-						if (oElm.TryGetProperty("value", out var ovElm))
-						{
-							opt.Value = data.Strings.MakeString(ovElm.GetString() ?? "");
-						}
-						if (oElm.TryGetProperty("kind", out var okElm))
-						{
-							opt.Kind = (GameMakerExtensionOption.OptionKind)okElm.GetInt32();
+							opt.Name = data.Strings.MakeString(on);
 						}
 					}
+					if (oElm.TryGetProperty("value", out var ovElm))
+					{
+						opt.Value = data.Strings.MakeString(ovElm.GetString() ?? "");
+					}
+					if (oElm.TryGetProperty("kind", out var okElm))
+					{
+						opt.Kind = (GameMakerExtensionOption.OptionKind)okElm.GetInt32();
+					}
 				}
+			}
 			if (isNew)
 			{
 				data.Extensions.Add(ext);
@@ -4676,23 +4609,23 @@ public static partial class ResourceImportService
 
 	private static void ImportRooms(GameMakerData data, string inputDir)
 	{
-		string[] roomDirs = GetDirs(inputDir);
+		var roomDirs = GetDirs(inputDir);
 		if (roomDirs.Length == 0)
 		{
 			return;
 		}
-		List<string> patchRoomOrder = new List<string>();
-		bool hasPatchRoomOrder = false;
-		string giPath = Path.Combine(Path.GetDirectoryName(inputDir), "GeneralInfo", "GeneralInfo.json");
+		List<string> patchRoomOrder = [];
+		var hasPatchRoomOrder = false;
+		var giPath = Path.Combine(Path.GetDirectoryName(inputDir), "GeneralInfo", "GeneralInfo.json");
 		if (FExists(giPath))
 		{
 			try
 			{
-				using JsonDocument giDoc = JsonDocument.Parse(FReadText(giPath));
+				using var giDoc = JsonDocument.Parse(FReadText(giPath));
 				if (giDoc.RootElement.TryGetProperty("roomOrder", out var roElm) && roElm.ValueKind == JsonValueKind.Array)
 				{
 					hasPatchRoomOrder = true;
-					foreach (JsonElement e in roElm.EnumerateArray())
+					foreach (var e in roElm.EnumerateArray())
 					{
 						patchRoomOrder.Add(e.GetString() ?? "");
 					}
@@ -4702,27 +4635,29 @@ public static partial class ResourceImportService
 			{
 			}
 		}
-		string[] sorted = roomDirs.OrderBy(delegate(string d)
+		string[] sorted = [.. roomDirs.OrderBy(delegate (string d)
 		{
-			int num2 = patchRoomOrder.IndexOf(Path.GetFileName(d));
+			var num2 = patchRoomOrder.IndexOf(Path.GetFileName(d));
 			return (num2 < 0) ? int.MaxValue : num2;
-		}).ToArray();
-		RoomImportLookup lookup = RoomImportLookup.Build(data);
+		})];
+		var lookup = RoomImportLookup.Build(data);
 		Log($"[ImportRooms] Found {sorted.Length} room folder(s) to import.");
-		string[] array = sorted;
-		foreach (string roomDir in array)
+		BatchRun.Expect(sorted.Length);
+		var array = sorted;
+		foreach (var roomDir in array)
 		{
-			string roomFile = Path.Combine(roomDir, "room.json");
+			var roomFile = Path.Combine(roomDir, "room.json");
 			if (!FExists(roomFile))
 			{
+				BatchRun.Item(Path.GetFileName(roomDir), ResultKind.Skipped, "Missing room.json");
 				continue;
 			}
 			try
 			{
-				string roomName = Path.GetFileName(roomDir);
-				using JsonDocument jsonDoc = JsonDocument.Parse(FReadText(roomFile));
-				JsonElement root = jsonDoc.RootElement;
-				if (!lookup.Rooms.TryGetValue(roomName, out GameMakerRoom room))
+				var roomName = Path.GetFileName(roomDir);
+				using var jsonDoc = JsonDocument.Parse(FReadText(roomFile));
+				var root = jsonDoc.RootElement;
+				if (!lookup.Rooms.TryGetValue(roomName, out var room))
 				{
 					room = new GameMakerRoom
 					{
@@ -4732,21 +4667,23 @@ public static partial class ResourceImportService
 					lookup.Rooms[roomName] = room;
 				}
 				UpdateRoomFromJson(data, room, root, lookup);
+				BatchRun.Item(roomName);
 			}
-			catch (Exception ex)
+			catch (Exception ex) when (!ModdingCancellation.IsCancellation(ex))
 			{
 				Log("[ImportRooms] Error: " + Path.GetFileName(roomDir) + ": " + ex.Message);
+				BatchRun.Failed(Path.GetFileName(roomDir), ex);
 			}
 		}
 		if (hasPatchRoomOrder)
 		{
-			GameMakerGeneralInfo generalInfo = data.GeneralInfo;
+			var generalInfo = data.GeneralInfo;
 			if (generalInfo != null)
 			{
 				generalInfo.RoomOrder.Clear();
-				foreach (string roomName2 in patchRoomOrder)
+				foreach (var roomName2 in patchRoomOrder)
 				{
-					if (lookup.Rooms.TryGetValue(roomName2, out GameMakerRoom room2))
+					if (lookup.Rooms.TryGetValue(roomName2, out var room2))
 					{
 						generalInfo.RoomOrder.Add(new GameMakerResourceById<GameMakerRoom, GameMakerChunkROOM>
 						{
@@ -4763,7 +4700,11 @@ public static partial class ResourceImportService
 	{
 		if (d.TryGetProperty("caption", out var captionElm) && captionElm.ValueKind == JsonValueKind.String)
 		{
-			room.Caption = MakeRoomString(data, lookup, captionElm.GetString());
+			var caption = captionElm.GetString() ?? "";
+			if ((room.Caption?.Content ?? "") != caption)
+			{
+				room.Caption = MakeRoomString(data, lookup, caption);
+			}
 		}
 		if (d.TryGetProperty("width", out var wElm) && wElm.ValueKind == JsonValueKind.Number)
 		{
@@ -4791,10 +4732,10 @@ public static partial class ResourceImportService
 		}
 		if (d.TryGetProperty("creationCodeId", out var ccElm) && ccElm.ValueKind == JsonValueKind.String)
 		{
-			string cn = ccElm.GetString() ?? "";
+			var cn = ccElm.GetString() ?? "";
 			if (cn.Length > 0)
 			{
-				if (!lookup.Code.TryGetValue(cn, out GameMakerCode code))
+				if (!lookup.Code.TryGetValue(cn, out var code))
 				{
 					code = new GameMakerCode
 					{
@@ -4802,7 +4743,7 @@ public static partial class ResourceImportService
 					};
 					data.Code.Add(code);
 					lookup.Code[cn] = code;
-					GameMakerCodeLocals cl = new GameMakerCodeLocals
+					var cl = new GameMakerCodeLocals
 					{
 						Name = code.Name
 					};
@@ -4863,9 +4804,9 @@ public static partial class ResourceImportService
 		if (d.TryGetProperty("backgrounds", out var bgsElm) && bgsElm.ValueKind == JsonValueKind.Array)
 		{
 			room.Backgrounds.Clear();
-			foreach (JsonElement bgElm in bgsElm.EnumerateArray())
+			foreach (var bgElm in bgsElm.EnumerateArray())
 			{
-				GameMakerRoom.Background bg = new GameMakerRoom.Background
+				var bg = new GameMakerRoom.Background
 				{
 					ParentRoom = room
 				};
@@ -4879,8 +4820,8 @@ public static partial class ResourceImportService
 				}
 				if (bgElm.TryGetProperty("backgroundDefinition", out var bdElm) && bdElm.ValueKind == JsonValueKind.String)
 				{
-					string bn = bdElm.GetString() ?? "";
-					if (bn.Length > 0 && lookup.Backgrounds.TryGetValue(bn, out GameMakerBackground bgDef))
+					var bn = bdElm.GetString() ?? "";
+					if (bn.Length > 0 && lookup.Backgrounds.TryGetValue(bn, out var bgDef))
 					{
 						bg.BackgroundDefinition = bgDef;
 					}
@@ -4919,9 +4860,9 @@ public static partial class ResourceImportService
 		if (d.TryGetProperty("views", out var viewsElm) && viewsElm.ValueKind == JsonValueKind.Array)
 		{
 			room.Views.Clear();
-			foreach (JsonElement vElm in viewsElm.EnumerateArray())
+			foreach (var vElm in viewsElm.EnumerateArray())
 			{
-				GameMakerRoom.View view = new GameMakerRoom.View();
+				var view = new GameMakerRoom.View();
 				if (vElm.TryGetProperty("enabled", out var enElm2) && (enElm2.ValueKind == JsonValueKind.True || enElm2.ValueKind == JsonValueKind.False))
 				{
 					view.Enabled = enElm2.GetBoolean();
@@ -4976,8 +4917,8 @@ public static partial class ResourceImportService
 				}
 				if (vElm.TryGetProperty("objectId", out var oiElm) && oiElm.ValueKind == JsonValueKind.String)
 				{
-					string on = oiElm.GetString() ?? "";
-					if (on.Length > 0 && lookup.GameObjects.TryGetValue(on, out GameMakerGameObject obj))
+					var on = oiElm.GetString() ?? "";
+					if (on.Length > 0 && lookup.GameObjects.TryGetValue(on, out var obj))
 					{
 						view.ObjectId = obj;
 					}
@@ -4988,9 +4929,9 @@ public static partial class ResourceImportService
 		if (d.TryGetProperty("gameObjects", out var gosElm) && gosElm.ValueKind == JsonValueKind.Array)
 		{
 			room.GameObjects.Clear();
-			foreach (JsonElement oElm in gosElm.EnumerateArray())
+			foreach (var oElm in gosElm.EnumerateArray())
 			{
-				GameMakerRoom.GameObject go = new GameMakerRoom.GameObject();
+				var go = new GameMakerRoom.GameObject();
 				if (oElm.TryGetProperty("x", out var xElm2) && xElm2.ValueKind == JsonValueKind.Number)
 				{
 					go.X = xElm2.GetInt32();
@@ -5001,8 +4942,8 @@ public static partial class ResourceImportService
 				}
 				if (oElm.TryGetProperty("objectDefinition", out var odElm) && odElm.ValueKind == JsonValueKind.String)
 				{
-					string on2 = odElm.GetString() ?? "";
-					if (on2.Length > 0 && lookup.GameObjects.TryGetValue(on2, out GameMakerGameObject od))
+					var on2 = odElm.GetString() ?? "";
+					if (on2.Length > 0 && lookup.GameObjects.TryGetValue(on2, out var od))
 					{
 						go.ObjectDefinition = od;
 					}
@@ -5013,7 +4954,7 @@ public static partial class ResourceImportService
 				}
 				if (oElm.TryGetProperty("creationCode", out var ccElm2) && ccElm2.ValueKind == JsonValueKind.String)
 				{
-					string cn2 = ccElm2.GetString() ?? "";
+					var cn2 = ccElm2.GetString() ?? "";
 					if (cn2.Length > 0)
 					{
 						go.CreationCode = EnsureCodeEntry(data, cn2, lookup);
@@ -5037,7 +4978,7 @@ public static partial class ResourceImportService
 				}
 				if (oElm.TryGetProperty("preCreateCode", out var pcElm) && pcElm.ValueKind == JsonValueKind.String)
 				{
-					string pcn = pcElm.GetString() ?? "";
+					var pcn = pcElm.GetString() ?? "";
 					if (pcn.Length > 0)
 					{
 						go.PreCreateCode = EnsureCodeEntry(data, pcn, lookup);
@@ -5057,17 +4998,17 @@ public static partial class ResourceImportService
 				room.GameObjects.Add(go);
 			}
 		}
-		Dictionary<uint, GameMakerRoom.GameObject> roomGameObjectsByInstanceId = new Dictionary<uint, GameMakerRoom.GameObject>(room.GameObjects.Count);
-		foreach (GameMakerRoom.GameObject go2 in room.GameObjects)
+		var roomGameObjectsByInstanceId = new Dictionary<uint, GameMakerRoom.GameObject>(room.GameObjects.Count);
+		foreach (var go2 in room.GameObjects)
 		{
 			roomGameObjectsByInstanceId.TryAdd(go2.InstanceID, go2);
 		}
 		if (d.TryGetProperty("tiles", out var tilesElm) && tilesElm.ValueKind == JsonValueKind.Array)
 		{
 			room.Tiles.Clear();
-			foreach (JsonElement tElm in tilesElm.EnumerateArray())
+			foreach (var tElm in tilesElm.EnumerateArray())
 			{
-				GameMakerRoom.Tile tile = new GameMakerRoom.Tile();
+				var tile = new GameMakerRoom.Tile();
 				if (tElm.TryGetProperty("x", out var xElm3) && xElm3.ValueKind == JsonValueKind.Number)
 				{
 					tile.X = xElm3.GetInt32();
@@ -5080,22 +5021,21 @@ public static partial class ResourceImportService
 				{
 					tile.spriteMode = smElm.GetBoolean();
 				}
-				JsonElement bdElm2;
 				if (tile.spriteMode)
 				{
 					if (tElm.TryGetProperty("spriteDefinition", out var sdElm) && sdElm.ValueKind == JsonValueKind.String)
 					{
-						string sn = sdElm.GetString() ?? "";
-						if (sn.Length > 0 && lookup.Sprites.TryGetValue(sn, out GameMakerSprite spr))
+						var sn = sdElm.GetString() ?? "";
+						if (sn.Length > 0 && lookup.Sprites.TryGetValue(sn, out var spr))
 						{
 							tile.SpriteDefinition = spr;
 						}
 					}
 				}
-				else if (tElm.TryGetProperty("backgroundDefinition", out bdElm2) && bdElm2.ValueKind == JsonValueKind.String)
+				else if (tElm.TryGetProperty("backgroundDefinition", out var bdElm2) && bdElm2.ValueKind == JsonValueKind.String)
 				{
-					string bn2 = bdElm2.GetString() ?? "";
-					if (bn2.Length > 0 && lookup.Backgrounds.TryGetValue(bn2, out GameMakerBackground bg2))
+					var bn2 = bdElm2.GetString() ?? "";
+					if (bn2.Length > 0 && lookup.Backgrounds.TryGetValue(bn2, out var bg2))
 					{
 						tile.BackgroundDefinition = bg2;
 					}
@@ -5141,15 +5081,16 @@ public static partial class ResourceImportService
 		}
 		if (data.IsGameMaker2() && d.TryGetProperty("layers", out var layersElm) && layersElm.ValueKind == JsonValueKind.Array)
 		{
+			List<GameMakerRoom.Layer> previousLayers = [.. room.Layers];
 			room.Layers.Clear();
-			foreach (JsonElement lElm in layersElm.EnumerateArray())
+			foreach (var lElm in layersElm.EnumerateArray())
 			{
 				if (!lElm.TryGetProperty("layerType", out var ltElm) || ltElm.ValueKind != JsonValueKind.Number)
 				{
 					continue;
 				}
-				int lt = ltElm.GetInt32();
-				GameMakerRoom.Layer layer = new GameMakerRoom.Layer
+				var lt = ltElm.GetInt32();
+				var layer = new GameMakerRoom.Layer
 				{
 					LayerType = (GameMakerRoom.LayerType)lt,
 					ParentRoom = room
@@ -5199,278 +5140,281 @@ public static partial class ResourceImportService
 				}
 				switch (lt)
 				{
-				case 2:
-				{
-					GameMakerRoom.Layer.LayerInstancesData instData = new GameMakerRoom.Layer.LayerInstancesData();
-					if (lElm.TryGetProperty("instanceIds", out var idsElm) && idsElm.ValueKind == JsonValueKind.Array)
-					{
-						foreach (JsonElement item in idsElm.EnumerateArray())
+					case 2:
 						{
-							if (TryGetUInt32(item, out var iid) && roomGameObjectsByInstanceId.TryGetValue(iid, out var go3))
+							var instData = new GameMakerRoom.Layer.LayerInstancesData();
+							if (lElm.TryGetProperty("instanceIds", out var idsElm) && idsElm.ValueKind == JsonValueKind.Array)
 							{
-								instData.Instances.Add(go3);
-							}
-						}
-					}
-					layer.Data = instData;
-					break;
-				}
-				case 4:
-				{
-					GameMakerRoom.Layer.LayerTilesData tilesData = new GameMakerRoom.Layer.LayerTilesData
-					{
-						ParentLayer = layer
-					};
-					if (lElm.TryGetProperty("tilesBackground", out var tbElm) && tbElm.ValueKind == JsonValueKind.String)
-					{
-						string bn5 = tbElm.GetString() ?? "";
-						if (bn5.Length > 0 && lookup.Backgrounds.TryGetValue(bn5, out GameMakerBackground bg5))
-						{
-							tilesData.Background = bg5;
-						}
-					}
-					if (lElm.TryGetProperty("tilesX", out var txElm) && TryGetUInt32(txElm, out var tilesX))
-					{
-						tilesData.TilesX = tilesX;
-					}
-					if (lElm.TryGetProperty("tilesY", out var tyElm) && TryGetUInt32(tyElm, out var tilesY))
-					{
-						tilesData.TilesY = tilesY;
-					}
-					if (lElm.TryGetProperty("tileData", out var tdElm2) && tdElm2.ValueKind == JsonValueKind.Array)
-					{
-						List<uint[]> rows = new List<uint[]>();
-						foreach (JsonElement rowElm in tdElm2.EnumerateArray())
-						{
-							if (rowElm.ValueKind == JsonValueKind.Array)
-							{
-								rows.Add((from c in rowElm.EnumerateArray()
-									where c.ValueKind == JsonValueKind.Number
-									select (uint)c.GetInt32()).ToArray());
-							}
-						}
-						tilesData.TileData = rows.ToArray();
-					}
-					layer.Data = tilesData;
-					break;
-				}
-				case 1:
-				{
-					GameMakerRoom.Layer.LayerBackgroundData bgData = new GameMakerRoom.Layer.LayerBackgroundData
-					{
-						ParentLayer = layer
-					};
-					if (lElm.TryGetProperty("backgroundData", out var bdElm4) && bdElm4.ValueKind == JsonValueKind.Object)
-					{
-						if (bdElm4.TryGetProperty("visible", out var vElm2) && (vElm2.ValueKind == JsonValueKind.True || vElm2.ValueKind == JsonValueKind.False))
-						{
-							bgData.Visible = vElm2.GetBoolean();
-						}
-						if (bdElm4.TryGetProperty("foreground", out var fElm) && (fElm.ValueKind == JsonValueKind.True || fElm.ValueKind == JsonValueKind.False))
-						{
-							bgData.Foreground = fElm.GetBoolean();
-						}
-						if (bdElm4.TryGetProperty("sprite", out var sElm2) && sElm2.ValueKind == JsonValueKind.String)
-						{
-							string sn4 = sElm2.GetString() ?? "";
-							if (sn4.Length > 0 && lookup.Sprites.TryGetValue(sn4, out GameMakerSprite spr4))
-							{
-								bgData.Sprite = spr4;
-							}
-						}
-						if (bdElm4.TryGetProperty("tiledHorizontally", out var thElm2) && (thElm2.ValueKind == JsonValueKind.True || thElm2.ValueKind == JsonValueKind.False))
-						{
-							bgData.TiledHorizontally = thElm2.GetBoolean();
-						}
-						if (bdElm4.TryGetProperty("tiledVertically", out var tvElm2) && (tvElm2.ValueKind == JsonValueKind.True || tvElm2.ValueKind == JsonValueKind.False))
-						{
-							bgData.TiledVertically = tvElm2.GetBoolean();
-						}
-						if (bdElm4.TryGetProperty("stretch", out var stElm2) && (stElm2.ValueKind == JsonValueKind.True || stElm2.ValueKind == JsonValueKind.False))
-						{
-							bgData.Stretch = stElm2.GetBoolean();
-						}
-						if (bdElm4.TryGetProperty("color", out var cElm) && TryGetUInt32(cElm, out var backgroundLayerColor))
-						{
-							bgData.Color = backgroundLayerColor;
-						}
-						if (bdElm4.TryGetProperty("firstFrame", out var ffElm) && ffElm.ValueKind == JsonValueKind.Number)
-						{
-							bgData.FirstFrame = (float)ffElm.GetDouble();
-						}
-						if (bdElm4.TryGetProperty("animationSpeed", out var asElm2) && asElm2.ValueKind == JsonValueKind.Number)
-						{
-							bgData.AnimationSpeed = (float)asElm2.GetDouble();
-						}
-						if (bdElm4.TryGetProperty("animationSpeedType", out var astElm2) && astElm2.ValueKind == JsonValueKind.Number)
-						{
-							bgData.AnimationSpeedType = (AnimationSpeedType)astElm2.GetInt32();
-						}
-					}
-					layer.Data = bgData;
-					break;
-				}
-				case 3:
-				{
-					GameMakerRoom.Layer.LayerAssetsData assetsData = new GameMakerRoom.Layer.LayerAssetsData
-					{
-						LegacyTiles = new GameMakerPointerList<GameMakerRoom.Tile>(),
-						Sprites = new GameMakerPointerList<GameMakerRoom.SpriteInstance>()
-					};
-					if (data.IsVersionAtLeast(2u, 3u))
-					{
-						assetsData.Sequences = new GameMakerPointerList<GameMakerRoom.SequenceInstance>();
-					}
-					if (lElm.TryGetProperty("assetsData", out var adElm) && adElm.ValueKind == JsonValueKind.Object)
-					{
-						if (adElm.TryGetProperty("legacyTiles", out var ltElm2) && ltElm2.ValueKind == JsonValueKind.Array)
-						{
-							foreach (JsonElement tElm2 in ltElm2.EnumerateArray())
-							{
-								GameMakerRoom.Tile tile2 = new GameMakerRoom.Tile();
-								if (tElm2.TryGetProperty("x", out var xElm4) && xElm4.ValueKind == JsonValueKind.Number)
+								foreach (var item in idsElm.EnumerateArray())
 								{
-									tile2.X = xElm4.GetInt32();
-								}
-								if (tElm2.TryGetProperty("y", out var yElm4) && yElm4.ValueKind == JsonValueKind.Number)
-								{
-									tile2.Y = yElm4.GetInt32();
-								}
-								if (tElm2.TryGetProperty("spriteMode", out var smElm2) && (smElm2.ValueKind == JsonValueKind.True || smElm2.ValueKind == JsonValueKind.False))
-								{
-									tile2.spriteMode = smElm2.GetBoolean();
-								}
-								if (tElm2.TryGetProperty("sourceX", out var sxElm5) && sxElm5.ValueKind == JsonValueKind.Number)
-								{
-									tile2.SourceX = sxElm5.GetInt32();
-								}
-								if (tElm2.TryGetProperty("sourceY", out var syElm5) && syElm5.ValueKind == JsonValueKind.Number)
-								{
-									tile2.SourceY = syElm5.GetInt32();
-								}
-								if (tElm2.TryGetProperty("width", out var wElm3) && TryGetUInt32(wElm3, out var legacyWidth))
-								{
-									tile2.Width = legacyWidth;
-								}
-								if (tElm2.TryGetProperty("height", out var hElm3) && TryGetUInt32(hElm3, out var legacyHeight))
-								{
-									tile2.Height = legacyHeight;
-								}
-								if (tElm2.TryGetProperty("tileDepth", out var dElm) && dElm.ValueKind == JsonValueKind.Number)
-								{
-									tile2.TileDepth = dElm.GetInt32();
-								}
-								if (tElm2.TryGetProperty("instanceID", out var iiElm3) && TryGetUInt32(iiElm3, out var legacyInstanceId))
-								{
-									tile2.InstanceID = legacyInstanceId;
-								}
-								if (tElm2.TryGetProperty("scaleX", out var scxElm2) && scxElm2.ValueKind == JsonValueKind.Number)
-								{
-									tile2.ScaleX = (float)scxElm2.GetDouble();
-								}
-								if (tElm2.TryGetProperty("scaleY", out var scyElm2) && scyElm2.ValueKind == JsonValueKind.Number)
-								{
-									tile2.ScaleY = (float)scyElm2.GetDouble();
-								}
-								if (tElm2.TryGetProperty("color", out var colElm3) && TryGetUInt32(colElm3, out var legacyTileColor))
-								{
-									tile2.Color = legacyTileColor;
-								}
-								JsonElement bdElm3;
-								JsonElement bgElm2;
-								if (tile2.spriteMode)
-								{
-									if (tElm2.TryGetProperty("spriteDefinition", out var sdElm2) && sdElm2.ValueKind == JsonValueKind.String)
+									if (TryGetUInt32(item, out var iid) && roomGameObjectsByInstanceId.TryGetValue(iid, out var go3))
 									{
-										string sn2 = sdElm2.GetString() ?? "";
-										if (sn2.Length > 0 && lookup.Sprites.TryGetValue(sn2, out GameMakerSprite spr2))
+										instData.Instances.Add(go3);
+									}
+								}
+							}
+							layer.Data = instData;
+							break;
+						}
+					case 4:
+						{
+							var tilesData = new GameMakerRoom.Layer.LayerTilesData
+							{
+								ParentLayer = layer
+							};
+							if (lElm.TryGetProperty("tilesBackground", out var tbElm) && tbElm.ValueKind == JsonValueKind.String)
+							{
+								var bn5 = tbElm.GetString() ?? "";
+								if (bn5.Length > 0 && lookup.Backgrounds.TryGetValue(bn5, out var bg5))
+								{
+									tilesData.Background = bg5;
+								}
+							}
+							if (lElm.TryGetProperty("tilesX", out var txElm) && TryGetUInt32(txElm, out var tilesX))
+							{
+								tilesData.TilesX = tilesX;
+							}
+							if (lElm.TryGetProperty("tilesY", out var tyElm) && TryGetUInt32(tyElm, out var tilesY))
+							{
+								tilesData.TilesY = tilesY;
+							}
+							if (lElm.TryGetProperty("tileData", out var tdElm2) && tdElm2.ValueKind == JsonValueKind.Array)
+							{
+								List<uint[]> rows = [];
+								foreach (var rowElm in tdElm2.EnumerateArray())
+								{
+									if (rowElm.ValueKind == JsonValueKind.Array)
+									{
+										rows.Add([.. from c in rowElm.EnumerateArray()
+												  where c.ValueKind == JsonValueKind.Number
+												  select (uint)c.GetInt32()]);
+									}
+								}
+								tilesData.TileData = [.. rows];
+							}
+							layer.Data = tilesData;
+							break;
+						}
+					case 1:
+						{
+							var bgData = new GameMakerRoom.Layer.LayerBackgroundData
+							{
+								ParentLayer = layer
+							};
+							if (lElm.TryGetProperty("backgroundData", out var bdElm4) && bdElm4.ValueKind == JsonValueKind.Object)
+							{
+								if (bdElm4.TryGetProperty("visible", out var vElm2) && (vElm2.ValueKind == JsonValueKind.True || vElm2.ValueKind == JsonValueKind.False))
+								{
+									bgData.Visible = vElm2.GetBoolean();
+								}
+								if (bdElm4.TryGetProperty("foreground", out var fElm) && (fElm.ValueKind == JsonValueKind.True || fElm.ValueKind == JsonValueKind.False))
+								{
+									bgData.Foreground = fElm.GetBoolean();
+								}
+								if (bdElm4.TryGetProperty("sprite", out var sElm2) && sElm2.ValueKind == JsonValueKind.String)
+								{
+									var sn4 = sElm2.GetString() ?? "";
+									if (sn4.Length > 0 && lookup.Sprites.TryGetValue(sn4, out var spr4))
+									{
+										bgData.Sprite = spr4;
+									}
+								}
+								if (bdElm4.TryGetProperty("tiledHorizontally", out var thElm2) && (thElm2.ValueKind == JsonValueKind.True || thElm2.ValueKind == JsonValueKind.False))
+								{
+									bgData.TiledHorizontally = thElm2.GetBoolean();
+								}
+								if (bdElm4.TryGetProperty("tiledVertically", out var tvElm2) && (tvElm2.ValueKind == JsonValueKind.True || tvElm2.ValueKind == JsonValueKind.False))
+								{
+									bgData.TiledVertically = tvElm2.GetBoolean();
+								}
+								if (bdElm4.TryGetProperty("stretch", out var stElm2) && (stElm2.ValueKind == JsonValueKind.True || stElm2.ValueKind == JsonValueKind.False))
+								{
+									bgData.Stretch = stElm2.GetBoolean();
+								}
+								if (bdElm4.TryGetProperty("color", out var cElm) && TryGetUInt32(cElm, out var backgroundLayerColor))
+								{
+									bgData.Color = backgroundLayerColor;
+								}
+								if (bdElm4.TryGetProperty("firstFrame", out var ffElm) && ffElm.ValueKind == JsonValueKind.Number)
+								{
+									bgData.FirstFrame = (float)ffElm.GetDouble();
+								}
+								if (bdElm4.TryGetProperty("animationSpeed", out var asElm2) && asElm2.ValueKind == JsonValueKind.Number)
+								{
+									bgData.AnimationSpeed = (float)asElm2.GetDouble();
+								}
+								if (bdElm4.TryGetProperty("animationSpeedType", out var astElm2) && astElm2.ValueKind == JsonValueKind.Number)
+								{
+									bgData.AnimationSpeedType = (AnimationSpeedType)astElm2.GetInt32();
+								}
+							}
+							layer.Data = bgData;
+							break;
+						}
+					case 3:
+						{
+							var assetsData = new GameMakerRoom.Layer.LayerAssetsData
+							{
+								LegacyTiles = [],
+								Sprites = []
+							};
+							if (data.IsVersionAtLeast(2u, 3u))
+							{
+								assetsData.Sequences = [];
+							}
+							if (lElm.TryGetProperty("assetsData", out var adElm) && adElm.ValueKind == JsonValueKind.Object)
+							{
+								if (adElm.TryGetProperty("legacyTiles", out var ltElm2) && ltElm2.ValueKind == JsonValueKind.Array)
+								{
+									foreach (var tElm2 in ltElm2.EnumerateArray())
+									{
+										var tile2 = new GameMakerRoom.Tile();
+										if (tElm2.TryGetProperty("x", out var xElm4) && xElm4.ValueKind == JsonValueKind.Number)
 										{
-											tile2.SpriteDefinition = spr2;
+											tile2.X = xElm4.GetInt32();
 										}
+										if (tElm2.TryGetProperty("y", out var yElm4) && yElm4.ValueKind == JsonValueKind.Number)
+										{
+											tile2.Y = yElm4.GetInt32();
+										}
+										if (tElm2.TryGetProperty("spriteMode", out var smElm2) && (smElm2.ValueKind == JsonValueKind.True || smElm2.ValueKind == JsonValueKind.False))
+										{
+											tile2.spriteMode = smElm2.GetBoolean();
+										}
+										if (tElm2.TryGetProperty("sourceX", out var sxElm5) && sxElm5.ValueKind == JsonValueKind.Number)
+										{
+											tile2.SourceX = sxElm5.GetInt32();
+										}
+										if (tElm2.TryGetProperty("sourceY", out var syElm5) && syElm5.ValueKind == JsonValueKind.Number)
+										{
+											tile2.SourceY = syElm5.GetInt32();
+										}
+										if (tElm2.TryGetProperty("width", out var wElm3) && TryGetUInt32(wElm3, out var legacyWidth))
+										{
+											tile2.Width = legacyWidth;
+										}
+										if (tElm2.TryGetProperty("height", out var hElm3) && TryGetUInt32(hElm3, out var legacyHeight))
+										{
+											tile2.Height = legacyHeight;
+										}
+										if (tElm2.TryGetProperty("tileDepth", out var dElm) && dElm.ValueKind == JsonValueKind.Number)
+										{
+											tile2.TileDepth = dElm.GetInt32();
+										}
+										if (tElm2.TryGetProperty("instanceID", out var iiElm3) && TryGetUInt32(iiElm3, out var legacyInstanceId))
+										{
+											tile2.InstanceID = legacyInstanceId;
+										}
+										if (tElm2.TryGetProperty("scaleX", out var scxElm2) && scxElm2.ValueKind == JsonValueKind.Number)
+										{
+											tile2.ScaleX = (float)scxElm2.GetDouble();
+										}
+										if (tElm2.TryGetProperty("scaleY", out var scyElm2) && scyElm2.ValueKind == JsonValueKind.Number)
+										{
+											tile2.ScaleY = (float)scyElm2.GetDouble();
+										}
+										if (tElm2.TryGetProperty("color", out var colElm3) && TryGetUInt32(colElm3, out var legacyTileColor))
+										{
+											tile2.Color = legacyTileColor;
+										}
+										if (tile2.spriteMode)
+										{
+											if (tElm2.TryGetProperty("spriteDefinition", out var sdElm2) && sdElm2.ValueKind == JsonValueKind.String)
+											{
+												var sn2 = sdElm2.GetString() ?? "";
+												if (sn2.Length > 0 && lookup.Sprites.TryGetValue(sn2, out var spr2))
+												{
+													tile2.SpriteDefinition = spr2;
+												}
+											}
+										}
+										else if (tElm2.TryGetProperty("backgroundDefinition", out var bdElm3) && bdElm3.ValueKind == JsonValueKind.String)
+										{
+											var bn3 = bdElm3.GetString() ?? "";
+											if (bn3.Length > 0 && lookup.Backgrounds.TryGetValue(bn3, out var bg3))
+											{
+												tile2.BackgroundDefinition = bg3;
+											}
+										}
+										else if (tElm2.TryGetProperty("background", out var bgElm2) && bgElm2.ValueKind == JsonValueKind.String)
+										{
+											var bn4 = bgElm2.GetString() ?? "";
+											if (bn4.Length > 0 && lookup.Backgrounds.TryGetValue(bn4, out var bg4))
+											{
+												tile2.BackgroundDefinition = bg4;
+											}
+										}
+										assetsData.LegacyTiles.Add(tile2);
 									}
 								}
-								else if (tElm2.TryGetProperty("backgroundDefinition", out bdElm3) && bdElm3.ValueKind == JsonValueKind.String)
+								if (adElm.TryGetProperty("sprites", out var sprElm) && sprElm.ValueKind == JsonValueKind.Array)
 								{
-									string bn3 = bdElm3.GetString() ?? "";
-									if (bn3.Length > 0 && lookup.Backgrounds.TryGetValue(bn3, out GameMakerBackground bg3))
+									foreach (var sElm in sprElm.EnumerateArray())
 									{
-										tile2.BackgroundDefinition = bg3;
+										var si = new GameMakerRoom.SpriteInstance();
+										if (sElm.TryGetProperty("name", out var nElm) && nElm.ValueKind == JsonValueKind.String)
+										{
+											si.Name = MakeRoomString(data, lookup, nElm.GetString());
+										}
+										if (sElm.TryGetProperty("sprite", out var srElm) && srElm.ValueKind == JsonValueKind.String)
+										{
+											var sn3 = srElm.GetString() ?? "";
+											if (sn3.Length > 0 && lookup.Sprites.TryGetValue(sn3, out var spr3))
+											{
+												si.Sprite = spr3;
+											}
+										}
+										if (sElm.TryGetProperty("x", out var xElm5) && xElm5.ValueKind == JsonValueKind.Number)
+										{
+											si.X = xElm5.GetInt32();
+										}
+										if (sElm.TryGetProperty("y", out var yElm5) && yElm5.ValueKind == JsonValueKind.Number)
+										{
+											si.Y = yElm5.GetInt32();
+										}
+										if (sElm.TryGetProperty("scaleX", out var sxElm6) && sxElm6.ValueKind == JsonValueKind.Number)
+										{
+											si.ScaleX = (float)sxElm6.GetDouble();
+										}
+										if (sElm.TryGetProperty("scaleY", out var syElm6) && syElm6.ValueKind == JsonValueKind.Number)
+										{
+											si.ScaleY = (float)syElm6.GetDouble();
+										}
+										if (sElm.TryGetProperty("color", out var colElm4) && TryGetUInt32(colElm4, out var spriteColor))
+										{
+											si.Color = spriteColor;
+										}
+										if (sElm.TryGetProperty("animationSpeed", out var asElm) && asElm.ValueKind == JsonValueKind.Number)
+										{
+											si.AnimationSpeed = (float)asElm.GetDouble();
+										}
+										if (sElm.TryGetProperty("animationSpeedType", out var astElm) && astElm.ValueKind == JsonValueKind.Number)
+										{
+											si.AnimationSpeedType = (AnimationSpeedType)astElm.GetInt32();
+										}
+										if (sElm.TryGetProperty("frameIndex", out var fiElm) && fiElm.ValueKind == JsonValueKind.Number)
+										{
+											si.FrameIndex = (float)fiElm.GetDouble();
+										}
+										if (sElm.TryGetProperty("rotation", out var rotElm2) && rotElm2.ValueKind == JsonValueKind.Number)
+										{
+											si.Rotation = (float)rotElm2.GetDouble();
+										}
+										assetsData.Sprites.Add(si);
 									}
 								}
-								else if (tElm2.TryGetProperty("background", out bgElm2) && bgElm2.ValueKind == JsonValueKind.String)
-								{
-									string bn4 = bgElm2.GetString() ?? "";
-									if (bn4.Length > 0 && lookup.Backgrounds.TryGetValue(bn4, out GameMakerBackground bg4))
-									{
-										tile2.BackgroundDefinition = bg4;
-									}
-								}
-								assetsData.LegacyTiles.Add(tile2);
 							}
+							layer.Data = assetsData;
+							break;
 						}
-						if (adElm.TryGetProperty("sprites", out var sprElm) && sprElm.ValueKind == JsonValueKind.Array)
-						{
-							foreach (JsonElement sElm in sprElm.EnumerateArray())
-							{
-								GameMakerRoom.SpriteInstance si = new GameMakerRoom.SpriteInstance();
-								if (sElm.TryGetProperty("name", out var nElm) && nElm.ValueKind == JsonValueKind.String)
-								{
-									si.Name = MakeRoomString(data, lookup, nElm.GetString());
-								}
-								if (sElm.TryGetProperty("sprite", out var srElm) && srElm.ValueKind == JsonValueKind.String)
-								{
-									string sn3 = srElm.GetString() ?? "";
-									if (sn3.Length > 0 && lookup.Sprites.TryGetValue(sn3, out GameMakerSprite spr3))
-									{
-										si.Sprite = spr3;
-									}
-								}
-								if (sElm.TryGetProperty("x", out var xElm5) && xElm5.ValueKind == JsonValueKind.Number)
-								{
-									si.X = xElm5.GetInt32();
-								}
-								if (sElm.TryGetProperty("y", out var yElm5) && yElm5.ValueKind == JsonValueKind.Number)
-								{
-									si.Y = yElm5.GetInt32();
-								}
-								if (sElm.TryGetProperty("scaleX", out var sxElm6) && sxElm6.ValueKind == JsonValueKind.Number)
-								{
-									si.ScaleX = (float)sxElm6.GetDouble();
-								}
-								if (sElm.TryGetProperty("scaleY", out var syElm6) && syElm6.ValueKind == JsonValueKind.Number)
-								{
-									si.ScaleY = (float)syElm6.GetDouble();
-								}
-								if (sElm.TryGetProperty("color", out var colElm4) && TryGetUInt32(colElm4, out var spriteColor))
-								{
-									si.Color = spriteColor;
-								}
-								if (sElm.TryGetProperty("animationSpeed", out var asElm) && asElm.ValueKind == JsonValueKind.Number)
-								{
-									si.AnimationSpeed = (float)asElm.GetDouble();
-								}
-								if (sElm.TryGetProperty("animationSpeedType", out var astElm) && astElm.ValueKind == JsonValueKind.Number)
-								{
-									si.AnimationSpeedType = (AnimationSpeedType)astElm.GetInt32();
-								}
-								if (sElm.TryGetProperty("frameIndex", out var fiElm) && fiElm.ValueKind == JsonValueKind.Number)
-								{
-									si.FrameIndex = (float)fiElm.GetDouble();
-								}
-								if (sElm.TryGetProperty("rotation", out var rotElm2) && rotElm2.ValueKind == JsonValueKind.Number)
-								{
-									si.Rotation = (float)rotElm2.GetDouble();
-								}
-								assetsData.Sprites.Add(si);
-							}
-						}
-					}
-					layer.Data = assetsData;
-					break;
+					case 6:
+						layer.Data = new GameMakerRoom.Layer.LayerEffectData();
+						break;
 				}
-				case 6:
-					layer.Data = new GameMakerRoom.Layer.LayerEffectData();
-					break;
+				var previous = previousLayers.FirstOrDefault(l => l.LayerId == layer.LayerId && l.LayerType == layer.LayerType);
+				if (previous != null)
+				{
+					CarryOverLayerData(previous, layer);
 				}
 				room.Layers.Add(layer);
 			}
@@ -5478,12 +5422,12 @@ public static partial class ResourceImportService
 		if (data.IsVersionAtLeast(2u, 3u) && d.TryGetProperty("sequences", out var seqsElm) && seqsElm.ValueKind == JsonValueKind.Array)
 		{
 			room.Sequences.Clear();
-			foreach (JsonElement sElm3 in seqsElm.EnumerateArray())
+			foreach (var sElm3 in seqsElm.EnumerateArray())
 			{
 				if (sElm3.ValueKind == JsonValueKind.String)
 				{
-					string sn5 = sElm3.GetString() ?? "";
-					if (sn5.Length != 0 && lookup.Sequences.TryGetValue(sn5, out GameMakerSequence seq))
+					var sn5 = sElm3.GetString() ?? "";
+					if (sn5.Length != 0 && lookup.Sequences.TryGetValue(sn5, out var seq))
 					{
 						room.Sequences.Add(new GameMakerResourceById<GameMakerSequence, GameMakerChunkSEQN>
 						{
@@ -5499,10 +5443,10 @@ public static partial class ResourceImportService
 		}
 		if (room.InstanceCreationOrderIDs == null)
 		{
-			GameMakerRoom.InstanceIDList instanceIDList = (room.InstanceCreationOrderIDs = new GameMakerRoom.InstanceIDList());
+			var instanceIDList = room.InstanceCreationOrderIDs = new GameMakerRoom.InstanceIDList();
 		}
 		room.InstanceCreationOrderIDs.InstanceIDs.Clear();
-		foreach (JsonElement idElm in icoElm.EnumerateArray())
+		foreach (var idElm in icoElm.EnumerateArray())
 		{
 			if (idElm.ValueKind == JsonValueKind.Number)
 			{
@@ -5511,13 +5455,35 @@ public static partial class ResourceImportService
 		}
 	}
 
+	// The room JSON has no place for effect properties, sequence, particle system and text item instances, or an
+	// empty-versus-missing effect type, so an edited room keeps them from the layer it replaces.
+	private static void CarryOverLayerData(GameMakerRoom.Layer previous, GameMakerRoom.Layer layer)
+	{
+		if ((previous.EffectType?.Content ?? "") == (layer.EffectType?.Content ?? ""))
+		{
+			layer.EffectType = previous.EffectType;
+			layer.EffectProperties = previous.EffectProperties;
+		}
+		if (previous.Data is GameMakerRoom.Layer.LayerAssetsData oldAssets && layer.Data is GameMakerRoom.Layer.LayerAssetsData newAssets)
+		{
+			newAssets.Sequences = oldAssets.Sequences ?? newAssets.Sequences;
+			newAssets.NineSlices = oldAssets.NineSlices;
+			newAssets.ParticleSystems = oldAssets.ParticleSystems;
+			newAssets.TextItems = oldAssets.TextItems;
+		}
+		else if (previous.Data is GameMakerRoom.Layer.LayerEffectData && layer.Data is GameMakerRoom.Layer.LayerEffectData)
+		{
+			layer.Data = previous.Data;
+		}
+	}
+
 	private static GameMakerString MakeRoomString(GameMakerData data, RoomImportLookup lookup, string content)
 	{
-		if (lookup.Strings.TryGetValue(content, out GameMakerString existing))
+		if (lookup.Strings.TryGetValue(content, out var existing))
 		{
 			return existing;
 		}
-		GameMakerString created = new GameMakerString(content);
+		var created = new GameMakerString(content);
 		if (data.Strings is GameMakerObservableList<GameMakerString> stringList)
 		{
 			stringList.InternalAdd(created);
@@ -5532,7 +5498,7 @@ public static partial class ResourceImportService
 
 	private static GameMakerCode EnsureCodeEntry(GameMakerData data, string codeName, RoomImportLookup lookup)
 	{
-		if (!lookup.Code.TryGetValue(codeName, out GameMakerCode code))
+		if (!lookup.Code.TryGetValue(codeName, out var code))
 		{
 			code = new GameMakerCode
 			{
@@ -5540,7 +5506,7 @@ public static partial class ResourceImportService
 			};
 			data.Code.Add(code);
 			lookup.Code[codeName] = code;
-			GameMakerCodeLocals cl = new GameMakerCodeLocals
+			var cl = new GameMakerCodeLocals
 			{
 				Name = code.Name
 			};
@@ -5552,10 +5518,9 @@ public static partial class ResourceImportService
 
 	private static bool ShouldAutoGenerateCollisionMask(JsonElement? meta)
 	{
-		JsonElement value;
 		if (meta.HasValue)
 		{
-			return meta.Value.TryGetProperty("collisionMasks", out value);
+			return meta.Value.TryGetProperty("collisionMasks", out _);
 		}
 		return true;
 	}
@@ -5563,47 +5528,35 @@ public static partial class ResourceImportService
 	private static void ImportSprites(GameMakerData data, string inputDir)
 	{
 		Log("[ImportSprites] Importing from: " + inputDir);
-		Dictionary<string, JsonElement?> spriteMetadataCache = new Dictionary<string, JsonElement?>();
-		Dictionary<string, List<Dictionary<string, object>>?> textureFrameCache = new Dictionary<string, List<Dictionary<string, object>>>();
-		Dictionary<GameMakerEmbeddedTexture, MagickImage> atlasImageCache = new Dictionary<GameMakerEmbeddedTexture, MagickImage>();
-		Dictionary<string, GameMakerSprite> spritesByName = new Dictionary<string, GameMakerSprite>(StringComparer.Ordinal);
-		foreach (GameMakerSprite sprite in data.Sprites)
+		Dictionary<string, JsonElement?> spriteMetadataCache = [];
+		Dictionary<string, List<Dictionary<string, object>>?> textureFrameCache = [];
+		Dictionary<GameMakerEmbeddedTexture, MagickImage> atlasImageCache = [];
+		var lookup = DataLookup.Build(data);
+		var dirs = GetDirs(inputDir);
+		BatchRun.Expect(dirs.Length);
+		HashSet<string> metaFailed = [];
+		HashSet<string> handledFolders = [];
+		List<SpriteImportData> importDataList = [];
+		var array = dirs;
+		foreach (var spriteFolder in array)
 		{
-			if (sprite != null && sprite.Name?.Content != null)
-			{
-				spritesByName.TryAdd(sprite.Name.Content, sprite);
-			}
-		}
-		Dictionary<string, GameMakerString> stringLookup = new Dictionary<string, GameMakerString>(StringComparer.Ordinal);
-		foreach (GameMakerString str in data.Strings)
-		{
-			if (str != null && str.Content != null)
-			{
-				stringLookup.TryAdd(str.Content, str);
-			}
-		}
-		string[] dirs = GetDirs(inputDir);
-		List<SpriteImportData> importDataList = new List<SpriteImportData>();
-		string[] array = dirs;
-		foreach (string spriteFolder in array)
-		{
-			string folderName = Path.GetFileName(spriteFolder);
-			JsonElement? meta = LoadMeta(folderName);
+			var folderName = Path.GetFileName(spriteFolder);
+			var meta = LoadMeta(folderName);
 			if (meta.HasValue)
 			{
-				string spriteName = folderName;
+				var spriteName = folderName;
 				if (meta.Value.TryGetProperty("name", out var nameElm))
 				{
 					spriteName = nameElm.GetString() ?? folderName;
 				}
-				List<Dictionary<string, object>> frameData = LoadFrameData(folderName);
-				bool isNew = FindSprite(spriteName) == null;
-				int targetIndex = -1;
+				var frameData = LoadFrameData(folderName);
+				var isNew = FindSprite(spriteName) == null;
+				var targetIndex = -1;
 				if (meta.Value.TryGetProperty("index", out var indexElm))
 				{
 					targetIndex = indexElm.GetInt32();
 				}
-				bool hasValidTextureIndex = (frameData != null && frameData.Count == 0) || (frameData?.Any((Dictionary<string, object> f) => f.ContainsKey("texturePageIndex") && Convert.ToInt32(f["texturePageIndex"]) >= 0 && Convert.ToInt32(f["texturePageIndex"]) < data.EmbeddedTextures.Count) ?? false);
+				var hasValidTextureIndex = frameData != null && frameData.Count == 0 || (frameData?.Any(f => f.ContainsKey("texturePageIndex") && Convert.ToInt32(f["texturePageIndex"], CultureInfo.InvariantCulture) >= 0 && Convert.ToInt32(f["texturePageIndex"], CultureInfo.InvariantCulture) < data.EmbeddedTextures.Count) ?? false);
 				importDataList.Add(new SpriteImportData
 				{
 					TargetIndex = targetIndex,
@@ -5616,33 +5569,37 @@ public static partial class ResourceImportService
 					HasValidTextureIndex = hasValidTextureIndex
 				});
 			}
+			else if (!metaFailed.Contains(folderName))
+			{
+				BatchRun.Item(folderName, ResultKind.Skipped, "Missing sprite metadata");
+			}
 		}
-		Log($"[ImportSprites] Collected {importDataList.Count} sprites. New: {importDataList.Count((SpriteImportData d) => d.IsNew)}, Existing: {importDataList.Count((SpriteImportData d) => !d.IsNew)}");
+		Log($"[ImportSprites] Collected {importDataList.Count} sprites. New: {importDataList.Count(d => d.IsNew)}, Existing: {importDataList.Count(d => !d.IsNew)}");
 		ReportProgress(5, 100);
-		foreach (SpriteImportData importData in importDataList)
+		foreach (var importData in importDataList)
 		{
 			if (importData.Name != importData.FolderName && spriteMetadataCache.TryGetValue(importData.FolderName, out var cachedMeta))
 			{
 				spriteMetadataCache[importData.Name] = cachedMeta;
 			}
 		}
-		int created = 0;
-		foreach (SpriteImportData importData2 in importDataList.Where((SpriteImportData d) => d.IsNew && d.HasValidTextureIndex))
+		var created = 0;
+		foreach (var importData2 in importDataList.Where(d => d.IsNew && d.HasValidTextureIndex))
 		{
-			GameMakerSprite sprite2 = CreateSpriteFromMetadata(data, importData2, FindExistingTPI, MakeSpriteString);
+			var sprite2 = CreateSpriteFromMetadata(data, importData2, FindExistingTPI, MakeSpriteString);
 			if (sprite2 != null)
 			{
-				data.Sprites.Add(sprite2);
-				spritesByName.TryAdd(importData2.Name, sprite2);
+				lookup.Add(sprite2);
+				handledFolders.Add(importData2.FolderPath);
 				created++;
 			}
 		}
 		Log($"[ImportSprites] Phase 1a: {created} new sprites created from metadata");
 		ReportProgress(15, 100);
-		int updated = 0;
-		foreach (SpriteImportData importData3 in importDataList.Where((SpriteImportData d) => !d.IsNew))
+		var updated = 0;
+		foreach (var importData3 in importDataList.Where(d => !d.IsNew))
 		{
-			GameMakerSprite sprite3 = FindSprite(importData3.Name);
+			var sprite3 = FindSprite(importData3.Name);
 			if (sprite3 == null || !importData3.Meta.HasValue)
 			{
 				continue;
@@ -5650,8 +5607,8 @@ public static partial class ResourceImportService
 			ApplySpriteMetadata(data, sprite3, importData3.Meta.Value);
 			if (importData3.FrameData != null)
 			{
-				List<GameMakerTexturePageItem> oldTPIs = new List<GameMakerTexturePageItem>();
-				foreach (GameMakerSprite.TextureEntry texEntry in sprite3.Textures)
+				List<GameMakerTexturePageItem> oldTPIs = [];
+				foreach (var texEntry in sprite3.Textures)
 				{
 					if (texEntry?.Texture != null)
 					{
@@ -5659,8 +5616,8 @@ public static partial class ResourceImportService
 					}
 				}
 				sprite3.Textures.Clear();
-				int oldTPIIndex = 0;
-				foreach (Dictionary<string, object> frame in importData3.FrameData)
+				var oldTPIIndex = 0;
+				foreach (var frame in importData3.FrameData)
 				{
 					if (frame.TryGetValue("isNull", out var isNull) && (bool)isNull)
 					{
@@ -5670,21 +5627,16 @@ public static partial class ResourceImportService
 						});
 						continue;
 					}
-					object tpIdx;
-					int texturePageIndex = (frame.TryGetValue("texturePageIndex", out tpIdx) ? Convert.ToInt32(tpIdx) : (-1));
+					var texturePageIndex = frame.TryGetValue("texturePageIndex", out var tpIdx) ? Convert.ToInt32(tpIdx, CultureInfo.InvariantCulture) : (-1);
 					if (texturePageIndex < 0 || texturePageIndex >= data.EmbeddedTextures.Count)
 					{
 						break;
 					}
-					object sxv;
-					ushort sourceX = (ushort)(frame.TryGetValue("sourceX", out sxv) ? ((ushort)Convert.ToInt32(sxv)) : 0);
-					object syv;
-					ushort sourceY = (ushort)(frame.TryGetValue("sourceY", out syv) ? ((ushort)Convert.ToInt32(syv)) : 0);
-					object swv;
-					ushort sourceWidth = (ushort)(frame.TryGetValue("sourceWidth", out swv) ? ((ushort)Convert.ToInt32(swv)) : 0);
-					object shv;
-					ushort sourceHeight = (ushort)(frame.TryGetValue("sourceHeight", out shv) ? ((ushort)Convert.ToInt32(shv)) : 0);
-					GameMakerTexturePageItem tpi = FindExistingTPI(texturePageIndex, sourceX, sourceY, sourceWidth, sourceHeight);
+					var sourceX = (ushort)(frame.TryGetValue("sourceX", out var sxv) ? ((ushort)Convert.ToInt32(sxv, CultureInfo.InvariantCulture)) : 0);
+					var sourceY = (ushort)(frame.TryGetValue("sourceY", out var syv) ? ((ushort)Convert.ToInt32(syv, CultureInfo.InvariantCulture)) : 0);
+					var sourceWidth = (ushort)(frame.TryGetValue("sourceWidth", out var swv) ? ((ushort)Convert.ToInt32(swv, CultureInfo.InvariantCulture)) : 0);
+					var sourceHeight = (ushort)(frame.TryGetValue("sourceHeight", out var shv) ? ((ushort)Convert.ToInt32(shv, CultureInfo.InvariantCulture)) : 0);
+					var tpi = FindExistingTPI(texturePageIndex, sourceX, sourceY, sourceWidth, sourceHeight);
 					if (tpi == null && oldTPIIndex < oldTPIs.Count)
 					{
 						tpi = oldTPIs[oldTPIIndex++];
@@ -5719,6 +5671,7 @@ public static partial class ResourceImportService
 					});
 				}
 			}
+			handledFolders.Add(importData3.FolderPath);
 			updated++;
 		}
 		Log($"[ImportSprites] Phase 1b: {updated} existing sprites updated");
@@ -5726,14 +5679,14 @@ public static partial class ResourceImportService
 		List<string> foldersWithPngs;
 		try
 		{
-			foldersWithPngs = (from d in importDataList
-				where GetFilesIn(d.FolderPath, "*.png").Length != 0
-				where SpriteFolderRequiresRepack(d.FolderPath, d.Name)
-				select d.FolderPath).ToList();
+			foldersWithPngs = [.. from d in importDataList
+							   where GetFilesIn(d.FolderPath, "*.png").Length != 0
+							   where SpriteFolderRequiresRepack(d.FolderPath, d.Name)
+							   select d.FolderPath];
 		}
 		finally
 		{
-			foreach (MagickImage value in atlasImageCache.Values)
+			foreach (var value in atlasImageCache.Values)
 			{
 				value.Dispose();
 			}
@@ -5745,15 +5698,25 @@ public static partial class ResourceImportService
 		{
 			Log("[ImportSprites] All sprites handled via direct metadata import (no repacking needed)");
 			ReportProgress(100, 100);
+			ReportSprites(null);
 			return;
 		}
-		Dictionary<string, string> logicalNamesByFolder = importDataList.ToDictionary<SpriteImportData, string, string>((SpriteImportData spriteImportData) => Path.GetFullPath(spriteImportData.FolderPath), (SpriteImportData spriteImportData) => spriteImportData.Name, StringComparer.OrdinalIgnoreCase);
-		DoTextureRepack(data, foldersWithPngs, logicalNamesByFolder, LoadMeta, LoadFrameData, ApplyFrameProps, FindSprite, MakeSpriteString, spritesByName);
+		var logicalNamesByFolder = importDataList.ToDictionary(spriteImportData => Path.GetFullPath(spriteImportData.FolderPath), spriteImportData => spriteImportData.Name, StringComparer.OrdinalIgnoreCase);
+		try
+		{
+			DoTextureRepack(data, foldersWithPngs, logicalNamesByFolder, LoadMeta, LoadFrameData, ApplyFrameProps, FindSprite, MakeSpriteString, lookup);
+		}
+		catch (Exception repackEx) when (BatchRun.Active && !ModdingCancellation.IsCancellation(repackEx))
+		{
+			ReportSprites(repackEx);
+			return;
+		}
+		ReportSprites(null);
 		static void ApplyFrameProps(GameMakerTexturePageItem gameMakerTexturePageItem, List<Dictionary<string, object>> list, int frameIndex)
 		{
 			if (frameIndex < list.Count)
 			{
-				Dictionary<string, object> frame2 = list[frameIndex];
+				var frame2 = list[frameIndex];
 				if (!frame2.TryGetValue("isNull", out var isNullVal) || !(bool)isNullVal)
 				{
 					if (frame2.TryGetValue("targetX", out var txVal))
@@ -5785,29 +5748,29 @@ public static partial class ResourceImportService
 		}
 		static void ApplyOptionalFrameFields(GameMakerTexturePageItem gameMakerTexturePageItem, Dictionary<string, object> dictionary)
 		{
-			if (dictionary.TryGetValue("targetX", out object txv))
+			if (dictionary.TryGetValue("targetX", out var txv))
 			{
-				gameMakerTexturePageItem.TargetX = (ushort)Convert.ToInt32(txv);
+				gameMakerTexturePageItem.TargetX = (ushort)Convert.ToInt32(txv, CultureInfo.InvariantCulture);
 			}
-			if (dictionary.TryGetValue("targetY", out object tyv))
+			if (dictionary.TryGetValue("targetY", out var tyv))
 			{
-				gameMakerTexturePageItem.TargetY = (ushort)Convert.ToInt32(tyv);
+				gameMakerTexturePageItem.TargetY = (ushort)Convert.ToInt32(tyv, CultureInfo.InvariantCulture);
 			}
-			if (dictionary.TryGetValue("targetWidth", out object twv))
+			if (dictionary.TryGetValue("targetWidth", out var twv))
 			{
-				gameMakerTexturePageItem.TargetWidth = (ushort)Convert.ToInt32(twv);
+				gameMakerTexturePageItem.TargetWidth = (ushort)Convert.ToInt32(twv, CultureInfo.InvariantCulture);
 			}
-			if (dictionary.TryGetValue("targetHeight", out object thv))
+			if (dictionary.TryGetValue("targetHeight", out var thv))
 			{
-				gameMakerTexturePageItem.TargetHeight = (ushort)Convert.ToInt32(thv);
+				gameMakerTexturePageItem.TargetHeight = (ushort)Convert.ToInt32(thv, CultureInfo.InvariantCulture);
 			}
-			if (dictionary.TryGetValue("boundingWidth", out object bwv))
+			if (dictionary.TryGetValue("boundingWidth", out var bwv))
 			{
-				gameMakerTexturePageItem.BoundingWidth = (ushort)Convert.ToInt32(bwv);
+				gameMakerTexturePageItem.BoundingWidth = (ushort)Convert.ToInt32(bwv, CultureInfo.InvariantCulture);
 			}
-			if (dictionary.TryGetValue("boundingHeight", out object bhv))
+			if (dictionary.TryGetValue("boundingHeight", out var bhv))
 			{
-				gameMakerTexturePageItem.BoundingHeight = (ushort)Convert.ToInt32(bhv);
+				gameMakerTexturePageItem.BoundingHeight = (ushort)Convert.ToInt32(bhv, CultureInfo.InvariantCulture);
 			}
 		}
 		GameMakerTexturePageItem? FindExistingTPI(int num, ushort num2, ushort num3, ushort num4, ushort num5)
@@ -5816,8 +5779,8 @@ public static partial class ResourceImportService
 			{
 				return null;
 			}
-			GameMakerEmbeddedTexture texturePage = data.EmbeddedTextures[num];
-			foreach (GameMakerTexturePageItem tpi2 in data.TexturePageItems)
+			var texturePage = data.EmbeddedTextures[num];
+			foreach (var tpi2 in data.TexturePageItems)
 			{
 				if (tpi2.TexturePage == texturePage && tpi2.SourceX == num2 && tpi2.SourceY == num3 && tpi2.SourceWidth == num4 && tpi2.SourceHeight == num5)
 				{
@@ -5828,25 +5791,21 @@ public static partial class ResourceImportService
 		}
 		GameMakerSprite? FindSprite(string name)
 		{
-			if (!spritesByName.TryGetValue(name, out GameMakerSprite sprite4))
-			{
-				return null;
-			}
-			return sprite4;
+			return lookup.TryGet(name, out GameMakerSprite sprite4, out _) ? sprite4 : null;
 		}
 		List<Dictionary<string, object>>? LoadFrameData(string text)
 		{
-			if (textureFrameCache.TryGetValue(text, out List<Dictionary<string, object>> cached))
+			if (textureFrameCache.TryGetValue(text, out var cached))
 			{
 				return cached;
 			}
-			JsonElement? meta2 = LoadMeta(text);
+			var meta2 = LoadMeta(text);
 			if (meta2.HasValue && meta2.Value.TryGetProperty("textureFrames", out var framesElm) && framesElm.ValueKind == JsonValueKind.Array)
 			{
-				List<Dictionary<string, object>> frames = new List<Dictionary<string, object>>();
-				foreach (JsonElement frameElm in framesElm.EnumerateArray())
+				List<Dictionary<string, object>> frames = [];
+				foreach (var frameElm in framesElm.EnumerateArray())
 				{
-					Dictionary<string, object> frame2 = new Dictionary<string, object>();
+					Dictionary<string, object> frame2 = [];
 					if (frameElm.TryGetProperty("frameIndex", out var idxElm))
 					{
 						frame2["frameIndex"] = idxElm.GetInt32();
@@ -5913,7 +5872,7 @@ public static partial class ResourceImportService
 			{
 				return cached;
 			}
-			string metaFile = Path.Combine(inputDir, text, text + ".json");
+			var metaFile = Path.Combine(inputDir, text, text + ".json");
 			if (!FExists(metaFile))
 			{
 				metaFile = Path.Combine(inputDir, text, "sprite_meta.json");
@@ -5925,37 +5884,43 @@ public static partial class ResourceImportService
 			}
 			try
 			{
-				JsonDocument doc = JsonDocument.Parse(FReadText(metaFile));
+				var doc = JsonDocument.Parse(FReadText(metaFile));
 				spriteMetadataCache[text] = doc.RootElement.Clone();
 				return spriteMetadataCache[text];
 			}
-			catch
+			catch (Exception ex) when (!ModdingCancellation.IsCancellation(ex))
 			{
 				spriteMetadataCache[text] = null;
+				metaFailed.Add(text);
+				BatchRun.Failed(text, ex);
 				return null;
 			}
 		}
 		GameMakerString MakeSpriteString(string content)
 		{
-			if (stringLookup.TryGetValue(content, out GameMakerString existing))
+			return lookup.GetOrAddString(content);
+		}
+		void ReportSprites(Exception? repackError)
+		{
+			foreach (var d in importDataList)
 			{
-				return existing;
+				if (repackError != null && foldersWithPngs.Contains(d.FolderPath))
+				{
+					BatchRun.Failed(d.Name, repackError);
+				}
+				else if (handledFolders.Contains(d.FolderPath) || foldersWithPngs.Contains(d.FolderPath))
+				{
+					BatchRun.Item(d.Name);
+				}
+				else
+				{
+					BatchRun.Item(d.Name, ResultKind.Skipped, "No texture data to import");
+				}
 			}
-			GameMakerString created2 = new GameMakerString(content);
-			if (data.Strings is GameMakerObservableList<GameMakerString> stringList)
-			{
-				stringList.InternalAdd(created2);
-			}
-			else
-			{
-				data.Strings.Add(created2);
-			}
-			stringLookup[content] = created2;
-			return created2;
 		}
 		bool SpriteFolderRequiresRepack(string folderPath, string text)
 		{
-			string[] pngFiles = GetFilesIn(folderPath, "*.png").OrderBy<string, string>((string path) => path, StringComparer.OrdinalIgnoreCase).ToArray();
+			string[] pngFiles = [.. GetFilesIn(folderPath, "*.png").OrderBy(path => path, StringComparer.OrdinalIgnoreCase)];
 			if (pngFiles.Length == 0)
 			{
 				return false;
@@ -5965,27 +5930,27 @@ public static partial class ResourceImportService
 				Log("[ImportSprites] Repack required for " + text + ": locale art PNG payload must not be relinked to a shared texture page");
 				return true;
 			}
-			GameMakerSprite existingSprite = FindSprite(text);
+			var existingSprite = FindSprite(text);
 			if (existingSprite == null)
 			{
 				Log("[ImportSprites] Repack required for " + text + ": sprite does not exist yet");
 				return true;
 			}
-			int nonNullTextureCount = existingSprite.Textures.Count((GameMakerSprite.TextureEntry te) => te?.Texture != null);
+			var nonNullTextureCount = existingSprite.Textures.Count(te => te?.Texture != null);
 			if (nonNullTextureCount != pngFiles.Length)
 			{
 				Log($"[ImportSprites] Repack required for {text}: texture count mismatch existing={nonNullTextureCount}, pngs={pngFiles.Length}");
 				return true;
 			}
-			for (int frameIndex = 0; frameIndex < pngFiles.Length; frameIndex++)
+			for (var frameIndex = 0; frameIndex < pngFiles.Length; frameIndex++)
 			{
 				if (frameIndex >= existingSprite.Textures.Count)
 				{
 					Log($"[ImportSprites] Repack required for {text}: frame index {frameIndex} out of range");
 					return true;
 				}
-				GameMakerTexturePageItem tpi2 = existingSprite.Textures[frameIndex]?.Texture;
-				GameMakerEmbeddedTexture texturePage = tpi2?.TexturePage;
+				var tpi2 = existingSprite.Textures[frameIndex]?.Texture;
+				var texturePage = tpi2?.TexturePage;
 				if (tpi2 == null || texturePage?.TextureData?.Image == null)
 				{
 					Log($"[ImportSprites] Repack required for {text}: missing existing texture page item for frame {frameIndex}");
@@ -5993,26 +5958,26 @@ public static partial class ResourceImportService
 				}
 				try
 				{
-					if (!atlasImageCache.TryGetValue(texturePage, out MagickImage sourceAtlas))
+					if (!atlasImageCache.TryGetValue(texturePage, out var sourceAtlas))
 					{
 						sourceAtlas = new MagickImage(texturePage.TextureData.Image.ConvertToPng().GetData());
 						atlasImageCache[texturePage] = sourceAtlas;
 					}
-					using IMagickImage<byte> sourceFrame = sourceAtlas.CloneArea(tpi2.SourceX, tpi2.SourceY, tpi2.SourceWidth, tpi2.SourceHeight);
-					using MagickImage importFrame = new MagickImage(FReadBytes(pngFiles[frameIndex]));
+					using var sourceFrame = sourceAtlas.CloneArea(tpi2.SourceX, tpi2.SourceY, tpi2.SourceWidth, tpi2.SourceHeight);
+					using var importFrame = new MagickImage(FReadBytes(pngFiles[frameIndex]));
 					if (sourceFrame.Width != importFrame.Width || sourceFrame.Height != importFrame.Height)
 					{
 						Log($"[ImportSprites] Repack required for {text}: frame {frameIndex} size mismatch atlas={sourceFrame.Width}x{sourceFrame.Height}, import={importFrame.Width}x{importFrame.Height}");
 						return true;
 					}
-					byte[]? array2 = sourceFrame.GetPixels().ToByteArray(PixelMapping.RGBA);
-					if (!MemoryExtensions.SequenceEqual(other: (ReadOnlySpan<byte>)importFrame.GetPixels().ToByteArray(PixelMapping.RGBA), span: (ReadOnlySpan<byte>)array2.AsSpan()))
+					var array2 = sourceFrame.GetPixels().ToByteArray(PixelMapping.RGBA);
+					if (!MemoryExtensions.SequenceEqual(other: (ReadOnlySpan<byte>)importFrame.GetPixels().ToByteArray(PixelMapping.RGBA), span: array2.AsSpan()))
 					{
 						Log($"[ImportSprites] Repack required for {text}: frame {frameIndex} pixel mismatch");
 						return true;
 					}
 				}
-				catch (Exception ex)
+				catch (Exception ex) when (!ModdingCancellation.IsCancellation(ex))
 				{
 					Log($"[ImportSprites] Repack required for {text}: comparison failed for frame {frameIndex}: {ex.Message}");
 					return true;
@@ -6029,7 +5994,7 @@ public static partial class ResourceImportService
 		{
 			return null;
 		}
-		GameMakerSprite sprite = new GameMakerSprite
+		var sprite = new GameMakerSprite
 		{
 			Name = makeString(importData.Name)
 		};
@@ -6037,7 +6002,7 @@ public static partial class ResourceImportService
 		{
 			ApplySpriteMetadata(data, sprite, importData.Meta.Value);
 		}
-		foreach (Dictionary<string, object> frame in importData.FrameData)
+		foreach (var frame in importData.FrameData)
 		{
 			if (frame.TryGetValue("isNull", out var isNull) && (bool)isNull)
 			{
@@ -6047,21 +6012,16 @@ public static partial class ResourceImportService
 				});
 				continue;
 			}
-			object tpIdx;
-			int texturePageIndex = (frame.TryGetValue("texturePageIndex", out tpIdx) ? Convert.ToInt32(tpIdx) : (-1));
+			var texturePageIndex = frame.TryGetValue("texturePageIndex", out var tpIdx) ? Convert.ToInt32(tpIdx, CultureInfo.InvariantCulture) : (-1);
 			if (texturePageIndex < 0 || texturePageIndex >= data.EmbeddedTextures.Count)
 			{
 				return null;
 			}
-			object sxv;
-			ushort sourceX = (ushort)(frame.TryGetValue("sourceX", out sxv) ? ((ushort)Convert.ToInt32(sxv)) : 0);
-			object syv;
-			ushort sourceY = (ushort)(frame.TryGetValue("sourceY", out syv) ? ((ushort)Convert.ToInt32(syv)) : 0);
-			object swv;
-			ushort sourceWidth = (ushort)(frame.TryGetValue("sourceWidth", out swv) ? ((ushort)Convert.ToInt32(swv)) : 0);
-			object shv;
-			ushort sourceHeight = (ushort)(frame.TryGetValue("sourceHeight", out shv) ? ((ushort)Convert.ToInt32(shv)) : 0);
-			GameMakerTexturePageItem tpi = findExistingTPI(texturePageIndex, sourceX, sourceY, sourceWidth, sourceHeight);
+			var sourceX = (ushort)(frame.TryGetValue("sourceX", out var sxv) ? ((ushort)Convert.ToInt32(sxv, CultureInfo.InvariantCulture)) : 0);
+			var sourceY = (ushort)(frame.TryGetValue("sourceY", out var syv) ? ((ushort)Convert.ToInt32(syv, CultureInfo.InvariantCulture)) : 0);
+			var sourceWidth = (ushort)(frame.TryGetValue("sourceWidth", out var swv) ? ((ushort)Convert.ToInt32(swv, CultureInfo.InvariantCulture)) : 0);
+			var sourceHeight = (ushort)(frame.TryGetValue("sourceHeight", out var shv) ? ((ushort)Convert.ToInt32(shv, CultureInfo.InvariantCulture)) : 0);
+			var tpi = findExistingTPI(texturePageIndex, sourceX, sourceY, sourceWidth, sourceHeight);
 			if (tpi == null)
 			{
 				tpi = new GameMakerTexturePageItem
@@ -6075,27 +6035,27 @@ public static partial class ResourceImportService
 				};
 				if (frame.TryGetValue("targetX", out var txv))
 				{
-					tpi.TargetX = (ushort)Convert.ToInt32(txv);
+					tpi.TargetX = (ushort)Convert.ToInt32(txv, CultureInfo.InvariantCulture);
 				}
 				if (frame.TryGetValue("targetY", out var tyv))
 				{
-					tpi.TargetY = (ushort)Convert.ToInt32(tyv);
+					tpi.TargetY = (ushort)Convert.ToInt32(tyv, CultureInfo.InvariantCulture);
 				}
 				if (frame.TryGetValue("targetWidth", out var twv))
 				{
-					tpi.TargetWidth = (ushort)Convert.ToInt32(twv);
+					tpi.TargetWidth = (ushort)Convert.ToInt32(twv, CultureInfo.InvariantCulture);
 				}
 				if (frame.TryGetValue("targetHeight", out var thv))
 				{
-					tpi.TargetHeight = (ushort)Convert.ToInt32(thv);
+					tpi.TargetHeight = (ushort)Convert.ToInt32(thv, CultureInfo.InvariantCulture);
 				}
 				if (frame.TryGetValue("boundingWidth", out var bwv))
 				{
-					tpi.BoundingWidth = (ushort)Convert.ToInt32(bwv);
+					tpi.BoundingWidth = (ushort)Convert.ToInt32(bwv, CultureInfo.InvariantCulture);
 				}
 				if (frame.TryGetValue("boundingHeight", out var bhv))
 				{
-					tpi.BoundingHeight = (ushort)Convert.ToInt32(bhv);
+					tpi.BoundingHeight = (ushort)Convert.ToInt32(bhv, CultureInfo.InvariantCulture);
 				}
 				data.TexturePageItems.Add(tpi);
 			}
@@ -6157,11 +6117,10 @@ public static partial class ResourceImportService
 		{
 			sprite.BBoxMode = (uint)bmElm.GetInt64();
 		}
-		JsonElement cmElm;
-		bool hasCollisionMasks = root.TryGetProperty("collisionMasks", out cmElm) && cmElm.ValueKind == JsonValueKind.Array;
+		var hasCollisionMasks = root.TryGetProperty("collisionMasks", out var cmElm) && cmElm.ValueKind == JsonValueKind.Array;
 		if (root.TryGetProperty("sepMasks", out var smElm))
 		{
-			GameMakerSprite.SepMaskType sepMasks = (GameMakerSprite.SepMaskType)smElm.GetInt32();
+			var sepMasks = (GameMakerSprite.SepMaskType)smElm.GetInt32();
 			if (!hasCollisionMasks && sprite.SepMasks != sepMasks)
 			{
 				sprite.CollisionMasks.Clear();
@@ -6202,9 +6161,9 @@ public static partial class ResourceImportService
 		if (hasCollisionMasks)
 		{
 			sprite.CollisionMasks.Clear();
-			foreach (JsonElement maskElm in cmElm.EnumerateArray())
+			foreach (var maskElm in cmElm.EnumerateArray())
 			{
-				GameMakerSprite.MaskEntry mask = new GameMakerSprite.MaskEntry();
+				var mask = new GameMakerSprite.MaskEntry();
 				if (maskElm.TryGetProperty("width", out var mwElm))
 				{
 					mask.Width = (int)mwElm.GetInt64();
@@ -6215,7 +6174,7 @@ public static partial class ResourceImportService
 				}
 				if (maskElm.TryGetProperty("data", out var dataElm))
 				{
-					string base64 = dataElm.GetString();
+					var base64 = dataElm.GetString();
 					if (!string.IsNullOrEmpty(base64))
 					{
 						mask.Data = Convert.FromBase64String(base64);
@@ -6228,7 +6187,7 @@ public static partial class ResourceImportService
 		{
 			return;
 		}
-		GameMakerSprite.NineSlice ns = (sprite.V3NineSlice = new GameMakerSprite.NineSlice());
+		var ns = sprite.V3NineSlice = new GameMakerSprite.NineSlice();
 		if (nsElm.TryGetProperty("left", out var nlElm))
 		{
 			ns.Left = nlElm.GetInt32();
@@ -6251,8 +6210,8 @@ public static partial class ResourceImportService
 		}
 		if (nsElm.TryGetProperty("tileModes", out var nmElm) && nmElm.ValueKind == JsonValueKind.Array)
 		{
-			JsonElement[] modesArray = nmElm.EnumerateArray().ToArray();
-			for (int i = 0; i < Math.Min(5, modesArray.Length); i++)
+			JsonElement[] modesArray = [.. nmElm.EnumerateArray()];
+			for (var i = 0; i < Math.Min(5, modesArray.Length); i++)
 			{
 				ns.TileModes[i] = (GameMakerSprite.NineSlice.TileMode)modesArray[i].GetInt32();
 			}
@@ -6262,18 +6221,16 @@ public static partial class ResourceImportService
 	[GeneratedRegex("^(.+?)(?:_(\\d+))$", RegexOptions.Compiled)]
 	private static partial Regex SprFrameRegex();
 
-	private static void DoTextureRepack(GameMakerData data, List<string> newSpriteFolders, IReadOnlyDictionary<string, string> logicalNamesByFolder, Func<string, JsonElement?> loadMeta, Func<string, List<Dictionary<string, object>>?> loadFrameData, Action<GameMakerTexturePageItem, List<Dictionary<string, object>>, int> applyFrameProps, Func<string, GameMakerSprite?> findSprite, Func<string, GameMakerString> makeString, Dictionary<string, GameMakerSprite> spritesByName)
+	private static void DoTextureRepack(GameMakerData data, List<string> newSpriteFolders, Dictionary<string, string> logicalNamesByFolder, Func<string, JsonElement?> loadMeta, Func<string, List<Dictionary<string, object>>?> loadFrameData, Action<GameMakerTexturePageItem, List<Dictionary<string, object>>, int> applyFrameProps, Func<string, GameMakerSprite?> findSprite, Func<string, GameMakerString> makeString, DataLookup lookup)
 	{
-		bool bboxMasks = data.IsVersionAtLeast(2024u, 6u);
-		bool noMasksForBasicRectangles = data.IsVersionAtLeast(2022u, 9u);
-		int atlasSize = 2048;
-		int lastTextPage = data.EmbeddedTextures.Count - 1;
-		int lastTextPageItem = data.TexturePageItems.Count - 1;
-		List<MagickImage> imagesToCleanup = new List<MagickImage>();
-		Dictionary<GameMakerSprite, PackerNode> maskNodes = new Dictionary<GameMakerSprite, PackerNode>();
+		var noMasksForBasicRectangles = data.IsVersionAtLeast(2022u, 9u);
+		const int atlasSize = 2048;
+		const int padding = 2;
+		List<MagickImage> imagesToCleanup = [];
+		Dictionary<GameMakerSprite, PlacedFrame> maskNodes = [];
 		try
 		{
-			string[] pngFiles = newSpriteFolders.SelectMany((string folder) => GetFilesIn(folder, "*.png")).OrderBy<string, string>((string path) => path, StringComparer.OrdinalIgnoreCase).ToArray();
+			string[] pngFiles = [.. newSpriteFolders.SelectMany(folder => GetFilesIn(folder, "*.png")).OrderBy(path => path, StringComparer.OrdinalIgnoreCase)];
 			Log($"[ImportSprites] Prepared {pngFiles.Length} PNG files from {newSpriteFolders.Count} sprite folders for repacking");
 			ReportProgress(5, 100);
 			if (pngFiles.Length == 0)
@@ -6281,37 +6238,54 @@ public static partial class ResourceImportService
 				Log("[ImportSprites] No PNGs to repack");
 				return;
 			}
-			SpritePacker spritePacker = new SpritePacker();
-			spritePacker.ProcessFiles(pngFiles, atlasSize, 2, imagesToCleanup, ReportProgress);
-			ReportProgress(50, 100);
-			int newCreated = 0;
-			int atlasIndex = 0;
-			int atlasTotal = Math.Max(spritePacker.Atlasses.Count, 1);
-			foreach (PackerAtlas atlas in spritePacker.Atlasses)
+			var packer = new TextureGroupPacker(atlasSize, padding, false, GMImage.ImageFormat.RawBgra);
+			// Frames that fill a whole page cannot take a border; the old packer placed them on a page of their own.
+			var wholePagePacker = new TextureGroupPacker(atlasSize, 0, false, GMImage.ImageFormat.RawBgra);
+			var frames = new List<PlacedFrame>(pngFiles.Length);
+			for (var fileIndex = 0; fileIndex < pngFiles.Length; fileIndex++)
 			{
-				using MagickImage atlasImage = SpritePacker.CreateAtlasImage(atlas);
-				IPixelCollection<byte> atlasPixels = atlasImage.GetPixels();
-				GameMakerEmbeddedTexture texture = new GameMakerEmbeddedTexture
+				var img = (GetPatchFileSystem() != null) ? new MagickImage(FReadBytes(pngFiles[fileIndex])) : new MagickImage(pngFiles[fileIndex]);
+				if (img.Width > atlasSize || img.Height > atlasSize)
 				{
-					Name = new GameMakerString($"Texture {++lastTextPage}")
-				};
-				texture.TextureData.Image = GMImage.FromMagickImage(atlasImage).ConvertToPng();
-				data.EmbeddedTextures.Add(texture);
-				foreach (PackerNode n in atlas.Nodes)
+					img.Dispose();
+					continue;
+				}
+				imagesToCleanup.Add(img);
+				var wholePage = img.Width + padding * 2 > atlasSize || img.Height + padding * 2 > atlasSize;
+				frames.Add(new PlacedFrame(pngFiles[fileIndex], wholePage ? wholePagePacker.AddImage(img, TextureGroupPacker.BorderFlags.None, false) : packer.AddImage(img, TextureGroupPacker.BorderFlags.Enabled, false)));
+				ReportProgress(fileIndex + 1, pngFiles.Length);
+			}
+			packer.PackPages();
+			wholePagePacker.PackPages();
+			ReportProgress(50, 100);
+			packer.ImportToData(data);
+			wholePagePacker.ImportToData(data);
+			var newCreated = 0;
+			var atlasIndex = 0;
+			List<IGrouping<GameMakerEmbeddedTexture, PlacedFrame>> pages = [.. frames.GroupBy(frame => frame.Item.TexturePage)];
+			var atlasTotal = Math.Max(pages.Count, 1);
+			var encodeSlots = new SemaphoreSlim(Environment.ProcessorCount);
+			var encodes = new List<Task>(pages.Count);
+			foreach (var page in pages)
+			{
+				// Pages stay raw until the masks are built, then each is encoded once.
+				var rawPage = page.Key.TextureData.Image;
+				var pageWidth = rawPage.Width;
+				foreach (var n in page)
 				{
-					if (n.Texture == null)
-					{
-						continue;
-					}
-					string stripped = Path.GetFileNameWithoutExtension(Path.GetFileName(n.Texture.Source));
-					string sourceFolder = Path.GetDirectoryName(n.Texture.Source);
-					string logicalName = null;
-					bool hasLogicalName = sourceFolder != null && logicalNamesByFolder.TryGetValue(Path.GetFullPath(sourceFolder), out logicalName);
-					string spriteName = (hasLogicalName ? logicalName : string.Empty);
-					int frame = 0;
+					int boundingWidth = n.Item.BoundingWidth;
+					int boundingHeight = n.Item.BoundingHeight;
+					int frameWidth = n.Item.SourceWidth;
+					int frameHeight = n.Item.SourceHeight;
+					var stripped = Path.GetFileNameWithoutExtension(Path.GetFileName(n.Source));
+					var sourceFolder = Path.GetDirectoryName(n.Source);
+					string? logicalName = null;
+					var hasLogicalName = sourceFolder != null && logicalNamesByFolder.TryGetValue(Path.GetFullPath(sourceFolder), out logicalName);
+					var spriteName = hasLogicalName ? logicalName : string.Empty;
+					var frame = 0;
 					try
 					{
-						Match match = SprFrameRegex().Match(stripped);
+						var match = SprFrameRegex().Match(stripped);
 						if (!match.Success)
 						{
 							continue;
@@ -6330,29 +6304,14 @@ public static partial class ResourceImportService
 					{
 					}
 					continue;
-					IL_02c6:
-					GameMakerSprite existingSprite = findSprite(spriteName);
-					GameMakerTexturePageItem tpi = new GameMakerTexturePageItem
-					{
-						Name = new GameMakerString($"PageItem {++lastTextPageItem}"),
-						SourceX = (ushort)n.Bounds.X,
-						SourceY = (ushort)n.Bounds.Y,
-						SourceWidth = (ushort)n.Bounds.Width,
-						SourceHeight = (ushort)n.Bounds.Height,
-						TargetX = (ushort)n.Texture.TargetX,
-						TargetY = (ushort)n.Texture.TargetY,
-						TargetWidth = (ushort)n.Bounds.Width,
-						TargetHeight = (ushort)n.Bounds.Height,
-						BoundingWidth = (ushort)n.Texture.BoundingWidth,
-						BoundingHeight = (ushort)n.Texture.BoundingHeight,
-						TexturePage = texture
-					};
-					data.TexturePageItems.Add(tpi);
-					GameMakerSprite.TextureEntry texEntry = new GameMakerSprite.TextureEntry
+				IL_02c6:
+					var existingSprite = findSprite(spriteName);
+					var tpi = n.Item;
+					var texEntry = new GameMakerSprite.TextureEntry
 					{
 						Texture = tpi
 					};
-					List<Dictionary<string, object>> frameData = loadFrameData(spriteName);
+					var frameData = loadFrameData(spriteName);
 					if (frameData != null)
 					{
 						applyFrameProps(tpi, frameData, frame);
@@ -6363,35 +6322,35 @@ public static partial class ResourceImportService
 						sprite = new GameMakerSprite
 						{
 							Name = makeString(spriteName),
-							Width = (uint)n.Texture.BoundingWidth,
-							Height = (uint)n.Texture.BoundingHeight,
-							MarginLeft = n.Texture.TargetX,
-							MarginRight = n.Texture.TargetX + n.Bounds.Width - 1,
-							MarginTop = n.Texture.TargetY,
-							MarginBottom = n.Texture.TargetY + n.Bounds.Height - 1,
+							Width = (uint)boundingWidth,
+							Height = (uint)boundingHeight,
+							MarginLeft = 0,
+							MarginRight = frameWidth - 1,
+							MarginTop = 0,
+							MarginBottom = frameHeight - 1,
 							OriginX = 0,
 							OriginY = 0
 						};
-						JsonElement? meta = loadMeta(spriteName);
+						var meta = loadMeta(spriteName);
 						if (meta.HasValue)
 						{
 							ApplySpriteMetadata(data, sprite, meta.Value);
 						}
-						for (int i = 0; i < frame; i++)
+						for (var i = 0; i < frame; i++)
 						{
 							sprite.Textures.Add(new GameMakerSprite.TextureEntry
 							{
 								Texture = null
 							});
 						}
-						bool flag = ShouldAutoGenerateCollisionMask(meta);
+						var flag = ShouldAutoGenerateCollisionMask(meta);
 						if (flag)
 						{
-							bool flag2 = !noMasksForBasicRectangles;
+							var flag2 = !noMasksForBasicRectangles;
 							if (!flag2)
 							{
-								GameMakerSprite.SepMaskType sepMasks = sprite.SepMasks;
-								bool flag3 = ((sepMasks == GameMakerSprite.SepMaskType.AxisAlignedRect || sepMasks == GameMakerSprite.SepMaskType.RotatedRect) ? true : false);
+								var sepMasks = sprite.SepMasks;
+								var flag3 = sepMasks is GameMakerSprite.SepMaskType.AxisAlignedRect or GameMakerSprite.SepMaskType.RotatedRect;
 								flag2 = !flag3;
 							}
 							flag = flag2;
@@ -6401,8 +6360,7 @@ public static partial class ResourceImportService
 							maskNodes[sprite] = n;
 						}
 						sprite.Textures.Add(texEntry);
-						data.Sprites.Add(sprite);
-						spritesByName.TryAdd(spriteName, sprite);
+						lookup.Add(sprite);
 						newCreated++;
 					}
 					else
@@ -6418,7 +6376,7 @@ public static partial class ResourceImportService
 								});
 							}
 						}
-						GameMakerTexturePageItem oldTex = sprite.Textures[frame]?.Texture ?? sprite.Textures.FirstOrDefault((GameMakerSprite.TextureEntry te) => te != null)?.Texture;
+						var oldTex = sprite.Textures[frame]?.Texture ?? sprite.Textures.FirstOrDefault(te => te != null)?.Texture;
 						if (oldTex != null)
 						{
 							tpi.TargetX = oldTex.TargetX;
@@ -6432,7 +6390,7 @@ public static partial class ResourceImportService
 						{
 							applyFrameProps(tpi, frameData, frame);
 						}
-						JsonElement? existMeta = loadMeta(spriteName);
+						var existMeta = loadMeta(spriteName);
 						if (existMeta.HasValue)
 						{
 							ApplySpriteMetadata(data, sprite, existMeta.Value);
@@ -6456,37 +6414,13 @@ public static partial class ResourceImportService
 							maskSpr.CollisionMasks.Clear();
 							continue;
 						}
-						int stride = (mw + 7) / 8 * 8;
-						BitArray bits = new BitArray(stride * mh);
-						for (int y = 0; y < mh && y < maskNode.Bounds.Height; y++)
+						var maskItem = maskNode.Item;
+						var region = new byte[maskItem.SourceWidth * maskItem.SourceHeight * 4];
+						for (var row = 0; row < maskItem.SourceHeight; row++)
 						{
-							for (int x = 0; x < mw && x < maskNode.Bounds.Width; x++)
-							{
-								IMagickColor<byte> px = atlasPixels.GetPixel(x + maskNode.Bounds.X, y + maskNode.Bounds.Y).ToColor();
-								if (bboxMasks)
-								{
-									bits[y * stride + x] = px.A > 0;
-								}
-								else if (maskNode.Texture != null)
-								{
-									int idx = (y + maskNode.Texture.TargetY) * stride + x + maskNode.Texture.TargetX;
-									if (idx >= 0 && idx < bits.Length)
-									{
-										bits[idx] = px.A > 0;
-									}
-								}
-							}
+							rawPage.GetRawImageData().Slice(((maskItem.SourceY + row) * pageWidth + maskItem.SourceX) * 4, maskItem.SourceWidth * 4).CopyTo(region.AsSpan(row * maskItem.SourceWidth * 4));
 						}
-						BitArray temp = new BitArray(bits.Length);
-						for (int i2 = 0; i2 < bits.Length; i2 += 8)
-						{
-							for (int j = 0; j < 8; j++)
-							{
-								temp[j + i2] = bits[-(j - 7) + i2];
-							}
-						}
-						byte[] bytes = new byte[bits.Length / 8];
-						temp.CopyTo(bytes, 0);
+						var bytes = MaskBuilder.Build(region, maskItem.SourceWidth, maskItem.SourceHeight, mw, mh);
 						if (maskSpr.CollisionMasks[0].Data.Length == bytes.Length)
 						{
 							Array.Copy(bytes, maskSpr.CollisionMasks[0].Data, bytes.Length);
@@ -6502,20 +6436,34 @@ public static partial class ResourceImportService
 					}
 				}
 				maskNodes.Clear();
+				encodeSlots.Wait();
+				var encodePage = page.Key;
+				encodes.Add(Task.Run(() =>
+				{
+					try
+					{
+						encodePage.TextureData.Image = rawPage.ConvertToPng();
+					}
+					finally
+					{
+						encodeSlots.Release();
+					}
+				}));
 				atlasIndex++;
 				ReportProgress(50 + atlasIndex * 45 / atlasTotal, 100);
 			}
+			Task.WaitAll([.. encodes]);
 			ReportProgress(100, 100);
 			Log($"[ImportSprites] Repack done. New from repack: {newCreated}");
 		}
-		catch (Exception ex)
+		catch (Exception ex) when (!ModdingCancellation.IsCancellation(ex))
 		{
 			Log("[ImportSprites] REPACK ERROR: " + ex.Message);
 			throw;
 		}
 		finally
 		{
-			foreach (MagickImage item in imagesToCleanup)
+			foreach (var item in imagesToCleanup)
 			{
 				item.Dispose();
 			}

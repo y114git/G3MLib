@@ -4,8 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
-
 namespace G3MLib.Analyzer.Decompiler.AST;
 
 /// <summary>
@@ -22,10 +20,10 @@ public class LocalVarDeclNode : IStatementNode
     public bool SemicolonAfter => true;
 
     /// <inheritdoc/>
-    public bool EmptyLineAfter { get; set; } = false;
+    public bool EmptyLineAfter { get; set; }
 
     /// <inheritdoc/>
-    public bool EmptyLineBefore { get; set; } = false;
+    public bool EmptyLineBefore { get; set; }
 
     /// <inheritdoc/>
     public IStatementNode Clean(ASTCleaner cleaner)
@@ -42,8 +40,9 @@ public class LocalVarDeclNode : IStatementNode
     /// <inheritdoc/>
     public void Print(ASTPrinter printer)
     {
+        ArgumentNullException.ThrowIfNull(printer);
         printer.Write("var ");
-        for (int i = 0; i < Locals.Count; i++)
+        for (var i = 0; i < Locals.Count; i++)
         {
             printer.Write(Locals[i]);
             if (i != Locals.Count - 1)

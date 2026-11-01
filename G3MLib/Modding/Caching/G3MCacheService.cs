@@ -1,14 +1,9 @@
-using System;
-using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
-using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using System.Threading.Tasks;
 using G3MLib.DataFile;
-using G3MLib.DataFile.Models;
 
 namespace G3MLib.Modding.Caching;
 
@@ -20,7 +15,7 @@ public static class G3MCacheService
 
 	private const string AnalysisEntryName = "data_analysis.json";
 
-	private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions
+	private static readonly JsonSerializerOptions JsonOptions = new()
 	{
 		WriteIndented = false
 	};
@@ -30,12 +25,12 @@ public static class G3MCacheService
 		bool shouldAppend;
 		try
 		{
-			G3MDataAnalysisCache? analysis = TryReadAnalysis(sourcePath, options);
+			var analysis = TryReadAnalysis(sourcePath, options);
 			if (analysis?.DataInfo == null || analysis.ResourceHashes.Count == 0)
 			{
 				return null;
 			}
-			LogInterpolatedStringHandler handler = new LogInterpolatedStringHandler(33, 1, out shouldAppend);
+			var handler = new LogInterpolatedStringHandler(33, 1, out shouldAppend);
 			if (shouldAppend)
 			{
 				handler.AppendLiteral("[Cache] Using analysis cache for ");
@@ -46,7 +41,7 @@ public static class G3MCacheService
 		}
 		catch (Exception ex)
 		{
-			LogInterpolatedStringHandler handler2 = new LogInterpolatedStringHandler(36, 2, out shouldAppend);
+			var handler2 = new LogInterpolatedStringHandler(36, 2, out shouldAppend);
 			if (shouldAppend)
 			{
 				handler2.AppendLiteral("[Cache] Ignored invalid cache for ");
@@ -64,12 +59,12 @@ public static class G3MCacheService
 		bool shouldAppend;
 		try
 		{
-			G3MDataAnalysisCache? analysis = TryReadAnalysis(sourcePath, options);
+			var analysis = TryReadAnalysis(sourcePath, options);
 			if (analysis?.InfoSnapshot == null)
 			{
 				return null;
 			}
-			LogInterpolatedStringHandler handler = new LogInterpolatedStringHandler(29, 1, out shouldAppend);
+			var handler = new LogInterpolatedStringHandler(29, 1, out shouldAppend);
 			if (shouldAppend)
 			{
 				handler.AppendLiteral("[Cache] Using info cache for ");
@@ -80,7 +75,7 @@ public static class G3MCacheService
 		}
 		catch (Exception ex)
 		{
-			LogInterpolatedStringHandler handler2 = new LogInterpolatedStringHandler(41, 2, out shouldAppend);
+			var handler2 = new LogInterpolatedStringHandler(41, 2, out shouldAppend);
 			if (shouldAppend)
 			{
 				handler2.AppendLiteral("[Cache] Ignored invalid info cache for ");
@@ -111,12 +106,12 @@ public static class G3MCacheService
 		{
 			return null;
 		}
-		string cachePath = GetCachePath(options.ReadDirectory, sourcePath);
+		var cachePath = GetCachePath(options.ReadDirectory, sourcePath);
 		if (!File.Exists(cachePath))
 		{
 			return null;
 		}
-		using ZipArchive zip = ZipFile.OpenRead(cachePath);
+		using var zip = ZipFile.OpenRead(cachePath);
 		if (!IsValidForSource(ReadJson<G3MCacheManifest>(zip, ManifestEntryName), sourcePath))
 		{
 			return null;
@@ -126,51 +121,50 @@ public static class G3MCacheService
 
 	public static async Task WriteDataInfoCacheAsync(string sourcePath, G3MDataInfoSnapshot infoSnapshot, G3MCacheOptions? options)
 	{
+		ArgumentNullException.ThrowIfNull(infoSnapshot);
 		if (options != null && options.CanWrite)
 		{
-			G3MDataAnalysisCache existingAnalysis = TryReadDataCache(sourcePath, options);
+			var existingAnalysis = TryReadDataCache(sourcePath, options);
 			if (existingAnalysis != null)
 			{
-				await WriteDataCacheAsync(sourcePath, existingAnalysis.DataInfo, existingAnalysis.ResourceHashes, existingAnalysis.ResourceNameCounts, ToReadOnlyOrderNames(existingAnalysis.OrderSensitiveNames), options, infoSnapshot);
+				await WriteDataCacheAsync(sourcePath, existingAnalysis.DataInfo, existingAnalysis.ResourceHashes, existingAnalysis.ResourceNameCounts, ToReadOnlyOrderNames(existingAnalysis.OrderSensitiveNames), options, infoSnapshot).ConfigureAwait(false);
 				return;
 			}
-			DataFileInfo dataFileInfo = new DataFileInfo
+			var dataFileInfo = new DataFileInfo
 			{
 				Filename = infoSnapshot.File,
 				Size = infoSnapshot.Size
 			};
-			DataFileInfo dataFileInfo2 = dataFileInfo;
-			dataFileInfo2.Md5 = await HashService.ComputeFileHashAsync(sourcePath);
+			var dataFileInfo2 = dataFileInfo;
+			dataFileInfo2.Md5 = await HashService.ComputeFileHashAsync(sourcePath).ConfigureAwait(false);
 			dataFileInfo.BytecodeVersion = infoSnapshot.BytecodeVersion;
 			dataFileInfo.GmsVersion = infoSnapshot.Version;
 			dataFileInfo.GeneralInfo = infoSnapshot.GeneralInfo;
-			await WriteDataCacheAsync(sourcePath, dataFileInfo, new Dictionary<string, Dictionary<string, string>>(), new Dictionary<string, Dictionary<string, int>>(), new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase), options, infoSnapshot);
+			await WriteDataCacheAsync(sourcePath, dataFileInfo, [], [], new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase), options, infoSnapshot).ConfigureAwait(false);
 		}
 	}
 
 	public static async Task WriteDataCacheAsync(string sourcePath, DataFileInfo dataInfo, Dictionary<string, Dictionary<string, string>> resourceHashes, Dictionary<string, Dictionary<string, int>> resourceNameCounts, Dictionary<string, IReadOnlyList<string>> orderSensitiveNames, G3MCacheOptions? options, G3MDataInfoSnapshot? infoSnapshot = null)
 	{
+		ArgumentNullException.ThrowIfNull(dataInfo);
 		if (options == null || !options.CanWrite)
 		{
 			return;
 		}
-		string tempPath = null;
+		string? tempPath = null;
 		bool shouldAppend;
 		try
 		{
 			Directory.CreateDirectory(options.WriteDirectory);
-			string cachePath = GetCachePath(options.WriteDirectory, sourcePath);
-			if (infoSnapshot == null)
-			{
-				infoSnapshot = TryReadDataInfoSnapshot(sourcePath, options);
-			}
+			var cachePath = GetCachePath(options.WriteDirectory, sourcePath);
+			infoSnapshot ??= TryReadDataInfoSnapshot(sourcePath, options);
 			tempPath = $"{cachePath}.{Environment.ProcessId}.{Guid.NewGuid():N}.tmp";
-			FileInfo info = new FileInfo(sourcePath);
-			G3MCacheManifest manifest = new G3MCacheManifest
+			var info = new FileInfo(sourcePath);
+			var manifest = new G3MCacheManifest
 			{
 				Schema = Schema,
 				CreatedAt = DateTime.UtcNow.ToString("O"),
-				Tool = new G3MLib.Modding.Patching.ToolInfo
+				Tool = new Patching.ToolInfo
 				{
 					Name = ModdingMetadata.ToolName,
 					Version = ModdingMetadata.ToolVersion
@@ -180,22 +174,22 @@ public static class G3MCacheService
 				SourceLastWriteUtcTicks = info.LastWriteTimeUtc.Ticks,
 				SourceMd5 = dataInfo.Md5
 			};
-			G3MDataAnalysisCache analysis = new G3MDataAnalysisCache
+			var analysis = new G3MDataAnalysisCache
 			{
 				DataInfo = dataInfo,
 				ResourceHashes = resourceHashes,
 				ResourceNameCounts = resourceNameCounts,
-				OrderSensitiveNames = orderSensitiveNames.ToDictionary<KeyValuePair<string, IReadOnlyList<string>>, string, List<string>>((KeyValuePair<string, IReadOnlyList<string>> kvp) => kvp.Key, (KeyValuePair<string, IReadOnlyList<string>> kvp) => kvp.Value.ToList(), StringComparer.OrdinalIgnoreCase),
+				OrderSensitiveNames = orderSensitiveNames.ToDictionary<KeyValuePair<string, IReadOnlyList<string>>, string, List<string>>(kvp => kvp.Key, kvp => [.. kvp.Value], StringComparer.OrdinalIgnoreCase),
 				InfoSnapshot = infoSnapshot
 			};
-			using (ZipArchive zip = await ZipFile.OpenAsync(tempPath, ZipArchiveMode.Create))
+			using (var zip = await ZipFile.OpenAsync(tempPath, ZipArchiveMode.Create).ConfigureAwait(false))
 			{
 				WriteJson(zip, "g3mcache.json", manifest);
 				WriteJson(zip, "data_analysis.json", analysis);
 			}
 			File.Move(tempPath, cachePath, overwrite: true);
-			await Task.CompletedTask;
-			LogInterpolatedStringHandler handler = new LogInterpolatedStringHandler(33, 1, out shouldAppend);
+			await Task.CompletedTask.ConfigureAwait(false);
+			var handler = new LogInterpolatedStringHandler(33, 1, out shouldAppend);
 			if (shouldAppend)
 			{
 				handler.AppendLiteral("[Cache] Wrote analysis cache for ");
@@ -205,7 +199,7 @@ public static class G3MCacheService
 		}
 		catch (Exception ex)
 		{
-			LogInterpolatedStringHandler handler2 = new LogInterpolatedStringHandler(36, 2, out shouldAppend);
+			var handler2 = new LogInterpolatedStringHandler(36, 2, out shouldAppend);
 			if (shouldAppend)
 			{
 				handler2.AppendLiteral("[Cache] Could not write cache for ");
@@ -232,13 +226,14 @@ public static class G3MCacheService
 
 	public static Dictionary<string, IReadOnlyList<string>> ToReadOnlyOrderNames(Dictionary<string, List<string>> names)
 	{
-		return names.ToDictionary<KeyValuePair<string, List<string>>, string, IReadOnlyList<string>>((KeyValuePair<string, List<string>> kvp) => kvp.Key, (KeyValuePair<string, List<string>> kvp) => kvp.Value, StringComparer.OrdinalIgnoreCase);
+		return names.ToDictionary<KeyValuePair<string, List<string>>, string, IReadOnlyList<string>>(kvp => kvp.Key, kvp => kvp.Value, StringComparer.OrdinalIgnoreCase);
 	}
 
 	public static G3MDataInfoSnapshot BuildInfoSnapshot(string sourcePath, GameMakerData data)
 	{
-		GameMakerGeneralInfo generalInfo = data.GeneralInfo;
-		Dictionary<string, int> counts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+		ArgumentNullException.ThrowIfNull(data);
+		var generalInfo = data.GeneralInfo;
+		var counts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
 		{
 			["Sprites"] = data.Sprites?.Count ?? 0,
 			["Sounds"] = data.Sounds?.Count ?? 0,
@@ -261,20 +256,20 @@ public static class G3MCacheService
 			["TextureGroupInfo"] = data.TextureGroupInfo?.Count ?? 0,
 			["Tilesets"] = data.Backgrounds?.Count ?? 0
 		};
-		int topLevelCode = data.Code?.Count((GameMakerCode c) => c?.ParentEntry == null) ?? 0;
-		G3MDataInfoSnapshot obj = new G3MDataInfoSnapshot
+		var topLevelCode = data.Code?.Count(c => c?.ParentEntry == null) ?? 0;
+		var obj = new G3MDataInfoSnapshot
 		{
 			File = Path.GetFileName(sourcePath),
 			Size = new FileInfo(sourcePath).Length,
-			Game = (generalInfo?.DisplayName?.Content ?? "Unknown"),
-			BytecodeVersion = (generalInfo?.BytecodeVersion ?? 0),
+			Game = generalInfo?.DisplayName?.Content ?? "Unknown",
+			BytecodeVersion = generalInfo?.BytecodeVersion ?? 0,
 			Version = GeneralInfoUtil.GetVersionDisplay(generalInfo),
 			GeneralInfo = GeneralInfoUtil.ExtractGeneralInfo(data),
 			ResourceCounts = counts,
-			VariablesByInstanceType = ((from g in data.Variables?.GroupBy((GameMakerVariable v) => v.InstanceType.ToString())
-				orderby g.Count() descending
-				select g).ToDictionary<IGrouping<string, GameMakerVariable>, string, int>((IGrouping<string, GameMakerVariable> g) => g.Key, (IGrouping<string, GameMakerVariable> g) => g.Count(), StringComparer.Ordinal) ?? new Dictionary<string, int>()),
-			FirstFunction = ((data.Functions == null || data.Functions.Count <= 0) ? null : data.Functions[0]?.Name?.Content)
+			VariablesByInstanceType = (from g in data.Variables?.GroupBy(v => v.InstanceType.ToString())
+									   orderby g.Count() descending
+									   select g).ToDictionary(g => g.Key, g => g.Count(), StringComparer.Ordinal) ?? [],
+			FirstFunction = (data.Functions == null || data.Functions.Count <= 0) ? null : data.Functions[0]?.Name?.Content
 		};
 		object lastFunction;
 		if (data.Functions == null || data.Functions.Count <= 0)
@@ -283,16 +278,16 @@ public static class G3MCacheService
 		}
 		else
 		{
-			IList<GameMakerFunction> functions = data.Functions;
+			var functions = data.Functions;
 			lastFunction = functions[functions.Count - 1]?.Name?.Content;
 		}
 		obj.LastFunction = (string?)lastFunction;
 		obj.TopLevelCodeCount = topLevelCode;
 		obj.ChildCodeCount = (data.Code?.Count ?? 0) - topLevelCode;
-		obj.AudioGroups = data.AudioGroups?.Select((GameMakerAudioGroup g) => g?.Name?.Content ?? "?").ToList() ?? new List<string>();
-		obj.Extensions = data.Extensions?.Select((GameMakerExtension e) => e?.Name?.Content ?? "?").ToList() ?? new List<string>();
+		obj.AudioGroups = data.AudioGroups?.Select(g => g?.Name?.Content ?? "?").ToList() ?? [];
+		obj.Extensions = data.Extensions?.Select(e => e?.Name?.Content ?? "?").ToList() ?? [];
 		obj.RoomOrderPreview = (from r in generalInfo?.RoomOrder?.Take(10)
-			select r?.Resource?.Name?.Content ?? "?").ToList() ?? new List<string>();
+								select r?.Resource?.Name?.Content ?? "?").ToList() ?? [];
 		obj.RoomOrderCount = (generalInfo?.RoomOrder?.Count).GetValueOrDefault();
 		return obj;
 	}
@@ -303,7 +298,7 @@ public static class G3MCacheService
 		{
 			return false;
 		}
-		FileInfo info = new FileInfo(sourcePath);
+		var info = new FileInfo(sourcePath);
 		if (info.Length != manifest.SourceSize)
 		{
 			return false;
@@ -317,12 +312,12 @@ public static class G3MCacheService
 
 	private static string GetCachePath(string directory, string sourcePath)
 	{
-		FileInfo info = new FileInfo(sourcePath);
-		string identity = $"{Path.GetFullPath(sourcePath).ToUpperInvariant()}|{info.Length}|{info.LastWriteTimeUtc.Ticks}";
-		string hash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(identity)))[..24];
-		string safeName = Path.GetFileNameWithoutExtension(sourcePath);
-		char[] invalidFileNameChars = Path.GetInvalidFileNameChars();
-		foreach (char c in invalidFileNameChars)
+		var info = new FileInfo(sourcePath);
+		var identity = $"{Path.GetFullPath(sourcePath).ToUpperInvariant()}|{info.Length}|{info.LastWriteTimeUtc.Ticks}";
+		var hash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(identity)))[..24];
+		var safeName = Path.GetFileNameWithoutExtension(sourcePath);
+		var invalidFileNameChars = Path.GetInvalidFileNameChars();
+		foreach (var c in invalidFileNameChars)
 		{
 			safeName = safeName.Replace(c, '_');
 		}
@@ -331,18 +326,18 @@ public static class G3MCacheService
 
 	private static T? ReadJson<T>(ZipArchive zip, string entryName)
 	{
-		ZipArchiveEntry entry = zip.GetEntry(entryName);
+		var entry = zip.GetEntry(entryName);
 		if (entry == null)
 		{
-			return default(T);
+			return default;
 		}
-		using Stream stream = entry.Open();
+		using var stream = entry.Open();
 		return JsonSerializer.Deserialize<T>(stream, JsonOptions);
 	}
 
 	private static void WriteJson<T>(ZipArchive zip, string entryName, T value)
 	{
-		using Stream stream = zip.CreateEntry(entryName, CompressionLevel.Fastest).Open();
+		using var stream = zip.CreateEntry(entryName, CompressionLevel.Fastest).Open();
 		JsonSerializer.Serialize(stream, value, JsonOptions);
 	}
 }

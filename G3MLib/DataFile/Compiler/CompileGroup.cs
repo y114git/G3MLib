@@ -1,9 +1,6 @@
-using System;
-using System.Collections.Generic;
 using G3MLib.Analyzer;
 using G3MLib.Analyzer.Compiler;
 using G3MLib.Analyzer.Compiler.Bytecode;
-using G3MLib.Analyzer.Compiler.Errors;
 using G3MLib.DataFile.Decompiler;
 using G3MLib.DataFile.Models;
 using G3MLib.DataFile.Util;
@@ -42,7 +39,7 @@ public sealed class CompileGroup
     /// This should be used with care. When enabled, no game data should be modified between each compile; otherwise,
     /// string or asset duplication may occur, which can corrupt the data permanently.
     /// </remarks>
-    public bool PersistLinkingLookups { get; set; } = false;
+    public bool PersistLinkingLookups { get; set; }
 
     /// <summary>
     /// Hash code of the name of the current code entry being compiled.
@@ -52,7 +49,7 @@ public sealed class CompileGroup
     /// <summary>
     /// During main compile (not linking), this is the next try variable index that should be used.
     /// </summary>
-    internal int NextTryVariableIndex { get; set; } = 0;
+    internal int NextTryVariableIndex { get; set; }
 
     /// <summary>
     /// Stores a code entry and corresponding GML code to be compiled during an operation.
@@ -71,34 +68,34 @@ public sealed class CompileGroup
         bool ExistingCode, bool ExistingScript, bool ExistingFunction);
 
     // Queued list of code to replace the contents of
-    private List<QueuedOperation> _queuedCodeReplacements = null;
+    private List<QueuedOperation>? _queuedCodeReplacements;
 
     // During linking, a lookup of string contents to string IDs.
-    private Dictionary<string, int> _linkingStringIdLookup = null;
+    private Dictionary<string, int>? _linkingStringIdLookup;
 
     // During linking, a lookup of function names to functions.
-    private Dictionary<string, GameMakerFunction> _linkingFunctionLookup = null;
+    private Dictionary<string, GameMakerFunction>? _linkingFunctionLookup;
 
     // During linking, a lookup of script names to scripts.
-    private Dictionary<string, List<GameMakerScript>> _linkingScriptLookup = null;
+    private Dictionary<string, List<GameMakerScript>>? _linkingScriptLookup;
 
     // During linking, a unique number to use for struct variables.
     private int _linkingStructCounter = -1;
 
     // During linking, a lookup of all variable names that have been patched so far,
     // to the index they appear in the order of variable patches.
-    private Dictionary<string, int> _linkingVariableOrderLookup = null;
+    private Dictionary<string, int>? _linkingVariableOrderLookup;
 
     // During linking, a list of all variable names that have been patched so far,
     // along with whether they have ever been used as a local variable.
-    private List<(string Name, bool IsEverLocal)> _linkingVariableOrder = null;
+    private List<(string Name, bool IsEverLocal)> _linkingVariableOrder;
 
     // During linking, a lookup of local variable names to references of those local variables.
-    private Dictionary<string, List<GameMakerInstruction>> _linkingLocalReferences = null;
+    private Dictionary<string, List<GameMakerInstruction>>? _linkingLocalReferences;
 
     // During main compile (not linking), and when array copy-on-write is enabled, this is a lookup of name to ID.
     private int _nextNameId = 100000;
-    private Dictionary<string, int> _parsedNameIds = null;
+    private Dictionary<string, int>? _parsedNameIds;
 
     /// <summary>
     /// Initializes a new compile context.
@@ -106,7 +103,7 @@ public sealed class CompileGroup
     /// <remarks>
     /// If <paramref name="globalContext"/> is not provided, a new global context will be created.
     /// </remarks>
-    public CompileGroup(GameMakerData data, GlobalDecompileContext globalContext = null)
+    public CompileGroup(GameMakerData data, GlobalDecompileContext? globalContext = null)
     {
         ArgumentNullException.ThrowIfNull(data);
 
@@ -124,7 +121,7 @@ public sealed class CompileGroup
         ArgumentNullException.ThrowIfNull(codeToModify);
         ArgumentNullException.ThrowIfNull(gmlCode);
 
-        _queuedCodeReplacements ??= new();
+        _queuedCodeReplacements ??= [];
         _queuedCodeReplacements.Add(new(codeToModify, gmlCode));
     }
 
@@ -143,14 +140,14 @@ public sealed class CompileGroup
     internal GameMakerString MakeString(string contents)
     {
         // Try to look up existing string first
-        if (_linkingStringIdLookup.TryGetValue(contents, out int id))
+        if (_linkingStringIdLookup.TryGetValue(contents, out var id))
         {
             return Data.Strings[id];
         }
 
         // Create new string, and update lookup
         GameMakerString str = new(contents);
-        int strIndex = Data.Strings.Count;
+        var strIndex = Data.Strings.Count;
         _linkingStringIdLookup[contents] = strIndex;
         Data.Strings.Add(str);
         return str;
@@ -194,7 +191,7 @@ public sealed class CompileGroup
     internal void RegisterLocalVariable(GameMakerInstruction reference, string name)
     {
         // Queue reference to be patched later
-        if (!_linkingLocalReferences.TryGetValue(name, out List<GameMakerInstruction> referenceList))
+        if (!_linkingLocalReferences.TryGetValue(name, out var referenceList))
         {
             referenceList = new(16);
             _linkingLocalReferences[name] = referenceList;
@@ -202,7 +199,7 @@ public sealed class CompileGroup
         referenceList.Add(reference);
 
         // Update variable order
-        if (_linkingVariableOrderLookup.TryGetValue(name, out int existingIndex))
+        if (_linkingVariableOrderLookup.TryGetValue(name, out var existingIndex))
         {
             // If not already marked as "ever local," mark it as such now
             if (!_linkingVariableOrder[existingIndex].IsEverLocal)
@@ -223,7 +220,7 @@ public sealed class CompileGroup
     /// </summary>
     internal int RegisterName(string name)
     {
-        if (_parsedNameIds.TryGetValue(name, out int id))
+        if (_parsedNameIds.TryGetValue(name, out var id))
         {
             return id;
         }
@@ -235,7 +232,7 @@ public sealed class CompileGroup
     /// </summary>
     private void DefineCodeLocal(GameMakerCodeLocals locals, bool linkingModern, string name, uint currentLocalIndex)
     {
-        GameMakerString str = MakeString(name, out int stringId);
+        var str = MakeString(name, out var stringId);
         if (linkingModern)
         {
             // In 2.3+, local variables use variable ID rather than local index
@@ -262,8 +259,8 @@ public sealed class CompileGroup
     /// </summary>
     private static bool SimilarCodeEntryNames(string originalName, string newNameNoNumbers)
     {
-        int originalPos = 0;
-        for (int i = 0; i < newNameNoNumbers.Length; i++)
+        var originalPos = 0;
+        for (var i = 0; i < newNameNoNumbers.Length; i++)
         {
             if (newNameNoNumbers[i] == '%')
             {
@@ -313,9 +310,9 @@ public sealed class CompileGroup
     private static string FindOriginalShortName(string originalName, string newShortNameNoNumbers)
     {
         // Start reading after prefix
-        int startOriginalPos = "gml_Script_".Length;
-        int originalPos = startOriginalPos;
-        for (int i = 0; i < newShortNameNoNumbers.Length; i++)
+        var startOriginalPos = "gml_Script_".Length;
+        var originalPos = startOriginalPos;
+        for (var i = 0; i < newShortNameNoNumbers.Length; i++)
         {
             if (newShortNameNoNumbers[i] == '%')
             {
@@ -364,35 +361,65 @@ public sealed class CompileGroup
     /// <remarks>
     /// Code replacement operations will be performed first, followed by code append operations.
     /// </remarks>
-    public CompileResult Compile()
+    public CompileResult Compile() => CompileCore(false, default);
+
+    /// <summary>
+    /// Compiles everything that has been queued without linking: syntax and semantic errors are found, and nothing in the game data changes.
+    /// </summary>
+    /// <remarks>
+    /// The queue is emptied. Cancelling throws <see cref="OperationCanceledException"/>; nothing needs to be discarded.
+    /// </remarks>
+    public CompileResult Check(CancellationToken cancellationToken = default) => CompileCore(true, cancellationToken);
+
+    /// <summary>
+    /// Like <see cref="Compile()"/> with a cancel point before each operation. After a cancel the game data may hold part of the operations, so discard it.
+    /// </summary>
+    public CompileResult Compile(CancellationToken cancellationToken) => CompileCore(false, cancellationToken);
+
+    private CompileResult CompileCore(bool dryRun, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return CompileBody(dryRun, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            GlobalContext.CurrentCompileGroup = null;
+            _queuedCodeReplacements?.Clear();
+            UnreferenceLinkingLookups();
+            throw;
+        }
+    }
+
+    private CompileResult CompileBody(bool dryRun, CancellationToken cancellationToken)
     {
         // Ensure global context is prepared for compilation
         GlobalContext.PrepareForCompilation(!PersistLinkingLookups);
 
         // List to use for any errors generated, but don't allocate memory unless needed
-        List<CompileError> errors = null;
+        List<CompileError>? errors = null;
 
         // Version checks:
         // In 2.3 and above, new processes are used for linking in general.
         // In 2023.11 and above, a new naming process is used for code entries.
         // This was updated a bit in 2024.2 and 2024.4 as well.
-        bool linkingModern = Data.IsVersionAtLeast(2, 3);
-        bool newNamingProcess = Data.IsVersionAtLeast(2023, 11);
-        bool staticAnonymousNames = Data.IsVersionAtLeast(2024, 2);
-        bool childFunctionNameFix = Data.IsVersionAtLeast(2024, 4);
+        var linkingModern = Data.IsVersionAtLeast(2, 3);
+        var newNamingProcess = Data.IsVersionAtLeast(2023, 11);
+        var staticAnonymousNames = Data.IsVersionAtLeast(2024, 2);
+        var childFunctionNameFix = Data.IsVersionAtLeast(2024, 4);
 
         // Mark this group as compiling
         GlobalContext.CurrentCompileGroup = this;
 
         // If queue hasn't been created yet, create an empty one
-        _queuedCodeReplacements ??= new();
+        _queuedCodeReplacements ??= [];
 
         // If global scripts are present in the replacement queue, parse their code in advance to collect global functions
-        List<CompileContext> globalScriptContexts = null;
-        foreach (QueuedOperation operation in _queuedCodeReplacements)
+        List<CompileContext>? globalScriptContexts = null;
+        foreach (var operation in _queuedCodeReplacements)
         {
             // Guess script kind and global script name, based on code entry name
-            (CompileScriptKind scriptKind, string globalScriptName) = GuessScriptKindFromName(operation.CodeEntry.Name?.Content);
+            (var scriptKind, var globalScriptName) = GuessScriptKindFromName(operation.CodeEntry.Name?.Content);
 
             // If not a global script, ignore
             if (scriptKind is not CompileScriptKind.GlobalScript)
@@ -412,7 +439,7 @@ public sealed class CompileGroup
                 if (context.HasErrors)
                 {
                     errors ??= new(context.Errors.Count);
-                    foreach (ICompileError error in context.Errors)
+                    foreach (var error in context.Errors)
                     {
                         errors.Add(new CompileError(operation.CodeEntry, error));
                     }
@@ -421,18 +448,18 @@ public sealed class CompileGroup
             catch (Exception e)
             {
                 // Exception thrown; make compile error for it
-                errors ??= new();
+                errors ??= [];
                 errors.Add(new CompileError(operation.CodeEntry, e));
             }
 
             // Add context to global script context list, for reuse
-            globalScriptContexts ??= new();
+            globalScriptContexts ??= [];
             globalScriptContexts.Add(context);
         }
 
         // Define global functions, if applicable
         List<(string Name, IGMFunction NewFunction, IGMFunction OldFunction)> newlyDefinedGlobalFunctions = null;
-        if (globalScriptContexts is not null)
+        if (globalScriptContexts is not null && !dryRun)
         {
             // Perform linking on main thread
             MainThreadAction(() =>
@@ -441,30 +468,30 @@ public sealed class CompileGroup
                 InitializeLinkingLookups();
 
                 // Iterate over all global script compile contexts, to find functions
-                foreach (CompileContext context in globalScriptContexts)
+                foreach (var context in globalScriptContexts)
                 {
                     if (context.OutputGlobalFunctionNames is null)
                     {
                         continue;
                     }
-                    foreach (string functionName in context.OutputGlobalFunctionNames)
+                    foreach (var functionName in context.OutputGlobalFunctionNames)
                     {
                         // Get old function entry, if one exists (in case this needs to be rolled back due to an error)
-                        Data.GlobalFunctions.TryGetFunction(functionName, out IGMFunction oldFunctionEntry);
+                        Data.GlobalFunctions.TryGetFunction(functionName, out var oldFunctionEntry);
 
                         // Define function using standard naming convention
-                        string functionEntryName = $"gml_Script_{functionName}";
-                        if (!_linkingFunctionLookup.TryGetValue(functionEntryName, out GameMakerFunction newFunctionEntry))
+                        var functionEntryName = $"gml_Script_{functionName}";
+                        if (!_linkingFunctionLookup.TryGetValue(functionEntryName, out var newFunctionEntry))
                         {
                             // Create a new function entry; will be added to game data later
                             newFunctionEntry = new()
                             {
-                                Name = MakeString(functionEntryName, out int id),
+                                Name = MakeString(functionEntryName, out var id),
                                 NameStringID = id
                             };
                         }
                         Data.GlobalFunctions.DefineFunction(functionName, newFunctionEntry);
-                        newlyDefinedGlobalFunctions ??= new();
+                        newlyDefinedGlobalFunctions ??= [];
                         newlyDefinedGlobalFunctions.Add((functionName, newFunctionEntry, oldFunctionEntry));
                     }
                 }
@@ -472,11 +499,13 @@ public sealed class CompileGroup
         }
 
         // Work through replacement queue, for main compilation and linking
-        int globalScriptContextIndex = 0;
-        foreach (QueuedOperation operation in _queuedCodeReplacements)
+        var globalScriptContextIndex = 0;
+        foreach (var operation in _queuedCodeReplacements)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             // Guess script kind and global script name, based on code entry name
-            (CompileScriptKind scriptKind, string globalScriptName) = GuessScriptKindFromName(operation.CodeEntry.Name?.Content);
+            (var scriptKind, var globalScriptName) = GuessScriptKindFromName(operation.CodeEntry.Name?.Content);
 
             // Prepare data for main compile
             CurrentCodeEntryNameHash = (int)MurmurHash.Hash(operation.CodeEntry.Name.Content);
@@ -486,7 +515,7 @@ public sealed class CompileGroup
 
                 if (Data.ArrayCopyOnWrite)
                 {
-                    _parsedNameIds = new();
+                    _parsedNameIds = [];
                     _nextNameId = 100000;
                 }
             }
@@ -512,7 +541,7 @@ public sealed class CompileGroup
                 if (context.HasErrors)
                 {
                     errors ??= new(context.Errors.Count);
-                    foreach (ICompileError error in context.Errors)
+                    foreach (var error in context.Errors)
                     {
                         errors.Add(new CompileError(operation.CodeEntry, error));
                     }
@@ -522,7 +551,7 @@ public sealed class CompileGroup
             {
                 // Exception thrown; make compile error for it (and also get rid of context)
                 context = null;
-                errors ??= new();
+                errors ??= [];
                 errors.Add(new CompileError(operation.CodeEntry, e));
             }
 
@@ -533,7 +562,7 @@ public sealed class CompileGroup
             }
 
             // If any errors have occurred in general (even in other operations), don't proceed to linking
-            if (errors is not null)
+            if (errors is not null || dryRun)
             {
                 continue;
             }
@@ -547,11 +576,11 @@ public sealed class CompileGroup
                 // Make list of reusable child code entry names (and set of child entries remaining)
                 List<string> originalChildEntryNames = new(operation.CodeEntry.ChildEntries.Count);
                 Dictionary<string, CodeEntryNameGroup> remainingChildEntries = new(operation.CodeEntry.ChildEntries.Count);
-                foreach (GameMakerCode childEntry in operation.CodeEntry.ChildEntries)
+                foreach (var childEntry in operation.CodeEntry.ChildEntries)
                 {
-                    string currentChildName = childEntry.Name.Content;
+                    var currentChildName = childEntry.Name.Content;
                     originalChildEntryNames.Add(currentChildName);
-                    if (remainingChildEntries.TryGetValue(currentChildName, out CodeEntryNameGroup existing))
+                    if (remainingChildEntries.TryGetValue(currentChildName, out var existing))
                     {
                         existing.RemainingOriginalEntries.Enqueue(childEntry);
                     }
@@ -567,12 +596,12 @@ public sealed class CompileGroup
                 // Resolve function entries. Either pair up with existing child code entries, or make new ones.
                 List<ChildCodeEntryData> childDataList = new(context.OutputFunctionEntries.Count);
                 HashSet<string> usedChildEntryNames = new(operation.CodeEntry.ChildEntries.Count);
-                string rootCodeEntryName = operation.CodeEntry.Name.Content;
-                int anonCounter = 0;
-                foreach (FunctionEntry functionEntry in context.OutputFunctionEntries)
+                var rootCodeEntryName = operation.CodeEntry.Name.Content;
+                var anonCounter = 0;
+                foreach (var functionEntry in context.OutputFunctionEntries)
                 {
                     // Determine name of parent function, or null if none exists
-                    string parentFunctionName = functionEntry.Parent?.ChildFunctionName;
+                    var parentFunctionName = functionEntry.Parent?.ChildFunctionName;
                     if (scriptKind != CompileScriptKind.GlobalScript)
                     {
                         // Non-global scripts always use root code entry name as a base
@@ -585,7 +614,7 @@ public sealed class CompileGroup
                     {
                         // Named function; trivial
                         shortName = functionEntry.FunctionName;
-                        if (shortName.StartsWith("gml_Script_"))
+                        if (shortName.StartsWith("gml_Script_", StringComparison.Ordinal))
                         {
                             // Prefabs cause problematic linking behavior unless we strip this prefix
                             shortName = shortName["gml_Script_".Length..];
@@ -616,13 +645,13 @@ public sealed class CompileGroup
                         {
                             if (newNamingProcess)
                             {
-                                string rootWithoutGlobalScript = rootCodeEntryName.Replace("gml_GlobalScript_", "");
+                                var rootWithoutGlobalScript = rootCodeEntryName.Replace("gml_GlobalScript_", "", StringComparison.Ordinal);
                                 shortName = $"{anonName}@{anonCounter++}@{rootWithoutGlobalScript}";
                                 shortNameNoNumbers = $"{anonName}@%@{rootWithoutGlobalScript}";
                             }
                             else
                             {
-                                shortName = $"{anonName}_{operation.Code.GetHashCode():X8}_{anonCounter++}";
+                                shortName = $"{anonName}_{operation.Code.GetHashCode(StringComparison.Ordinal):X8}_{anonCounter++}";
                                 shortNameNoNumbers = $"{anonName}_#_%";
                             }
                         }
@@ -652,7 +681,7 @@ public sealed class CompileGroup
                     {
                         if (newNamingProcess)
                         {
-                            string parentWithoutGlobalScript = parentFunctionName.Replace("gml_GlobalScript_", "");
+                            var parentWithoutGlobalScript = parentFunctionName.Replace("gml_GlobalScript_", "", StringComparison.Ordinal);
                             codeEntryName = $"gml_Script_{shortName}@{parentWithoutGlobalScript}";
                             codeEntryNameNoNumbers = $"gml_Script_{shortNameNoNumbers}@{parentWithoutGlobalScript}";
                         }
@@ -664,13 +693,13 @@ public sealed class CompileGroup
                     }
 
                     // Try to pair up with an existing child code entry, or otherwise create a new one
-                    GameMakerCode existingCodeEntry = null, newCodeEntry = null;
-                    GameMakerScript existingScript = null, newScript = null;
-                    GameMakerFunction existingFunction = null, newFunction = null;
-                    for (int i = 0; i < originalChildEntryNames.Count; i++)
+                    GameMakerCode? existingCodeEntry = null, newCodeEntry = null;
+                    GameMakerScript? existingScript = null, newScript = null;
+                    GameMakerFunction? existingFunction = null, newFunction = null;
+                    for (var i = 0; i < originalChildEntryNames.Count; i++)
                     {
-                        string originalEntryName = originalChildEntryNames[i];
-                        if (remainingChildEntries.TryGetValue(originalEntryName, out CodeEntryNameGroup originalCodeEntries) &&
+                        var originalEntryName = originalChildEntryNames[i];
+                        if (remainingChildEntries.TryGetValue(originalEntryName, out var originalCodeEntries) &&
                             SimilarCodeEntryNames(originalEntryName, codeEntryNameNoNumbers))
                         {
                             // Names are similar enough - use this existing child.
@@ -683,7 +712,7 @@ public sealed class CompileGroup
                             existingCodeEntry = newCodeEntry = originalCodeEntries.RemainingOriginalEntries.Dequeue();
 
                             // Try to take existing script, if available
-                            if (_linkingScriptLookup.TryGetValue(originalEntryName, out List<GameMakerScript> scripts) &&
+                            if (_linkingScriptLookup.TryGetValue(originalEntryName, out var scripts) &&
                                 originalCodeEntries.EntriesUsed < scripts.Count)
                             {
                                 // Pair up with next script index
@@ -696,7 +725,7 @@ public sealed class CompileGroup
                                 // If this is a somehow a new global function (corrupt data?), take existing function from earlier
                                 if (scriptKind == CompileScriptKind.GlobalScript &&
                                     functionEntry is { DeclaredInRootScope: true, FunctionName: not null } &&
-                                    Data.GlobalFunctions.TryGetFunction(functionEntry.FunctionName, out IGMFunction newGlobalFunction))
+                                    Data.GlobalFunctions.TryGetFunction(functionEntry.FunctionName, out var newGlobalFunction))
                                 {
                                     // Don't set existing function, so that this new function will be added to the main data later
                                     newFunction = (GameMakerFunction)newGlobalFunction;
@@ -723,8 +752,8 @@ public sealed class CompileGroup
                         // Verify that code entry name isn't used; if it is, as a contingency, add a suffix
                         if (usedChildEntryNames.Contains(codeEntryName))
                         {
-                            int suffixId = 0;
-                            string baseCodeEntryName = codeEntryName;
+                            var suffixId = 0;
+                            var baseCodeEntryName = codeEntryName;
                             do
                             {
                                 codeEntryName = $"{baseCodeEntryName}_{suffixId++}";
@@ -756,7 +785,7 @@ public sealed class CompileGroup
                         {
                             if (!_linkingFunctionLookup.TryGetValue($"gml_Script_{functionEntry.FunctionName}", out existingFunction))
                             {
-                                if (Data.GlobalFunctions.TryGetFunction(functionEntry.FunctionName, out IGMFunction newGlobalFunction))
+                                if (Data.GlobalFunctions.TryGetFunction(functionEntry.FunctionName, out var newGlobalFunction))
                                 {
                                     // Don't set existing function, so that this new function will be added to the main data later
                                     newFunction = (GameMakerFunction)newGlobalFunction;
@@ -771,7 +800,7 @@ public sealed class CompileGroup
                         // If not assigned already, need to make a new function entry
                         newFunction ??= new()
                         {
-                            Name = MakeString(codeEntryName, out int id),
+                            Name = MakeString(codeEntryName, out var id),
                             NameStringID = id
                         };
                     }
@@ -830,7 +859,7 @@ public sealed class CompileGroup
                     if (context.HasErrors)
                     {
                         errors ??= new(context.Errors.Count);
-                        foreach (ICompileError error in context.Errors)
+                        foreach (var error in context.Errors)
                         {
                             errors.Add(new CompileError(operation.CodeEntry, error));
                         }
@@ -840,17 +869,17 @@ public sealed class CompileGroup
                 {
                     // Exception thrown; make compile error for it (and also get rid of context)
                     context = null;
-                    errors ??= new();
+                    errors ??= [];
                     errors.Add(new CompileError(operation.CodeEntry, e));
                 }
 
                 // Collect all local variable names, and resolve references (if not errored)
-                List<string> localsOrder = null;
+                List<string>? localsOrder = null;
                 if (errors is null)
                 {
                     localsOrder = new(_linkingLocalReferences.Count);
-                    ISet<GameMakerVariable> originalReferencedLocals = operation.CodeEntry.FindReferencedLocalVars();
-                    foreach ((string name, bool isEverLocal) in _linkingVariableOrder)
+                    var originalReferencedLocals = operation.CodeEntry.FindReferencedLocalVars();
+                    foreach ((var name, var isEverLocal) in _linkingVariableOrder)
                     {
                         if (isEverLocal)
                         {
@@ -858,14 +887,14 @@ public sealed class CompileGroup
                             localsOrder.Add(name);
 
                             // Ensure local name string is generated
-                            GameMakerString localString = MakeString(name, out int nameStringIndex);
+                            var localString = MakeString(name, out var nameStringIndex);
 
                             // Get variable ID for this local (GM 2.3+ uses string index, prior uses local index)
-                            int varId = linkingModern ? nameStringIndex : localsOrder.Count;
+                            var varId = linkingModern ? nameStringIndex : localsOrder.Count;
 
                             // Use existing registered variables if possible
-                            GameMakerVariable variable = null;
-                            foreach (GameMakerVariable referenced in originalReferencedLocals)
+                            GameMakerVariable? variable = null;
+                            foreach (var referenced in originalReferencedLocals)
                             {
                                 if (referenced.Name == localString && referenced.VarID == varId)
                                 {
@@ -878,7 +907,7 @@ public sealed class CompileGroup
                             variable ??= Data.Variables.DefineLocal(Data, varId, localString, nameStringIndex);
 
                             // Update all references
-                            foreach (GameMakerInstruction reference in _linkingLocalReferences[name])
+                            foreach (var reference in _linkingLocalReferences[name])
                             {
                                 reference.ValueVariable = variable;
                             }
@@ -898,7 +927,7 @@ public sealed class CompileGroup
                 }
 
                 // Set max local variable count, if applicable
-                uint codeLocalsCount = (uint)(1 + localsOrder.Count);
+                var codeLocalsCount = (uint)(1 + localsOrder.Count);
                 if (codeLocalsCount > Data.MaxLocalVarCount)
                 {
                     Data.MaxLocalVarCount = codeLocalsCount;
@@ -915,7 +944,7 @@ public sealed class CompileGroup
 
                     // Create new locals
                     uint codeLocalsIndex = 1;
-                    foreach (string local in localsOrder)
+                    foreach (var local in localsOrder)
                     {
                         DefineCodeLocal(locals, linkingModern, local, codeLocalsIndex);
                         codeLocalsIndex++;
@@ -923,17 +952,17 @@ public sealed class CompileGroup
                 }
 
                 // Remove old child code entries/scripts/functions
-                foreach ((string name, CodeEntryNameGroup codeEntryNameGroup) in remainingChildEntries)
+                foreach ((var name, var codeEntryNameGroup) in remainingChildEntries)
                 {
                     // Remove all remaining code entries associated with the given name
-                    while (codeEntryNameGroup.RemainingOriginalEntries.TryDequeue(out GameMakerCode code))
+                    while (codeEntryNameGroup.RemainingOriginalEntries.TryDequeue(out var code))
                     {
                         // Remove code entry
                         Data.Code.Remove(code);
                         operation.CodeEntry.ChildEntries.Remove(code);
 
                         // Remove script at correct index, if possible
-                        if (_linkingScriptLookup.TryGetValue(name, out List<GameMakerScript> scripts) &&
+                        if (_linkingScriptLookup.TryGetValue(name, out var scripts) &&
                             codeEntryNameGroup.EntriesUsed < scripts.Count)
                         {
                             Data.Scripts.Remove(scripts[codeEntryNameGroup.EntriesUsed]);
@@ -947,7 +976,7 @@ public sealed class CompileGroup
 
                     // If no entries were used, remove function, as long as it's not a global function (since it could still be referenced)
                     if (codeEntryNameGroup.EntriesUsed == 0 &&
-                        _linkingFunctionLookup.TryGetValue(name, out GameMakerFunction function) &&
+                        _linkingFunctionLookup.TryGetValue(name, out var function) &&
                         !Data.GlobalFunctions.FunctionExists(function))
                     {
                         Data.Functions.Remove(function);
@@ -956,9 +985,9 @@ public sealed class CompileGroup
                 }
 
                 // Commit new child code entries
-                int childIndex = 0;
-                int rootCodeEntryIndex = -1;
-                foreach (ChildCodeEntryData childData in childDataList)
+                var childIndex = 0;
+                var rootCodeEntryIndex = -1;
+                foreach (var childData in childDataList)
                 {
                     // Attach latest information to code entry
                     childData.Code.Length = (uint)context.OutputLength;
@@ -984,13 +1013,13 @@ public sealed class CompileGroup
                     // Define script
                     if (!childData.ExistingScript)
                     {
-                        if (_linkingScriptLookup.TryGetValue(childData.Name, out List<GameMakerScript> existing))
+                        if (_linkingScriptLookup.TryGetValue(childData.Name, out var existing))
                         {
                             existing.Add(childData.Script);
                         }
                         else
                         {
-                            _linkingScriptLookup[childData.Name] = new() { childData.Script };
+                            _linkingScriptLookup[childData.Name] = [childData.Script];
                         }
                         Data.Scripts.Add(childData.Script);
                     }
@@ -1008,7 +1037,7 @@ public sealed class CompileGroup
                 // Commit instructions and other data to main code entry
                 static IEnumerable<GameMakerInstruction> EnumerateInstructions(IReadOnlyList<IGMInstruction> instructionList)
                 {
-                    foreach (IGMInstruction instruction in instructionList)
+                    foreach (var instruction in instructionList)
                     {
                         yield return (GameMakerInstruction)instruction;
                     }
@@ -1031,9 +1060,9 @@ public sealed class CompileGroup
         if (errors is not null && newlyDefinedGlobalFunctions is not null)
         {
             // Iterate in reverse order, in case the same function name was defined twice in different scripts (to restore original function)
-            for (int i = newlyDefinedGlobalFunctions.Count - 1; i >= 0; i--)
+            for (var i = newlyDefinedGlobalFunctions.Count - 1; i >= 0; i--)
             {
-                (string functionName, IGMFunction newFunction, IGMFunction oldFunction) = newlyDefinedGlobalFunctions[i];
+                (var functionName, var newFunction, var oldFunction) = newlyDefinedGlobalFunctions[i];
 
                 // Undefine function
                 Data.GlobalFunctions.UndefineFunction(functionName, newFunction);
@@ -1066,7 +1095,7 @@ public sealed class CompileGroup
         if (_linkingStringIdLookup is null)
         {
             _linkingStringIdLookup = new(Data.Strings.Count);
-            for (int i = 0; i < Data.Strings.Count; i++)
+            for (var i = 0; i < Data.Strings.Count; i++)
             {
                 if (Data.Strings[i]?.Content is string content)
                 {
@@ -1079,9 +1108,9 @@ public sealed class CompileGroup
         if (_linkingFunctionLookup is null)
         {
             _linkingFunctionLookup = new(Data.Functions.Count);
-            for (int i = 0; i < Data.Functions.Count; i++)
+            for (var i = 0; i < Data.Functions.Count; i++)
             {
-                GameMakerFunction function = Data.Functions[i];
+                var function = Data.Functions[i];
                 if (function?.Name?.Content is string name)
                 {
                     _linkingFunctionLookup[name] = function;
@@ -1093,18 +1122,18 @@ public sealed class CompileGroup
         if (_linkingScriptLookup is null)
         {
             _linkingScriptLookup = new(Data.Scripts.Count);
-            for (int i = 0; i < Data.Scripts.Count; i++)
+            for (var i = 0; i < Data.Scripts.Count; i++)
             {
-                GameMakerScript script = Data.Scripts[i];
+                var script = Data.Scripts[i];
                 if (script?.Name?.Content is string name)
                 {
-                    if (_linkingScriptLookup.TryGetValue(name, out List<GameMakerScript> existing))
+                    if (_linkingScriptLookup.TryGetValue(name, out var existing))
                     {
                         existing.Add(script);
                     }
                     else
                     {
-                        _linkingScriptLookup[name] = new() { script };
+                        _linkingScriptLookup[name] = [script];
                     }
                 }
             }
@@ -1114,13 +1143,13 @@ public sealed class CompileGroup
         if (_linkingStructCounter == -1)
         {
             _linkingStructCounter = 0;
-            foreach (GameMakerVariable variable in Data.Variables)
+            foreach (var variable in Data.Variables)
             {
                 if (variable.Name?.Content is string name)
                 {
                     const string structPrefix = "___struct___";
                     if (name.StartsWith(structPrefix, StringComparison.Ordinal) &&
-                        int.TryParse(name.AsSpan(structPrefix.Length), out int id))
+                        int.TryParse(name.AsSpan(structPrefix.Length), out var id))
                     {
                         _linkingStructCounter = Math.Max(_linkingStructCounter, id + 1);
                     }

@@ -4,9 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System;
-using System.Collections.Generic;
-
 namespace G3MLib.Analyzer.Decompiler.AST;
 
 /// <summary>
@@ -32,17 +29,17 @@ public class TryCatchNode(BlockNode tryBlock, BlockNode? catchBlock, VariableNod
     /// <summary>
     /// The block inside of "finally", or <see langword="null"/> if none exists.
     /// </summary>
-    public BlockNode? Finally { get; internal set; } = null;
+    public BlockNode? Finally { get; internal set; }
 
     /// <summary>
     /// Compiler-generated variable name used for break, or <see langword="null"/> if none.
     /// </summary>
-    public string? BreakVariableName { get; internal set; } = null;
+    public string? BreakVariableName { get; internal set; }
 
     /// <summary>
     /// Compiler-generated variable name used for continue, or <see langword="null"/> if none.
     /// </summary>
-    public string? ContinueVariableName { get; internal set; } = null;
+    public string? ContinueVariableName { get; internal set; }
 
     /// <inheritdoc/>
     public bool SemicolonAfter => false;
@@ -85,6 +82,7 @@ public class TryCatchNode(BlockNode tryBlock, BlockNode? catchBlock, VariableNod
     /// <inheritdoc/>
     public IStatementNode Clean(ASTCleaner cleaner)
     {
+        ArgumentNullException.ThrowIfNull(cleaner);
         if (Finally is not null)
         {
             Finally.Clean(cleaner);
@@ -93,7 +91,7 @@ public class TryCatchNode(BlockNode tryBlock, BlockNode? catchBlock, VariableNod
             if (cleaner.Context.Settings.CleanupTry)
             {
                 // Push finally context
-                cleaner.TopFragmentContext!.FinallyStatementCount.Push(Finally.Children.Count);
+                cleaner.TopFragmentContext.FinallyStatementCount.Push(Finally.Children.Count);
             }
         }
 
@@ -111,7 +109,7 @@ public class TryCatchNode(BlockNode tryBlock, BlockNode? catchBlock, VariableNod
             if (Finally is not null)
             {
                 // Pop finally context
-                cleaner.TopFragmentContext!.FinallyStatementCount.Pop();
+                cleaner.TopFragmentContext.FinallyStatementCount.Pop();
             }
 
             // Cleanup continue/break
@@ -125,7 +123,7 @@ public class TryCatchNode(BlockNode tryBlock, BlockNode? catchBlock, VariableNod
                 }
 
                 // Remove local variable names
-                cleaner.TopFragmentContext!.RemoveLocal(BreakVariableName);
+                cleaner.TopFragmentContext.RemoveLocal(BreakVariableName);
                 cleaner.TopFragmentContext.RemoveLocal(ContinueVariableName);
             }
         }
@@ -138,17 +136,18 @@ public class TryCatchNode(BlockNode tryBlock, BlockNode? catchBlock, VariableNod
     /// <inheritdoc/>
     public IStatementNode PostClean(ASTCleaner cleaner)
     {
-        cleaner.TopFragmentContext!.PushLocalScope(cleaner.Context, cleaner.TopFragmentContext!.CurrentPostCleanupBlock!, this);
+        ArgumentNullException.ThrowIfNull(cleaner);
+        cleaner.TopFragmentContext.PushLocalScope(cleaner.Context, cleaner.TopFragmentContext.CurrentPostCleanupBlock, this);
         Finally?.PostClean(cleaner);
-        cleaner.TopFragmentContext!.PopLocalScope(cleaner.Context);
+        cleaner.TopFragmentContext.PopLocalScope(cleaner.Context);
 
-        cleaner.TopFragmentContext!.PushLocalScope(cleaner.Context, cleaner.TopFragmentContext!.CurrentPostCleanupBlock!, this);
+        cleaner.TopFragmentContext.PushLocalScope(cleaner.Context, cleaner.TopFragmentContext.CurrentPostCleanupBlock, this);
         Try.PostClean(cleaner);
-        cleaner.TopFragmentContext!.PopLocalScope(cleaner.Context);
+        cleaner.TopFragmentContext.PopLocalScope(cleaner.Context);
 
-        cleaner.TopFragmentContext!.PushLocalScope(cleaner.Context, cleaner.TopFragmentContext!.CurrentPostCleanupBlock!, this);
+        cleaner.TopFragmentContext.PushLocalScope(cleaner.Context, cleaner.TopFragmentContext.CurrentPostCleanupBlock, this);
         Catch?.PostClean(cleaner);
-        cleaner.TopFragmentContext!.PopLocalScope(cleaner.Context);
+        cleaner.TopFragmentContext.PopLocalScope(cleaner.Context);
 
         CatchVariable?.PostClean(cleaner);
 
@@ -158,12 +157,13 @@ public class TryCatchNode(BlockNode tryBlock, BlockNode? catchBlock, VariableNod
     /// <inheritdoc/>
     public void Print(ASTPrinter printer)
     {
+        ArgumentNullException.ThrowIfNull(printer);
         printer.Write("try");
         if (printer.Context.Settings.OpenBlockBraceOnSameLine)
         {
             printer.Write(' ');
         }
-        Try.Print(printer);
+        printer.PrintNode(Try);
         if (Catch is not null)
         {
             if (printer.Context.Settings.OpenBlockBraceOnSameLine)
@@ -176,13 +176,13 @@ public class TryCatchNode(BlockNode tryBlock, BlockNode? catchBlock, VariableNod
                 printer.StartLine();
             }
             printer.Write("catch (");
-            CatchVariable!.Print(printer);
+            printer.PrintNode(CatchVariable);
             printer.Write(')');
             if (printer.Context.Settings.OpenBlockBraceOnSameLine)
             {
                 printer.Write(' ');
             }
-            Catch.Print(printer);
+            printer.PrintNode(Catch);
         }
         if (Finally is not null)
         {
@@ -200,7 +200,7 @@ public class TryCatchNode(BlockNode tryBlock, BlockNode? catchBlock, VariableNod
             {
                 printer.Write(' ');
             }
-            Finally.Print(printer);
+            printer.PrintNode(Finally);
         }
     }
 
@@ -247,7 +247,7 @@ public class TryCatchNode(BlockNode tryBlock, BlockNode? catchBlock, VariableNod
         public bool Duplicated { get; set; }
 
         /// <inheritdoc/>
-        public bool Group { get; set; } = false;
+        public bool Group { get; set; }
 
         /// <inheritdoc/>
         public IGMInstruction.DataType StackType { get; set; } = IGMInstruction.DataType.Variable;
@@ -279,10 +279,11 @@ public class TryCatchNode(BlockNode tryBlock, BlockNode? catchBlock, VariableNod
         /// <inheritdoc/>
         public int BlockClean(ASTCleaner cleaner, BlockNode block, int i)
         {
+            ArgumentNullException.ThrowIfNull(block);
             // Search for the try statement this is associated with, and build a block for its finally
-            for (int j = i - 1; j >= 0; j--)
+            for (var j = i - 1; j >= 0; j--)
             {
-                IStatementNode curr = block.Children[j];
+                var curr = block.Children[j];
                 if (curr is TryCatchNode tryCatchNode)
                 {
                     // Create finally block with all statements in between

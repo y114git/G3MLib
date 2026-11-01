@@ -1,12 +1,7 @@
-using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.IO;
-using System.Linq;
 using G3MLib.DataFile;
 using G3MLib.DataFile.Models;
 using G3MLib.Modding.Resources;
-using Xunit;
 
 namespace G3MLib.Tests;
 
@@ -15,8 +10,8 @@ public class ResourceImportServiceTests
     [Fact]
     public async Task PatchContextFlowsAcrossAwaitAndIsolatesChildOperations()
     {
-        var parent = new G3MLib.Modding.Patching.PatchFileSystem();
-        var child = new G3MLib.Modding.Patching.PatchFileSystem();
+        var parent = new Modding.Patching.PatchFileSystem();
+        var child = new Modding.Patching.PatchFileSystem();
         ResourceImportService.SetPatchFileSystem(parent);
         try
         {
@@ -38,17 +33,17 @@ public class ResourceImportServiceTests
     [Fact("ResourceImportServiceTests.cs", 12)]
     public void ImportsNamedTimelineAndExtensionResources()
     {
-        string directory = Path.Combine(Path.GetTempPath(), $"G3MLibTests-{Guid.NewGuid():N}");
+        var directory = Path.Combine(Path.GetTempPath(), $"G3MLibTests-{Guid.NewGuid():N}");
         Directory.CreateDirectory(Path.Combine(directory, "timeline_test"));
         Directory.CreateDirectory(Path.Combine(directory, "extension_test"));
         try
         {
-            using GameMakerData data = GameMakerData.CreateNew2026LTS();
-            File.WriteAllText(Path.Combine(directory, "timeline_test", "timeline_test.json"), "{\"moments\":[{\"step\":12,\"actions\":[]}]}");
-            File.WriteAllText(Path.Combine(directory, "extension_test", "extension_test.json"), "{\"folderName\":\"extensions\",\"version\":\"1.0\",\"files\":[],\"options\":[]}");
+            using var data = GameMakerData.CreateNew2026LTS();
+            File.WriteAllText(Path.Combine(directory, "timeline_test", "timeline_test.json"), /*lang=json*/ "{\"moments\":[{\"step\":12,\"actions\":[]}]}");
+            File.WriteAllText(Path.Combine(directory, "extension_test", "extension_test.json"), /*lang=json*/ "{\"folderName\":\"extensions\",\"version\":\"1.0\",\"files\":[],\"options\":[]}");
 
-            Assert.True(ResourceImportService.Import("Timelines", data, directory));
-            Assert.True(ResourceImportService.Import("Extensions", data, directory));
+            Assert.True(ResourceImportService.Import("Timelines", data, directory, cancellationToken: TestContext.Current.CancellationToken));
+            Assert.True(ResourceImportService.Import("Extensions", data, directory, cancellationToken: TestContext.Current.CancellationToken));
 
             GameMakerTimeline timeline = data.Timelines.Single(timeline => timeline.Name.Content == "timeline_test");
             Assert.Equal(12u, timeline.Moments.Single().Step);
@@ -67,11 +62,11 @@ public class ResourceImportServiceTests
     [Fact("ResourceImportServiceTests.cs", 9)]
     public void AssetOrderRewritesCollisionEventIndexes()
     {
-        string directory = Path.Combine(Path.GetTempPath(), $"G3MLibTests-{Guid.NewGuid():N}");
+        var directory = Path.Combine(Path.GetTempPath(), $"G3MLibTests-{Guid.NewGuid():N}");
         Directory.CreateDirectory(directory);
         try
         {
-            using GameMakerData data = GameMakerData.CreateNew2026LTS();
+            using var data = GameMakerData.CreateNew2026LTS();
             GameMakerGameObject parent = new()
             {
                 Name = data.Strings.MakeString("obj_parent")
@@ -87,9 +82,9 @@ public class ResourceImportServiceTests
                 EventSubtype = 1u
             });
             File.WriteAllText(Path.Combine(directory, "asset_order.txt"), "@@objects@@\nobj_target\nobj_parent\n");
-            ResourceImportService.ImportAssetOrder(data, directory);
+            ResourceImportService.ImportAssetOrder(data, directory, TestContext.Current.CancellationToken);
             Assert.Same(target, data.GameObjects[0]);
-            Assert.Equal(0u, ((IEnumerable<GameMakerGameObject.Event>)((Collection<GameMakerPointerList<GameMakerGameObject.Event>>)(object)parent.Events)[4]).Single().EventSubtype);
+            Assert.Equal(0u, ((Collection<GameMakerPointerList<GameMakerGameObject.Event>>)(object)parent.Events)[4].Single().EventSubtype);
         }
         finally
         {

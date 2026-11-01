@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Decompiler.GameSpecific;
 
 namespace G3MLib.Analyzer.Decompiler.AST;
@@ -23,7 +22,7 @@ public class FunctionDeclNode(string? name, bool isConstructor, BlockNode body, 
     /// <summary>
     /// If true, this function is unnamed (anonymous).
     /// </summary>
-    public bool IsAnonymous { get => Name is null; }
+    public bool IsAnonymous => Name is null;
 
     /// <summary>
     /// If true, this function is a constructor function.
@@ -41,10 +40,10 @@ public class FunctionDeclNode(string? name, bool isConstructor, BlockNode body, 
     internal Dictionary<int, IExpressionNode> ArgumentDefaultValues { get; set; } = [];
 
     /// <inheritdoc/>
-    public bool Duplicated { get; set; } = false;
+    public bool Duplicated { get; set; }
 
     /// <inheritdoc/>
-    public bool Group { get; set; } = false;
+    public bool Group { get; set; }
 
     /// <inheritdoc/>
     public IGMInstruction.DataType StackType { get; set; } = IGMInstruction.DataType.Variable;
@@ -114,9 +113,9 @@ public class FunctionDeclNode(string? name, bool isConstructor, BlockNode body, 
             return;
         }
 
-        int firstIfIndex = 0;
-        int childIndex = 0;
-        int lastArgumentIndex = -1;
+        var firstIfIndex = 0;
+        var childIndex = 0;
+        var lastArgumentIndex = -1;
         while (childIndex < Body.Children.Count)
         {
             // Skip locals, if they exist
@@ -135,16 +134,18 @@ public class FunctionDeclNode(string? name, bool isConstructor, BlockNode body, 
 
             // Verify the if condition is an == comparison of two simple variables
             if (ifNode.Condition is not BinaryNode
-                    { Instruction: { Kind: IGMInstruction.Opcode.Compare, ComparisonKind: IGMInstruction.ComparisonType.EqualTo },
-                      Left: VariableNode argumentVariable, Right: VariableNode undefinedVariable })
+                {
+                    Instruction: { Kind: IGMInstruction.Opcode.Compare, ComparisonKind: IGMInstruction.ComparisonType.EqualTo },
+                    Left: VariableNode argumentVariable, Right: VariableNode undefinedVariable
+                })
             {
                 break;
             }
 
             // Verify the left variable is an argument we have not yet provided a default value for,
             // and is strictly greater than the previous argument index
-            bool onlyNamedArguments = !cleaner.Context.GameContext.UsingBuiltinDefaultArguments;
-            int argIndex = argumentVariable.GetArgumentIndex(Body.FragmentContext!.MaxReferencedArgument, onlyNamedArguments);
+            var onlyNamedArguments = !cleaner.Context.GameContext.UsingBuiltinDefaultArguments;
+            var argIndex = argumentVariable.GetArgumentIndex(Body.FragmentContext.MaxReferencedArgument, onlyNamedArguments);
             if (argIndex == -1 || ArgumentDefaultValues.ContainsKey(argIndex) || argIndex <= lastArgumentIndex)
             {
                 break;
@@ -169,15 +170,15 @@ public class FunctionDeclNode(string? name, bool isConstructor, BlockNode body, 
             }
 
             // Assignment's destination should be the same argument variable
-            if (assign.Variable is not VariableNode assignDest || assignDest.GetArgumentIndex(Body.FragmentContext!.MaxReferencedArgument, onlyNamedArguments) != argIndex)
+            if (assign.Variable is not VariableNode assignDest || assignDest.GetArgumentIndex(Body.FragmentContext.MaxReferencedArgument, onlyNamedArguments) != argIndex)
             {
                 break;
             }
 
             // Successfully found a default argument assignment - store expression and move on.
             // Also, process macro resolution for the default value expression, based on the argument name.
-            IExpressionNode? expr = assign.Value;
-            string? argName = Body.FragmentContext.GetNamedArgumentName(cleaner.Context, argIndex);
+            var expr = assign.Value;
+            var argName = Body.FragmentContext.GetNamedArgumentName(cleaner.Context, argIndex);
             if (argName is not null)
             {
                 cleaner.PushFragmentContext(Body.FragmentContext);
@@ -207,6 +208,7 @@ public class FunctionDeclNode(string? name, bool isConstructor, BlockNode body, 
     /// <inheritdoc/>
     public IExpressionNode Clean(ASTCleaner cleaner)
     {
+        ArgumentNullException.ThrowIfNull(cleaner);
         CleanBody(cleaner);
         CleanEmptyLines(cleaner);
         CleanDefaultArgumentValues(cleaner);
@@ -225,6 +227,7 @@ public class FunctionDeclNode(string? name, bool isConstructor, BlockNode body, 
     /// <inheritdoc/>
     public IExpressionNode PostClean(ASTCleaner cleaner)
     {
+        ArgumentNullException.ThrowIfNull(cleaner);
         PostCleanBody(cleaner);
         return this;
     }
@@ -239,6 +242,7 @@ public class FunctionDeclNode(string? name, bool isConstructor, BlockNode body, 
     /// <inheritdoc/>
     public void Print(ASTPrinter printer)
     {
+        ArgumentNullException.ThrowIfNull(printer);
         if (IsAnonymous)
         {
             printer.Write("function(");
@@ -250,17 +254,17 @@ public class FunctionDeclNode(string? name, bool isConstructor, BlockNode body, 
             printer.Write('(');
         }
 
-        ASTFragmentContext bodyFragmentContext = Body.FragmentContext;
+        var bodyFragmentContext = Body.FragmentContext;
         printer.PushFragmentContext(bodyFragmentContext);
         bodyFragmentContext.InFunctionDeclHeader = true;
 
-        for (int i = 0; i <= bodyFragmentContext.MaxReferencedArgument; i++)
+        for (var i = 0; i <= bodyFragmentContext.MaxReferencedArgument; i++)
         {
             printer.Write(bodyFragmentContext.GetNamedArgumentName(printer.Context, i));
-            if (ArgumentDefaultValues.TryGetValue(i, out IExpressionNode? defaultValue))
+            if (ArgumentDefaultValues.TryGetValue(i, out var defaultValue))
             {
                 printer.Write(" = ");
-                defaultValue.Print(printer);
+                printer.PrintNode(defaultValue);
             }
             if (i != bodyFragmentContext.MaxReferencedArgument)
             {
@@ -273,7 +277,7 @@ public class FunctionDeclNode(string? name, bool isConstructor, BlockNode body, 
         if (bodyFragmentContext.BaseParentCall is not null)
         {
             printer.Write(" : ");
-            bodyFragmentContext.BaseParentCall.Print(printer);
+            printer.PrintNode(bodyFragmentContext.BaseParentCall);
         }
 
         bodyFragmentContext.InFunctionDeclHeader = false;
@@ -288,7 +292,7 @@ public class FunctionDeclNode(string? name, bool isConstructor, BlockNode body, 
         {
             printer.Write(' ');
         }
-        Body.Print(printer);
+        printer.PrintNode(Body);
     }
 
     /// <inheritdoc/>
@@ -310,7 +314,7 @@ public class FunctionDeclNode(string? name, bool isConstructor, BlockNode body, 
     /// <inheritdoc/>
     public IEnumerable<IBaseASTNode> EnumerateChildren()
     {
-        foreach (IExpressionNode expr in ArgumentDefaultValues.Values)
+        foreach (var expr in ArgumentDefaultValues.Values)
         {
             yield return expr;
         }

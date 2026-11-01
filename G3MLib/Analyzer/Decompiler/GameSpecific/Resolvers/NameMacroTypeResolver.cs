@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Decompiler.AST;
 
 namespace G3MLib.Analyzer.Decompiler.GameSpecific;
@@ -66,7 +65,7 @@ public class NameMacroTypeResolver : IMacroTypeResolver
 
     public IMacroType? ResolveVariableType(ASTCleaner cleaner, string? variableName)
     {
-        if (variableName is not null && Variables.TryGetValue(variableName, out IMacroType? macroType))
+        if (variableName is not null && Variables.TryGetValue(variableName, out var macroType))
         {
             return macroType;
         }
@@ -75,7 +74,7 @@ public class NameMacroTypeResolver : IMacroTypeResolver
 
     public IMacroType? ResolveFunctionArgumentTypes(ASTCleaner cleaner, string? functionName)
     {
-        if (functionName is not null && FunctionArguments.TryGetValue(functionName, out IMacroType? macroType))
+        if (functionName is not null && FunctionArguments.TryGetValue(functionName, out var macroType))
         {
             return macroType;
         }
@@ -84,7 +83,7 @@ public class NameMacroTypeResolver : IMacroTypeResolver
 
     public IMacroType? ResolveReturnValueType(ASTCleaner cleaner, string? functionName)
     {
-        if (functionName is not null && FunctionReturn.TryGetValue(functionName, out IMacroType? macroType))
+        if (functionName is not null && FunctionReturn.TryGetValue(functionName, out var macroType))
         {
             return macroType;
         }

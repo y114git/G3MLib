@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
 namespace G3MLib.Modding.Caching;
@@ -24,10 +23,10 @@ public sealed class G3MDataInfoSnapshot
 	public GeneralInfoData? GeneralInfo { get; set; }
 
 	[JsonPropertyName("resourceCounts")]
-	public Dictionary<string, int> ResourceCounts { get; set; } = new Dictionary<string, int>();
+	public Dictionary<string, int> ResourceCounts { get; set; } = [];
 
 	[JsonPropertyName("variablesByInstanceType")]
-	public Dictionary<string, int> VariablesByInstanceType { get; set; } = new Dictionary<string, int>();
+	public Dictionary<string, int> VariablesByInstanceType { get; set; } = [];
 
 	[JsonPropertyName("firstFunction")]
 	public string? FirstFunction { get; set; }
@@ -42,13 +41,13 @@ public sealed class G3MDataInfoSnapshot
 	public int ChildCodeCount { get; set; }
 
 	[JsonPropertyName("audioGroups")]
-	public List<string> AudioGroups { get; set; } = new List<string>();
+	public List<string> AudioGroups { get; set; } = [];
 
 	[JsonPropertyName("extensions")]
-	public List<string> Extensions { get; set; } = new List<string>();
+	public List<string> Extensions { get; set; } = [];
 
 	[JsonPropertyName("roomOrderPreview")]
-	public List<string> RoomOrderPreview { get; set; } = new List<string>();
+	public List<string> RoomOrderPreview { get; set; } = [];
 
 	[JsonPropertyName("roomOrderCount")]
 	public int RoomOrderCount { get; set; }

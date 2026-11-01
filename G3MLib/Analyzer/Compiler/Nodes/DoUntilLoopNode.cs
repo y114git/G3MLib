@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Compiler.Bytecode;
 using G3MLib.Analyzer.Compiler.Lexer;
 using G3MLib.Analyzer.Compiler.Parser;
@@ -56,7 +55,7 @@ internal sealed class DoUntilLoopNode : IASTNode
 
         // Parse "until" keyword
         context.SkipSemicolons();
-        if (context.EnsureToken(KeywordKind.Until) is not TokenKeyword)
+        if (context.EnsureToken(KeywordKind.Until) is null)
         {
             return null;
         }

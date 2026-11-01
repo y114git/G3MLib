@@ -1,6 +1,5 @@
-using System;
+using System.Globalization;
 using System.Text;
-using G3MLib.DataFile.Compiler;
 
 namespace G3MLib.DataFile.Util;
 
@@ -55,7 +54,7 @@ public struct StringBuilderHelper
     /// <param name="position">The position for this <see cref="StringBuilderHelper"/>.</param>
     public StringBuilderHelper(int position)
     {
-        this.Position = position;
+        Position = position;
     }
 
     /// <summary>
@@ -65,6 +64,8 @@ public struct StringBuilderHelper
     /// <param name="value"><inheritdoc cref="StringBuilder.Append(string)"/></param>
     public void Append(StringBuilder sb, string value)
     {
+        ArgumentNullException.ThrowIfNull(value);
+        ArgumentNullException.ThrowIfNull(sb);
         if (Position == sb.Length)
             sb.Append(value);
         else
@@ -79,6 +80,7 @@ public struct StringBuilderHelper
     /// <param name="value"><inheritdoc cref="StringBuilder.Append(ReadOnlySpan{char})"/></param>
     public void Append(StringBuilder sb, ReadOnlySpan<char> value)
     {
+        ArgumentNullException.ThrowIfNull(sb);
         if (Position == sb.Length)
             sb.Append(value);
         else
@@ -93,6 +95,7 @@ public struct StringBuilderHelper
     /// <param name="value"><inheritdoc cref="StringBuilder.Append(char)"/></param>
     public void Append(StringBuilder sb, char value)
     {
+        ArgumentNullException.ThrowIfNull(sb);
         if (Position == sb.Length)
             sb.Append(value);
         else
@@ -101,25 +104,29 @@ public struct StringBuilderHelper
     }
 
     /// <summary>
-    /// <inheritdoc cref="StringBuilderHelper.Append(StringBuilder, string)"/>
+    /// <inheritdoc cref="Append(StringBuilder, string)"/>
     /// </summary>
     /// <param name="sb">An instance on where a string should be appended to.</param>
     /// <param name="value"><inheritdoc cref="StringBuilder.Append(object)"/></param>
-    public void Append(StringBuilder sb, object value) => this.Append(sb, value.ToString());
+    public void Append(StringBuilder sb, object value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        Append(sb, value.ToString());
+    }
 
     /// <summary>
-    /// <inheritdoc cref="StringBuilderHelper.Append(StringBuilder, string)"/>
+    /// <inheritdoc cref="Append(StringBuilder, string)"/>
     /// </summary>
     /// <param name="sb">An instance on where a string should be appended to.</param>
     /// <param name="value"><inheritdoc cref="StringBuilder.Append(int)"/></param>
-    public void Append(StringBuilder sb, int value) => this.Append(sb, value.ToString());
+    public void Append(StringBuilder sb, int value) => Append(sb, value.ToString(CultureInfo.InvariantCulture));
 
     /// <summary>
-    /// <inheritdoc cref="StringBuilderHelper.Append(StringBuilder, string)"/>
+    /// <inheritdoc cref="Append(StringBuilder, string)"/>
     /// </summary>
     /// <param name="sb">An instance on where a string should be appended to.</param>
     /// <param name="value"><inheritdoc cref="StringBuilder.Append(byte)"/></param>
-    public void Append(StringBuilder sb, byte value) => this.Append(sb, value.ToString());
+    public void Append(StringBuilder sb, byte value) => Append(sb, value.ToString(CultureInfo.InvariantCulture));
 
 
 

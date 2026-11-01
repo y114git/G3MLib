@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System;
 using G3MLib.Analyzer.Compiler.Lexer;
 using G3MLib.Analyzer.Compiler.Nodes;
 
@@ -28,7 +27,7 @@ internal static class Statements
         }
 
         // Check type of statement based on first token
-        IToken token = context.Tokens[context.Position];
+        var token = context.Tokens[context.Position];
         switch (token)
         {
             case TokenSeparator { Kind: SeparatorKind.BlockOpen }:
@@ -83,8 +82,8 @@ internal static class Statements
                     if (!context.EndOfCode)
                     {
                         // Parse expression for return value, if one exists
-                        IToken nextToken = context.Tokens[context.Position];
-                        if (nextToken is not TokenSeparator { Kind: SeparatorKind.Semicolon } and
+                        var nextToken = context.Tokens[context.Position];
+                        if (nextToken is not TokenSeparator { Kind: SeparatorKind.Semicolon or SeparatorKind.BlockClose } and
                                          not TokenKeyword { Kind: not (KeywordKind.Function or KeywordKind.New) } &&
                             Expressions.ParseExpression(context) is IASTNode returnValue)
                         {
@@ -151,11 +150,11 @@ internal static class Statements
         if (expr is IAssignableASTNode assignable && !context.EndOfCode &&
             context.Tokens[context.Position] is TokenOperator
             {
-                Kind: OperatorKind.Assign                   or OperatorKind.Assign2             or
-                      OperatorKind.CompoundPlus             or OperatorKind.CompoundMinus       or
-                      OperatorKind.CompoundTimes            or OperatorKind.CompoundDivide      or
-                      OperatorKind.CompoundMod              or OperatorKind.CompoundBitwiseAnd  or
-                      OperatorKind.CompoundBitwiseOr        or OperatorKind.CompoundBitwiseXor  or
+                Kind: OperatorKind.Assign or OperatorKind.Assign2 or
+                      OperatorKind.CompoundPlus or OperatorKind.CompoundMinus or
+                      OperatorKind.CompoundTimes or OperatorKind.CompoundDivide or
+                      OperatorKind.CompoundMod or OperatorKind.CompoundBitwiseAnd or
+                      OperatorKind.CompoundBitwiseOr or OperatorKind.CompoundBitwiseXor or
                       OperatorKind.CompoundNullishCoalesce
             }
             tokenOperator)
@@ -186,15 +185,15 @@ internal static class Statements
 
                 return new AssignNode(tokenOperator.Kind switch
                 {
-                    OperatorKind.Assign or OperatorKind.Assign2 =>  AssignNode.AssignKind.Normal,
-                    OperatorKind.CompoundPlus =>                    AssignNode.AssignKind.CompoundPlus,
-                    OperatorKind.CompoundMinus =>                   AssignNode.AssignKind.CompoundMinus,
-                    OperatorKind.CompoundTimes =>                   AssignNode.AssignKind.CompoundTimes,
-                    OperatorKind.CompoundDivide =>                  AssignNode.AssignKind.CompoundDivide,
-                    OperatorKind.CompoundMod =>                     AssignNode.AssignKind.CompoundMod,
-                    OperatorKind.CompoundBitwiseAnd =>              AssignNode.AssignKind.CompoundBitwiseAnd,
-                    OperatorKind.CompoundBitwiseOr =>               AssignNode.AssignKind.CompoundBitwiseOr,
-                    OperatorKind.CompoundBitwiseXor =>              AssignNode.AssignKind.CompoundBitwiseXor,
+                    OperatorKind.Assign or OperatorKind.Assign2 => AssignNode.AssignKind.Normal,
+                    OperatorKind.CompoundPlus => AssignNode.AssignKind.CompoundPlus,
+                    OperatorKind.CompoundMinus => AssignNode.AssignKind.CompoundMinus,
+                    OperatorKind.CompoundTimes => AssignNode.AssignKind.CompoundTimes,
+                    OperatorKind.CompoundDivide => AssignNode.AssignKind.CompoundDivide,
+                    OperatorKind.CompoundMod => AssignNode.AssignKind.CompoundMod,
+                    OperatorKind.CompoundBitwiseAnd => AssignNode.AssignKind.CompoundBitwiseAnd,
+                    OperatorKind.CompoundBitwiseOr => AssignNode.AssignKind.CompoundBitwiseOr,
+                    OperatorKind.CompoundBitwiseXor => AssignNode.AssignKind.CompoundBitwiseXor,
                     _ => throw new InvalidOperationException("Unknown operator kind in assignment")
                 }, assignable, rhs);
             }

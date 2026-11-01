@@ -4,8 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System;
-
 namespace G3MLib.Analyzer.Compiler.Lexer;
 
 internal interface IToken
@@ -13,12 +11,12 @@ internal interface IToken
     /// <summary>
     /// Context that this token belongs to, for information retrieval.
     /// </summary>
-    public LexContext Context { get; }
+    LexContext Context { get; }
 
     /// <summary>
     /// Text position of the token within the token's context. Can be used to look up line numbers, for instance.
     /// </summary>
-    public int TextPosition { get; }
+    int TextPosition { get; }
 }
 
 /// <summary>
@@ -47,6 +45,8 @@ internal enum SeparatorKind
 /// Token representing a separator in code.
 /// </summary>
 /// <param name="Kind">Separator kind for this token.</param>
+/// <param name="TextPosition">Position in the source text where the token starts.</param>
+/// <param name="Context">The lexer context the token was read from.</param>
 internal sealed record TokenSeparator(LexContext Context, int TextPosition, SeparatorKind Kind) : IToken
 {
     public static string KindToString(SeparatorKind kind)
@@ -130,6 +130,8 @@ internal enum OperatorKind
 /// Token representing an operator in code.
 /// </summary>
 /// <param name="Kind">Operator kind for this token.</param>
+/// <param name="TextPosition">Position in the source text where the token starts.</param>
+/// <param name="Context">The lexer context the token was read from.</param>
 internal sealed record TokenOperator(LexContext Context, int TextPosition, OperatorKind Kind) : IToken
 {
     public static string KindToString(OperatorKind kind)
@@ -240,6 +242,8 @@ internal enum KeywordKind
 /// Token representing a keyword in code.
 /// </summary>
 /// <param name="Kind">Keyword kind for this token.</param>
+/// <param name="TextPosition">Position in the source text where the token starts.</param>
+/// <param name="Context">The lexer context the token was read from.</param>
 internal sealed record TokenKeyword(LexContext Context, int TextPosition, KeywordKind Kind) : IToken
 {
     public static string KindToString(KeywordKind kind)
@@ -295,6 +299,8 @@ internal sealed record TokenKeyword(LexContext Context, int TextPosition, Keywor
 /// Token representing an identifier in code.
 /// </summary>
 /// <param name="Text">Verbatim text used for the identifier.</param>
+/// <param name="TextPosition">Position in the source text where the token starts.</param>
+/// <param name="Context">The lexer context the token was read from.</param>
 internal sealed record TokenIdentifier(LexContext Context, int TextPosition, string Text) : IToken
 {
     public override string ToString()
@@ -309,6 +315,8 @@ internal sealed record TokenIdentifier(LexContext Context, int TextPosition, str
 /// <param name="Text">Verbatim text used for the token.</param>
 /// <param name="Value">64-bit floating point value.</param>
 /// <param name="IsConstant">Whether this token came from a constant.</param>
+/// <param name="TextPosition">Position in the source text where the token starts.</param>
+/// <param name="Context">The lexer context the token was read from.</param>
 internal sealed record TokenNumber(LexContext Context, int TextPosition, string Text, double Value, bool IsConstant = false) : IToken
 {
     public override string ToString()
@@ -322,6 +330,8 @@ internal sealed record TokenNumber(LexContext Context, int TextPosition, string 
 /// </summary>
 /// <param name="Text">Verbatim text used for the token.</param>
 /// <param name="Value">64-bit integer value.</param>
+/// <param name="TextPosition">Position in the source text where the token starts.</param>
+/// <param name="Context">The lexer context the token was read from.</param>
 internal sealed record TokenInt64(LexContext Context, int TextPosition, string Text, long Value) : IToken
 {
     public override string ToString()
@@ -334,6 +344,8 @@ internal sealed record TokenInt64(LexContext Context, int TextPosition, string T
 /// Token representing a constant boolean in code.
 /// </summary>
 /// <param name="Value">Boolean value.</param>
+/// <param name="TextPosition">Position in the source text where the token starts.</param>
+/// <param name="Context">The lexer context the token was read from.</param>
 internal sealed record TokenBoolean(LexContext Context, int TextPosition, bool Value) : IToken
 {
     public override string ToString()
@@ -347,6 +359,8 @@ internal sealed record TokenBoolean(LexContext Context, int TextPosition, bool V
 /// </summary>
 /// <param name="Text">Verbatim text used for the token.</param>
 /// <param name="Value">String value.</param>
+/// <param name="TextPosition">Position in the source text where the token starts.</param>
+/// <param name="Context">The lexer context the token was read from.</param>
 internal sealed record TokenString(LexContext Context, int TextPosition, string Text, string Value) : IToken
 {
     public override string ToString()
@@ -393,6 +407,9 @@ internal sealed record TokenTemplateStringMiddle(LexContext Context, int TextPos
 /// Token representing a simple function call in code.
 /// </summary>
 /// <param name="Text">Verbatim text used for the function identifier.</param>
+/// <param name="TextPosition">Position in the source text where the token starts.</param>
+/// <param name="Context">The lexer context the token was read from.</param>
+/// <param name="BuiltinFunction">The built-in function the token names.</param>
 internal sealed record TokenFunction(LexContext Context, int TextPosition, string Text, IBuiltinFunction? BuiltinFunction) : IToken
 {
     public override string ToString()
@@ -480,6 +497,10 @@ internal sealed record TokenVariable : IToken
 /// Token representing an asset name reference in code.
 /// </summary>
 /// <param name="Text">Verbatim text used for the asset reference identifier.</param>
+/// <param name="TextPosition">Position in the source text where the token starts.</param>
+/// <param name="IsRoomInstanceAsset">Whether the asset is a room instance.</param>
+/// <param name="Context">The lexer context the token was read from.</param>
+/// <param name="AssetId">Id of the asset the token names.</param>
 internal sealed record TokenAssetReference(LexContext Context, int TextPosition, string Text, int AssetId, bool IsRoomInstanceAsset) : IToken
 {
     public override string ToString()

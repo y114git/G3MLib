@@ -4,8 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System;
-using System.Collections.Generic;
 using G3MLib.Analyzer.Compiler;
 using G3MLib.Analyzer.Compiler.Bytecode;
 using static G3MLib.Analyzer.IGMInstruction;
@@ -237,7 +235,7 @@ public class CodeBuilderMock(GameContextMock gameContext) : ICodeBuilder
                 instructionInstanceType = InstanceType.Self;
             }
 
-            if (gameContext.MockVariables.TryGetValue((variableName, variableInstanceType), out GMVariable? existingVariable))
+            if (gameContext.MockVariables.TryGetValue((variableName, variableInstanceType), out var existingVariable))
             {
                 mockInstruction.ResolvedVariable = existingVariable;
             }
@@ -261,7 +259,7 @@ public class CodeBuilderMock(GameContextMock gameContext) : ICodeBuilder
     {
         if (instruction is GMInstruction mockInstruction)
         {
-            if (gameContext.MockVariables.TryGetValue((variableName, InstanceType.Self), out GMVariable? existingVariable))
+            if (gameContext.MockVariables.TryGetValue((variableName, InstanceType.Self), out var existingVariable))
             {
                 mockInstruction.ResolvedVariable = existingVariable;
             }
@@ -280,9 +278,10 @@ public class CodeBuilderMock(GameContextMock gameContext) : ICodeBuilder
     /// <inheritdoc/>
     public void PatchInstruction(IGMInstruction instruction, FunctionScope scope, string functionName, IBuiltinFunction? builtinFunction)
     {
+        ArgumentNullException.ThrowIfNull(scope);
         if (instruction is GMInstruction mockInstruction)
         {
-            if (scope.TryGetDeclaredFunction(gameContext, functionName, out FunctionEntry? entry))
+            if (scope.TryGetDeclaredFunction(gameContext, functionName, out var entry))
             {
                 mockInstruction.ResolvedFunction = entry.Function ?? throw new InvalidOperationException("Function not resolved for function entry");
             }
@@ -290,7 +289,7 @@ public class CodeBuilderMock(GameContextMock gameContext) : ICodeBuilder
             {
                 mockInstruction.ResolvedFunction = new GMFunction(functionName);
             }
-            else if (gameContext.GlobalFunctions.TryGetFunction(functionName, out IGMFunction? function))
+            else if (gameContext.GlobalFunctions.TryGetFunction(functionName, out var function))
             {
                 mockInstruction.ResolvedFunction = function;
             }
@@ -304,6 +303,7 @@ public class CodeBuilderMock(GameContextMock gameContext) : ICodeBuilder
     /// <inheritdoc/>
     public void PatchInstruction(IGMInstruction instruction, FunctionEntry functionEntry)
     {
+        ArgumentNullException.ThrowIfNull(functionEntry);
         if (instruction is GMInstruction mockInstruction)
         {
             mockInstruction.ResolvedFunction = functionEntry.Function ?? throw new InvalidOperationException("Function not resolved for function entry");
@@ -355,7 +355,7 @@ public class CodeBuilderMock(GameContextMock gameContext) : ICodeBuilder
     public long GenerateArrayOwnerID(string? variableName, long functionIndex, bool isDot)
     {
         // Determine base function ID number
-        long id = gameContext.UsingNewArrayOwners ? (functionIndex << 16) : 0;
+        var id = gameContext.UsingNewArrayOwners ? (functionIndex << 16) : 0;
         if (isDot)
         {
             // Double the ID, apparently...
@@ -365,7 +365,7 @@ public class CodeBuilderMock(GameContextMock gameContext) : ICodeBuilder
         // Add variable ID
         if (variableName is not null)
         {
-            if (_variableIds.TryGetValue(variableName, out int variableId))
+            if (_variableIds.TryGetValue(variableName, out var variableId))
             {
                 id += variableId;
             }

@@ -1,10 +1,5 @@
-using ICSharpCode.SharpZipLib.BZip2;
-using System;
-using System.Buffers.Binary;
 using System.ComponentModel;
-using System.Drawing;
 using System.IO;
-using System.Linq;
 using System.Runtime.CompilerServices;
 using G3MLib.DataFile.Util;
 
@@ -38,7 +33,7 @@ public class GameMakerEmbeddedTexture : GameMakerNamedResource, IDisposable
     /// <summary>
     /// Size of the texture attached to this texture page in bytes. Only appears in GM 2022.3+.
     /// </summary>
-    private uint _textureBlockSize { get; set; } = 0;
+    private uint _textureBlockSize { get; set; }
 
     /// <summary>
     /// The position of the placeholder <see cref="_textureBlockSize">TextureBlockSize</see> value
@@ -100,6 +95,7 @@ public class GameMakerEmbeddedTexture : GameMakerNamedResource, IDisposable
     /// <inheritdoc />
     public void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         writer.Write(Scaled);
         if (writer.gameMakerData.IsVersionAtLeast(2, 0, 6))
             writer.Write(GeneratedMips);
@@ -125,6 +121,7 @@ public class GameMakerEmbeddedTexture : GameMakerNamedResource, IDisposable
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         TextureLoaded = false;
         Scaled = reader.ReadUInt32();
         if (reader.gameMakerData.IsVersionAtLeast(2, 0, 6))
@@ -150,7 +147,7 @@ public class GameMakerEmbeddedTexture : GameMakerNamedResource, IDisposable
             _2022_9_GameDirectory = null;
         }
         _textureData = reader.ReadGameMakerObjectPointer<TexData>();
-        TextureExternal = (_textureData == null);
+        TextureExternal = _textureData == null;
     }
 
     /// <summary>
@@ -159,6 +156,7 @@ public class GameMakerEmbeddedTexture : GameMakerNamedResource, IDisposable
     /// <param name="writer">Where to serialize to.</param>
     public void SerializeBlob(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         // If external, don't serialize blob
         // Has sanity check for data being null as well, although the external flag should be set
         if (_textureData == null || TextureExternal)
@@ -189,6 +187,7 @@ public class GameMakerEmbeddedTexture : GameMakerNamedResource, IDisposable
     /// <param name="reader">Where to deserialize from.</param>
     public void UnserializeBlob(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         // If external, don't deserialize blob
         // Has sanity check for data being null as well, although the external flag should be set
         if (_textureData == null || TextureExternal)
@@ -205,6 +204,7 @@ public class GameMakerEmbeddedTexture : GameMakerNamedResource, IDisposable
     /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
     public static uint UnserializeChildObjectCount(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         uint count = 0;
 
         reader.Position += 4; // "Scaled"
@@ -230,6 +230,7 @@ public class GameMakerEmbeddedTexture : GameMakerNamedResource, IDisposable
     /// </summary>
     public static void FindAllTextureInfo(GameMakerData data)
     {
+        ArgumentNullException.ThrowIfNull(data);
         if (data.TextureGroupInfo is not null)
         {
             foreach (var info in data.TextureGroupInfo)
@@ -247,7 +248,7 @@ public class GameMakerEmbeddedTexture : GameMakerNamedResource, IDisposable
 
     // 1x1 blank image
     private static readonly TexData _placeholderTexture = new() { Image = new GMImage(1, 1) };
-    private readonly object _textureLoadLock = new();
+    private readonly Lock _textureLoadLock = new();
 
     /// <summary>
     /// Attempts to load the corresponding external texture. Should only happen in 2022.9 and above.
@@ -265,7 +266,7 @@ public class GameMakerEmbeddedTexture : GameMakerNamedResource, IDisposable
             if (_2022_9_GameDirectory == null)
                 return _placeholderTexture;
 
-            string path = GetExternalTexturePath();
+            var path = GetExternalTexturePath();
             if (path is null || !File.Exists(path))
                 return _placeholderTexture;
 
@@ -311,9 +312,9 @@ public class GameMakerEmbeddedTexture : GameMakerNamedResource, IDisposable
         ArgumentException.ThrowIfNullOrWhiteSpace(gameDirectory);
 
         _2022_9_GameDirectory = Path.GetFullPath(gameDirectory);
-        string path = GetExternalTexturePath()
+        var path = GetExternalTexturePath()
             ?? throw new InvalidOperationException("The external texture has no valid destination path.");
-        if (_textureData is null || (!TextureLoaded && ReferenceEquals(_textureData, _placeholderTexture)))
+        if (_textureData is null || !TextureLoaded && ReferenceEquals(_textureData, _placeholderTexture))
             throw new InvalidOperationException("The external texture has not been loaded or assigned.");
 
         using MemoryStream buffer = new();
@@ -322,7 +323,7 @@ public class GameMakerEmbeddedTexture : GameMakerNamedResource, IDisposable
         writer.Flush();
 
         _textureBlockSize = checked((uint)buffer.Length);
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        Directory.CreateDirectory(Path.GetDirectoryName(path));
         using FileStream output = new(path, FileMode.Create, FileAccess.Write, FileShare.None);
         buffer.WriteTo(output);
     }
@@ -335,7 +336,7 @@ public class GameMakerEmbeddedTexture : GameMakerNamedResource, IDisposable
             return null;
         }
 
-        string path = Path.Join(_2022_9_GameDirectory, directory, name + "_" + IndexInGroup + extension);
+        var path = Path.Join(_2022_9_GameDirectory, directory, name + "_" + IndexInGroup + extension);
         return Paths.IsWithinDirectory(_2022_9_GameDirectory, path) ? path : null;
     }
 
@@ -430,7 +431,7 @@ public class GameMakerEmbeddedTexture : GameMakerNamedResource, IDisposable
         /// <summary>
         /// Invoked whenever the effective value of any dependency property has been updated.
         /// </summary>
-        protected void OnPropertyChanged([CallerMemberName] string name = null)
+        protected void OnPropertyChanged([CallerMemberName] string? name = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
         }
@@ -438,6 +439,7 @@ public class GameMakerEmbeddedTexture : GameMakerNamedResource, IDisposable
         /// <inheritdoc />
         public void Serialize(GameMakerWriter writer)
         {
+            ArgumentNullException.ThrowIfNull(writer);
             Serialize(writer, writer.gameMakerData.IsVersionAtLeast(2022, 5));
         }
 
@@ -461,6 +463,7 @@ public class GameMakerEmbeddedTexture : GameMakerNamedResource, IDisposable
         /// <inheritdoc />
         public void Unserialize(GameMakerReader reader)
         {
+            ArgumentNullException.ThrowIfNull(reader);
             Unserialize(reader, _maxEndOfStreamPosition, reader.gameMakerData.IsVersionAtLeast(2022, 5));
         }
 

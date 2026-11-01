@@ -1,5 +1,3 @@
-using Xunit;
-
 [assembly: AssemblyFixture<G3MLib.Tests.TestResultsCleanupFixture>]
 
 namespace G3MLib.Tests;

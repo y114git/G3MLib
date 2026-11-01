@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Compiler.Bytecode;
 using G3MLib.Analyzer.Compiler.Lexer;
 using G3MLib.Analyzer.Compiler.Parser;
@@ -62,7 +61,7 @@ internal sealed class ThrowNode : IASTNode
             context.CompileContext.GameContext.UsingFinallyBeforeThrow)
         {
             // Create block with latest finally node, then this throw node
-            BlockNode newBlock = BlockNode.CreateEmpty(NearbyToken, 2);
+            var newBlock = BlockNode.CreateEmpty(NearbyToken, 2);
             newBlock.Children.Add(context.CurrentScope.TryFinallyNodes[^1].Duplicate(context));
             newBlock.Children.Add(this);
             return newBlock;

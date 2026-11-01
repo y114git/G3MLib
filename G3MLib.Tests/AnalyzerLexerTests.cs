@@ -15,7 +15,7 @@ public class LexContext_Tokenize
     [Fact]
     public void TestBasic()
     {
-        LexContext context = TestUtil.Lex(
+        var context = TestUtil.Lex(
             """
             a = 123;
             if (b)
@@ -54,7 +54,7 @@ public class LexContext_Tokenize
     [Fact]
     public void TestInvalidToken()
     {
-        LexContext context = TestUtil.Lex(
+        var context = TestUtil.Lex(
             """
             `
             """
@@ -67,7 +67,7 @@ public class LexContext_Tokenize
     [Fact]
     public void TestMacrosBasic()
     {
-        LexContext context = TestUtil.Lex(
+        var context = TestUtil.Lex(
              """
             #macro TEST_A a
             #macro TEST_B 123
@@ -93,7 +93,7 @@ public class LexContext_Tokenize
     [Fact]
     public void TestMacrosComplex()
     {
-        LexContext context = TestUtil.Lex(
+        var context = TestUtil.Lex(
             """
             #macro TEST_A TEST_B
             #macro TEST_B TEST_C
@@ -119,7 +119,7 @@ public class LexContext_Tokenize
     [Fact]
     public void TestMacrosFailure1()
     {
-        LexContext context = TestUtil.Lex(
+        var context = TestUtil.Lex(
             """
             #macro TEST_A TEST_B
             #macro TEST_B TEST_A
@@ -134,7 +134,7 @@ public class LexContext_Tokenize
     [Fact]
     public void TestMacrosFailure2()
     {
-        LexContext context = TestUtil.Lex(
+        var context = TestUtil.Lex(
             """
             #macro TEST_C 123
             #macro TEST_A TEST_C TEST_B TEST_C
@@ -150,7 +150,7 @@ public class LexContext_Tokenize
     [Fact]
     public void TestMacrosFailure3()
     {
-        LexContext context = TestUtil.Lex(
+        var context = TestUtil.Lex(
             """
             #macro TEST_A TEST_B
             #macro TEST_B TEST_C
@@ -166,7 +166,7 @@ public class LexContext_Tokenize
     [Fact]
     public void TestMacrosMultiline()
     {
-        LexContext context = TestUtil.Lex(
+        var context = TestUtil.Lex(
             """
             #macro TEST_A a = \
                           123;
@@ -187,7 +187,7 @@ public class LexContext_Tokenize
     [Fact]
     public void TestStringUnenclosed()
     {
-        LexContext context = TestUtil.Lex(
+        var context = TestUtil.Lex(
             """
             "
             """
@@ -200,7 +200,7 @@ public class LexContext_Tokenize
     [Fact]
     public void TestStringUnenclosed2()
     {
-        LexContext context = TestUtil.Lex(
+        var context = TestUtil.Lex(
             """
             @"
             """
@@ -213,7 +213,7 @@ public class LexContext_Tokenize
     [Fact]
     public void TestStringNewlines()
     {
-        LexContext context = TestUtil.Lex(
+        var context = TestUtil.Lex(
             """
             "
             a
@@ -229,7 +229,7 @@ public class LexContext_Tokenize
     [Fact]
     public void TestStringEscapes()
     {
-        LexContext context = TestUtil.Lex(
+        var context = TestUtil.Lex(
             """
             "\\\a\b\f\n\r\t\v\u00e2\u61\x41\101"
             """
@@ -246,7 +246,7 @@ public class LexContext_Tokenize
     [Fact]
     public void TestStringEscapesFailure()
     {
-        LexContext context = TestUtil.Lex(
+        var context = TestUtil.Lex(
             """
             "\uFFFFFF"
             "\x"
@@ -261,7 +261,7 @@ public class LexContext_Tokenize
     [Fact]
     public void TestStringVerbatim()
     {
-        LexContext context = TestUtil.Lex(
+        var context = TestUtil.Lex(
             """
             "this is a
             'multiline' string!"
@@ -287,7 +287,7 @@ public class LexContext_Tokenize
     [Fact]
     public void TestStringVerbatim2()
     {
-        LexContext context = TestUtil.Lex(
+        var context = TestUtil.Lex(
             """
             @"this is a
             'multiline' string!"
@@ -309,7 +309,7 @@ public class LexContext_Tokenize
     [Fact]
     public void TestStringTemplateBasic()
     {
-        LexContext context = TestUtil.Lex(
+        var context = TestUtil.Lex(
             """
             $"meow{123}{{}}:3"
             """
@@ -334,7 +334,7 @@ public class LexContext_Tokenize
     [Fact]
     public void TestStringTemplateNested()
     {
-        LexContext context = TestUtil.Lex(
+        var context = TestUtil.Lex(
             """
             $"m{$"e{$"o"}"}{$"w"}"
             """
@@ -366,7 +366,7 @@ public class LexContext_Tokenize
     [Fact]
     public void TestStringTemplateEscapes()
     {
-        LexContext context = TestUtil.Lex(
+        var context = TestUtil.Lex(
             """
             $"\{\}\\\a\b\f\n\r\t\v\u00e2\u61\x41\101"
             """
@@ -385,7 +385,7 @@ public class LexContext_Tokenize
     [Fact]
     public void TestStringTemplateUnclosed()
     {
-        LexContext context = TestUtil.Lex(
+        var context = TestUtil.Lex(
             """
             $"
             """
@@ -398,7 +398,7 @@ public class LexContext_Tokenize
     [Fact]
     public void TestStringTemplateUnclosed2()
     {
-        LexContext context = TestUtil.Lex(
+        var context = TestUtil.Lex(
             """
             $"{
             """
@@ -411,7 +411,7 @@ public class LexContext_Tokenize
     [Fact]
     public void TestStringTemplateUnclosed3()
     {
-        LexContext context = TestUtil.Lex(
+        var context = TestUtil.Lex(
             """
             $"a
             """
@@ -424,7 +424,7 @@ public class LexContext_Tokenize
     [Fact]
     public void TestStringTemplateNewlines()
     {
-        LexContext context = TestUtil.Lex(
+        var context = TestUtil.Lex(
             """
             $"
             a
@@ -440,7 +440,7 @@ public class LexContext_Tokenize
     [Fact]
     public void TestStringTemplateValidNewlines()
     {
-        LexContext context = TestUtil.Lex(
+        var context = TestUtil.Lex(
             """
             $"\n{
             a
@@ -466,7 +466,7 @@ public class LexContext_Tokenize
     [Fact]
     public void TestBadStringBackslash()
     {
-        LexContext context = TestUtil.Lex(
+        var context = TestUtil.Lex(
             """
             "hello \
             """
@@ -479,7 +479,7 @@ public class LexContext_Tokenize
     [Fact]
     public void TestBadStringBackslashTemplate()
     {
-        LexContext context = TestUtil.Lex(
+        var context = TestUtil.Lex(
             """
             $"hello \
             """
@@ -492,7 +492,7 @@ public class LexContext_Tokenize
     [Fact]
     public void TestHex()
     {
-        LexContext context = TestUtil.Lex(
+        var context = TestUtil.Lex(
             """
             0x1234abcd
             $4567abcd
@@ -515,7 +515,7 @@ public class LexContext_Tokenize
     [Fact]
     public void TestHex2()
     {
-        LexContext context = TestUtil.Lex(
+        var context = TestUtil.Lex(
             """
             0xFFFFFFFFFF
             #FFFFFFFF
@@ -535,7 +535,7 @@ public class LexContext_Tokenize
     [Fact]
     public void TestNumbers()
     {
-        LexContext context = TestUtil.Lex(
+        var context = TestUtil.Lex(
             """
             123
             .1
@@ -574,7 +574,7 @@ public class LexContext_Tokenize
     [Fact]
     public void TestComments()
     {
-        LexContext context = TestUtil.Lex(
+        var context = TestUtil.Lex(
             """
             // Test comment!
             a
@@ -604,7 +604,7 @@ public class LexContext_Tokenize
     [Fact]
     public void TestBadMacro()
     {
-        LexContext context = TestUtil.Lex(
+        var context = TestUtil.Lex(
             """
             #macro TEST #macro BAD
             """
@@ -617,7 +617,7 @@ public class LexContext_Tokenize
     [Fact]
     public void TestBackslashInMacro()
     {
-        LexContext context = TestUtil.Lex(
+        var context = TestUtil.Lex(
             """
             #macro TEST "test\nstring"
             TEST
@@ -635,7 +635,7 @@ public class LexContext_Tokenize
     [Fact]
     public void TestBackslashInMacro2()
     {
-        LexContext context = TestUtil.Lex(
+        var context = TestUtil.Lex(
             """
             #macro TEST "test\nstring\\ " \
                         second_line
@@ -655,7 +655,7 @@ public class LexContext_Tokenize
     [Fact]
     public void TestDuplicateMacro()
     {
-        LexContext context = TestUtil.Lex(
+        var context = TestUtil.Lex(
             """
             #macro TEST a
             #macro TEST b
@@ -669,7 +669,7 @@ public class LexContext_Tokenize
     [Fact]
     public void TestRegions()
     {
-        LexContext context = TestUtil.Lex(
+        var context = TestUtil.Lex(
             """
             #region Test
             a
@@ -687,7 +687,7 @@ public class LexContext_Tokenize
     [Fact]
     public void TestInvalidTags()
     {
-        LexContext context = TestUtil.Lex(
+        var context = TestUtil.Lex(
             """
             #boof
             #unknown
@@ -704,7 +704,7 @@ public class LexContext_Tokenize
     {
         GameContextMock mock = new();
         mock.DefineMockAsset(AssetType.Sprite, 8, "spr_test");
-        LexContext context = TestUtil.Lex(
+        var context = TestUtil.Lex(
             """
             sprite = spr_test;
             notSprite = spr_test_nonexistent;
@@ -725,14 +725,14 @@ public class LexContext_Tokenize
             (";", typeof(TokenSeparator)),
         ], context.Tokens);
 
-        Assert.True(mock.GetAssetId("spr_test", out int assetId));
+        Assert.True(mock.GetAssetId("spr_test", out var assetId));
         Assert.Equal(assetId, ((TokenAssetReference)context.Tokens[2]).AssetId);
     }
 
     [Fact]
     public void TestInvalidInternalIdentifier()
     {
-        LexContext context = TestUtil.Lex(
+        var context = TestUtil.Lex(
             """
             @
             """
@@ -745,7 +745,7 @@ public class LexContext_Tokenize
     [Fact]
     public void TestInternalIdentifier()
     {
-        LexContext context = TestUtil.Lex(
+        var context = TestUtil.Lex(
             """
             @@test@@
             """

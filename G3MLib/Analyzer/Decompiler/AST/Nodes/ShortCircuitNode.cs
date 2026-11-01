@@ -4,13 +4,12 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Decompiler.ControlFlow;
 
 namespace G3MLib.Analyzer.Decompiler.AST;
 
 /// <summary>
-/// Represents short circuit && and || in the AST.
+/// Represents short circuit &amp;&amp; and || in the AST.
 /// </summary>
 public class ShortCircuitNode(List<IExpressionNode> conditions, ShortCircuitType logicType) : IMultiExpressionNode
 {
@@ -25,10 +24,10 @@ public class ShortCircuitNode(List<IExpressionNode> conditions, ShortCircuitType
     public ShortCircuitType LogicType { get; } = logicType;
 
     /// <inheritdoc/>
-    public bool Duplicated { get; set; } = false;
+    public bool Duplicated { get; set; }
 
     /// <inheritdoc/>
-    public bool Group { get; set; } = false;
+    public bool Group { get; set; }
 
     /// <inheritdoc/>
     public IGMInstruction.DataType StackType { get; set; } = IGMInstruction.DataType.Boolean;
@@ -36,7 +35,7 @@ public class ShortCircuitNode(List<IExpressionNode> conditions, ShortCircuitType
     /// <inheritdoc/>
     public IExpressionNode Clean(ASTCleaner cleaner)
     {
-        for (int i = 0; i < Conditions.Count; i++)
+        for (var i = 0; i < Conditions.Count; i++)
         {
             Conditions[i] = Conditions[i].Clean(cleaner);
 
@@ -53,7 +52,7 @@ public class ShortCircuitNode(List<IExpressionNode> conditions, ShortCircuitType
     /// <inheritdoc/>
     public IExpressionNode PostClean(ASTCleaner cleaner)
     {
-        for (int i = 0; i < Conditions.Count; i++)
+        for (var i = 0; i < Conditions.Count; i++)
         {
             Conditions[i] = Conditions[i].PostClean(cleaner);
         }
@@ -63,15 +62,16 @@ public class ShortCircuitNode(List<IExpressionNode> conditions, ShortCircuitType
     /// <inheritdoc/>
     public void Print(ASTPrinter printer)
     {
+        ArgumentNullException.ThrowIfNull(printer);
         if (Group)
         {
             printer.Write('(');
         }
 
-        string op = (LogicType == ShortCircuitType.And) ? " && " : " || ";
-        for (int i = 0; i < Conditions.Count; i++)
+        var op = (LogicType == ShortCircuitType.And) ? " && " : " || ";
+        for (var i = 0; i < Conditions.Count; i++)
         {
-            Conditions[i].Print(printer);
+            printer.PrintNode(Conditions[i]);
             if (i != Conditions.Count - 1)
             {
                 printer.Write(op);
@@ -91,7 +91,7 @@ public class ShortCircuitNode(List<IExpressionNode> conditions, ShortCircuitType
         {
             return true;
         }
-        foreach (IExpressionNode condition in Conditions)
+        foreach (var condition in Conditions)
         {
             if (condition.RequiresMultipleLines(printer, isStatementLHS))
             {

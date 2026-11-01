@@ -1,6 +1,4 @@
-using System;
 using G3MLib.Analyzer;
-using Xunit;
 
 namespace G3MLib.Tests;
 

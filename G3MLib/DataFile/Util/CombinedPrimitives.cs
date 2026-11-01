@@ -37,10 +37,7 @@ internal readonly struct FloatAsInt
     /// <summary>
     /// Constructs a float from the given float value.
     /// </summary>
-    public static explicit operator FloatAsInt(float value)
-    {
-        return new(value);
-    }
+    public static explicit operator FloatAsInt(float value) => new(value);
 
     /// <summary>
     /// Returns a float from the value.

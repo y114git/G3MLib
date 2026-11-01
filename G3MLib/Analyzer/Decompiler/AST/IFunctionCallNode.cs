@@ -4,9 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
-using System.Linq;
-
 namespace G3MLib.Analyzer.Decompiler.AST;
 
 /// <summary>
@@ -17,12 +14,12 @@ public interface IFunctionCallNode : IConditionalValueNode, IStatementNode
     /// <summary>
     /// Name of the function being called, or <see langword="null"/> if none.
     /// </summary>
-    public string? FunctionName { get; }
+    string? FunctionName { get; }
 
     /// <summary>
     /// List of arguments used to call the function with.
     /// </summary>
-    public List<IExpressionNode> Arguments { get; }
+    List<IExpressionNode> Arguments { get; }
 }
 
 internal static class FunctionCallArguments
@@ -30,9 +27,9 @@ internal static class FunctionCallArguments
     public static void Print(ASTPrinter printer, List<IExpressionNode> arguments)
     {
         printer.Write('(');
-        for (int i = 0; i < arguments.Count; i++)
+        for (var i = 0; i < arguments.Count; i++)
         {
-            arguments[i].Print(printer);
+            printer.PrintNode(arguments[i]);
             if (i != arguments.Count - 1)
             {
                 printer.Write(", ");

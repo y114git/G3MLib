@@ -4,8 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System;
-using System.Collections.Generic;
 using G3MLib.Analyzer.Decompiler.AST;
 using static G3MLib.Analyzer.IGMInstruction;
 
@@ -25,7 +23,7 @@ internal sealed class WhileLoop : Loop
     /// <remarks>
     /// Upon being processed, this becomes disconnected from the rest of the graph.
     /// </remarks>
-    public IControlFlowNode Head { get => Children[0]!; private set => Children[0] = value; }
+    public IControlFlowNode Head { get => Children[0]; private set => Children[0] = value; }
 
     /// <summary>
     /// The bottom loop point of the while loop. This is where the jump back to the loop head/condition is located.
@@ -33,7 +31,7 @@ internal sealed class WhileLoop : Loop
     /// <remarks>
     /// Upon being processed, this becomes disconnected from the rest of the graph.
     /// </remarks>
-    public IControlFlowNode Tail { get => Children[1]!; private set => Children[1] = value; }
+    public IControlFlowNode Tail { get => Children[1]; private set => Children[1] = value; }
 
     /// <summary>
     /// The "sink" location of the loop. The loop condition being false or "break" statements will lead to this location.
@@ -41,7 +39,7 @@ internal sealed class WhileLoop : Loop
     /// <remarks>
     /// Upon being processed, this becomes a new <see cref="EmptyNode"/>, which is then disconnected from the external graph.
     /// </remarks>
-    public IControlFlowNode After { get => Children[2]!; private set => Children[2] = value; }
+    public IControlFlowNode After { get => Children[2]; private set => Children[2] = value; }
 
     /// <summary>
     /// The start of the body of the loop, as written in the source code. That is, this does not include the loop condition.
@@ -63,7 +61,7 @@ internal sealed class WhileLoop : Loop
     /// If true, this loop was detected to definitively be a while loop.
     /// This currently happens if a "continue" statement is used within the while loop.
     /// </summary>
-    public bool MustBeWhileLoop { get; set; } = false;
+    public bool MustBeWhileLoop { get; set; }
 
     public WhileLoop(int startAddress, int endAddress, int index, IControlFlowNode head, IControlFlowNode tail, IControlFlowNode after)
         : base(startAddress, endAddress, index)
@@ -77,12 +75,12 @@ internal sealed class WhileLoop : Loop
     {
         // Get rid of jump from tail
         IControlFlowNode.DisconnectSuccessor(Tail, 0);
-        Block tailBlock = Tail as Block ?? throw new DecompilerException("Expected tail to be block");
+        var tailBlock = Tail as Block ?? throw new DecompilerException("Expected tail to be block");
         tailBlock.Instructions.RemoveAt(tailBlock.Instructions.Count - 1);
 
         // Find first branch location after head
         Block? branchBlock = null;
-        for (int i = 0; i < After.Predecessors.Count; i++)
+        for (var i = 0; i < After.Predecessors.Count; i++)
         {
             if (After.Predecessors[i].StartAddress < Head.StartAddress ||
                 After.Predecessors[i] is not Block b)
@@ -96,7 +94,7 @@ internal sealed class WhileLoop : Loop
         {
             throw new DecompilerException("Failed to find first branch location after head");
         }
-        if (branchBlock.Instructions[^1].Kind != IGMInstruction.Opcode.BranchFalse)
+        if (branchBlock.Instructions[^1].Kind != Opcode.BranchFalse)
         {
             throw new DecompilerException("Expected BranchFalse in branch block - misidentified");
         }
@@ -133,7 +131,7 @@ internal sealed class WhileLoop : Loop
     public override void BuildAST(ASTBuilder builder, List<IStatementNode> output)
     {
         // Build loop condition
-        IExpressionNode condition = builder.BuildExpression(Head, output);
+        var condition = builder.BuildExpression(Head, output);
 
         // If condition was an int16 that was directly used without conversion, that means it was a boolean
         if (condition is Int16Node { Value: 0 or 1, StackType: not DataType.Boolean } i16)
@@ -145,15 +143,15 @@ internal sealed class WhileLoop : Loop
         }
 
         // Push this loop context
-        Loop? prevLoop = builder.TopFragmentContext!.SurroundingLoop;
+        var prevLoop = builder.TopFragmentContext.SurroundingLoop;
         builder.TopFragmentContext.SurroundingLoop = this;
 
         // Build body and create a for/while loop statement (defaults to while if unknown)
-        BlockNode body = builder.BuildBlockWhile(Body, this);
+        var body = builder.BuildBlockWhile(Body, this);
         if (ForLoopIncrementor is not null)
         {
             // For loop
-            BlockNode incrementor = builder.BuildBlock(ForLoopIncrementor);
+            var incrementor = builder.BuildBlock(ForLoopIncrementor);
             output.Add(new ForLoopNode(null, condition, incrementor, body));
         }
         else

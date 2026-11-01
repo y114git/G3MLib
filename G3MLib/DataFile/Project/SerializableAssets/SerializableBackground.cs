@@ -1,8 +1,4 @@
-using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using G3MLib.DataFile.Models;
@@ -87,10 +83,10 @@ internal sealed class SerializableBackground : ISerializableTextureProjectAsset
     public int OverrideOrder { get; set; }
 
     // Data asset that was located during pre-import.
-    private GameMakerBackground _dataAsset = null;
+    private GameMakerBackground? _dataAsset;
 
     // Texture image created for the asset during texture import.
-    private GameMakerTexturePageItem _textureImage = null;
+    private GameMakerTexturePageItem? _textureImage;
 
     /// <summary>
     /// Populates this serializable background with data from an actual background.
@@ -118,7 +114,7 @@ internal sealed class SerializableBackground : ISerializableTextureProjectAsset
                 TileCount = bg.GMS2TileCount,
                 ExportedSprite = bg.GMS2ExportedSprite?.Name?.Content,
                 FrameLength = bg.GMS2FrameLength,
-                TileIDs = bg.GMS2TileIds.Select((GameMakerBackground.TileID tileId) => tileId.ID).ToList()
+                TileIDs = [.. bg.GMS2TileIds.Select(tileId => tileId.ID)]
             };
         }
 
@@ -133,8 +129,8 @@ internal sealed class SerializableBackground : ISerializableTextureProjectAsset
         JsonSerializer.Serialize<ISerializableProjectAsset>(fs, this, ProjectContext.JsonOptions);
 
         // Write image as a PNG
-        string filename = $"{Path.GetFileNameWithoutExtension(destinationFile)}.png";
-        string directory = Path.GetDirectoryName(destinationFile);
+        var filename = $"{Path.GetFileNameWithoutExtension(destinationFile)}.png";
+        var directory = Path.GetDirectoryName(destinationFile);
         projectContext.TextureWorker.ExportAsPNG(_dataAsset.Texture, Path.Join(directory, filename), DataName, true);
     }
 
@@ -160,7 +156,7 @@ internal sealed class SerializableBackground : ISerializableTextureProjectAsset
     /// <inheritdoc/>
     public IProjectAsset Import(ProjectContext projectContext)
     {
-        GameMakerBackground bg = _dataAsset;
+        var bg = _dataAsset;
 
         // Update all main properties
         bg.Transparent = Transparent;
@@ -183,7 +179,7 @@ internal sealed class SerializableBackground : ISerializableTextureProjectAsset
                 bg.GMS2ExportedSprite = projectContext.FindSprite(Tileset.ExportedSprite, this);
             }
             bg.GMS2FrameLength = Tileset.FrameLength;
-            bg.GMS2TileIds = new(Tileset.TileIDs.Select((uint tileId) => new GameMakerBackground.TileID() { ID = tileId }).ToList());
+            bg.GMS2TileIds = new([.. Tileset.TileIDs.Select(tileId => new GameMakerBackground.TileID() { ID = tileId })]);
         }
 
         // Assign texture image
@@ -196,18 +192,18 @@ internal sealed class SerializableBackground : ISerializableTextureProjectAsset
     public void ImportTextures(ProjectContext projectContext, TextureGroupPacker texturePacker)
     {
         // Get JSON filename (of main asset file)
-        if (!projectContext.AssetDataNamesToPaths.TryGetValue(new(DataName, AssetType), out string jsonFilename))
+        if (!projectContext.AssetDataNamesToPaths.TryGetValue(new(DataName, AssetType), out var jsonFilename))
         {
             throw new ProjectException("Failed to get background asset path");
         }
 
         // Awaiting official Underminers resolution: project assets do not preserve texture-group or external-page metadata.
-        string directory = Path.GetDirectoryName(jsonFilename);
-        string filename = TextureWorker.FindImageFile(directory, Path.GetFileNameWithoutExtension(jsonFilename));
+        var directory = Path.GetDirectoryName(jsonFilename);
+        var filename = TextureWorker.FindImageFile(directory, Path.GetFileNameWithoutExtension(jsonFilename));
         try
         {
             // Add image to packer
-            bool allowCrop = !projectContext.Data.IsGameMaker2();
+            var allowCrop = !projectContext.Data.IsGameMaker2();
             _textureImage = texturePacker.AddImage(TextureWorker.ReadBGRAImageFromFile(filename),
                                                    TextureGroupPacker.BorderFlags.Enabled | TextureGroupPacker.BorderFlags.ExtraBorder,
                                                    allowCrop);

@@ -4,9 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using G3MLib.Analyzer.Compiler.Bytecode;
 using G3MLib.Analyzer.Compiler.Lexer;
@@ -119,7 +116,7 @@ internal sealed class BinaryChainNode : IASTNode
     /// <inheritdoc/>
     public IASTNode PostProcess(ParseContext context)
     {
-        for (int i = 0; i < Arguments.Count; i++)
+        for (var i = 0; i < Arguments.Count; i++)
         {
             Arguments[i] = Arguments[i].PostProcess(context);
         }
@@ -153,7 +150,7 @@ internal sealed class BinaryChainNode : IASTNode
     /// <inheritdoc/>
     public IASTNode Duplicate(ParseContext context)
     {
-        return new BinaryChainNode(NearbyToken, ASTNodeList.Duplicate(context, Arguments), new(Operations));
+        return new BinaryChainNode(NearbyToken, ASTNodeList.Duplicate(context, Arguments), [.. Operations]);
     }
 
     /// <summary>
@@ -244,22 +241,22 @@ internal sealed class BinaryChainNode : IASTNode
 
             // Small note for &&, ||, and ^^: the official compiler does not used typed booleans here for whatever reason
             (BinaryOperation.LogicalAnd, NumberNode leftNumber, NumberNode rightNumber) =>
-                new NumberNode(((leftNumber.Value > 0.5) && (rightNumber.Value > 0.5)) ? 1 : 0, leftNumber.NearbyToken),
+                new NumberNode((leftNumber.Value > 0.5 && rightNumber.Value > 0.5) ? 1 : 0, leftNumber.NearbyToken),
             (BinaryOperation.LogicalAnd, NumberNode leftNumber, Int64Node rightInt64) =>
-                new NumberNode(((leftNumber.Value > 0.5) && (rightInt64.Value > 0.5)) ? 1 : 0, leftNumber.NearbyToken),
+                new NumberNode((leftNumber.Value > 0.5 && rightInt64.Value > 0.5) ? 1 : 0, leftNumber.NearbyToken),
             (BinaryOperation.LogicalAnd, Int64Node leftInt64, NumberNode rightNumber) =>
-                new NumberNode(((leftInt64.Value > 0.5) && (rightNumber.Value > 0.5)) ? 1 : 0, leftInt64.NearbyToken),
+                new NumberNode((leftInt64.Value > 0.5 && rightNumber.Value > 0.5) ? 1 : 0, leftInt64.NearbyToken),
             (BinaryOperation.LogicalAnd, Int64Node leftInt64, Int64Node rightInt64) =>
-                new NumberNode(((leftInt64.Value > 0.5) && (rightInt64.Value > 0.5)) ? 1 : 0, leftInt64.NearbyToken),
+                new NumberNode((leftInt64.Value > 0.5 && rightInt64.Value > 0.5) ? 1 : 0, leftInt64.NearbyToken),
 
             (BinaryOperation.LogicalOr, NumberNode leftNumber, NumberNode rightNumber) =>
-                new NumberNode(((leftNumber.Value > 0.5) || (rightNumber.Value > 0.5)) ? 1 : 0, leftNumber.NearbyToken),
+                new NumberNode((leftNumber.Value > 0.5 || rightNumber.Value > 0.5) ? 1 : 0, leftNumber.NearbyToken),
             (BinaryOperation.LogicalOr, NumberNode leftNumber, Int64Node rightInt64) =>
-                new NumberNode(((leftNumber.Value > 0.5) || (rightInt64.Value > 0.5)) ? 1 : 0, leftNumber.NearbyToken),
+                new NumberNode((leftNumber.Value > 0.5 || rightInt64.Value > 0.5) ? 1 : 0, leftNumber.NearbyToken),
             (BinaryOperation.LogicalOr, Int64Node leftInt64, NumberNode rightNumber) =>
-                new NumberNode(((leftInt64.Value > 0.5) || (rightNumber.Value > 0.5)) ? 1 : 0, leftInt64.NearbyToken),
+                new NumberNode((leftInt64.Value > 0.5 || rightNumber.Value > 0.5) ? 1 : 0, leftInt64.NearbyToken),
             (BinaryOperation.LogicalOr, Int64Node leftInt64, Int64Node rightInt64) =>
-                new NumberNode(((leftInt64.Value > 0.5) || (rightInt64.Value > 0.5)) ? 1 : 0, leftInt64.NearbyToken),
+                new NumberNode((leftInt64.Value > 0.5 || rightInt64.Value > 0.5) ? 1 : 0, leftInt64.NearbyToken),
 
             (BinaryOperation.LogicalXor, NumberNode leftNumber, NumberNode rightNumber) =>
                 new NumberNode(((leftNumber.Value > 0.5) ^ (rightNumber.Value > 0.5)) ? 1 : 0, leftNumber.NearbyToken),
@@ -339,7 +336,7 @@ internal sealed class BinaryChainNode : IASTNode
     private static BooleanNode? CompareConstants(BinaryOperation operation, IConstantASTNode left, IConstantASTNode right)
     {
         // Calculate a difference between the left/right constants
-        (bool success, double difference) = (left, right) switch
+        (var success, var difference) = (left, right) switch
         {
             (NumberNode { Value: double leftNumber }, NumberNode { Value: double rightNumber }) =>
                 (true, leftNumber - rightNumber),
@@ -350,7 +347,7 @@ internal sealed class BinaryChainNode : IASTNode
             (Int64Node { Value: long leftInt64 }, Int64Node { Value: long rightInt64 }) =>
                 (true, leftInt64 - rightInt64),
             (StringNode { Value: string leftString }, StringNode { Value: string rightString }) =>
-                (true, string.Compare(leftString, rightString)),
+                (true, string.Compare(leftString, rightString, StringComparison.Ordinal)),
             _ => (false, 0)
         };
 
@@ -401,24 +398,24 @@ internal sealed class BinaryChainNode : IASTNode
         }
 
         // Store current last array owner ID
-        long lastArrayOwnerID = context.LastArrayOwnerID;
-        bool arrayOwnerChanged = false;
+        var lastArrayOwnerID = context.LastArrayOwnerID;
+        var arrayOwnerChanged = false;
 
         // Otherwise, generate generic binary operations
-        for (int i = 1; i < Arguments.Count; i++)
+        for (var i = 1; i < Arguments.Count; i++)
         {
             // Generate current argument, and coerce depending on operation
-            BinaryOperation currentOperation = Operations[i - 1];
+            var currentOperation = Operations[i - 1];
             Arguments[i].GenerateCode(context);
             CoerceBinaryDataType(context, currentOperation);
 
             // If array owner ID has changed, keep track of it
-            arrayOwnerChanged |= (context.LastArrayOwnerID != lastArrayOwnerID);
+            arrayOwnerChanged |= context.LastArrayOwnerID != lastArrayOwnerID;
 
             // Determine opcode and data type to push to type stack
-            DataType rightType = context.PopDataType();
-            DataType leftType = context.PopDataType();
-            Opcode opcode = currentOperation switch
+            var rightType = context.PopDataType();
+            var leftType = context.PopDataType();
+            var opcode = currentOperation switch
             {
                 BinaryOperation.Add => Opcode.Add,
                 BinaryOperation.Subtract => Opcode.Subtract,
@@ -448,15 +445,15 @@ internal sealed class BinaryChainNode : IASTNode
             if (opcode == Opcode.Compare)
             {
                 context.Emit(Opcode.Compare, currentOperation switch
-                    {
-                        BinaryOperation.CompareLesser => ComparisonType.LesserThan,
-                        BinaryOperation.CompareLesserEqual => ComparisonType.LesserEqualThan,
-                        BinaryOperation.CompareEqual => ComparisonType.EqualTo,
-                        BinaryOperation.CompareNotEqual => ComparisonType.NotEqualTo,
-                        BinaryOperation.CompareGreater => ComparisonType.GreaterThan,
-                        BinaryOperation.CompareGreaterEqual => ComparisonType.GreaterEqualThan,
-                        _ => throw new InvalidOperationException("Invalid comparison type")
-                    },
+                {
+                    BinaryOperation.CompareLesser => ComparisonType.LesserThan,
+                    BinaryOperation.CompareLesserEqual => ComparisonType.LesserEqualThan,
+                    BinaryOperation.CompareEqual => ComparisonType.EqualTo,
+                    BinaryOperation.CompareNotEqual => ComparisonType.NotEqualTo,
+                    BinaryOperation.CompareGreater => ComparisonType.GreaterThan,
+                    BinaryOperation.CompareGreaterEqual => ComparisonType.GreaterEqualThan,
+                    _ => throw new InvalidOperationException("Invalid comparison type")
+                },
                     rightType, leftType);
             }
             else
@@ -483,11 +480,11 @@ internal sealed class BinaryChainNode : IASTNode
         MultiForwardBranchPatch noShortCircuitPatch = new();
 
         // Store current last array owner ID
-        long lastArrayOwnerID = context.LastArrayOwnerID;
-        bool arrayOwnerChanged = false;
+        var lastArrayOwnerID = context.LastArrayOwnerID;
+        var arrayOwnerChanged = false;
 
         // Generate short-circuit chain
-        for (int i = 1; i < Arguments.Count; i++)
+        for (var i = 1; i < Arguments.Count; i++)
         {
             // Convert previous type in chain to a boolean
             context.ConvertDataType(DataType.Boolean);
@@ -506,7 +503,7 @@ internal sealed class BinaryChainNode : IASTNode
             Arguments[i].GenerateCode(context);
 
             // If array owner ID has changed, keep track of it
-            arrayOwnerChanged |= (context.LastArrayOwnerID != lastArrayOwnerID);
+            arrayOwnerChanged |= context.LastArrayOwnerID != lastArrayOwnerID;
         }
 
         // Reset array owner ID if it changed
@@ -544,7 +541,7 @@ internal sealed class BinaryChainNode : IASTNode
     /// </summary>
     private static void CoerceBinaryDataType(BytecodeContext context, BinaryOperation operation)
     {
-        DataType sourceType = context.PeekDataType();
+        var sourceType = context.PeekDataType();
         switch ((operation, sourceType))
         {
             case (BinaryOperation.Add, DataType.Boolean):
@@ -591,7 +588,7 @@ internal sealed class BinaryChainNode : IASTNode
     /// <inheritdoc/>
     public IEnumerable<IASTNode> EnumerateChildren()
     {
-        foreach (IASTNode argument in Arguments)
+        foreach (var argument in Arguments)
         {
             yield return argument;
         }

@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Compiler.Bytecode;
 using G3MLib.Analyzer.Compiler.Lexer;
 using G3MLib.Analyzer.Compiler.Parser;
@@ -147,9 +146,9 @@ internal sealed class ForLoopNode : IASTNode
     public IASTNode PostProcess(ParseContext context)
     {
         // Enter for context
-        bool previousProcessingSwitch = context.ProcessingSwitch;
-        bool previousProcessingBreakContinueContext = context.CurrentScope.ProcessingBreakContinueContext;
-        bool previousShouldGenerateBreakContinueCode = true;
+        var previousProcessingSwitch = context.ProcessingSwitch;
+        var previousProcessingBreakContinueContext = context.CurrentScope.ProcessingBreakContinueContext;
+        var previousShouldGenerateBreakContinueCode = true;
         context.ProcessingSwitch = false;
         context.CurrentScope.ProcessingBreakContinueContext = true;
         if (context.TryStatementContext is TryStatementContext tryContext)
@@ -207,7 +206,7 @@ internal sealed class ForLoopNode : IASTNode
         tailPatch.AddInstruction(context, context.Emit(Opcode.BranchFalse));
 
         // Store current last array owner ID
-        long lastArrayOwnerID = context.LastArrayOwnerID;
+        var lastArrayOwnerID = context.LastArrayOwnerID;
 
         // Enter loop context, and generate body
         BasicLoopContext loopContext = new(tailPatch, incrementorPatch);

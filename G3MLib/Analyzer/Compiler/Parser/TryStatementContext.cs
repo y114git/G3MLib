@@ -35,7 +35,7 @@ internal sealed class TryStatementContext(string breakVariableName, string conti
     /// <remarks>
     /// This gets reset for both the try and catch blocks individually.
     /// </remarks>
-    public bool HasBreakContinueVariable { get; set; } = false;
+    public bool HasBreakContinueVariable { get; set; }
 
     /// <summary>
     /// Whether break/continue code should be generated. This is dynamically changed based on control flow.
@@ -49,5 +49,5 @@ internal sealed class TryStatementContext(string breakVariableName, string conti
     /// <summary>
     /// Whether throw statements are allowed to generate extra code to handle finally.
     /// </summary>
-    public bool ThrowFinallyGeneration { get; set; } = false;
+    public bool ThrowFinallyGeneration { get; set; }
 }

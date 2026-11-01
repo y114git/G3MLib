@@ -4,8 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System;
-using System.Collections.Generic;
 using G3MLib.Analyzer.Decompiler.AST;
 
 namespace G3MLib.Analyzer.Decompiler.GameSpecific;
@@ -32,9 +30,10 @@ public class EnumMacroType : IMacroTypeInt64
     /// </summary>
     public EnumMacroType(string name, Dictionary<string, long> values)
     {
+        ArgumentNullException.ThrowIfNull(values);
         Name = name;
         ValueToValueName = new(values.Count);
-        foreach ((string valueName, long value) in values)
+        foreach ((var valueName, var value) in values)
         {
             ValueToValueName[value] = valueName;
         }
@@ -46,8 +45,9 @@ public class EnumMacroType : IMacroTypeInt64
     /// </summary>
     public EnumMacroType(Type enumType, string? name = null)
     {
+        ArgumentNullException.ThrowIfNull(enumType);
         Name = name ?? enumType.Name;
-        Array values = Enum.GetValues(enumType);
+        var values = Enum.GetValues(enumType);
         ValueToValueName = new(values.Length);
         foreach (long value in values)
         {
@@ -57,7 +57,8 @@ public class EnumMacroType : IMacroTypeInt64
 
     public IExpressionNode? Resolve(ASTCleaner cleaner, IMacroResolvableNode node, long data)
     {
-        if (ValueToValueName.TryGetValue(data, out string? valueName))
+        ArgumentNullException.ThrowIfNull(cleaner);
+        if (ValueToValueName.TryGetValue(data, out var valueName))
         {
             // Use enum node, and declare new enum if one doesn't exist already
             if (!cleaner.Context.NameToEnumDeclaration.ContainsKey(Name))

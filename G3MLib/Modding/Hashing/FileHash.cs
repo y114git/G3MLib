@@ -1,8 +1,5 @@
-using System;
 using System.IO;
 using System.Security.Cryptography;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace G3MLib.Modding.Hashing;
 

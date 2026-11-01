@@ -6,7 +6,6 @@
 
 using G3MLib.Analyzer.Decompiler;
 using G3MLib.Analyzer.Decompiler.ControlFlow;
-using G3MLib.Analyzer.Mock;
 
 namespace G3MLib.Tests;
 
@@ -16,7 +15,7 @@ public class Switch_InsertSwitchStatements
     public void TestEmpty()
     {
         // NOTE: GameMaker itself can't generate this, but modding tools can
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             # switch (a) { }
 
@@ -29,15 +28,15 @@ public class Switch_InsertSwitchStatements
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
-        List<Switch> switches = Switch.InsertSwitchStatements(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
+        var switches = Switch.InsertSwitchStatements(ctx);
 
-        Assert.Single(switches);
-        Switch s0 = switches[0];
+        var item = Assert.Single(switches);
+        var s0 = item;
 
         Assert.Equal(s0, fragments[0].Children[0]);
         Assert.Equal(blocks[0], s0.Cases);
@@ -61,7 +60,7 @@ public class Switch_InsertSwitchStatements
     [Fact]
     public void TestDefault()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             # switch (a) { default: }
 
@@ -77,19 +76,19 @@ public class Switch_InsertSwitchStatements
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
-        List<Switch> switches = Switch.InsertSwitchStatements(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
+        var switches = Switch.InsertSwitchStatements(ctx);
 
-        Assert.Single(switches);
-        Switch s0 = switches[0];
+        var item = Assert.Single(switches);
+        var s0 = item;
 
         Assert.Equal(blocks[0], s0.Cases);
         Assert.Null(s0.Body);
-        Assert.IsType<Switch.CaseDestinationNode>(s0.EndCaseDestinations);
+        var typed = Assert.IsType<Switch.CaseDestinationNode>(s0.EndCaseDestinations);
         Assert.Empty(blocks[0].Predecessors);
         Assert.Empty(blocks[0].Successors);
         Assert.Single(blocks[0].Instructions);
@@ -100,7 +99,7 @@ public class Switch_InsertSwitchStatements
         Assert.Empty(blocks[2].Instructions);
         Assert.Equal([s0], blocks[2].Predecessors);
 
-        var destNode = (Switch.CaseDestinationNode)s0.EndCaseDestinations;
+        var destNode = typed;
         Assert.Empty(destNode.Predecessors);
         Assert.Empty(destNode.Successors);
         Assert.True(destNode.IsDefault);
@@ -116,7 +115,7 @@ public class Switch_InsertSwitchStatements
     [Fact]
     public void TestDefaultBreak()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             # switch (a) { default: break; }
 
@@ -135,18 +134,18 @@ public class Switch_InsertSwitchStatements
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
-        List<Switch> switches = Switch.InsertSwitchStatements(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
+        var switches = Switch.InsertSwitchStatements(ctx);
 
-        Assert.Single(switches);
-        Switch s0 = switches[0];
+        var item = Assert.Single(switches);
+        var s0 = item;
 
         Assert.Equal(blocks[0], s0.Cases);
-        Assert.IsType<Switch.CaseDestinationNode>(s0.Body);
+        var typed = Assert.IsType<Switch.CaseDestinationNode>(s0.Body);
         Assert.Null(s0.EndCaseDestinations);
         Assert.Empty(blocks[0].Predecessors);
         Assert.Empty(blocks[0].Successors);
@@ -158,7 +157,7 @@ public class Switch_InsertSwitchStatements
         Assert.Empty(blocks[3].Instructions);
         Assert.Equal([s0], blocks[3].Predecessors);
 
-        var destNode = (Switch.CaseDestinationNode)s0.Body;
+        var destNode = typed;
         Assert.Empty(destNode.Predecessors);
         Assert.Equal([blocks[2]], destNode.Successors);
         Assert.Empty(blocks[2].Instructions);
@@ -177,7 +176,7 @@ public class Switch_InsertSwitchStatements
     [Fact]
     public void TestDefaultContinue()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             # while (a) { switch (b) { default: continue; } }
 
@@ -211,19 +210,19 @@ public class Switch_InsertSwitchStatements
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
-        List<Switch> switches = Switch.InsertSwitchStatements(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
+        var switches = Switch.InsertSwitchStatements(ctx);
 
-        Assert.Single(switches);
-        Switch s0 = switches[0];
+        var item = Assert.Single(switches);
+        var s0 = item;
 
         Assert.Equal(loops[0], s0.Parent);
         Assert.Equal(blocks[1], s0.Cases);
-        Assert.IsType<Switch.CaseDestinationNode>(s0.Body);
+        var typed = Assert.IsType<Switch.CaseDestinationNode>(s0.Body);
         Assert.Null(s0.EndCaseDestinations);
         Assert.Empty(blocks[1].Predecessors);
         Assert.Empty(blocks[1].Successors);
@@ -235,7 +234,7 @@ public class Switch_InsertSwitchStatements
         Assert.Empty(blocks[6].Instructions);
         Assert.Equal([s0], blocks[6].Predecessors);
 
-        var destNode = (Switch.CaseDestinationNode)s0.Body;
+        var destNode = typed;
         Assert.Empty(destNode.Predecessors);
         Assert.Equal([blocks[3]], destNode.Successors);
         Assert.Empty(blocks[3].Instructions);
@@ -243,7 +242,7 @@ public class Switch_InsertSwitchStatements
         Assert.Empty(blocks[3].Successors[0].Successors);
         Assert.True(destNode.IsDefault);
 
-        for (int i = 4; i <= 5; i++)
+        for (var i = 4; i <= 5; i++)
         {
             Assert.Empty(blocks[i].Instructions);
             Assert.Empty(blocks[i].Predecessors);
@@ -261,7 +260,7 @@ public class Switch_InsertSwitchStatements
     [Fact]
     public void TestCase()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             # switch (a) { case 1: }
 
@@ -280,22 +279,22 @@ public class Switch_InsertSwitchStatements
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
-        List<Switch> switches = Switch.InsertSwitchStatements(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
+        var switches = Switch.InsertSwitchStatements(ctx);
 
-        Assert.Single(switches);
-        Switch s0 = switches[0];
+        var item = Assert.Single(switches);
+        var s0 = item;
 
         Assert.Equal(blocks[0], s0.Cases);
         Assert.Null(s0.Body);
-        Assert.IsType<Switch.CaseDestinationNode>(s0.EndCaseDestinations);
+        var typed = Assert.IsType<Switch.CaseDestinationNode>(s0.EndCaseDestinations);
         Assert.Empty(blocks[0].Predecessors);
-        Assert.Single(blocks[0].Successors);
-        Assert.IsType<Switch.CaseJumpNode>(blocks[0].Successors[0]);
+        var item_2 = Assert.Single(blocks[0].Successors);
+        Assert.IsType<Switch.CaseJumpNode>(item_2);
         Assert.Empty(blocks[0].Successors[0].Successors);
         Assert.Equal(3, blocks[0].Instructions.Count);
         Assert.Empty(blocks[1].Instructions);
@@ -305,7 +304,7 @@ public class Switch_InsertSwitchStatements
         Assert.Empty(blocks[2].Instructions);
         Assert.Equal([s0], blocks[2].Predecessors);
 
-        var destNode = (Switch.CaseDestinationNode)s0.EndCaseDestinations;
+        var destNode = typed;
         Assert.Empty(destNode.Predecessors);
         Assert.Empty(destNode.Successors);
         Assert.False(destNode.IsDefault);
@@ -321,7 +320,7 @@ public class Switch_InsertSwitchStatements
     [Fact]
     public void TestCaseBreak()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             # switch (a) { case 1: break; }
 
@@ -343,22 +342,22 @@ public class Switch_InsertSwitchStatements
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
-        List<Switch> switches = Switch.InsertSwitchStatements(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
+        var switches = Switch.InsertSwitchStatements(ctx);
 
-        Assert.Single(switches);
-        Switch s0 = switches[0];
+        var item = Assert.Single(switches);
+        var s0 = item;
 
         Assert.Equal(blocks[0], s0.Cases);
-        Assert.IsType<Switch.CaseDestinationNode>(s0.Body);
+        var typed = Assert.IsType<Switch.CaseDestinationNode>(s0.Body);
         Assert.Null(s0.EndCaseDestinations);
         Assert.Empty(blocks[0].Predecessors);
-        Assert.Single(blocks[0].Successors);
-        Assert.IsType<Switch.CaseJumpNode>(blocks[0].Successors[0]);
+        var item_2 = Assert.Single(blocks[0].Successors);
+        Assert.IsType<Switch.CaseJumpNode>(item_2);
         Assert.Empty(blocks[0].Successors[0].Successors);
         Assert.Equal(3, blocks[0].Instructions.Count);
         Assert.Empty(blocks[1].Instructions);
@@ -368,12 +367,12 @@ public class Switch_InsertSwitchStatements
         Assert.Empty(blocks[3].Instructions);
         Assert.Equal([s0], blocks[3].Predecessors);
 
-        var destNode = (Switch.CaseDestinationNode)s0.Body;
+        var destNode = typed;
         Assert.Empty(destNode.Predecessors);
         Assert.Equal([blocks[2]], destNode.Successors);
         Assert.Empty(blocks[2].Instructions);
-        Assert.Single(blocks[2].Successors);
-        Assert.IsType<BreakNode>(blocks[2].Successors[0]);
+        var item_3 = Assert.Single(blocks[2].Successors);
+        Assert.IsType<BreakNode>(item_3);
         Assert.Empty(blocks[2].Successors[0].Successors);
         Assert.False(destNode.IsDefault);
 
@@ -388,7 +387,7 @@ public class Switch_InsertSwitchStatements
     [Fact]
     public void TestCaseContinue()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             # switch (a) { case 1: continue; }
 
@@ -425,23 +424,23 @@ public class Switch_InsertSwitchStatements
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
-        List<Switch> switches = Switch.InsertSwitchStatements(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
+        var switches = Switch.InsertSwitchStatements(ctx);
 
-        Assert.Single(switches);
-        Switch s0 = switches[0];
+        var item = Assert.Single(switches);
+        var s0 = item;
 
         Assert.Equal(loops[0], s0.Parent);
         Assert.Equal(blocks[1], s0.Cases);
-        Assert.IsType<Switch.CaseDestinationNode>(s0.Body);
+        var typed = Assert.IsType<Switch.CaseDestinationNode>(s0.Body);
         Assert.Null(s0.EndCaseDestinations);
         Assert.Empty(blocks[1].Predecessors);
-        Assert.Single(blocks[1].Successors);
-        Assert.IsType<Switch.CaseJumpNode>(blocks[1].Successors[0]);
+        var item_2 = Assert.Single(blocks[1].Successors);
+        Assert.IsType<Switch.CaseJumpNode>(item_2);
         Assert.Empty(blocks[1].Successors[0].Successors);
         Assert.Equal(3, blocks[1].Instructions.Count);
         Assert.Empty(blocks[2].Instructions);
@@ -451,7 +450,7 @@ public class Switch_InsertSwitchStatements
         Assert.Empty(blocks[6].Instructions);
         Assert.Equal([s0], blocks[6].Predecessors);
 
-        var destNode = (Switch.CaseDestinationNode)s0.Body;
+        var destNode = typed;
         Assert.Empty(destNode.Predecessors);
         Assert.Equal([blocks[3]], destNode.Successors);
         Assert.Empty(blocks[3].Instructions);
@@ -459,7 +458,7 @@ public class Switch_InsertSwitchStatements
         Assert.Empty(blocks[3].Successors[0].Successors);
         Assert.False(destNode.IsDefault);
 
-        for (int i = 4; i <= 5; i++)
+        for (var i = 4; i <= 5; i++)
         {
             Assert.Empty(blocks[i].Instructions);
             Assert.Empty(blocks[i].Predecessors);
@@ -477,7 +476,7 @@ public class Switch_InsertSwitchStatements
     [Fact]
     public void Test2CasesBreaks()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             # switch (a)
             # {
@@ -514,26 +513,26 @@ public class Switch_InsertSwitchStatements
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
-        List<Switch> switches = Switch.InsertSwitchStatements(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
+        var switches = Switch.InsertSwitchStatements(ctx);
 
-        Assert.Single(switches);
-        Switch s0 = switches[0];
+        var item = Assert.Single(switches);
+        var s0 = item;
 
         Assert.Equal(blocks[0], s0.Cases);
-        Assert.IsType<Switch.CaseDestinationNode>(s0.Body);
+        var typed = Assert.IsType<Switch.CaseDestinationNode>(s0.Body);
         Assert.Null(s0.EndCaseDestinations);
         Assert.Empty(blocks[0].Predecessors);
-        Assert.Single(blocks[0].Successors);
-        Assert.IsType<Switch.CaseJumpNode>(blocks[0].Successors[0]);
+        var item_2 = Assert.Single(blocks[0].Successors);
+        Assert.IsType<Switch.CaseJumpNode>(item_2);
         Assert.Equal([blocks[1]], blocks[0].Successors[0].Successors);
         Assert.Equal(3, blocks[0].Instructions.Count);
-        Assert.Single(blocks[1].Successors);
-        Assert.IsType<Switch.CaseJumpNode>(blocks[1].Successors[0]);
+        var item_3 = Assert.Single(blocks[1].Successors);
+        Assert.IsType<Switch.CaseJumpNode>(item_3);
         Assert.Empty(blocks[1].Successors[0].Successors);
         Assert.Equal(2, blocks[1].Instructions.Count);
 
@@ -544,21 +543,21 @@ public class Switch_InsertSwitchStatements
         Assert.Empty(blocks[5].Instructions);
         Assert.Equal([s0], blocks[5].Predecessors);
 
-        var destNode = (Switch.CaseDestinationNode)s0.Body;
+        var destNode = typed;
         Assert.Empty(destNode.Predecessors);
         Assert.Equal([blocks[3]], destNode.Successors);
         Assert.Empty(blocks[3].Instructions);
-        Assert.Single(blocks[3].Successors);
-        Assert.IsType<BreakNode>(blocks[3].Successors[0]);
-        Assert.Single(blocks[3].Successors[0].Successors);
-        Assert.IsType<Switch.CaseDestinationNode>(blocks[3].Successors[0].Successors[0]);
+        var item_4 = Assert.Single(blocks[3].Successors);
+        Assert.IsType<BreakNode>(item_4);
+        var item_5 = Assert.Single(blocks[3].Successors[0].Successors);
+        Assert.IsType<Switch.CaseDestinationNode>(item_5);
         Assert.False(destNode.IsDefault);
 
         destNode = (Switch.CaseDestinationNode)blocks[3].Successors[0].Successors[0];
         Assert.Equal([blocks[4]], destNode.Successors);
         Assert.Empty(blocks[4].Instructions);
-        Assert.Single(blocks[4].Successors);
-        Assert.IsType<BreakNode>(blocks[4].Successors[0]);
+        var item_6 = Assert.Single(blocks[4].Successors);
+        Assert.IsType<BreakNode>(item_6);
         Assert.Empty(blocks[4].Successors[0].Successors);
         Assert.False(destNode.IsDefault);
 
@@ -573,7 +572,7 @@ public class Switch_InsertSwitchStatements
     [Fact]
     public void Test3CasesBreaks()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             # switch (a)
             # {
@@ -621,30 +620,30 @@ public class Switch_InsertSwitchStatements
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
-        List<Switch> switches = Switch.InsertSwitchStatements(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
+        var switches = Switch.InsertSwitchStatements(ctx);
 
-        Assert.Single(switches);
-        Switch s0 = switches[0];
+        var item = Assert.Single(switches);
+        var s0 = item;
 
         Assert.Equal(blocks[0], s0.Cases);
-        Assert.IsType<Switch.CaseDestinationNode>(s0.Body);
+        var typed = Assert.IsType<Switch.CaseDestinationNode>(s0.Body);
         Assert.Null(s0.EndCaseDestinations);
         Assert.Empty(blocks[0].Predecessors);
-        Assert.Single(blocks[0].Successors);
-        Assert.IsType<Switch.CaseJumpNode>(blocks[0].Successors[0]);
+        var item_2 = Assert.Single(blocks[0].Successors);
+        Assert.IsType<Switch.CaseJumpNode>(item_2);
         Assert.Equal([blocks[1]], blocks[0].Successors[0].Successors);
         Assert.Equal(3, blocks[0].Instructions.Count);
-        Assert.Single(blocks[1].Successors);
-        Assert.IsType<Switch.CaseJumpNode>(blocks[1].Successors[0]);
+        var item_3 = Assert.Single(blocks[1].Successors);
+        Assert.IsType<Switch.CaseJumpNode>(item_3);
         Assert.Equal([blocks[2]], blocks[1].Successors[0].Successors);
         Assert.Equal(2, blocks[1].Instructions.Count);
-        Assert.Single(blocks[2].Successors);
-        Assert.IsType<Switch.CaseJumpNode>(blocks[2].Successors[0]);
+        var item_4 = Assert.Single(blocks[2].Successors);
+        Assert.IsType<Switch.CaseJumpNode>(item_4);
         Assert.Empty(blocks[2].Successors[0].Successors);
         Assert.Equal(2, blocks[2].Instructions.Count);
 
@@ -655,29 +654,29 @@ public class Switch_InsertSwitchStatements
         Assert.Empty(blocks[7].Instructions);
         Assert.Equal([s0], blocks[7].Predecessors);
 
-        var destNode = (Switch.CaseDestinationNode)s0.Body;
+        var destNode = typed;
         Assert.Empty(destNode.Predecessors);
         Assert.Equal([blocks[4]], destNode.Successors);
         Assert.Empty(blocks[4].Instructions);
-        Assert.Single(blocks[4].Successors);
-        Assert.IsType<BreakNode>(blocks[4].Successors[0]);
-        Assert.Single(blocks[4].Successors[0].Successors);
-        Assert.IsType<Switch.CaseDestinationNode>(blocks[4].Successors[0].Successors[0]);
+        var item_5 = Assert.Single(blocks[4].Successors);
+        Assert.IsType<BreakNode>(item_5);
+        var item_6 = Assert.Single(blocks[4].Successors[0].Successors);
+        Assert.IsType<Switch.CaseDestinationNode>(item_6);
         Assert.False(destNode.IsDefault);
 
         destNode = (Switch.CaseDestinationNode)blocks[4].Successors[0].Successors[0];
         Assert.Equal([blocks[5]], destNode.Successors);
         Assert.Empty(blocks[5].Instructions);
-        Assert.Single(blocks[5].Successors);
-        Assert.IsType<BreakNode>(blocks[5].Successors[0]);
-        Assert.IsType<Switch.CaseDestinationNode>(blocks[5].Successors[0].Successors[0]);
+        var item_7 = Assert.Single(blocks[5].Successors);
+        Assert.IsType<BreakNode>(item_7);
+        var typed_2 = Assert.IsType<Switch.CaseDestinationNode>(blocks[5].Successors[0].Successors[0]);
         Assert.False(destNode.IsDefault);
 
-        destNode = (Switch.CaseDestinationNode)blocks[5].Successors[0].Successors[0];
+        destNode = typed_2;
         Assert.Equal([blocks[6]], destNode.Successors);
         Assert.Empty(blocks[6].Instructions);
-        Assert.Single(blocks[6].Successors);
-        Assert.IsType<BreakNode>(blocks[6].Successors[0]);
+        var item_8 = Assert.Single(blocks[6].Successors);
+        Assert.IsType<BreakNode>(item_8);
         Assert.Empty(blocks[6].Successors[0].Successors);
         Assert.False(destNode.IsDefault);
 
@@ -692,7 +691,7 @@ public class Switch_InsertSwitchStatements
     [Fact]
     public void TestCaseBreakCase()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             # switch (a)
             # {
@@ -725,26 +724,26 @@ public class Switch_InsertSwitchStatements
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
-        List<Switch> switches = Switch.InsertSwitchStatements(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
+        var switches = Switch.InsertSwitchStatements(ctx);
 
-        Assert.Single(switches);
-        Switch s0 = switches[0];
+        var item = Assert.Single(switches);
+        var s0 = item;
 
         Assert.Equal(blocks[0], s0.Cases);
-        Assert.IsType<Switch.CaseDestinationNode>(s0.Body);
-        Assert.IsType<Switch.CaseDestinationNode>(s0.EndCaseDestinations);
+        var typed = Assert.IsType<Switch.CaseDestinationNode>(s0.Body);
+        var typed_2 = Assert.IsType<Switch.CaseDestinationNode>(s0.EndCaseDestinations);
         Assert.Empty(blocks[0].Predecessors);
-        Assert.Single(blocks[0].Successors);
-        Assert.IsType<Switch.CaseJumpNode>(blocks[0].Successors[0]);
+        var item_2 = Assert.Single(blocks[0].Successors);
+        Assert.IsType<Switch.CaseJumpNode>(item_2);
         Assert.Equal([blocks[1]], blocks[0].Successors[0].Successors);
         Assert.Equal(3, blocks[0].Instructions.Count);
-        Assert.Single(blocks[1].Successors);
-        Assert.IsType<Switch.CaseJumpNode>(blocks[1].Successors[0]);
+        var item_3 = Assert.Single(blocks[1].Successors);
+        Assert.IsType<Switch.CaseJumpNode>(item_3);
         Assert.Empty(blocks[1].Successors[0].Successors);
         Assert.Equal(2, blocks[1].Instructions.Count);
 
@@ -755,16 +754,16 @@ public class Switch_InsertSwitchStatements
         Assert.Empty(blocks[4].Instructions);
         Assert.Equal([s0], blocks[4].Predecessors);
 
-        var destNode = (Switch.CaseDestinationNode)s0.Body;
+        var destNode = typed;
         Assert.Empty(destNode.Predecessors);
         Assert.Equal([blocks[3]], destNode.Successors);
         Assert.Empty(blocks[3].Instructions);
-        Assert.Single(blocks[3].Successors);
-        Assert.IsType<BreakNode>(blocks[3].Successors[0]);
+        var item_4 = Assert.Single(blocks[3].Successors);
+        Assert.IsType<BreakNode>(item_4);
         Assert.Empty(blocks[3].Successors[0].Successors);
         Assert.False(destNode.IsDefault);
 
-        destNode = (Switch.CaseDestinationNode)s0.EndCaseDestinations;
+        destNode = typed_2;
         Assert.Empty(destNode.Predecessors);
         Assert.Empty(destNode.Successors);
         Assert.False(destNode.IsDefault);
@@ -780,7 +779,7 @@ public class Switch_InsertSwitchStatements
     [Fact]
     public void TestCaseBreakDefault()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             # switch (a)
             # {
@@ -810,22 +809,22 @@ public class Switch_InsertSwitchStatements
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
-        List<Switch> switches = Switch.InsertSwitchStatements(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
+        var switches = Switch.InsertSwitchStatements(ctx);
 
-        Assert.Single(switches);
-        Switch s0 = switches[0];
+        var item = Assert.Single(switches);
+        var s0 = item;
 
         Assert.Equal(blocks[0], s0.Cases);
-        Assert.IsType<Switch.CaseDestinationNode>(s0.Body);
-        Assert.IsType<Switch.CaseDestinationNode>(s0.EndCaseDestinations);
+        var typed = Assert.IsType<Switch.CaseDestinationNode>(s0.Body);
+        var typed_2 = Assert.IsType<Switch.CaseDestinationNode>(s0.EndCaseDestinations);
         Assert.Empty(blocks[0].Predecessors);
-        Assert.Single(blocks[0].Successors);
-        Assert.IsType<Switch.CaseJumpNode>(blocks[0].Successors[0]);
+        var item_2 = Assert.Single(blocks[0].Successors);
+        Assert.IsType<Switch.CaseJumpNode>(item_2);
         Assert.Empty(blocks[0].Successors[0].Successors);
         Assert.Equal(3, blocks[0].Instructions.Count);
         Assert.Empty(blocks[1].Instructions);
@@ -839,16 +838,16 @@ public class Switch_InsertSwitchStatements
         Assert.Empty(blocks[4].Instructions);
         Assert.Equal([s0], blocks[4].Predecessors);
 
-        var destNode = (Switch.CaseDestinationNode)s0.Body;
+        var destNode = typed;
         Assert.Empty(destNode.Predecessors);
         Assert.Equal([blocks[3]], destNode.Successors);
         Assert.Empty(blocks[3].Instructions);
-        Assert.Single(blocks[3].Successors);
-        Assert.IsType<BreakNode>(blocks[3].Successors[0]);
+        var item_3 = Assert.Single(blocks[3].Successors);
+        Assert.IsType<BreakNode>(item_3);
         Assert.Empty(blocks[3].Successors[0].Successors);
         Assert.False(destNode.IsDefault);
 
-        destNode = (Switch.CaseDestinationNode)s0.EndCaseDestinations;
+        destNode = typed_2;
         Assert.Empty(destNode.Predecessors);
         Assert.Empty(destNode.Successors);
         Assert.True(destNode.IsDefault);
@@ -864,7 +863,7 @@ public class Switch_InsertSwitchStatements
     [Fact]
     public void TestCasesDefaultBreaks()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             # switch (a)
             # {
@@ -909,26 +908,26 @@ public class Switch_InsertSwitchStatements
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
-        List<Switch> switches = Switch.InsertSwitchStatements(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
+        var switches = Switch.InsertSwitchStatements(ctx);
 
-        Assert.Single(switches);
-        Switch s0 = switches[0];
+        var item = Assert.Single(switches);
+        var s0 = item;
 
         Assert.Equal(blocks[0], s0.Cases);
-        Assert.IsType<Switch.CaseDestinationNode>(s0.Body);
+        var typed = Assert.IsType<Switch.CaseDestinationNode>(s0.Body);
         Assert.Null(s0.EndCaseDestinations);
         Assert.Empty(blocks[0].Predecessors);
-        Assert.Single(blocks[0].Successors);
-        Assert.IsType<Switch.CaseJumpNode>(blocks[0].Successors[0]);
+        var item_2 = Assert.Single(blocks[0].Successors);
+        Assert.IsType<Switch.CaseJumpNode>(item_2);
         Assert.Equal([blocks[1]], blocks[0].Successors[0].Successors);
         Assert.Equal(3, blocks[0].Instructions.Count);
-        Assert.Single(blocks[1].Successors);
-        Assert.IsType<Switch.CaseJumpNode>(blocks[1].Successors[0]);
+        var item_3 = Assert.Single(blocks[1].Successors);
+        Assert.IsType<Switch.CaseJumpNode>(item_3);
         Assert.Empty(blocks[1].Successors[0].Successors);
         Assert.Equal(2, blocks[1].Instructions.Count);
         Assert.Empty(blocks[2].Instructions);
@@ -942,29 +941,29 @@ public class Switch_InsertSwitchStatements
         Assert.Empty(blocks[7].Instructions);
         Assert.Equal([s0], blocks[7].Predecessors);
 
-        var destNode = (Switch.CaseDestinationNode)s0.Body;
+        var destNode = typed;
         Assert.Empty(destNode.Predecessors);
         Assert.Equal([blocks[4]], destNode.Successors);
         Assert.Empty(blocks[4].Instructions);
-        Assert.Single(blocks[4].Successors);
-        Assert.IsType<BreakNode>(blocks[4].Successors[0]);
-        Assert.Single(blocks[4].Successors[0].Successors);
-        Assert.IsType<Switch.CaseDestinationNode>(blocks[4].Successors[0].Successors[0]);
+        var item_4 = Assert.Single(blocks[4].Successors);
+        Assert.IsType<BreakNode>(item_4);
+        var item_5 = Assert.Single(blocks[4].Successors[0].Successors);
+        Assert.IsType<Switch.CaseDestinationNode>(item_5);
         Assert.False(destNode.IsDefault);
 
         destNode = (Switch.CaseDestinationNode)blocks[4].Successors[0].Successors[0];
         Assert.Equal([blocks[5]], destNode.Successors);
         Assert.Empty(blocks[5].Instructions);
-        Assert.Single(blocks[5].Successors);
-        Assert.IsType<BreakNode>(blocks[5].Successors[0]);
-        Assert.IsType<Switch.CaseDestinationNode>(blocks[5].Successors[0].Successors[0]);
+        var item_6 = Assert.Single(blocks[5].Successors);
+        Assert.IsType<BreakNode>(item_6);
+        var typed_2 = Assert.IsType<Switch.CaseDestinationNode>(blocks[5].Successors[0].Successors[0]);
         Assert.False(destNode.IsDefault);
 
-        destNode = (Switch.CaseDestinationNode)blocks[5].Successors[0].Successors[0];
+        destNode = typed_2;
         Assert.Equal([blocks[6]], destNode.Successors);
         Assert.Empty(blocks[6].Instructions);
-        Assert.Single(blocks[6].Successors);
-        Assert.IsType<BreakNode>(blocks[6].Successors[0]);
+        var item_7 = Assert.Single(blocks[6].Successors);
+        Assert.IsType<BreakNode>(item_7);
         Assert.Empty(blocks[6].Successors[0].Successors);
         Assert.True(destNode.IsDefault);
 
@@ -979,7 +978,7 @@ public class Switch_InsertSwitchStatements
     [Fact]
     public void TestCasesDefaultBreaks2()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             # switch (a)
             # {
@@ -1024,26 +1023,26 @@ public class Switch_InsertSwitchStatements
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
-        List<Switch> switches = Switch.InsertSwitchStatements(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
+        var switches = Switch.InsertSwitchStatements(ctx);
 
-        Assert.Single(switches);
-        Switch s0 = switches[0];
+        var item = Assert.Single(switches);
+        var s0 = item;
 
         Assert.Equal(blocks[0], s0.Cases);
-        Assert.IsType<Switch.CaseDestinationNode>(s0.Body);
+        var typed = Assert.IsType<Switch.CaseDestinationNode>(s0.Body);
         Assert.Null(s0.EndCaseDestinations);
         Assert.Empty(blocks[0].Predecessors);
-        Assert.Single(blocks[0].Successors);
-        Assert.IsType<Switch.CaseJumpNode>(blocks[0].Successors[0]);
+        var item_2 = Assert.Single(blocks[0].Successors);
+        Assert.IsType<Switch.CaseJumpNode>(item_2);
         Assert.Equal([blocks[1]], blocks[0].Successors[0].Successors);
         Assert.Equal(3, blocks[0].Instructions.Count);
-        Assert.Single(blocks[1].Successors);
-        Assert.IsType<Switch.CaseJumpNode>(blocks[1].Successors[0]);
+        var item_3 = Assert.Single(blocks[1].Successors);
+        Assert.IsType<Switch.CaseJumpNode>(item_3);
         Assert.Empty(blocks[1].Successors[0].Successors);
         Assert.Equal(2, blocks[1].Instructions.Count);
         Assert.Empty(blocks[2].Instructions);
@@ -1057,29 +1056,29 @@ public class Switch_InsertSwitchStatements
         Assert.Empty(blocks[7].Instructions);
         Assert.Equal([s0], blocks[7].Predecessors);
 
-        var destNode = (Switch.CaseDestinationNode)s0.Body;
+        var destNode = typed;
         Assert.Empty(destNode.Predecessors);
         Assert.Equal([blocks[4]], destNode.Successors);
         Assert.Empty(blocks[4].Instructions);
-        Assert.Single(blocks[4].Successors);
-        Assert.IsType<BreakNode>(blocks[4].Successors[0]);
-        Assert.Single(blocks[4].Successors[0].Successors);
-        Assert.IsType<Switch.CaseDestinationNode>(blocks[4].Successors[0].Successors[0]);
+        var item_4 = Assert.Single(blocks[4].Successors);
+        Assert.IsType<BreakNode>(item_4);
+        var item_5 = Assert.Single(blocks[4].Successors[0].Successors);
+        Assert.IsType<Switch.CaseDestinationNode>(item_5);
         Assert.False(destNode.IsDefault);
 
         destNode = (Switch.CaseDestinationNode)blocks[4].Successors[0].Successors[0];
         Assert.Equal([blocks[5]], destNode.Successors);
         Assert.Empty(blocks[5].Instructions);
-        Assert.Single(blocks[5].Successors);
-        Assert.IsType<BreakNode>(blocks[5].Successors[0]);
-        Assert.IsType<Switch.CaseDestinationNode>(blocks[5].Successors[0].Successors[0]);
+        var item_6 = Assert.Single(blocks[5].Successors);
+        Assert.IsType<BreakNode>(item_6);
+        var typed_2 = Assert.IsType<Switch.CaseDestinationNode>(blocks[5].Successors[0].Successors[0]);
         Assert.True(destNode.IsDefault);
 
-        destNode = (Switch.CaseDestinationNode)blocks[5].Successors[0].Successors[0];
+        destNode = typed_2;
         Assert.Equal([blocks[6]], destNode.Successors);
         Assert.Empty(blocks[6].Instructions);
-        Assert.Single(blocks[6].Successors);
-        Assert.IsType<BreakNode>(blocks[6].Successors[0]);
+        var item_7 = Assert.Single(blocks[6].Successors);
+        Assert.IsType<BreakNode>(item_7);
         Assert.Empty(blocks[6].Successors[0].Successors);
         Assert.False(destNode.IsDefault);
 
@@ -1094,7 +1093,7 @@ public class Switch_InsertSwitchStatements
     [Fact]
     public void TestCasesDefaultBreaks3()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             # switch (a)
             # {
@@ -1139,26 +1138,26 @@ public class Switch_InsertSwitchStatements
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
-        List<Switch> switches = Switch.InsertSwitchStatements(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
+        var switches = Switch.InsertSwitchStatements(ctx);
 
-        Assert.Single(switches);
-        Switch s0 = switches[0];
+        var item = Assert.Single(switches);
+        var s0 = item;
 
         Assert.Equal(blocks[0], s0.Cases);
-        Assert.IsType<Switch.CaseDestinationNode>(s0.Body);
+        var typed = Assert.IsType<Switch.CaseDestinationNode>(s0.Body);
         Assert.Null(s0.EndCaseDestinations);
         Assert.Empty(blocks[0].Predecessors);
-        Assert.Single(blocks[0].Successors);
-        Assert.IsType<Switch.CaseJumpNode>(blocks[0].Successors[0]);
+        var item_2 = Assert.Single(blocks[0].Successors);
+        Assert.IsType<Switch.CaseJumpNode>(item_2);
         Assert.Equal([blocks[1]], blocks[0].Successors[0].Successors);
         Assert.Equal(3, blocks[0].Instructions.Count);
-        Assert.Single(blocks[1].Successors);
-        Assert.IsType<Switch.CaseJumpNode>(blocks[1].Successors[0]);
+        var item_3 = Assert.Single(blocks[1].Successors);
+        Assert.IsType<Switch.CaseJumpNode>(item_3);
         Assert.Empty(blocks[1].Successors[0].Successors);
         Assert.Equal(2, blocks[1].Instructions.Count);
         Assert.Empty(blocks[2].Instructions);
@@ -1172,29 +1171,29 @@ public class Switch_InsertSwitchStatements
         Assert.Empty(blocks[7].Instructions);
         Assert.Equal([s0], blocks[7].Predecessors);
 
-        var destNode = (Switch.CaseDestinationNode)s0.Body;
+        var destNode = typed;
         Assert.Empty(destNode.Predecessors);
         Assert.Equal([blocks[4]], destNode.Successors);
         Assert.Empty(blocks[4].Instructions);
-        Assert.Single(blocks[4].Successors);
-        Assert.IsType<BreakNode>(blocks[4].Successors[0]);
-        Assert.Single(blocks[4].Successors[0].Successors);
-        Assert.IsType<Switch.CaseDestinationNode>(blocks[4].Successors[0].Successors[0]);
+        var item_4 = Assert.Single(blocks[4].Successors);
+        Assert.IsType<BreakNode>(item_4);
+        var item_5 = Assert.Single(blocks[4].Successors[0].Successors);
+        Assert.IsType<Switch.CaseDestinationNode>(item_5);
         Assert.True(destNode.IsDefault);
 
         destNode = (Switch.CaseDestinationNode)blocks[4].Successors[0].Successors[0];
         Assert.Equal([blocks[5]], destNode.Successors);
         Assert.Empty(blocks[5].Instructions);
-        Assert.Single(blocks[5].Successors);
-        Assert.IsType<BreakNode>(blocks[5].Successors[0]);
-        Assert.IsType<Switch.CaseDestinationNode>(blocks[5].Successors[0].Successors[0]);
+        var item_6 = Assert.Single(blocks[5].Successors);
+        Assert.IsType<BreakNode>(item_6);
+        var typed_2 = Assert.IsType<Switch.CaseDestinationNode>(blocks[5].Successors[0].Successors[0]);
         Assert.False(destNode.IsDefault);
 
-        destNode = (Switch.CaseDestinationNode)blocks[5].Successors[0].Successors[0];
+        destNode = typed_2;
         Assert.Equal([blocks[6]], destNode.Successors);
         Assert.Empty(blocks[6].Instructions);
-        Assert.Single(blocks[6].Successors);
-        Assert.IsType<BreakNode>(blocks[6].Successors[0]);
+        var item_7 = Assert.Single(blocks[6].Successors);
+        Assert.IsType<BreakNode>(item_7);
         Assert.Empty(blocks[6].Successors[0].Successors);
         Assert.False(destNode.IsDefault);
 
@@ -1209,7 +1208,7 @@ public class Switch_InsertSwitchStatements
     [Fact]
     public void TestMultiCases()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             # switch (a)
             # {
@@ -1238,26 +1237,26 @@ public class Switch_InsertSwitchStatements
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
-        List<Switch> switches = Switch.InsertSwitchStatements(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
+        var switches = Switch.InsertSwitchStatements(ctx);
 
-        Assert.Single(switches);
-        Switch s0 = switches[0];
+        var item = Assert.Single(switches);
+        var s0 = item;
 
         Assert.Equal(blocks[0], s0.Cases);
         Assert.Null(s0.Body);
-        Assert.IsType<Switch.CaseDestinationNode>(s0.EndCaseDestinations);
+        var typed = Assert.IsType<Switch.CaseDestinationNode>(s0.EndCaseDestinations);
         Assert.Empty(blocks[0].Predecessors);
-        Assert.Single(blocks[0].Successors);
-        Assert.IsType<Switch.CaseJumpNode>(blocks[0].Successors[0]);
+        var item_2 = Assert.Single(blocks[0].Successors);
+        Assert.IsType<Switch.CaseJumpNode>(item_2);
         Assert.Equal([blocks[1]], blocks[0].Successors[0].Successors);
         Assert.Equal(3, blocks[0].Instructions.Count);
-        Assert.Single(blocks[1].Successors);
-        Assert.IsType<Switch.CaseJumpNode>(blocks[1].Successors[0]);
+        var item_3 = Assert.Single(blocks[1].Successors);
+        Assert.IsType<Switch.CaseJumpNode>(item_3);
         Assert.Empty(blocks[1].Successors[0].Successors);
         Assert.Equal(2, blocks[1].Instructions.Count);
 
@@ -1268,10 +1267,10 @@ public class Switch_InsertSwitchStatements
         Assert.Empty(blocks[3].Instructions);
         Assert.Equal([s0], blocks[3].Predecessors);
 
-        var destNode = (Switch.CaseDestinationNode)s0.EndCaseDestinations;
+        var destNode = typed;
         Assert.Empty(destNode.Predecessors);
-        Assert.Single(destNode.Successors);
-        Assert.IsType<Switch.CaseDestinationNode>(destNode.Successors[0]);
+        var item_4 = Assert.Single(destNode.Successors);
+        Assert.IsType<Switch.CaseDestinationNode>(item_4);
         Assert.False(destNode.IsDefault);
 
         destNode = (Switch.CaseDestinationNode)destNode.Successors[0];
@@ -1289,7 +1288,7 @@ public class Switch_InsertSwitchStatements
     [Fact]
     public void TestMultiCasesBreak()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             # switch (a)
             # {
@@ -1322,26 +1321,26 @@ public class Switch_InsertSwitchStatements
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
-        List<Switch> switches = Switch.InsertSwitchStatements(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
+        var switches = Switch.InsertSwitchStatements(ctx);
 
-        Assert.Single(switches);
-        Switch s0 = switches[0];
+        var item = Assert.Single(switches);
+        var s0 = item;
 
         Assert.Equal(blocks[0], s0.Cases);
-        Assert.IsType<Switch.CaseDestinationNode>(s0.Body);
+        var typed = Assert.IsType<Switch.CaseDestinationNode>(s0.Body);
         Assert.Null(s0.EndCaseDestinations);
         Assert.Empty(blocks[0].Predecessors);
-        Assert.Single(blocks[0].Successors);
-        Assert.IsType<Switch.CaseJumpNode>(blocks[0].Successors[0]);
+        var item_2 = Assert.Single(blocks[0].Successors);
+        Assert.IsType<Switch.CaseJumpNode>(item_2);
         Assert.Equal([blocks[1]], blocks[0].Successors[0].Successors);
         Assert.Equal(3, blocks[0].Instructions.Count);
-        Assert.Single(blocks[1].Successors);
-        Assert.IsType<Switch.CaseJumpNode>(blocks[1].Successors[0]);
+        var item_3 = Assert.Single(blocks[1].Successors);
+        Assert.IsType<Switch.CaseJumpNode>(item_3);
         Assert.Empty(blocks[1].Successors[0].Successors);
         Assert.Equal(2, blocks[1].Instructions.Count);
         Assert.Empty(blocks[2].Instructions);
@@ -1352,17 +1351,17 @@ public class Switch_InsertSwitchStatements
         Assert.Empty(blocks[4].Instructions);
         Assert.Equal([s0], blocks[4].Predecessors);
 
-        var destNode = (Switch.CaseDestinationNode)s0.Body;
+        var destNode = typed;
         Assert.Empty(destNode.Predecessors);
-        Assert.Single(destNode.Successors);
-        Assert.IsType<Switch.CaseDestinationNode>(destNode.Successors[0]);
+        var item_4 = Assert.Single(destNode.Successors);
+        Assert.IsType<Switch.CaseDestinationNode>(item_4);
         Assert.False(destNode.IsDefault);
 
         destNode = (Switch.CaseDestinationNode)destNode.Successors[0];
         Assert.Equal([blocks[3]], destNode.Successors);
         Assert.Empty(blocks[3].Instructions);
-        Assert.Single(blocks[3].Successors);
-        Assert.IsType<BreakNode>(blocks[3].Successors[0]);
+        var item_5 = Assert.Single(blocks[3].Successors);
+        Assert.IsType<BreakNode>(item_5);
         Assert.Empty(blocks[3].Successors[0].Successors);
         Assert.False(destNode.IsDefault);
 
@@ -1377,7 +1376,7 @@ public class Switch_InsertSwitchStatements
     [Fact]
     public void TestMultiCasesDefault()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             # switch (a)
             # {
@@ -1410,26 +1409,26 @@ public class Switch_InsertSwitchStatements
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
-        List<Switch> switches = Switch.InsertSwitchStatements(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
+        var switches = Switch.InsertSwitchStatements(ctx);
 
-        Assert.Single(switches);
-        Switch s0 = switches[0];
+        var item = Assert.Single(switches);
+        var s0 = item;
 
         Assert.Equal(blocks[0], s0.Cases);
         Assert.Null(s0.Body);
-        Assert.IsType<Switch.CaseDestinationNode>(s0.EndCaseDestinations);
+        var typed = Assert.IsType<Switch.CaseDestinationNode>(s0.EndCaseDestinations);
         Assert.Empty(blocks[0].Predecessors);
-        Assert.Single(blocks[0].Successors);
-        Assert.IsType<Switch.CaseJumpNode>(blocks[0].Successors[0]);
+        var item_2 = Assert.Single(blocks[0].Successors);
+        Assert.IsType<Switch.CaseJumpNode>(item_2);
         Assert.Equal([blocks[1]], blocks[0].Successors[0].Successors);
         Assert.Equal(3, blocks[0].Instructions.Count);
-        Assert.Single(blocks[1].Successors);
-        Assert.IsType<Switch.CaseJumpNode>(blocks[1].Successors[0]);
+        var item_3 = Assert.Single(blocks[1].Successors);
+        Assert.IsType<Switch.CaseJumpNode>(item_3);
         Assert.Empty(blocks[1].Successors[0].Successors);
         Assert.Equal(2, blocks[1].Instructions.Count);
 
@@ -1440,15 +1439,15 @@ public class Switch_InsertSwitchStatements
         Assert.Empty(blocks[4].Instructions);
         Assert.Equal([s0], blocks[4].Predecessors);
 
-        var destNode = (Switch.CaseDestinationNode)s0.EndCaseDestinations;
+        var destNode = typed;
         Assert.Empty(destNode.Predecessors);
-        Assert.Single(destNode.Successors);
-        Assert.IsType<Switch.CaseDestinationNode>(destNode.Successors[0]);
+        var item_4 = Assert.Single(destNode.Successors);
+        Assert.IsType<Switch.CaseDestinationNode>(item_4);
         Assert.False(destNode.IsDefault);
 
         destNode = (Switch.CaseDestinationNode)destNode.Successors[0];
-        Assert.Single(destNode.Successors);
-        Assert.IsType<Switch.CaseDestinationNode>(destNode.Successors[0]);
+        var item_5 = Assert.Single(destNode.Successors);
+        Assert.IsType<Switch.CaseDestinationNode>(item_5);
         Assert.False(destNode.IsDefault);
 
         destNode = (Switch.CaseDestinationNode)destNode.Successors[0];
@@ -1466,7 +1465,7 @@ public class Switch_InsertSwitchStatements
     [Fact]
     public void TestMultiCasesDefaultBreak()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             # switch (a)
             # {
@@ -1503,26 +1502,26 @@ public class Switch_InsertSwitchStatements
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
-        List<Switch> switches = Switch.InsertSwitchStatements(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
+        var switches = Switch.InsertSwitchStatements(ctx);
 
-        Assert.Single(switches);
-        Switch s0 = switches[0];
+        var item = Assert.Single(switches);
+        var s0 = item;
 
         Assert.Equal(blocks[0], s0.Cases);
-        Assert.IsType<Switch.CaseDestinationNode>(s0.Body);
+        var typed = Assert.IsType<Switch.CaseDestinationNode>(s0.Body);
         Assert.Null(s0.EndCaseDestinations);
         Assert.Empty(blocks[0].Predecessors);
-        Assert.Single(blocks[0].Successors);
-        Assert.IsType<Switch.CaseJumpNode>(blocks[0].Successors[0]);
+        var item_2 = Assert.Single(blocks[0].Successors);
+        Assert.IsType<Switch.CaseJumpNode>(item_2);
         Assert.Equal([blocks[1]], blocks[0].Successors[0].Successors);
         Assert.Equal(3, blocks[0].Instructions.Count);
-        Assert.Single(blocks[1].Successors);
-        Assert.IsType<Switch.CaseJumpNode>(blocks[1].Successors[0]);
+        var item_3 = Assert.Single(blocks[1].Successors);
+        Assert.IsType<Switch.CaseJumpNode>(item_3);
         Assert.Empty(blocks[1].Successors[0].Successors);
         Assert.Equal(2, blocks[1].Instructions.Count);
         Assert.Empty(blocks[2].Instructions);
@@ -1536,22 +1535,22 @@ public class Switch_InsertSwitchStatements
         Assert.Empty(blocks[5].Instructions);
         Assert.Equal([s0], blocks[5].Predecessors);
 
-        var destNode = (Switch.CaseDestinationNode)s0.Body;
+        var destNode = typed;
         Assert.Empty(destNode.Predecessors);
-        Assert.Single(destNode.Successors);
-        Assert.IsType<Switch.CaseDestinationNode>(destNode.Successors[0]);
+        var item_4 = Assert.Single(destNode.Successors);
+        Assert.IsType<Switch.CaseDestinationNode>(item_4);
         Assert.False(destNode.IsDefault);
 
         destNode = (Switch.CaseDestinationNode)destNode.Successors[0];
-        Assert.Single(destNode.Successors);
-        Assert.IsType<Switch.CaseDestinationNode>(destNode.Successors[0]);
+        var item_5 = Assert.Single(destNode.Successors);
+        Assert.IsType<Switch.CaseDestinationNode>(item_5);
         Assert.False(destNode.IsDefault);
 
         destNode = (Switch.CaseDestinationNode)destNode.Successors[0];
         Assert.Equal([blocks[4]], destNode.Successors);
         Assert.Empty(blocks[4].Instructions);
-        Assert.Single(blocks[4].Successors);
-        Assert.IsType<BreakNode>(blocks[4].Successors[0]);
+        var item_6 = Assert.Single(blocks[4].Successors);
+        Assert.IsType<BreakNode>(item_6);
         Assert.Empty(blocks[4].Successors[0].Successors);
         Assert.True(destNode.IsDefault);
 
@@ -1566,7 +1565,7 @@ public class Switch_InsertSwitchStatements
     [Fact]
     public void TestMultiCasesDefaultBreak2()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             # switch (a)
             # {
@@ -1614,30 +1613,30 @@ public class Switch_InsertSwitchStatements
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
-        List<Switch> switches = Switch.InsertSwitchStatements(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
+        var switches = Switch.InsertSwitchStatements(ctx);
 
-        Assert.Single(switches);
-        Switch s0 = switches[0];
+        var item = Assert.Single(switches);
+        var s0 = item;
 
         Assert.Equal(blocks[0], s0.Cases);
-        Assert.IsType<Switch.CaseDestinationNode>(s0.Body);
+        var typed = Assert.IsType<Switch.CaseDestinationNode>(s0.Body);
         Assert.Null(s0.EndCaseDestinations);
         Assert.Empty(blocks[0].Predecessors);
-        Assert.Single(blocks[0].Successors);
-        Assert.IsType<Switch.CaseJumpNode>(blocks[0].Successors[0]);
+        var item_2 = Assert.Single(blocks[0].Successors);
+        Assert.IsType<Switch.CaseJumpNode>(item_2);
         Assert.Equal([blocks[1]], blocks[0].Successors[0].Successors);
         Assert.Equal(3, blocks[0].Instructions.Count);
-        Assert.Single(blocks[1].Successors);
-        Assert.IsType<Switch.CaseJumpNode>(blocks[1].Successors[0]);
+        var item_3 = Assert.Single(blocks[1].Successors);
+        Assert.IsType<Switch.CaseJumpNode>(item_3);
         Assert.Equal([blocks[2]], blocks[1].Successors[0].Successors);
         Assert.Equal(2, blocks[1].Instructions.Count);
-        Assert.Single(blocks[2].Successors);
-        Assert.IsType<Switch.CaseJumpNode>(blocks[2].Successors[0]);
+        var item_4 = Assert.Single(blocks[2].Successors);
+        Assert.IsType<Switch.CaseJumpNode>(item_4);
         Assert.Empty(blocks[2].Successors[0].Successors);
         Assert.Equal(2, blocks[2].Instructions.Count);
         Assert.Empty(blocks[3].Instructions);
@@ -1651,30 +1650,30 @@ public class Switch_InsertSwitchStatements
         Assert.Empty(blocks[7].Instructions);
         Assert.Equal([s0], blocks[7].Predecessors);
 
-        var destNode = (Switch.CaseDestinationNode)s0.Body;
+        var destNode = typed;
         Assert.Empty(destNode.Predecessors);
-        Assert.Single(destNode.Successors);
-        Assert.IsType<Switch.CaseDestinationNode>(destNode.Successors[0]);
+        var item_5 = Assert.Single(destNode.Successors);
+        Assert.IsType<Switch.CaseDestinationNode>(item_5);
         Assert.False(destNode.IsDefault);
 
         destNode = (Switch.CaseDestinationNode)destNode.Successors[0];
         Assert.Equal([blocks[5]], destNode.Successors);
         Assert.Empty(blocks[5].Instructions);
-        Assert.Single(blocks[5].Successors);
-        Assert.IsType<BreakNode>(blocks[5].Successors[0]);
-        Assert.IsType<Switch.CaseDestinationNode>(blocks[5].Successors[0].Successors[0]);
+        var item_6 = Assert.Single(blocks[5].Successors);
+        Assert.IsType<BreakNode>(item_6);
+        var typed_2 = Assert.IsType<Switch.CaseDestinationNode>(blocks[5].Successors[0].Successors[0]);
         Assert.False(destNode.IsDefault);
 
-        destNode = (Switch.CaseDestinationNode)blocks[5].Successors[0].Successors[0];
-        Assert.Single(destNode.Successors);
-        Assert.IsType<Switch.CaseDestinationNode>(destNode.Successors[0]);
+        destNode = typed_2;
+        var item_7 = Assert.Single(destNode.Successors);
+        Assert.IsType<Switch.CaseDestinationNode>(item_7);
         Assert.False(destNode.IsDefault);
 
         destNode = (Switch.CaseDestinationNode)destNode.Successors[0];
         Assert.Equal([blocks[6]], destNode.Successors);
         Assert.Empty(blocks[6].Instructions);
-        Assert.Single(blocks[6].Successors);
-        Assert.IsType<BreakNode>(blocks[6].Successors[0]);
+        var item_8 = Assert.Single(blocks[6].Successors);
+        Assert.IsType<BreakNode>(item_8);
         Assert.Empty(blocks[6].Successors[0].Successors);
         Assert.True(destNode.IsDefault);
 
@@ -1689,7 +1688,7 @@ public class Switch_InsertSwitchStatements
     [Fact]
     public void TestMultiCasesDefaultBreak3()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             # switch (a)
             # {
@@ -1733,30 +1732,30 @@ public class Switch_InsertSwitchStatements
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
-        List<Switch> switches = Switch.InsertSwitchStatements(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
+        var switches = Switch.InsertSwitchStatements(ctx);
 
-        Assert.Single(switches);
-        Switch s0 = switches[0];
+        var item = Assert.Single(switches);
+        var s0 = item;
 
         Assert.Equal(blocks[0], s0.Cases);
-        Assert.IsType<Switch.CaseDestinationNode>(s0.Body);
-        Assert.IsType<Switch.CaseDestinationNode>(s0.EndCaseDestinations);
+        var typed = Assert.IsType<Switch.CaseDestinationNode>(s0.Body);
+        var typed_2 = Assert.IsType<Switch.CaseDestinationNode>(s0.EndCaseDestinations);
         Assert.Empty(blocks[0].Predecessors);
-        Assert.Single(blocks[0].Successors);
-        Assert.IsType<Switch.CaseJumpNode>(blocks[0].Successors[0]);
+        var item_2 = Assert.Single(blocks[0].Successors);
+        Assert.IsType<Switch.CaseJumpNode>(item_2);
         Assert.Equal([blocks[1]], blocks[0].Successors[0].Successors);
         Assert.Equal(3, blocks[0].Instructions.Count);
-        Assert.Single(blocks[1].Successors);
-        Assert.IsType<Switch.CaseJumpNode>(blocks[1].Successors[0]);
+        var item_3 = Assert.Single(blocks[1].Successors);
+        Assert.IsType<Switch.CaseJumpNode>(item_3);
         Assert.Equal([blocks[2]], blocks[1].Successors[0].Successors);
         Assert.Equal(2, blocks[1].Instructions.Count);
-        Assert.Single(blocks[2].Successors);
-        Assert.IsType<Switch.CaseJumpNode>(blocks[2].Successors[0]);
+        var item_4 = Assert.Single(blocks[2].Successors);
+        Assert.IsType<Switch.CaseJumpNode>(item_4);
         Assert.Empty(blocks[2].Successors[0].Successors);
         Assert.Equal(2, blocks[2].Instructions.Count);
         Assert.Empty(blocks[3].Instructions);
@@ -1770,23 +1769,23 @@ public class Switch_InsertSwitchStatements
         Assert.Empty(blocks[6].Instructions);
         Assert.Equal([s0], blocks[6].Predecessors);
 
-        var destNode = (Switch.CaseDestinationNode)s0.Body;
+        var destNode = typed;
         Assert.Empty(destNode.Predecessors);
-        Assert.Single(destNode.Successors);
-        Assert.IsType<Switch.CaseDestinationNode>(destNode.Successors[0]);
+        var item_5 = Assert.Single(destNode.Successors);
+        Assert.IsType<Switch.CaseDestinationNode>(item_5);
         Assert.False(destNode.IsDefault);
 
         destNode = (Switch.CaseDestinationNode)destNode.Successors[0];
         Assert.Equal([blocks[5]], destNode.Successors);
         Assert.Empty(blocks[5].Instructions);
-        Assert.Single(blocks[5].Successors);
-        Assert.IsType<BreakNode>(blocks[5].Successors[0]);
+        var item_6 = Assert.Single(blocks[5].Successors);
+        Assert.IsType<BreakNode>(item_6);
         Assert.Empty(blocks[5].Successors[0].Successors);
         Assert.False(destNode.IsDefault);
 
-        destNode = (Switch.CaseDestinationNode)s0.EndCaseDestinations;
-        Assert.Single(destNode.Successors);
-        Assert.IsType<Switch.CaseDestinationNode>(destNode.Successors[0]);
+        destNode = typed_2;
+        var item_7 = Assert.Single(destNode.Successors);
+        Assert.IsType<Switch.CaseDestinationNode>(item_7);
         Assert.False(destNode.IsDefault);
 
         destNode = (Switch.CaseDestinationNode)destNode.Successors[0];
@@ -1804,7 +1803,7 @@ public class Switch_InsertSwitchStatements
     [Fact]
     public void TestCaseNonConstant()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             # switch (a)
             # {
@@ -1844,22 +1843,22 @@ public class Switch_InsertSwitchStatements
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
-        List<Switch> switches = Switch.InsertSwitchStatements(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
+        var switches = Switch.InsertSwitchStatements(ctx);
 
-        Assert.Single(switches);
-        Switch s0 = switches[0];
+        var item = Assert.Single(switches);
+        var s0 = item;
 
         Assert.Equal(blocks[3], s0.Cases);
-        Assert.IsType<Switch.CaseDestinationNode>(s0.Body);
+        var typed = Assert.IsType<Switch.CaseDestinationNode>(s0.Body);
         Assert.Null(s0.EndCaseDestinations);
         Assert.Empty(blocks[3].Predecessors);
-        Assert.Single(blocks[3].Successors);
-        Assert.IsType<Switch.CaseJumpNode>(blocks[3].Successors[0]);
+        var item_2 = Assert.Single(blocks[3].Successors);
+        Assert.IsType<Switch.CaseJumpNode>(item_2);
         Assert.Empty(blocks[3].Successors[0].Successors);
         Assert.Equal(2, blocks[3].Instructions.Count);
 
@@ -1871,12 +1870,12 @@ public class Switch_InsertSwitchStatements
         Assert.Empty(blocks[6].Instructions);
         Assert.Equal([s0], blocks[6].Predecessors);
 
-        var destNode = (Switch.CaseDestinationNode)s0.Body;
+        var destNode = typed;
         Assert.Empty(destNode.Predecessors);
         Assert.Equal([blocks[5]], destNode.Successors);
         Assert.Empty(blocks[5].Instructions);
-        Assert.Single(blocks[5].Successors);
-        Assert.IsType<BreakNode>(blocks[5].Successors[0]);
+        var item_3 = Assert.Single(blocks[5].Successors);
+        Assert.IsType<BreakNode>(item_3);
         Assert.Empty(blocks[5].Successors[0].Successors);
         Assert.False(destNode.IsDefault);
 
@@ -1891,7 +1890,7 @@ public class Switch_InsertSwitchStatements
     [Fact]
     public void TestCasesNonConstant()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             # switch (a)
             # {
@@ -1956,27 +1955,27 @@ public class Switch_InsertSwitchStatements
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
-        List<Switch> switches = Switch.InsertSwitchStatements(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
+        var switches = Switch.InsertSwitchStatements(ctx);
 
-        Assert.Single(switches);
-        Switch s0 = switches[0];
+        var item = Assert.Single(switches);
+        var s0 = item;
 
         Assert.Equal(blocks[3], s0.Cases);
-        Assert.IsType<Switch.CaseDestinationNode>(s0.Body);
+        var typed = Assert.IsType<Switch.CaseDestinationNode>(s0.Body);
         Assert.Null(s0.EndCaseDestinations);
         Assert.Empty(blocks[3].Predecessors);
-        Assert.Single(blocks[3].Successors);
-        Assert.IsType<Switch.CaseJumpNode>(blocks[3].Successors[0]);
+        var item_2 = Assert.Single(blocks[3].Successors);
+        Assert.IsType<Switch.CaseJumpNode>(item_2);
         Assert.Equal([branches[1]], blocks[3].Successors[0].Successors);
         Assert.Equal(2, blocks[3].Instructions.Count);
         Assert.Equal([blocks[7]], branches[1].Successors);
-        Assert.Single(blocks[7].Successors);
-        Assert.IsType<Switch.CaseJumpNode>(blocks[7].Successors[0]);
+        var item_3 = Assert.Single(blocks[7].Successors);
+        Assert.IsType<Switch.CaseJumpNode>(item_3);
         Assert.Empty(blocks[7].Successors[0].Successors);
         Assert.Equal(2, blocks[7].Instructions.Count);
 
@@ -1987,21 +1986,21 @@ public class Switch_InsertSwitchStatements
         Assert.Empty(blocks[11].Instructions);
         Assert.Equal([s0], blocks[11].Predecessors);
 
-        var destNode = (Switch.CaseDestinationNode)s0.Body;
+        var destNode = typed;
         Assert.Empty(destNode.Predecessors);
         Assert.Equal([blocks[9]], destNode.Successors);
         Assert.Empty(blocks[9].Instructions);
-        Assert.Single(blocks[9].Successors);
-        Assert.IsType<BreakNode>(blocks[9].Successors[0]);
-        Assert.Single(blocks[9].Successors[0].Successors);
-        Assert.IsType<Switch.CaseDestinationNode>(blocks[9].Successors[0].Successors[0]);
+        var item_4 = Assert.Single(blocks[9].Successors);
+        Assert.IsType<BreakNode>(item_4);
+        var item_5 = Assert.Single(blocks[9].Successors[0].Successors);
+        Assert.IsType<Switch.CaseDestinationNode>(item_5);
         Assert.False(destNode.IsDefault);
 
         destNode = (Switch.CaseDestinationNode)blocks[9].Successors[0].Successors[0];
         Assert.Equal([blocks[10]], destNode.Successors);
         Assert.Empty(blocks[10].Instructions);
-        Assert.Single(blocks[10].Successors);
-        Assert.IsType<BreakNode>(blocks[10].Successors[0]);
+        var item_6 = Assert.Single(blocks[10].Successors);
+        Assert.IsType<BreakNode>(item_6);
         Assert.Empty(blocks[10].Successors[0].Successors);
         Assert.False(destNode.IsDefault);
 
@@ -2017,7 +2016,7 @@ public class Switch_InsertSwitchStatements
     public void TestDoubleEmpty()
     {
         // NOTE: GameMaker itself can't generate this, but modding tools can
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             # switch (a) { }
             # switch (b) { }
@@ -2036,16 +2035,16 @@ public class Switch_InsertSwitchStatements
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
-        List<Switch> switches = Switch.InsertSwitchStatements(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
+        var switches = Switch.InsertSwitchStatements(ctx);
 
         Assert.Equal(2, switches.Count);
-        Switch s0 = switches[0];
-        Switch s1 = switches[1];
+        var s0 = switches[0];
+        var s1 = switches[1];
 
         Assert.Equal(s0, fragments[0].Children[0]);
         Assert.Equal(blocks[0], s0.Cases);
@@ -2076,7 +2075,7 @@ public class Switch_InsertSwitchStatements
     [Fact]
     public void TestDoubleDefault()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             # switch (a) { default: }
             # switch (b) { default: }
@@ -2101,22 +2100,22 @@ public class Switch_InsertSwitchStatements
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
-        List<Switch> switches = Switch.InsertSwitchStatements(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
+        var switches = Switch.InsertSwitchStatements(ctx);
 
         Assert.Equal(2, switches.Count);
-        Switch s0 = switches[0];
-        Switch s1 = switches[1];
+        var s0 = switches[0];
+        var s1 = switches[1];
 
         Assert.Equal(s0, fragments[0].Children[0]);
         Assert.Equal(blocks[0], s0.Cases);
         Assert.Null(s0.Body);
-        Assert.IsType<Switch.CaseDestinationNode>(s0.EndCaseDestinations);
-        var destNode = (Switch.CaseDestinationNode)s0.EndCaseDestinations;
+        var typed = Assert.IsType<Switch.CaseDestinationNode>(s0.EndCaseDestinations);
+        var destNode = typed;
         Assert.Empty(destNode.Predecessors);
         Assert.Empty(destNode.Successors);
         Assert.True(destNode.IsDefault);
@@ -2130,8 +2129,8 @@ public class Switch_InsertSwitchStatements
         Assert.Equal([s0], s1.Predecessors);
         Assert.Equal(blocks[2], s1.Cases);
         Assert.Null(s1.Body);
-        Assert.IsType<Switch.CaseDestinationNode>(s1.EndCaseDestinations);
-        destNode = (Switch.CaseDestinationNode)s1.EndCaseDestinations;
+        var typed_2 = Assert.IsType<Switch.CaseDestinationNode>(s1.EndCaseDestinations);
+        destNode = typed_2;
         Assert.Empty(destNode.Predecessors);
         Assert.Empty(destNode.Successors);
         Assert.True(destNode.IsDefault);
@@ -2155,7 +2154,7 @@ public class Switch_InsertSwitchStatements
     [Fact]
     public void TestDoubleNonConstant()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             # switch (a) { case b[c ? d : e]: }
             # switch (f) { case g[h ? i : j]: }
@@ -2214,29 +2213,29 @@ public class Switch_InsertSwitchStatements
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
-        List<Switch> switches = Switch.InsertSwitchStatements(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
+        var switches = Switch.InsertSwitchStatements(ctx);
 
         Assert.Equal(2, switches.Count);
-        Switch s0 = switches[0];
-        Switch s1 = switches[1];
+        var s0 = switches[0];
+        var s1 = switches[1];
 
         Assert.Equal(branches[0], fragments[0].Children[0]);
         Assert.Equal([s0], branches[0].Successors);
         Assert.Equal(blocks[3], s0.Cases);
         Assert.Null(s0.Body);
-        Assert.IsType<Switch.CaseDestinationNode>(s0.EndCaseDestinations);
-        var destNode = (Switch.CaseDestinationNode)s0.EndCaseDestinations;
+        var typed = Assert.IsType<Switch.CaseDestinationNode>(s0.EndCaseDestinations);
+        var destNode = typed;
         Assert.Empty(destNode.Predecessors);
         Assert.Empty(destNode.Successors);
         Assert.False(destNode.IsDefault);
         Assert.Empty(blocks[3].Predecessors);
-        Assert.Single(blocks[3].Successors);
-        Assert.IsType<Switch.CaseJumpNode>(blocks[3].Successors[0]);
+        var item = Assert.Single(blocks[3].Successors);
+        Assert.IsType<Switch.CaseJumpNode>(item);
         Assert.Empty(blocks[3].Successors[0].Successors);
         Assert.Equal(2, blocks[3].Instructions.Count);
         Assert.Empty(blocks[4].Predecessors);
@@ -2246,14 +2245,14 @@ public class Switch_InsertSwitchStatements
         Assert.Equal([branches[1]], s1.Predecessors);
         Assert.Equal(blocks[8], s1.Cases);
         Assert.Null(s1.Body);
-        Assert.IsType<Switch.CaseDestinationNode>(s1.EndCaseDestinations);
-        destNode = (Switch.CaseDestinationNode)s1.EndCaseDestinations;
+        var typed_2 = Assert.IsType<Switch.CaseDestinationNode>(s1.EndCaseDestinations);
+        destNode = typed_2;
         Assert.Empty(destNode.Predecessors);
         Assert.Empty(destNode.Successors);
         Assert.False(destNode.IsDefault);
         Assert.Empty(blocks[8].Predecessors);
-        Assert.Single(blocks[8].Successors);
-        Assert.IsType<Switch.CaseJumpNode>(blocks[8].Successors[0]);
+        var item_2 = Assert.Single(blocks[8].Successors);
+        Assert.IsType<Switch.CaseJumpNode>(item_2);
         Assert.Empty(blocks[8].Successors[0].Successors);
         Assert.Equal(2, blocks[8].Instructions.Count);
         Assert.Empty(blocks[9].Predecessors);
@@ -2273,7 +2272,7 @@ public class Switch_InsertSwitchStatements
     [Fact]
     public void Test2CasesReturns()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             # switch (a)
             # {
@@ -2320,26 +2319,26 @@ public class Switch_InsertSwitchStatements
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
-        List<Switch> switches = Switch.InsertSwitchStatements(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
+        var switches = Switch.InsertSwitchStatements(ctx);
 
-        Assert.Single(switches);
-        Switch s0 = switches[0];
+        var item = Assert.Single(switches);
+        var s0 = item;
 
         Assert.Equal(blocks[0], s0.Cases);
-        Assert.IsType<Switch.CaseDestinationNode>(s0.Body);
+        var typed = Assert.IsType<Switch.CaseDestinationNode>(s0.Body);
         Assert.Null(s0.EndCaseDestinations);
         Assert.Empty(blocks[0].Predecessors);
-        Assert.Single(blocks[0].Successors);
-        Assert.IsType<Switch.CaseJumpNode>(blocks[0].Successors[0]);
+        var item_2 = Assert.Single(blocks[0].Successors);
+        Assert.IsType<Switch.CaseJumpNode>(item_2);
         Assert.Equal([blocks[1]], blocks[0].Successors[0].Successors);
         Assert.Equal(3, blocks[0].Instructions.Count);
-        Assert.Single(blocks[1].Successors);
-        Assert.IsType<Switch.CaseJumpNode>(blocks[1].Successors[0]);
+        var item_3 = Assert.Single(blocks[1].Successors);
+        Assert.IsType<Switch.CaseJumpNode>(item_3);
         Assert.Empty(blocks[1].Successors[0].Successors);
         Assert.Equal(2, blocks[1].Instructions.Count);
 
@@ -2350,21 +2349,21 @@ public class Switch_InsertSwitchStatements
         Assert.Empty(blocks[5].Instructions);
         Assert.Equal([s0], blocks[5].Predecessors);
 
-        var destNode = (Switch.CaseDestinationNode)s0.Body;
+        var destNode = typed;
         Assert.Empty(destNode.Predecessors);
         Assert.Equal([blocks[3]], destNode.Successors);
         Assert.Equal(5, blocks[3].Instructions.Count);
-        Assert.Single(blocks[3].Successors);
-        Assert.IsType<ReturnNode>(blocks[3].Successors[0]);
-        Assert.Single(blocks[3].Successors[0].Successors);
-        Assert.IsType<Switch.CaseDestinationNode>(blocks[3].Successors[0].Successors[0]);
+        var item_4 = Assert.Single(blocks[3].Successors);
+        Assert.IsType<ReturnNode>(item_4);
+        var item_5 = Assert.Single(blocks[3].Successors[0].Successors);
+        Assert.IsType<Switch.CaseDestinationNode>(item_5);
         Assert.False(destNode.IsDefault);
 
         destNode = (Switch.CaseDestinationNode)blocks[3].Successors[0].Successors[0];
         Assert.Equal([blocks[4]], destNode.Successors);
         Assert.Equal(5, blocks[4].Instructions.Count);
-        Assert.Single(blocks[4].Successors);
-        Assert.IsType<ReturnNode>(blocks[4].Successors[0]);
+        var item_6 = Assert.Single(blocks[4].Successors);
+        Assert.IsType<ReturnNode>(item_6);
         Assert.Empty(blocks[4].Successors[0].Successors);
         Assert.False(destNode.IsDefault);
 
@@ -2379,7 +2378,7 @@ public class Switch_InsertSwitchStatements
     [Fact]
     public void TestNested()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             # switch (a)
             # {
@@ -2417,23 +2416,23 @@ public class Switch_InsertSwitchStatements
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
-        List<Switch> switches = Switch.InsertSwitchStatements(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
+        var switches = Switch.InsertSwitchStatements(ctx);
 
         Assert.Equal(2, switches.Count);
-        Switch s0 = switches[0]; // outer
-        Switch s1 = switches[1]; // inner
+        var s0 = switches[0]; // outer
+        var s1 = switches[1]; // inner
 
         Assert.Equal(blocks[0], s0.Cases);
-        Assert.IsType<Switch.CaseDestinationNode>(s0.Body);
+        var typed = Assert.IsType<Switch.CaseDestinationNode>(s0.Body);
         Assert.Null(s0.EndCaseDestinations);
         Assert.Empty(blocks[0].Predecessors);
-        Assert.Single(blocks[0].Successors);
-        Assert.IsType<Switch.CaseJumpNode>(blocks[0].Successors[0]);
+        var item = Assert.Single(blocks[0].Successors);
+        Assert.IsType<Switch.CaseJumpNode>(item);
         Assert.Empty(blocks[0].Successors[0].Successors);
         Assert.Equal(3, blocks[0].Instructions.Count);
 
@@ -2444,18 +2443,18 @@ public class Switch_InsertSwitchStatements
         Assert.Empty(blocks[5].Instructions);
         Assert.Equal([s0], blocks[5].Predecessors);
 
-        var destNode = (Switch.CaseDestinationNode)s0.Body;
+        var destNode = typed;
         Assert.Empty(destNode.Predecessors);
         Assert.Equal([s1], destNode.Successors);
         Assert.Equal([blocks[4]], s1.Successors);
-        Assert.Single(blocks[4].Successors);
-        Assert.IsType<BreakNode>(blocks[4].Successors[0]);
+        var item_2 = Assert.Single(blocks[4].Successors);
+        Assert.IsType<BreakNode>(item_2);
         Assert.Empty(blocks[4].Successors[0].Successors);
         Assert.False(destNode.IsDefault);
 
         Assert.Equal(blocks[2], s1.Cases);
         Assert.Null(s1.Body);
-        Assert.IsType<Switch.CaseDestinationNode>(s1.EndCaseDestinations);
+        var typed_2 = Assert.IsType<Switch.CaseDestinationNode>(s1.EndCaseDestinations);
         Assert.Empty(blocks[2].Predecessors);
         Assert.Empty(blocks[2].Successors);
 
@@ -2463,7 +2462,7 @@ public class Switch_InsertSwitchStatements
         Assert.Empty(blocks[3].Predecessors);
         Assert.Empty(blocks[3].Successors);
 
-        destNode = (Switch.CaseDestinationNode)s1.EndCaseDestinations;
+        destNode = typed_2;
         Assert.Empty(destNode.Predecessors);
         Assert.Empty(destNode.Successors);
         Assert.True(destNode.IsDefault);

@@ -1,8 +1,5 @@
-using Microsoft.CodeAnalysis;
-using System;
 using G3MLib.DataFile.Project;
 using G3MLib.DataFile.Project.SerializableAssets;
-using static G3MLib.DataFile.Models.GameMakerSprite;
 
 namespace G3MLib.DataFile.Models;
 
@@ -29,12 +26,14 @@ public class GameMakerShader : GameMakerNamedResource, IProjectAsset, IDisposabl
         /// <inheritdoc />
         public void Serialize(GameMakerWriter writer)
         {
+            ArgumentNullException.ThrowIfNull(writer);
             writer.WriteGameMakerString(Name);
         }
 
         /// <inheritdoc />
         public void Unserialize(GameMakerReader reader)
         {
+            ArgumentNullException.ThrowIfNull(reader);
             Name = reader.ReadGameMakerString();
         }
 
@@ -137,7 +136,7 @@ public class GameMakerShader : GameMakerNamedResource, IProjectAsset, IDisposabl
     /// <summary>
     /// A list of Vertex Shader attributes this shader uses.
     /// </summary>
-    public GameMakerSimpleList<VertexShaderAttribute> VertexShaderAttributes { get; set; } = new GameMakerSimpleList<VertexShaderAttribute>();
+    public GameMakerSimpleList<VertexShaderAttribute> VertexShaderAttributes { get; set; } = [];
 
     /// <summary>
     /// Initializes a new instance of <see cref="GameMakerShader"/>.
@@ -191,7 +190,7 @@ public class GameMakerShader : GameMakerNamedResource, IProjectAsset, IDisposabl
         Cg_PSVita_PixelData = null;
         Cg_PS3_VertexData = null;
         Cg_PS3_PixelData = null;
-        VertexShaderAttributes = new();
+        VertexShaderAttributes = [];
     }
 
     private static void WritePadding(GameMakerWriter writer, int amount)
@@ -214,6 +213,7 @@ public class GameMakerShader : GameMakerNamedResource, IProjectAsset, IDisposabl
     /// <inheritdoc />
     public void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         writer.WriteGameMakerString(Name);
         writer.Write((uint)Type | 0x80000000u);
 
@@ -313,6 +313,7 @@ public class GameMakerShader : GameMakerNamedResource, IProjectAsset, IDisposabl
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         Name = reader.ReadGameMakerString();
         Type = (ShaderType)(reader.ReadUInt32() & 0x7FFFFFFFu);
 
@@ -363,7 +364,7 @@ public class GameMakerShader : GameMakerNamedResource, IProjectAsset, IDisposabl
                 next = HLSL11_PixelData._Position;
             else
                 next = EntryEnd;
-            int length = (int)(next - reader.AbsPosition);
+            var length = (int)(next - reader.AbsPosition);
             HLSL11_VertexData.ReadData(reader, length, HLSL11_PixelData.IsNull);
         }
         if (!HLSL11_PixelData.IsNull)
@@ -376,7 +377,7 @@ public class GameMakerShader : GameMakerNamedResource, IProjectAsset, IDisposabl
                 next = PSSL_VertexData._Position;
             else
                 next = EntryEnd;
-            int length = (int)(next - reader.AbsPosition);
+            var length = (int)(next - reader.AbsPosition);
             HLSL11_PixelData.ReadData(reader, length, PSSL_VertexData.IsNull);
         }
 
@@ -390,7 +391,7 @@ public class GameMakerShader : GameMakerNamedResource, IProjectAsset, IDisposabl
                 next = PSSL_PixelData._Position;
             else
                 next = EntryEnd;
-            int length = (int)(next - reader.AbsPosition);
+            var length = (int)(next - reader.AbsPosition);
             PSSL_VertexData.ReadData(reader, length, PSSL_PixelData.IsNull);
         }
         if (!PSSL_PixelData.IsNull)
@@ -403,7 +404,7 @@ public class GameMakerShader : GameMakerNamedResource, IProjectAsset, IDisposabl
                 next = Cg_PSVita_VertexData._Position;
             else
                 next = EntryEnd;
-            int length = (int)(next - reader.AbsPosition);
+            var length = (int)(next - reader.AbsPosition);
             PSSL_PixelData.ReadData(reader, length, Cg_PSVita_VertexData.IsNull);
         }
 
@@ -417,7 +418,7 @@ public class GameMakerShader : GameMakerNamedResource, IProjectAsset, IDisposabl
                 next = Cg_PSVita_PixelData._Position;
             else
                 next = EntryEnd;
-            int length = (int)(next - reader.AbsPosition);
+            var length = (int)(next - reader.AbsPosition);
             Cg_PSVita_VertexData.ReadData(reader, length, Cg_PSVita_PixelData.IsNull);
         }
         if (!Cg_PSVita_PixelData.IsNull)
@@ -430,7 +431,7 @@ public class GameMakerShader : GameMakerNamedResource, IProjectAsset, IDisposabl
                 next = Cg_PS3_VertexData._Position;
             else
                 next = EntryEnd;
-            int length = (int)(next - reader.AbsPosition);
+            var length = (int)(next - reader.AbsPosition);
             Cg_PSVita_PixelData.ReadData(reader, length, Cg_PS3_VertexData.IsNull);
         }
 
@@ -446,7 +447,7 @@ public class GameMakerShader : GameMakerNamedResource, IProjectAsset, IDisposabl
                     next = Cg_PS3_PixelData._Position;
                 else
                     next = EntryEnd;
-                int length = (int)(next - reader.AbsPosition);
+                var length = (int)(next - reader.AbsPosition);
                 Cg_PS3_VertexData.ReadData(reader, length, Cg_PS3_PixelData.IsNull);
             }
             if (!Cg_PS3_PixelData.IsNull)
@@ -454,8 +455,8 @@ public class GameMakerShader : GameMakerNamedResource, IProjectAsset, IDisposabl
                 ReadPadding(reader, 15);
 
                 // Calculate length of data
-                uint next = EntryEnd; // final possible data, nothing else to check for
-                int length = (int)(next - reader.AbsPosition);
+                var next = EntryEnd; // final possible data, nothing else to check for
+                var length = (int)(next - reader.AbsPosition);
                 Cg_PS3_PixelData.ReadData(reader, length, true);
             }
         }
@@ -464,6 +465,7 @@ public class GameMakerShader : GameMakerNamedResource, IProjectAsset, IDisposabl
     /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
     public static uint UnserializeChildObjectCount(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         reader.Position += 40;
 
         // Since shaders are stored in a pointer list, and there are no
@@ -522,6 +524,7 @@ public class GameMakerShader : GameMakerNamedResource, IProjectAsset, IDisposabl
 
         public void Serialize(GameMakerWriter writer, bool writeLength = true)
         {
+            ArgumentNullException.ThrowIfNull(writer);
             _PointerLocation = writer.Position;
 
             // This value is *very important*, as this is the default and is commonly used
@@ -533,6 +536,7 @@ public class GameMakerShader : GameMakerNamedResource, IProjectAsset, IDisposabl
 
         public void Unserialize(GameMakerReader reader, bool readLength = true)
         {
+            ArgumentNullException.ThrowIfNull(reader);
             _PointerLocation = (uint)reader.AbsPosition;
             _Position = reader.ReadUInt32();
             if (readLength)
@@ -540,7 +544,7 @@ public class GameMakerShader : GameMakerNamedResource, IProjectAsset, IDisposabl
             else
                 _Length = 0;
 
-            IsNull = (_Position == 0x00000000u);
+            IsNull = _Position == 0x00000000u;
             if (IsNull)
             {
                 _Length = 0;
@@ -550,6 +554,7 @@ public class GameMakerShader : GameMakerNamedResource, IProjectAsset, IDisposabl
 
         public void WriteData(GameMakerWriter writer)
         {
+            ArgumentNullException.ThrowIfNull(writer);
             // Technically should not happen
             if (IsNull)
                 throw new GameMakerSerializationException("Cannot write null shader data");
@@ -565,17 +570,18 @@ public class GameMakerShader : GameMakerNamedResource, IProjectAsset, IDisposabl
 
         public void ReadData(GameMakerReader reader, int length, bool isLast = false)
         {
+            ArgumentNullException.ThrowIfNull(reader);
             if (_Length != 0) // _Length is the "expected" length here
             {
                 if (_Length > length)
                     throw new GameMakerSerializationException("Failed to compute length of shader data: instructed to read less data than expected.");
                 else if (_Length < length)
                 {
-                    if (isLast && ((reader.AbsPosition + length) % 16) == 0) // Normal for the last element due to chunk padding, just trust the system
+                    if (isLast && (reader.AbsPosition + length) % 16 == 0) // Normal for the last element due to chunk padding, just trust the system
                     {
                         length = (int)_Length;
                     }
-                    else if (!isLast && ((reader.AbsPosition + length) % 8) == 0) // Normal for 8-byte alignment to occur on all elements prior to the last one
+                    else if (!isLast && (reader.AbsPosition + length) % 8 == 0) // Normal for 8-byte alignment to occur on all elements prior to the last one
                     {
                         length = (int)_Length;
                     }
@@ -604,7 +610,7 @@ public class GameMakerShader : GameMakerNamedResource, IProjectAsset, IDisposabl
     ISerializableProjectAsset IProjectAsset.GenerateSerializableProjectAsset(ProjectContext projectContext)
     {
         SerializableShader serializable = new();
-        serializable.PopulateFromData(projectContext, this);
+        serializable.PopulateFromData(this);
         return serializable;
     }
 

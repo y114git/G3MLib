@@ -4,8 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
-using System.Linq.Expressions;
 using G3MLib.Analyzer.Compiler.Bytecode;
 using G3MLib.Analyzer.Compiler.Lexer;
 using G3MLib.Analyzer.Compiler.Parser;
@@ -80,7 +78,7 @@ internal sealed class DotVariableNode : IAssignableASTNode, IVariableASTNode
             SimpleVariableNode combined = new(VariableName, BuiltinVariable);
 
             // If value is over 100000, that's an instance ID, so subtract the base ID
-            int intValue = (int)numberValue;
+            var intValue = (int)numberValue;
             if (intValue >= 100000)
             {
                 intValue -= 100000;
@@ -88,7 +86,7 @@ internal sealed class DotVariableNode : IAssignableASTNode, IVariableASTNode
             }
 
             // Wrap around as a signed 16-bit integer as well
-            short shortValue = (short)intValue;
+            var shortValue = (short)intValue;
 
             combined.SetExplicitInstanceType((InstanceType)shortValue);
             combined.CollapsedFromDot = true;
@@ -112,16 +110,16 @@ internal sealed class DotVariableNode : IAssignableASTNode, IVariableASTNode
         if (LeftExpression is SimpleVariableNode { VariableName: string enumName })
         {
             // Check parse enums for a constant value first
-            if (context.ParseEnums.TryGetValue(enumName, out EnumDeclaration? parseDecl) &&
-                parseDecl.IntegerValues.TryGetValue(VariableName, out long parseValue))
+            if (context.ParseEnums.TryGetValue(enumName, out var parseDecl) &&
+                parseDecl.IntegerValues.TryGetValue(VariableName, out var parseValue))
             {
                 return new Int64Node(parseValue, NearbyToken);
             }
 
             // Check fully-resolved enums as well (and enforce error checking here)
-            if (context.CompileContext.Enums.TryGetValue(enumName, out GMEnum? decl))
+            if (context.CompileContext.Enums.TryGetValue(enumName, out var decl))
             {
-                if (decl.TryGetValue(VariableName, out long value))
+                if (decl.TryGetValue(VariableName, out var value))
                 {
                     return new Int64Node(value, NearbyToken);
                 }
@@ -184,7 +182,7 @@ internal sealed class DotVariableNode : IAssignableASTNode, IVariableASTNode
     {
         // Generate push for left side, and convert it to an instance ID
         LeftExpression.GenerateCode(context);
-        InstanceConversionType conversionType = context.ConvertToInstanceId();
+        var conversionType = context.ConvertToInstanceId();
 
         // Duplicate instance ID so it can be stored back to later
         if (conversionType == InstanceConversionType.StacktopId)
@@ -248,7 +246,7 @@ internal sealed class DotVariableNode : IAssignableASTNode, IVariableASTNode
     {
         // Generate push for left side, and convert it to an instance ID
         LeftExpression.GenerateCode(context);
-        InstanceConversionType conversionType = context.ConvertToInstanceId();
+        var conversionType = context.ConvertToInstanceId();
 
         // Duplicate instance ID so it can be stored back to later
         if (conversionType == InstanceConversionType.StacktopId)

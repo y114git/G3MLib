@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Decompiler.ControlFlow;
 using static G3MLib.Analyzer.IGMInstruction;
 
@@ -19,7 +18,7 @@ public interface IFragmentNode : IStatementNode
     /// Context for this fragment. Includes information on struct arguments, locals, etc.
     /// Note that for function declaration/struct nodes, it is often their inner block that has a new context.
     /// </summary>
-    public ASTFragmentContext FragmentContext { get; }
+    ASTFragmentContext FragmentContext { get; }
 
     /// <summary>
     /// Creates and builds new AST fragment node from the given control flow fragment.
@@ -30,7 +29,7 @@ public interface IFragmentNode : IStatementNode
         // If we're at the root level, just use a block!
         if (fragment.StartAddress == 0)
         {
-            BlockNode block = builder.BuildBlock(fragment.Children[0]);
+            var block = builder.BuildBlock(fragment.Children[0]);
             block.UseBraces = false;
             block.AddBlockLocalVarDecl(builder.Context);
             return block;
@@ -38,7 +37,7 @@ public interface IFragmentNode : IStatementNode
 
         // Ensure we have a block after this fragment, so we can determine what it is
         if (fragment.Successors.Count != 1 ||
-            !builder.Context.BlocksByAddress!.TryGetValue(fragment.Successors[0].StartAddress, out Block? followingBlock))
+            !builder.Context.BlocksByAddress.TryGetValue(fragment.Successors[0].StartAddress, out var followingBlock))
         {
             throw new DecompilerException("Expected block after fragment");
         }
@@ -57,7 +56,7 @@ public interface IFragmentNode : IStatementNode
         }
 
         // Ensure conv instruction exists
-        if (followingBlock.Instructions[1] is not { Kind: Opcode.Convert, Type1: DataType.Int32, Type2: DataType.Variable})
+        if (followingBlock.Instructions[1] is not { Kind: Opcode.Convert, Type1: DataType.Int32, Type2: DataType.Variable })
         {
             throw new DecompilerException("Expected conv.i.v instruction after fragment");
         }
@@ -70,9 +69,9 @@ public interface IFragmentNode : IStatementNode
                     if (followingBlock.Instructions is not
                         [
                             _, _,
-                            { ValueShort: -1 or -16 },
-                            { Kind: Opcode.Convert, Type1: DataType.Int32, Type2: DataType.Variable },
-                            { Kind: Opcode.Call } callInstr,
+                        { ValueShort: -1 or -16 },
+                        { Kind: Opcode.Convert, Type1: DataType.Int32, Type2: DataType.Variable },
+                        { Kind: Opcode.Call } callInstr,
                             ..
                         ] ||
                         callInstr.TryFindFunction(builder.Context.GameContext)?.Name?.Content is not VMConstants.MethodFunction)
@@ -82,13 +81,13 @@ public interface IFragmentNode : IStatementNode
 
                     // Check if we have a name
                     string? funcName = null;
-                    bool usingOptimizedDeclaration = false;
+                    var usingOptimizedDeclaration = false;
                     if (followingBlock.Instructions is
                         [
                             _, _, _, _, _,
-                            { Kind: Opcode.Duplicate, DuplicationSize2: 0 },
-                            { Kind: Opcode.PushImmediate },
-                            { Kind: Opcode.Pop } popInstr,
+                        { Kind: Opcode.Duplicate, DuplicationSize2: 0 },
+                        { Kind: Opcode.PushImmediate },
+                        { Kind: Opcode.Pop } popInstr,
                             ..
                         ] &&
                         popInstr.TryFindVariable(builder.Context.GameContext) is IGMVariable { Name.Content: string varName })
@@ -98,8 +97,8 @@ public interface IFragmentNode : IStatementNode
                     else if (followingBlock.Instructions is
                         [
                             _, _, _, _, _,
-                            { Kind: Opcode.Duplicate, DuplicationSize2: 0 },
-                            { Kind: Opcode.Pop } popInstrOptimized,
+                        { Kind: Opcode.Duplicate, DuplicationSize2: 0 },
+                        { Kind: Opcode.Pop } popInstrOptimized,
                             ..
                         ] &&
                         popInstrOptimized.TryFindVariable(builder.Context.GameContext) is IGMVariable { Name.Content: string varNameOptimized })
@@ -110,8 +109,8 @@ public interface IFragmentNode : IStatementNode
 
                     // Build body of the function
                     builder.PushFragmentContext(fragment);
-                    builder.TopFragmentContext!.FunctionName = funcName;
-                    BlockNode block = builder.BuildBlock(fragment.Children[0]);
+                    builder.TopFragmentContext.FunctionName = funcName;
+                    var block = builder.BuildBlock(fragment.Children[0]);
                     block.AddBlockLocalVarDecl(builder.Context);
                     builder.PopFragmentContext();
 
@@ -133,8 +132,8 @@ public interface IFragmentNode : IStatementNode
                     if (followingBlock.Instructions is not
                         [
                             _, _,
-                            { Kind: Opcode.Call } callInstr1,
-                            { Kind: Opcode.Call } callInstr2,
+                        { Kind: Opcode.Call } callInstr1,
+                        { Kind: Opcode.Call } callInstr2,
                             ..
                         ] ||
                         callInstr1.TryFindFunction(builder.Context.GameContext)?.Name?.Content is not VMConstants.NullObjectFunction ||
@@ -147,15 +146,15 @@ public interface IFragmentNode : IStatementNode
                     if (followingBlock.Instructions is
                         [
                             _, _, _, _,
-                            { Kind: Opcode.Duplicate, DuplicationSize2: 0 },
-                            { Kind: Opcode.PushImmediate, ValueShort: short pushVal },
-                            { Kind: Opcode.Pop } popInstr,
+                        { Kind: Opcode.Duplicate, DuplicationSize2: 0 },
+                        { Kind: Opcode.PushImmediate, ValueShort: short pushVal },
+                        { Kind: Opcode.Pop } popInstr,
                             ..
                         ] &&
                         popInstr.TryFindVariable(builder.Context.GameContext) is IGMVariable { Name.Content: string funcName })
                     {
                         // Check if struct or constructor
-                        if (pushVal == -16 || pushVal == -5)
+                        if (pushVal is -16 or -5)
                         {
                             // We're a struct
                             if (followingBlock.Instructions.Count < 8 ||
@@ -171,7 +170,7 @@ public interface IFragmentNode : IStatementNode
 
                             // Load struct arguments from stack (in reverse)
                             List<IExpressionNode> structArguments = new(argumentCount - 1);
-                            for (int i = 0; i < argumentCount - 1; i++)
+                            for (var i = 0; i < argumentCount - 1; i++)
                             {
                                 structArguments.Add(builder.ExpressionStack.Pop());
                             }
@@ -179,11 +178,11 @@ public interface IFragmentNode : IStatementNode
                             // Build body
                             builder.PushFragmentContext(fragment);
                             builder.StructArguments = structArguments;
-                            BlockNode block = builder.BuildBlock(fragment.Children[0]);
+                            var block = builder.BuildBlock(fragment.Children[0]);
                             builder.PopFragmentContext();
 
                             builder.StartBlockInstructionIndex = 8;
-                            return new StructNode(block, builder.TopFragmentContext!);
+                            return new StructNode(block, builder.TopFragmentContext);
                         }
                         else
                         {
@@ -191,8 +190,8 @@ public interface IFragmentNode : IStatementNode
 
                             // Build body
                             builder.PushFragmentContext(fragment);
-                            builder.TopFragmentContext!.FunctionName = funcName;
-                            BlockNode block = builder.BuildBlock(fragment.Children[0]);
+                            builder.TopFragmentContext.FunctionName = funcName;
+                            var block = builder.BuildBlock(fragment.Children[0]);
                             block.AddBlockLocalVarDecl(builder.Context);
                             builder.PopFragmentContext();
 
@@ -203,8 +202,8 @@ public interface IFragmentNode : IStatementNode
                     else if (followingBlock.Instructions is
                         [
                             _, _, _, _,
-                            { Kind: Opcode.Duplicate, DuplicationSize2: 0 },
-                            { Kind: Opcode.Pop } popInstrOptimized,
+                        { Kind: Opcode.Duplicate, DuplicationSize2: 0 },
+                        { Kind: Opcode.Pop } popInstrOptimized,
                             ..
                         ] &&
                         popInstrOptimized.TryFindVariable(builder.Context.GameContext) is IGMVariable { Name.Content: string funcNameOptimized })
@@ -213,7 +212,7 @@ public interface IFragmentNode : IStatementNode
                         if (followingBlock.Instructions is
                             [
                                 _, _, _, _, _, _,
-                                { Kind: Opcode.Call, ArgumentCount: int argumentCount } callInstrOptimized,
+                            { Kind: Opcode.Call, ArgumentCount: int argumentCount } callInstrOptimized,
                                 ..
                             ] &&
                             argumentCount >= 1 &&
@@ -221,7 +220,7 @@ public interface IFragmentNode : IStatementNode
                         {
                             // Load struct arguments from stack (in reverse)
                             List<IExpressionNode> structArguments = new(argumentCount - 1);
-                            for (int i = 0; i < argumentCount - 1; i++)
+                            for (var i = 0; i < argumentCount - 1; i++)
                             {
                                 structArguments.Add(builder.ExpressionStack.Pop());
                             }
@@ -229,11 +228,11 @@ public interface IFragmentNode : IStatementNode
                             // Build body
                             builder.PushFragmentContext(fragment);
                             builder.StructArguments = structArguments;
-                            BlockNode block = builder.BuildBlock(fragment.Children[0]);
+                            var block = builder.BuildBlock(fragment.Children[0]);
                             builder.PopFragmentContext();
 
                             builder.StartBlockInstructionIndex = 7;
-                            return new StructNode(block, builder.TopFragmentContext!);
+                            return new StructNode(block, builder.TopFragmentContext);
                         }
                         else
                         {
@@ -241,8 +240,8 @@ public interface IFragmentNode : IStatementNode
 
                             // Build body
                             builder.PushFragmentContext(fragment);
-                            builder.TopFragmentContext!.FunctionName = funcNameOptimized;
-                            BlockNode block = builder.BuildBlock(fragment.Children[0]);
+                            builder.TopFragmentContext.FunctionName = funcNameOptimized;
+                            var block = builder.BuildBlock(fragment.Children[0]);
                             block.AddBlockLocalVarDecl(builder.Context);
                             builder.PopFragmentContext();
 
@@ -256,12 +255,12 @@ public interface IFragmentNode : IStatementNode
 
                         // Build body
                         builder.PushFragmentContext(fragment);
-                        BlockNode block = builder.BuildBlock(fragment.Children[0]);
+                        var block = builder.BuildBlock(fragment.Children[0]);
                         block.AddBlockLocalVarDecl(builder.Context);
                         builder.PopFragmentContext();
 
                         builder.StartBlockInstructionIndex = 4;
-                        return new FunctionDeclNode(null, true, block, builder.TopFragmentContext!);
+                        return new FunctionDeclNode(null, true, block, builder.TopFragmentContext);
                     }
                 }
         }

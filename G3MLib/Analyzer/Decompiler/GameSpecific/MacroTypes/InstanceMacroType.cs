@@ -15,6 +15,7 @@ public class InstanceMacroType : IMacroTypeInt32
 {
     public IExpressionNode? Resolve(ASTCleaner cleaner, IMacroResolvableNode node, int data)
     {
+        ArgumentNullException.ThrowIfNull(cleaner);
         // In GMLv2, don't resolve self, other, and global in versions where those no longer compile to numbers
         if (cleaner.Context.GMLv2)
         {

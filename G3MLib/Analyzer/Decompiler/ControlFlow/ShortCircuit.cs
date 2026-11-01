@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Decompiler.AST;
 
 namespace G3MLib.Analyzer.Decompiler.ControlFlow;
@@ -26,11 +25,11 @@ internal sealed class ShortCircuit(int startAddress, int endAddress, ShortCircui
 
     public List<IControlFlowNode> Successors { get; } = [];
 
-    public IControlFlowNode? Parent { get; set; } = null;
+    public IControlFlowNode? Parent { get; set; }
 
-    public List<IControlFlowNode?> Children { get; } = children!;
+    public List<IControlFlowNode?> Children { get; } = children;
 
-    public bool Unreachable { get; set; } = false;
+    public bool Unreachable { get; set; }
 
     public ShortCircuitType LogicKind { get; } = logicKind;
 
@@ -39,8 +38,8 @@ internal sealed class ShortCircuit(int startAddress, int endAddress, ShortCircui
     /// </summary>
     public static void FindShortCircuits(DecompileContext ctx)
     {
-        List<Block> blocks = ctx.Blocks!;
-        bool oldBytecodeVersion = ctx.OlderThanBytecode15;
+        var blocks = ctx.Blocks;
+        var oldBytecodeVersion = ctx.OlderThanBytecode15;
 
         ctx.ShortCircuitBlocks = [];
 
@@ -53,20 +52,20 @@ internal sealed class ShortCircuit(int startAddress, int endAddress, ShortCircui
                     block is
                     {
                         Instructions: [
-                        {
-                            Kind: IGMInstruction.Opcode.Push or IGMInstruction.Opcode.PushImmediate,
-                            Type1: IGMInstruction.DataType.Int16
-                        }]
+                            {
+                                Kind: IGMInstruction.Opcode.Push or IGMInstruction.Opcode.PushImmediate,
+                                Type1: IGMInstruction.DataType.Int16
+                            }]
                     }
                     ||
                 !oldBytecodeVersion &&
                     block is
                     {
                         Instructions: [
-                        {
-                            Kind: IGMInstruction.Opcode.Push,
-                            Type1: IGMInstruction.DataType.Int16
-                        }]
+                            {
+                                Kind: IGMInstruction.Opcode.Push,
+                                Type1: IGMInstruction.DataType.Int16
+                            }]
                     })
             {
                 ctx.ShortCircuitBlocks.Add(block);
@@ -82,31 +81,31 @@ internal sealed class ShortCircuit(int startAddress, int endAddress, ShortCircui
         List<ShortCircuit> shortCircuits = [];
 
         // Identify and restructure short circuits
-        foreach (var block in ctx.ShortCircuitBlocks!)
+        foreach (var block in ctx.ShortCircuitBlocks)
         {
             ctx.ThrowIfCancellationRequested();
             // Add child nodes
             List<IControlFlowNode> children = [block.Predecessors[0]];
-            for (int i = 0; i < block.Predecessors.Count; i++)
+            for (var i = 0; i < block.Predecessors.Count; i++)
             {
                 // Connect to the next condition (the non-branch path from the previous condition)
                 children.Add(block.Predecessors[i].Successors[0]);
             }
 
             // Create actual node
-            ShortCircuitType logicKind = block.Instructions[0].ValueShort == 0 ? ShortCircuitType.And : ShortCircuitType.Or;
+            var logicKind = block.Instructions[0].ValueShort == 0 ? ShortCircuitType.And : ShortCircuitType.Or;
             ShortCircuit sc = new(children[0].StartAddress, block.EndAddress, logicKind, children);
             shortCircuits.Add(sc);
 
             // Remove branches and connections from previous blocks (not necessarily children!)
-            for (int i = block.Predecessors.Count - 1; i >= 0; i--)
+            for (var i = block.Predecessors.Count - 1; i >= 0; i--)
             {
-                Block pred = block.Predecessors[i] as Block ?? throw new DecompilerException("Expected predecessor to be block");
+                var pred = block.Predecessors[i] as Block ?? throw new DecompilerException("Expected predecessor to be block");
                 pred.Instructions.RemoveAt(pred.Instructions.Count - 1);
                 IControlFlowNode.DisconnectSuccessor(pred, 1);
                 IControlFlowNode.DisconnectSuccessor(pred, 0);
             }
-            Block finalBlock = ctx.Blocks![block.BlockIndex - 1];
+            var finalBlock = ctx.Blocks[block.BlockIndex - 1];
             finalBlock.Instructions.RemoveAt(finalBlock.Instructions.Count - 1);
             IControlFlowNode.DisconnectSuccessor(finalBlock, 0);
 
@@ -121,7 +120,7 @@ internal sealed class ShortCircuit(int startAddress, int endAddress, ShortCircui
             children[0].Parent = sc;
 
             // Update parent status of remaining children, so they can be later updated if necessary
-            for (int i = 1; i < children.Count; i++)
+            for (var i = 1; i < children.Count; i++)
                 children[i].Parent = sc;
         }
 
@@ -143,13 +142,13 @@ internal sealed class ShortCircuit(int startAddress, int endAddress, ShortCircui
         conditions.Add(builder.ExpressionStack.Pop());
 
         // Build the rest of the conditions
-        for (int i = 1; i < Children.Count; i++)
+        for (var i = 1; i < Children.Count; i++)
         {
             conditions.Add(builder.BuildExpression(Children[i]));
         }
 
         // If any condition was an int16 that was directly used without conversion, that means it was a boolean
-        for (int i = 0; i < conditions.Count; i++)
+        for (var i = 0; i < conditions.Count; i++)
         {
             if (conditions[i] is Int16Node { Value: 0 or 1, StackType: not IGMInstruction.DataType.Boolean } i16)
             {

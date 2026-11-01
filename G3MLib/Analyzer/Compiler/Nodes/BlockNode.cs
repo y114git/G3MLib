@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Compiler.Bytecode;
 using G3MLib.Analyzer.Compiler.Lexer;
 using G3MLib.Analyzer.Compiler.Parser;
@@ -69,7 +68,7 @@ internal sealed class BlockNode : IASTNode
     public static BlockNode ParseRegular(ParseContext context)
     {
         // Attempt to parse opening
-        IToken? tokenOpen = context.EnsureToken(SeparatorKind.BlockOpen, KeywordKind.Begin);
+        var tokenOpen = context.EnsureToken(SeparatorKind.BlockOpen, KeywordKind.Begin);
 
         // Parse statements
         List<IASTNode> children = new(32);
@@ -106,7 +105,7 @@ internal sealed class BlockNode : IASTNode
     /// <inheritdoc/>
     public IASTNode PostProcess(ParseContext context)
     {
-        for (int i = 0; i < Children.Count; i++)
+        for (var i = 0; i < Children.Count; i++)
         {
             Children[i] = Children[i].PostProcess(context);
         }
@@ -118,7 +117,7 @@ internal sealed class BlockNode : IASTNode
     /// </summary>
     public void PostProcessChildrenOnly(ParseContext context)
     {
-        for (int i = 0; i < Children.Count; i++)
+        for (var i = 0; i < Children.Count; i++)
         {
             Children[i] = Children[i].PostProcess(context);
         }
@@ -127,8 +126,8 @@ internal sealed class BlockNode : IASTNode
     /// <inheritdoc/>
     public IASTNode Duplicate(ParseContext context)
     {
-        List<IASTNode> newChildren = new(Children);
-        for (int i = 0; i < newChildren.Count; i++)
+        List<IASTNode> newChildren = [.. Children];
+        for (var i = 0; i < newChildren.Count; i++)
         {
             newChildren[i] = newChildren[i].Duplicate(context);
         }
@@ -138,7 +137,7 @@ internal sealed class BlockNode : IASTNode
     /// <inheritdoc/>
     public void GenerateCode(BytecodeContext context)
     {
-        foreach (IASTNode statement in Children)
+        foreach (var statement in Children)
         {
             statement.GenerateCode(context);
         }
@@ -150,7 +149,7 @@ internal sealed class BlockNode : IASTNode
     public void GenerateStaticCode(BytecodeContext context)
     {
         context.CurrentScope.GeneratingStaticBlock = true;
-        foreach (IASTNode statement in Children)
+        foreach (var statement in Children)
         {
             if (statement is AssignNode { Destination: SimpleVariableNode { VariableName: string staticName } } assign)
             {
@@ -170,7 +169,7 @@ internal sealed class BlockNode : IASTNode
     /// <inheritdoc/>
     public IEnumerable<IASTNode> EnumerateChildren()
     {
-        foreach (IASTNode child in Children)
+        foreach (var child in Children)
         {
             yield return child;
         }

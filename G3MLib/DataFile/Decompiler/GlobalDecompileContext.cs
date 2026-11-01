@@ -1,7 +1,4 @@
-using System.Collections.Generic;
 using System.Diagnostics;
-using System;
-using System.Linq;
 using G3MLib.Analyzer;
 using G3MLib.Analyzer.Decompiler;
 using G3MLib.Analyzer.Decompiler.GameSpecific;
@@ -30,7 +27,7 @@ public class GlobalDecompileContext : IGameContext
     public bool UsingGMLv2 => Data?.IsVersionAtLeast(2, 3) ?? false;
     public bool Bytecode14OrLower => (Data?.GeneralInfo?.BytecodeVersion ?? 15) <= 14;
     public bool UsingGMS2OrLater => Data?.IsVersionAtLeast(2) ?? false;
-    public bool UsingStringRealOptimizations => (Data?.GeneralInfo.Major is >= 2 || Data?.GeneralInfo.Build is 1539 or >= 1763);
+    public bool UsingStringRealOptimizations => Data?.GeneralInfo.Major is >= 2 || Data?.GeneralInfo.Build is 1539 or >= 1763;
     public bool UsingFinallyBeforeThrow => !(Data?.IsVersionAtLeast(2024, 6) ?? false);
     public bool UsingTypedBooleans => Data?.IsVersionAtLeast(2, 3, 7) ?? false;
     public bool UsingNullishOperator => Data?.IsVersionAtLeast(2, 3, 7) ?? false;
@@ -56,26 +53,29 @@ public class GlobalDecompileContext : IGameContext
     public bool UsingNewArrayOwners => Data?.IsVersionAtLeast(2, 3, 2) ?? false;
     public bool UsingOptimizedFunctionDeclarations => Data?.IsVersionAtLeast(2024, 14) ?? false;
     public bool UsingNewChainedFunctionArgumentOrder => Data?.IsVersionAtLeast(2024, 14, 4) ?? false;
-    public bool UsingTemplateStrings => Data?.IsNonLTSVersionAtLeast(2023, 4) ?? false;
+    // LTS 2022 lacks template strings, LTS 2026 (version 2026.1, same branch flag) has them
+    public bool UsingTemplateStrings => (Data?.IsNonLTSVersionAtLeast(2023, 4) ?? false) || (Data?.IsVersionAtLeast(2024, 14) ?? false);
     public bool UsingModernTemplateStrings => Data?.IsVersionAtLeast(2024, 14) ?? false;
     public bool UsingStructAnyNonemptyString => Data?.IsVersionAtLeast(2024, 14) ?? false;
     public bool UsingFixedDefaultArgumentFunctionDecls => Data?.IsVersionAtLeast(2024, 14) ?? false;
     public bool UsingNewNullishAssignSideEffects => Data?.IsVersionAtLeast(2026, 1) ?? false;
     public GameSpecificRegistry GameSpecificRegistry => Data?.GameSpecificRegistry;
-    public IBuiltins Builtins { get; private set; } = null;
-    public ICodeBuilder CodeBuilder { get; private set; } = null;
+    public IBuiltins Builtins { get; private set; }
+    public ICodeBuilder CodeBuilder { get; private set; }
     public IGlobalFunctions GlobalFunctions { get; }
 
     /// <summary>
     /// The current compile group being used for main compile, and for linking.
     /// </summary>
-    internal CompileGroup CurrentCompileGroup { get; set; } = null;
+    internal CompileGroup CurrentCompileGroup { get; set; }
 
     // Lookup from asset name to index (and potentially encoded asset type)
-    private Dictionary<string, int> _assetIdLookup = null;
+    private Dictionary<string, int>? _assetIdLookup;
 
     // Lookup from script name to index (and potentially encoded asset type)
-    private Dictionary<string, int> _scriptIdLookup = null;
+    private Dictionary<string, int>? _scriptIdLookup;
+
+    private readonly Lock _prepareLock = new();
 
     // Prefix used for instance IDs, cached per each context
     private readonly string _instanceIdPrefix;
@@ -87,8 +87,9 @@ public class GlobalDecompileContext : IGameContext
     /// Note: When <paramref name="globalFunctions"/> is omitted, this recalculates the global functions belonging to
     /// the given <see cref="GameMakerData"/>, mutating its state. Therefore, that initialization is not thread-safe.
     /// </remarks>
-    public GlobalDecompileContext(GameMakerData data, IGlobalFunctions globalFunctions = null)
+    public GlobalDecompileContext(GameMakerData data, IGlobalFunctions? globalFunctions = null)
     {
+        ArgumentNullException.ThrowIfNull(data);
         Data = data;
         if (Data.ToolInfo?.InstanceIdPrefix is Func<string> prefixGetter)
         {
@@ -120,94 +121,98 @@ public class GlobalDecompileContext : IGameContext
             return;
         }
 
+        // Filled completely before it is published, so readers on other threads never see a half-built lookup
+        GlobalFunctions globalFunctions;
         if (data.IsVersionAtLeast(2, 3))
         {
             // In 2.3+, use G3MLib.Analyzer's built-in global function finder
             try
             {
-                data.GlobalFunctions = new GlobalFunctions(GetGlobalScriptCodeEntries(data));
+                globalFunctions = new GlobalFunctions(GetGlobalScriptCodeEntries(data));
             }
             catch (Exception ex)
             {
                 Debug.WriteLine(ex.ToString());
 
                 // If an error occurs, just default to empty
-                data.GlobalFunctions = new GlobalFunctions();
+                globalFunctions = new GlobalFunctions();
             }
         }
         else
         {
             // Prior to 2.3, just start empty
-            data.GlobalFunctions = new GlobalFunctions();
+            globalFunctions = new GlobalFunctions();
         }
 
         // Prefix used for sub-functions
         const string subFunctionPrefix = "gml_Script_";
         var functionsByName = new Dictionary<string, GameMakerFunction>(StringComparer.Ordinal);
-        foreach (GameMakerFunction function in data.Functions)
+        foreach (var function in data.Functions)
             if (function?.Name?.Content is string functionName)
                 functionsByName.TryAdd(functionName, function);
 
         // Add all functions that aren't sub-functions, if they aren't already there
-        foreach (GameMakerFunction func in data.Functions)
+        foreach (var func in data.Functions)
         {
             if (func?.Name?.Content is string name && !name.StartsWith(subFunctionPrefix, StringComparison.Ordinal) &&
-                !data.GlobalFunctions.FunctionNameExists(name))
+                !globalFunctions.FunctionNameExists(name))
             {
-                data.GlobalFunctions.DefineFunction(name, func);
+                globalFunctions.DefineFunction(name, func);
             }
         }
 
         // Add scripts to global functions lookup, if they aren't already there
-        foreach (GameMakerScript script in data.Scripts)
+        foreach (var script in data.Scripts)
         {
             if (script?.Name?.Content is string name && !name.StartsWith(subFunctionPrefix, StringComparison.Ordinal) &&
-                !data.GlobalFunctions.FunctionNameExists(name) &&
-                functionsByName.TryGetValue(name, out GameMakerFunction function))
+                !globalFunctions.FunctionNameExists(name) &&
+                functionsByName.TryGetValue(name, out var function))
             {
                 // Regular script asset (pre and post 2.3)
-                data.GlobalFunctions.DefineFunction(name, function);
+                globalFunctions.DefineFunction(name, function);
             }
             else if (script?.Code is GameMakerCode { ParentEntry: null } code &&
                      code.Name?.Content is string codeName && codeName.StartsWith(subFunctionPrefix, StringComparison.Ordinal) &&
-                     functionsByName.TryGetValue(codeName, out GameMakerFunction extFunction))
+                     functionsByName.TryGetValue(codeName, out var extFunction))
             {
                 // If code name starts with "gml_Script_", and there's no parent code entry,
                 // then this is probably a GML-defined extension function.
-                data.GlobalFunctions.DefineFunction(codeName[subFunctionPrefix.Length..], extFunction);
+                globalFunctions.DefineFunction(codeName[subFunctionPrefix.Length..], extFunction);
             }
         }
 
         // Add remaining extension functions to global functions lookup
         if (data.Extensions is not null)
         {
-            foreach (GameMakerExtension extension in data.Extensions)
+            foreach (var extension in data.Extensions)
             {
                 if (extension?.Files is null)
                 {
                     continue;
                 }
-                foreach (GameMakerExtensionFile extensionFile in extension.Files)
+                foreach (var extensionFile in extension.Files)
                 {
                     if (extensionFile?.Functions is null)
                         continue;
-                    foreach (GameMakerExtensionFunction extensionFunc in extensionFile.Functions)
+                    foreach (var extensionFunc in extensionFile.Functions)
                     {
                         if (extensionFunc?.Name?.Content is string functionName &&
-                            functionsByName.TryGetValue(functionName, out GameMakerFunction foundFunction))
+                            functionsByName.TryGetValue(functionName, out var foundFunction))
                         {
-                            data.GlobalFunctions.DefineFunction(functionName, foundFunction);
+                            globalFunctions.DefineFunction(functionName, foundFunction);
                         }
                     }
                 }
             }
         }
+
+        data.GlobalFunctions = globalFunctions;
     }
 
     // Enumerates over all global script code entries
     private static IEnumerable<IGMCode> GetGlobalScriptCodeEntries(GameMakerData data)
     {
-        foreach (GameMakerGlobalInit script in data.GlobalInitScripts ?? Enumerable.Empty<GameMakerGlobalInit>())
+        foreach (var script in data.GlobalInitScripts ?? Enumerable.Empty<GameMakerGlobalInit>())
         {
             if (script?.Code is GameMakerCode code)
                 yield return code;
@@ -220,19 +225,23 @@ public class GlobalDecompileContext : IGameContext
     /// <param name="forceReloadAssets">Whether asset lookups should be forced to be re-created.</param>
     public void PrepareForCompilation(bool forceReloadAssets = true)
     {
-        // Initialize builtin list if not already done (and create it for the game data if not already created)
-        Builtins ??= (Data.BuiltinList ??= new BuiltinList(Data));
-
-        // Initialize code builder if not already done
-        if (CodeBuilder is null || forceReloadAssets)
+        // Calls on one context are serialized so two threads cannot build the lazy members at once
+        lock (_prepareLock)
         {
-            CodeBuilder = new CodeBuilder(this);
-        }
+            // Initialize builtin list if not already done (and create it for the game data if not already created)
+            Builtins ??= (Data.BuiltinList ??= new BuiltinList(Data));
 
-        // Reload asset lists if necessary
-        if (forceReloadAssets || _assetIdLookup is null || _scriptIdLookup is null)
-        {
-            CreateAssetLookups();
+            // Initialize code builder if not already done
+            if (CodeBuilder is null || forceReloadAssets)
+            {
+                CodeBuilder = new CodeBuilder(this);
+            }
+
+            // Reload asset lists if necessary
+            if (forceReloadAssets || _assetIdLookup is null || _scriptIdLookup is null)
+            {
+                CreateAssetLookups();
+            }
         }
     }
 
@@ -243,8 +252,8 @@ public class GlobalDecompileContext : IGameContext
         _scriptIdLookup?.Clear();
 
         // Calculate a guess at the maximum required capacity (may overshoot with unused asset removal)
-        int scriptCountGuess = Data.Scripts?.Count ?? 0;
-        int assetCountGuess = 0;
+        var scriptCountGuess = Data.Scripts?.Count ?? 0;
+        var assetCountGuess = 0;
         assetCountGuess += Data.GameObjects?.Count ?? 0;
         assetCountGuess += Data.Sprites?.Count ?? 0;
         assetCountGuess += Data.Sounds?.Count ?? 0;
@@ -304,7 +313,7 @@ public class GlobalDecompileContext : IGameContext
         if (UsingAssetReferences)
         {
             // Asset reference types being used, so encode them
-            for (int i = 0; i < list.Count; i++)
+            for (var i = 0; i < list.Count; i++)
             {
                 if (list[i]?.Name?.Content is string name)
                 {
@@ -315,7 +324,7 @@ public class GlobalDecompileContext : IGameContext
         else
         {
             // Regular IDs being used
-            for (int i = 0; i < list.Count; i++)
+            for (var i = 0; i < list.Count; i++)
             {
                 if (list[i]?.Name?.Content is string name)
                 {
@@ -453,7 +462,7 @@ public class GlobalDecompileContext : IGameContext
         ReadOnlySpan<char> prefix = _instanceIdPrefix;
         ReadOnlySpan<char> name = roomInstanceName;
         if (name.StartsWith(prefix, StringComparison.Ordinal) &&
-            int.TryParse(name[prefix.Length..], out int instanceId) &&
+            int.TryParse(name[prefix.Length..], out var instanceId) &&
             instanceId >= 100000)
         {
             // Room instance ID found!
@@ -461,7 +470,7 @@ public class GlobalDecompileContext : IGameContext
             if (UsingRoomInstanceReferences)
             {
                 // Additionally encode room instance asset type
-                assetId |= ((ConvertFromRefType(Data, RefType.RoomInstance) & 0x7f) << 24);
+                assetId |= (ConvertFromRefType(Data, RefType.RoomInstance) & 0x7f) << 24;
             }
             return true;
         }

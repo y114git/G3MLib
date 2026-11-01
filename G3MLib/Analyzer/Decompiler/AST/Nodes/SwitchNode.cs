@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Decompiler.GameSpecific;
 
 namespace G3MLib.Analyzer.Decompiler.AST;
@@ -36,13 +35,14 @@ public class SwitchNode(IExpressionNode expression, BlockNode body) : IStatement
     /// <inheritdoc/>
     public IStatementNode Clean(ASTCleaner cleaner)
     {
+        ArgumentNullException.ThrowIfNull(cleaner);
         Expression = Expression.Clean(cleaner);
         Body.Clean(cleaner);
 
         // Handle macro type resolution for cases
         if (Expression is IMacroTypeNode exprTypeNode && exprTypeNode.GetExpressionMacroType(cleaner) is IMacroType exprMacroType)
         {
-            foreach (IStatementNode statement in Body.Children)
+            foreach (var statement in Body.Children)
             {
                 if (statement is SwitchCaseNode caseNode && caseNode.Expression is IMacroResolvableNode exprResolvable &&
                     exprResolvable.ResolveMacroType(cleaner, exprMacroType) is IExpressionNode exprResolved)
@@ -68,14 +68,15 @@ public class SwitchNode(IExpressionNode expression, BlockNode body) : IStatement
     /// <inheritdoc/>
     public void Print(ASTPrinter printer)
     {
+        ArgumentNullException.ThrowIfNull(printer);
         printer.Write("switch (");
-        Expression.Print(printer);
+        printer.PrintNode(Expression);
         printer.Write(')');
         if (printer.Context.Settings.OpenBlockBraceOnSameLine)
         {
             printer.Write(' ');
         }
-        Body.Print(printer);
+        printer.PrintNode(Body);
     }
 
     /// <inheritdoc/>

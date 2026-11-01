@@ -11,7 +11,7 @@ public sealed class BuiltinListTests
     [InlineData(2024, 1, true)]
     public void Includes2023_11FunctionsAtTheCorrectRuntimeVersion(uint major, uint minor, bool expected)
     {
-        GameMakerData data = GameMakerData.CreateNew();
+        var data = GameMakerData.CreateNew();
         data.GeneralInfo.Major = major;
         data.GeneralInfo.Minor = minor;
 

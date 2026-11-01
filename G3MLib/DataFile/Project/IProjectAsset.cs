@@ -8,17 +8,17 @@ public interface IProjectAsset
     /// <summary>
     /// User-friendly name to be used in project-related interfaces.
     /// </summary>
-    public string ProjectName { get; }
+    string ProjectName { get; }
 
     /// <summary>
     /// Serializble asset type to be used in project-related interfaces.
     /// </summary>
-    public SerializableAssetType ProjectAssetType { get; }
+    SerializableAssetType ProjectAssetType { get; }
 
     /// <summary>
     /// Whether this asset is eligible for being exported to a project.
     /// </summary>
-    public bool ProjectExportable { get; }
+    bool ProjectExportable { get; }
 
     /// <summary>
     /// Generates a serializable project version of this asset, within the given project context.

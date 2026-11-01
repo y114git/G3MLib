@@ -4,8 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
-
 namespace G3MLib.Analyzer.Decompiler.AST;
 
 /// <summary>
@@ -35,7 +33,7 @@ public class ForLoopNode(IStatementNode? initializer, IExpressionNode? condition
     public BlockNode Body { get; private set; } = body;
 
     /// <inheritdoc/>
-    public bool SemicolonAfter { get => false; }
+    public bool SemicolonAfter => false;
 
     /// <inheritdoc/>
     public bool EmptyLineBefore { get; set; }
@@ -46,6 +44,7 @@ public class ForLoopNode(IStatementNode? initializer, IExpressionNode? condition
     /// <inheritdoc/>
     public IStatementNode Clean(ASTCleaner cleaner)
     {
+        ArgumentNullException.ThrowIfNull(cleaner);
         IStatementNode res = this;
 
         // Clean up initializer, if we have one
@@ -83,9 +82,10 @@ public class ForLoopNode(IStatementNode? initializer, IExpressionNode? condition
     /// <inheritdoc/>
     public int BlockClean(ASTCleaner cleaner, BlockNode block, int i)
     {
+        ArgumentNullException.ThrowIfNull(block);
         // Check if this for loop needs an initializer, and if so (and there's a readable one), add it
         if (Initializer is null && i > 0 && block.Children[i - 1] is AssignNode assign &&
-            assign.Value is (Int16Node or Int32Node or Int64Node or VariableNode) &&
+            assign.Value is Int16Node or Int32Node or Int64Node or VariableNode &&
             (Condition is not null || Incrementor is { Children: [.., AssignNode] }))
         {
             // Perform additional check to see if incrementor and initializer are similar/readable
@@ -130,17 +130,18 @@ public class ForLoopNode(IStatementNode? initializer, IExpressionNode? condition
     /// <inheritdoc/>
     public IStatementNode PostClean(ASTCleaner cleaner)
     {
-        cleaner.TopFragmentContext!.PushLocalScope(cleaner.Context, cleaner.TopFragmentContext!.CurrentPostCleanupBlock!, this);
+        ArgumentNullException.ThrowIfNull(cleaner);
+        cleaner.TopFragmentContext.PushLocalScope(cleaner.Context, cleaner.TopFragmentContext.CurrentPostCleanupBlock, this);
 
         Initializer = Initializer?.PostClean(cleaner);
         Condition = Condition?.PostClean(cleaner);
         Incrementor?.PostClean(cleaner);
 
-        cleaner.TopFragmentContext!.PushLocalScope(cleaner.Context, cleaner.TopFragmentContext!.CurrentPostCleanupBlock!, this);
+        cleaner.TopFragmentContext.PushLocalScope(cleaner.Context, cleaner.TopFragmentContext.CurrentPostCleanupBlock, this);
         Body.PostClean(cleaner);
-        cleaner.TopFragmentContext!.PopLocalScope(cleaner.Context);
+        cleaner.TopFragmentContext.PopLocalScope(cleaner.Context);
 
-        cleaner.TopFragmentContext!.PopLocalScope(cleaner.Context);
+        cleaner.TopFragmentContext.PopLocalScope(cleaner.Context);
 
         return this;
     }
@@ -148,24 +149,25 @@ public class ForLoopNode(IStatementNode? initializer, IExpressionNode? condition
     /// <inheritdoc/>
     public void Print(ASTPrinter printer)
     {
+        ArgumentNullException.ThrowIfNull(printer);
         printer.Write("for (");
         if (Condition is null && Incrementor is null)
         {
-            Initializer?.Print(printer);
+            printer.PrintNode(Initializer);
             printer.Write(";;");
         }
         else
         {
-            Initializer?.Print(printer);
+            printer.PrintNode(Initializer);
             printer.Write("; ");
-            Condition?.Print(printer);
+            printer.PrintNode(Condition);
             if (Incrementor is not null)
             {
                 printer.Write("; ");
-                IStatementNode shortestStatement = Incrementor.GetShortestStatement();
+                var shortestStatement = Incrementor.GetShortestStatement();
                 if (shortestStatement is not BlockNode { Children: [] })
                 {
-                    shortestStatement.Print(printer);
+                    printer.PrintNode(shortestStatement);
                 }
             }
             else
@@ -185,7 +187,7 @@ public class ForLoopNode(IStatementNode? initializer, IExpressionNode? condition
             {
                 printer.Write(' ');
             }
-            Body.Print(printer);
+            printer.PrintNode(Body);
         }
     }
 

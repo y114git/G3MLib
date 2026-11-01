@@ -4,8 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System;
-
 namespace G3MLib.Analyzer.Compiler.Lexer;
 
 /// <summary>
@@ -18,11 +16,11 @@ internal static class Identifiers
     /// </summary>
     public static int Parse(LexContext context, int startPosition)
     {
-        int pos = ContiguousTextReader.ReadWhileIdentifier(context.Text, startPosition, out ReadOnlySpan<char> identifier);
+        var pos = ContiguousTextReader.ReadWhileIdentifier(context.Text, startPosition, out var identifier);
 
         // Try to identify a keyword
-        bool isGMLv2 = context.CompileContext.GameContext.UsingGMLv2;
-        KeywordKind keywordKind = identifier switch
+        var isGMLv2 = context.CompileContext.GameContext.UsingGMLv2;
+        var keywordKind = identifier switch
         {
             "if" => KeywordKind.If,
             "then" => KeywordKind.Then,
@@ -83,7 +81,7 @@ internal static class Identifiers
     /// </remarks>
     public static int ParseInternal(LexContext context, int startPosition)
     {
-        int pos = ContiguousTextReader.ReadWhileInternalIdentifier(context.Text, startPosition, out ReadOnlySpan<char> identifier, out bool anyNormalChars);
+        var pos = ContiguousTextReader.ReadWhileInternalIdentifier(context.Text, startPosition, out var identifier, out var anyNormalChars);
 
         // Make sure at least 1 "normal" character showed up in the identifier
         if (!anyNormalChars)

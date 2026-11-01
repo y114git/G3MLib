@@ -4,8 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
-
 namespace G3MLib.Analyzer.Decompiler.AST;
 
 /// <summary>
@@ -37,11 +35,13 @@ public class ExitNode : IStatementNode, IBlockCleanupNode
     /// <inheritdoc/>
     public int BlockClean(ASTCleaner cleaner, BlockNode block, int i)
     {
+        ArgumentNullException.ThrowIfNull(block);
+        ArgumentNullException.ThrowIfNull(cleaner);
         // Remove duplicated finally statements
-        if (cleaner.TopFragmentContext!.FinallyStatementCount.Count > 0)
+        if (cleaner.TopFragmentContext.FinallyStatementCount.Count > 0)
         {
-            int count = 0;
-            foreach (int statementCount in cleaner.TopFragmentContext.FinallyStatementCount)
+            var count = 0;
+            foreach (var statementCount in cleaner.TopFragmentContext.FinallyStatementCount)
             {
                 count += statementCount;
             }
@@ -58,6 +58,7 @@ public class ExitNode : IStatementNode, IBlockCleanupNode
     /// <inheritdoc/>
     public void Print(ASTPrinter printer)
     {
+        ArgumentNullException.ThrowIfNull(printer);
         // Awaiting official Underminers resolution: exit/return selection is version-specific.
         printer.Write("exit");
     }

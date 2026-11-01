@@ -4,8 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
-
 namespace G3MLib.Analyzer.Decompiler.AST;
 
 /// <summary>
@@ -22,7 +20,7 @@ public class ThrowNode(IExpressionNode value) : IExpressionNode, IStatementNode,
     public bool Duplicated { get; set; }
 
     /// <inheritdoc/>
-    public bool Group { get; set; } = false;
+    public bool Group { get; set; }
 
     /// <inheritdoc/>
     public IGMInstruction.DataType StackType { get; set; } = IGMInstruction.DataType.Variable;
@@ -67,11 +65,13 @@ public class ThrowNode(IExpressionNode value) : IExpressionNode, IStatementNode,
     /// <inheritdoc/>
     public int BlockClean(ASTCleaner cleaner, BlockNode block, int i)
     {
+        ArgumentNullException.ThrowIfNull(block);
+        ArgumentNullException.ThrowIfNull(cleaner);
         // Remove duplicated finally statements
-        if (cleaner.TopFragmentContext!.FinallyStatementCount.Count > 0 &&
+        if (cleaner.TopFragmentContext.FinallyStatementCount.Count > 0 &&
             cleaner.Context.GameContext.UsingFinallyBeforeThrow)
         {
-            int count = cleaner.TopFragmentContext.FinallyStatementCount.Peek();
+            var count = cleaner.TopFragmentContext.FinallyStatementCount.Peek();
             if (i - count >= 0)
             {
                 block.Children.RemoveRange(i - count, count);
@@ -85,13 +85,14 @@ public class ThrowNode(IExpressionNode value) : IExpressionNode, IStatementNode,
     /// <inheritdoc/>
     public void Print(ASTPrinter printer)
     {
+        ArgumentNullException.ThrowIfNull(printer);
         if (Group)
         {
             printer.Write('(');
         }
 
         printer.Write("throw ");
-        Value.Print(printer);
+        printer.PrintNode(Value);
 
         if (Group)
         {

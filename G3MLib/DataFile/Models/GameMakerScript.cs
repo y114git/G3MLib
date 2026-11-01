@@ -1,4 +1,3 @@
-using System;
 using System.ComponentModel;
 using G3MLib.DataFile.Project;
 using G3MLib.DataFile.Project.SerializableAssets;
@@ -35,6 +34,7 @@ public class GameMakerScript : GameMakerNamedResource, IProjectAsset, INotifyPro
     /// <inheritdoc />
     public void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         writer.WriteGameMakerString(Name);
         if (IsConstructor)
             writer.Write((uint)_code.SerializeById(writer) | 2147483648u);
@@ -45,8 +45,9 @@ public class GameMakerScript : GameMakerNamedResource, IProjectAsset, INotifyPro
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         Name = reader.ReadGameMakerString();
-        int id = reader.ReadInt32();
+        var id = reader.ReadInt32();
         if (id < -1)
         {
             IsConstructor = true;
@@ -77,7 +78,7 @@ public class GameMakerScript : GameMakerNamedResource, IProjectAsset, INotifyPro
     ISerializableProjectAsset IProjectAsset.GenerateSerializableProjectAsset(ProjectContext projectContext)
     {
         SerializableScript serializable = new();
-        serializable.PopulateFromData(projectContext, this);
+        serializable.PopulateFromData(this);
         return serializable;
     }
 

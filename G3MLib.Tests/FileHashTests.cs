@@ -1,8 +1,4 @@
-using System;
-using System.IO;
-using System.Threading.Tasks;
 using G3MLib.Modding.Hashing;
-using Xunit;
 
 namespace G3MLib.Tests;
 
@@ -11,8 +7,8 @@ public sealed class FileHashTests
     [Fact("FileHashTests.cs", 12)]
     public async Task ComputesMd5AndComparesFileSizes()
     {
-        string firstPath = Path.GetTempFileName();
-        string secondPath = Path.GetTempFileName();
+        var firstPath = Path.GetTempFileName();
+        var secondPath = Path.GetTempFileName();
         try
         {
             await File.WriteAllTextAsync(firstPath, "hello world", TestContext.Current.CancellationToken);

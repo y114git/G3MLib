@@ -4,8 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System;
-using System.Collections.Generic;
 using G3MLib.Analyzer.Decompiler.GameSpecific;
 
 namespace G3MLib.Analyzer.Decompiler.AST;
@@ -19,10 +17,10 @@ public class StringNode(IGMString value) : IConstantNode<IGMString>, IConditiona
     public IGMString Value { get; } = value;
 
     /// <inheritdoc/>
-    public bool Duplicated { get; set; } = false;
+    public bool Duplicated { get; set; }
 
     /// <inheritdoc/>
-    public bool Group { get; set; } = false;
+    public bool Group { get; set; }
 
     /// <inheritdoc/>
     public IGMInstruction.DataType StackType { get; set; } = IGMInstruction.DataType.String;
@@ -50,8 +48,9 @@ public class StringNode(IGMString value) : IConstantNode<IGMString>, IConditiona
     /// </summary>
     public static void PrintGMS2String(ASTPrinter printer, ReadOnlySpan<char> content)
     {
+        ArgumentNullException.ThrowIfNull(printer);
         printer.Write('"');
-        foreach (char c in content)
+        foreach (var c in content)
         {
             printer.Write(EscapeChar(c));
         }
@@ -78,6 +77,7 @@ public class StringNode(IGMString value) : IConstantNode<IGMString>, IConditiona
     /// <inheritdoc/>
     public void Print(ASTPrinter printer)
     {
+        ArgumentNullException.ThrowIfNull(printer);
         ReadOnlySpan<char> content = Value.Content;
         if (printer.Context.GameContext.UsingGMS2OrLater)
         {
@@ -89,7 +89,7 @@ public class StringNode(IGMString value) : IConstantNode<IGMString>, IConditiona
             // We don't have any way of escaping strings - must concatenate multiple parts.
             // We also have the choice between ' and ", so use whichever results in less splits.
             int numDoubleQuotes = 0, numSingleQuotes = 0;
-            foreach (char c in content)
+            foreach (var c in content)
             {
                 if (c == '"')
                 {
@@ -100,11 +100,11 @@ public class StringNode(IGMString value) : IConstantNode<IGMString>, IConditiona
                     numSingleQuotes++;
                 }
             }
-            char quoteChar = (numDoubleQuotes > numSingleQuotes) ? '\'' : '"';
-            char splitChar = (numDoubleQuotes > numSingleQuotes) ? '"' : '\'';
+            var quoteChar = (numDoubleQuotes > numSingleQuotes) ? '\'' : '"';
+            var splitChar = (numDoubleQuotes > numSingleQuotes) ? '"' : '\'';
 
             printer.Write(quoteChar);
-            foreach (char c in content)
+            foreach (var c in content)
             {
                 if (c == quoteChar)
                 {

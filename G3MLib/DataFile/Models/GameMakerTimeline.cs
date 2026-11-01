@@ -1,4 +1,3 @@
-using System;
 using System.Collections.ObjectModel;
 
 namespace G3MLib.DataFile.Models;
@@ -72,7 +71,7 @@ public class GameMakerTimeline : GameMakerNamedResource, IDisposable
     /// <summary>
     /// The moments this timeline has. Comparable to keyframes.
     /// </summary>
-    public ObservableCollection<GameMakerTimelineMoment> Moments { get; set; } = new ObservableCollection<GameMakerTimelineMoment>();
+    public ObservableCollection<GameMakerTimelineMoment> Moments { get; set; } = [];
 
     /// <inheritdoc />
     public override string ToString()
@@ -88,16 +87,17 @@ public class GameMakerTimeline : GameMakerNamedResource, IDisposable
         foreach (var moment in Moments)
             moment?.Dispose();
         Name = null;
-        Moments = new();
+        Moments = [];
     }
 
     /// <inheritdoc />
     public void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         writer.WriteGameMakerString(Name);
 
         writer.Write(Moments.Count);
-        for (int i = 0; i < Moments.Count; i++)
+        for (var i = 0; i < Moments.Count; i++)
         {
             // Write the time point
             writer.Write(Moments[i].Step);
@@ -106,7 +106,7 @@ public class GameMakerTimeline : GameMakerNamedResource, IDisposable
             writer.WriteGameMakerObjectPointer(Moments[i].Event);
         }
 
-        for (int i = 0; i < Moments.Count; i++)
+        for (var i = 0; i < Moments.Count; i++)
         {
             // Write the actions for this moment
             writer.WriteGameMakerObject(Moments[i].Event);
@@ -116,28 +116,29 @@ public class GameMakerTimeline : GameMakerNamedResource, IDisposable
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         Name = reader.ReadGameMakerString();
         Moments.Clear();
 
-        int momentCount = reader.ReadInt32();
+        var momentCount = reader.ReadInt32();
         if (momentCount < 0)
             throw new GameMakerSerializationException("Negative timeline moment count.");
 
-        long momentDataSize = (long)momentCount * (sizeof(uint) + sizeof(int));
+        var momentDataSize = (long)momentCount * (sizeof(uint) + sizeof(int));
         if (momentDataSize > reader.Length - reader.Position)
             throw new GameMakerSerializationException("Timeline moment data exceeds the available input.");
 
         // Read the time points for each moment
-        uint[] timePoints = new uint[momentCount];
-        int[] unnecessaryPointers = new int[momentCount];
-        for (int i = 0; i < momentCount; i++)
+        var timePoints = new uint[momentCount];
+        var unnecessaryPointers = new int[momentCount];
+        for (var i = 0; i < momentCount; i++)
         {
             timePoints[i] = reader.ReadUInt32();
             unnecessaryPointers[i] = reader.ReadInt32();
         }
 
         // Read the actions for each moment
-        for (int i = 0; i < momentCount; i++)
+        for (var i = 0; i < momentCount; i++)
         {
             if (reader.AbsPosition != unnecessaryPointers[i])
                 throw new GameMakerSerializationException("Invalid action list pointer");
@@ -151,21 +152,22 @@ public class GameMakerTimeline : GameMakerNamedResource, IDisposable
     /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
     public static uint UnserializeChildObjectCount(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         uint count = 0;
 
         reader.Position += 4; // "Name"
 
-        int momentCount = reader.ReadInt32();
+        var momentCount = reader.ReadInt32();
         if (momentCount < 0)
             throw new GameMakerSerializationException("Negative timeline moment count.");
 
-        long momentDataSize = (long)momentCount * (sizeof(uint) + sizeof(int));
+        var momentDataSize = (long)momentCount * (sizeof(uint) + sizeof(int));
         if (momentDataSize > reader.Length - reader.Position)
             throw new GameMakerSerializationException("Timeline moment data exceeds the available input.");
 
         reader.Position += (long)momentCount * 8;
 
-        for (int i = 0; i < momentCount; i++)
+        for (var i = 0; i < momentCount; i++)
             count += 1 + GameMakerPointerList<GameMakerGameObject.EventAction>.UnserializeChildObjectCount(reader);
 
         return count;

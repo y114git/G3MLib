@@ -4,8 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System;
-using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using G3MLib.Analyzer.Compiler;
 using G3MLib.Analyzer.Decompiler;
@@ -23,7 +21,7 @@ public class GameContextMock : IGameContext
     /// <inheritdoc/>
     public bool UsingGMLv2 { get; set; } = true;
     /// <inheritdoc/>
-    public bool Bytecode14OrLower { get; set; } = false;
+    public bool Bytecode14OrLower { get; set; }
     /// <inheritdoc/>
     public bool UsingStringRealOptimizations { get; set; } = true;
     /// <inheritdoc/>
@@ -33,35 +31,35 @@ public class GameContextMock : IGameContext
     /// <inheritdoc/>
     public bool UsingFinallyBeforeThrow { get; set; } = true;
     /// <inheritdoc/>
-    public bool UsingConstructorSetStatic { get; set; } = false;
+    public bool UsingConstructorSetStatic { get; set; }
     /// <inheritdoc/>
-    public bool UsingExternalStructArrays { get; set; } = false;
+    public bool UsingExternalStructArrays { get; set; }
     /// <inheritdoc/>
     public bool UsingReentrantStatic { get; set; } = true;
     /// <inheritdoc/>
-    public bool UsingArrayCopyOnWrite { get; set; } = false;
+    public bool UsingArrayCopyOnWrite { get; set; }
     /// <inheritdoc/>
     public bool UsingNewArrayOwners { get; set; } = true;
     /// <inheritdoc/>
     public bool UsingNullishOperator { get; set; } = true;
     /// <inheritdoc/>
-    public bool UsingNewFunctionVariables { get; set; } = false;
+    public bool UsingNewFunctionVariables { get; set; }
     /// <inheritdoc/>
-    public bool UsingStructSpecialCaseNames { get; set; } = false;
+    public bool UsingStructSpecialCaseNames { get; set; }
     /// <inheritdoc/>
-    public bool UsingSelfToBuiltin { get; set; } = false;
+    public bool UsingSelfToBuiltin { get; set; }
     /// <inheritdoc/>
-    public bool UsingVariableHashFunctions { get; set; } = false;
+    public bool UsingVariableHashFunctions { get; set; }
     /// <inheritdoc/>
-    public bool UsingGlobalConstantFunction { get; set; } = false;
+    public bool UsingGlobalConstantFunction { get; set; }
     /// <inheritdoc/>
-    public bool UsingObjectFunctionForesight { get; set; } = false;
+    public bool UsingObjectFunctionForesight { get; set; }
     /// <inheritdoc/>
-    public bool UsingBetterTryBreakContinue { get; set; } = false;
+    public bool UsingBetterTryBreakContinue { get; set; }
     /// <inheritdoc/>
-    public bool UsingBuiltinDefaultArguments { get; set; } = false;
+    public bool UsingBuiltinDefaultArguments { get; set; }
     /// <inheritdoc/>
-    public bool UsingExtraRepeatInstruction { get; set; } = false;
+    public bool UsingExtraRepeatInstruction { get; set; }
     /// <inheritdoc/>
     public bool UsingTypedBooleans { get; set; } = true;
     /// <inheritdoc/>
@@ -69,23 +67,23 @@ public class GameContextMock : IGameContext
     /// <inheritdoc/>
     public bool UsingRoomInstanceReferences { get; set; } = true;
     /// <inheritdoc/>
-    public bool UsingFunctionScriptReferences { get; set; } = false;
+    public bool UsingFunctionScriptReferences { get; set; }
     /// <inheritdoc/>
-    public bool UsingNewFunctionResolution { get; set; } = false;
+    public bool UsingNewFunctionResolution { get; set; }
     /// <inheritdoc/>
-    public bool UsingOptimizedFunctionDeclarations { get; set; } = false;
+    public bool UsingOptimizedFunctionDeclarations { get; set; }
     /// <inheritdoc/>
-    public bool UsingNewChainedFunctionArgumentOrder { get; set; } = false;
+    public bool UsingNewChainedFunctionArgumentOrder { get; set; }
     /// <inheritdoc/>
     public bool UsingTemplateStrings { get; set; } = true;
     /// <inheritdoc/>
     public bool UsingModernTemplateStrings { get; set; } = true;
     /// <inheritdoc/>
-    public bool UsingStructAnyNonemptyString { get; set; } = false;
+    public bool UsingStructAnyNonemptyString { get; set; }
     /// <inheritdoc/>
-    public bool UsingFixedDefaultArgumentFunctionDecls { get; set; } = false;
+    public bool UsingFixedDefaultArgumentFunctionDecls { get; set; }
     /// <inheritdoc/>
-    public bool UsingNewNullishAssignSideEffects { get; set; } = false;
+    public bool UsingNewNullishAssignSideEffects { get; set; }
     /// <inheritdoc/>
     public IGlobalFunctions GlobalFunctions { get; } = new GlobalFunctions();
     /// <inheritdoc/>
@@ -128,14 +126,14 @@ public class GameContextMock : IGameContext
     /// <param name="assetName">The name of the asset.</param>
     public void DefineMockAsset(AssetType assetType, int assetIndex, string assetName)
     {
-        if (!_mockAssetsByType.TryGetValue(assetType, out Dictionary<int, string>? assets))
+        if (!_mockAssetsByType.TryGetValue(assetType, out var assets))
         {
             assets = [];
             _mockAssetsByType.Add(assetType, assets);
         }
         assets[assetIndex] = assetName;
 
-        int id = assetIndex | (UsingAssetReferences ? ((int)assetType << 24) : 0);
+        var id = assetIndex | (UsingAssetReferences ? ((int)assetType << 24) : 0);
         _mockAssetsByName[assetName] = id;
         if (assetType == AssetType.Script)
         {
@@ -156,7 +154,7 @@ public class GameContextMock : IGameContext
             return null;
         }
 
-        if (dict.TryGetValue(assetIndex, out string? name))
+        if (dict.TryGetValue(assetIndex, out var name))
         {
             return name;
         }
@@ -182,15 +180,16 @@ public class GameContextMock : IGameContext
     /// <inheritdoc/>
     public bool GetRoomInstanceId(string roomInstanceName, out int assetId)
     {
+        ArgumentNullException.ThrowIfNull(roomInstanceName);
         const string instIdPrefix = "inst_id_";
         if (roomInstanceName.StartsWith(instIdPrefix, StringComparison.Ordinal) &&
-            int.TryParse(roomInstanceName.AsSpan()[instIdPrefix.Length..], out int instanceId) &&
+            int.TryParse(roomInstanceName.AsSpan()[instIdPrefix.Length..], out var instanceId) &&
             instanceId >= 100000)
         {
             assetId = instanceId;
             if (UsingRoomInstanceReferences)
             {
-                assetId |= ((int)AssetType.RoomInstance << 24);
+                assetId |= (int)AssetType.RoomInstance << 24;
             }
             return true;
         }

@@ -4,8 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
-
 namespace G3MLib.Analyzer.Decompiler.AST;
 
 /// <summary>
@@ -32,7 +30,7 @@ public sealed class DataStructureAccessorNode(IExpressionNode target, DataStruct
 
     internal static IExpressionNode? TryCreateGet(FunctionCallNode call, DecompileContext context)
     {
-        if (!TryGetKind(call.FunctionName, context, out AccessorKind kind, out int indexCount) || call.Arguments.Count != indexCount + 1)
+        if (!TryGetKind(call.FunctionName, context, out var kind, out var indexCount) || call.Arguments.Count != indexCount + 1)
         {
             return null;
         }
@@ -47,7 +45,7 @@ public sealed class DataStructureAccessorNode(IExpressionNode target, DataStruct
 
     internal static IStatementNode? TryCreateSet(FunctionCallNode call, DecompileContext context)
     {
-        if (!TryGetKind(call.FunctionName, context, out AccessorKind kind, out int indexCount) || call.Arguments.Count != indexCount + 2)
+        if (!TryGetKind(call.FunctionName, context, out var kind, out var indexCount) || call.Arguments.Count != indexCount + 2)
         {
             return null;
         }
@@ -84,7 +82,7 @@ public sealed class DataStructureAccessorNode(IExpressionNode target, DataStruct
         }
 
         if (context.Settings.CleanupStructVariableAccessors &&
-            (functionName is "variable_struct_get" or "variable_struct_set"))
+            functionName is "variable_struct_get" or "variable_struct_set")
         {
             kind = AccessorKind.Struct;
             indexCount = 1;
@@ -97,7 +95,7 @@ public sealed class DataStructureAccessorNode(IExpressionNode target, DataStruct
     public IExpressionNode Clean(ASTCleaner cleaner)
     {
         Target = Target.Clean(cleaner);
-        for (int i = 0; i < Indices.Count; i++)
+        for (var i = 0; i < Indices.Count; i++)
         {
             Indices[i] = Indices[i].Clean(cleaner);
         }
@@ -113,12 +111,13 @@ public sealed class DataStructureAccessorNode(IExpressionNode target, DataStruct
 
     public void Print(ASTPrinter printer)
     {
+        ArgumentNullException.ThrowIfNull(printer);
         if (Group)
         {
             printer.Write('(');
         }
 
-        Target.Print(printer);
+        printer.PrintNode(Target);
         printer.Write(Kind switch
         {
             AccessorKind.List => "[| ",
@@ -126,11 +125,11 @@ public sealed class DataStructureAccessorNode(IExpressionNode target, DataStruct
             AccessorKind.Grid => "[# ",
             _ => "[$ "
         });
-        Indices[0].Print(printer);
+        printer.PrintNode(Indices[0]);
         if (Indices.Count == 2)
         {
             printer.Write(", ");
-            Indices[1].Print(printer);
+            printer.PrintNode(Indices[1]);
         }
         printer.Write(']');
 
@@ -142,14 +141,14 @@ public sealed class DataStructureAccessorNode(IExpressionNode target, DataStruct
 
     public bool RequiresMultipleLines(ASTPrinter printer, bool isStatementLHS)
     {
-        return (isStatementLHS && Group) || Target.RequiresMultipleLines(printer, isStatementLHS) ||
+        return isStatementLHS && Group || Target.RequiresMultipleLines(printer, isStatementLHS) ||
                Indices.Exists(index => index.RequiresMultipleLines(printer, false));
     }
 
     public IEnumerable<IBaseASTNode> EnumerateChildren()
     {
         yield return Target;
-        foreach (IExpressionNode index in Indices)
+        foreach (var index in Indices)
         {
             yield return index;
         }

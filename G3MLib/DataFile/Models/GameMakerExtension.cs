@@ -1,5 +1,3 @@
-using System;
-
 namespace G3MLib.DataFile.Models;
 
 /// <summary>
@@ -78,12 +76,14 @@ public class GameMakerExtensionFunctionArg : GameMakerObject, IStaticChildObject
     /// <inheritdoc />
     public void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         writer.Write((uint)Type);
     }
 
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         Type = (GameMakerExtensionVarType)reader.ReadUInt32();
     }
 }
@@ -122,11 +122,12 @@ public class GameMakerExtensionFunction : GameMakerObject, IDisposable
     /// <summary>
     /// A list of arguments this function takes.
     /// </summary>
-    public GameMakerSimpleList<GameMakerExtensionFunctionArg> Arguments { get; set; } = new GameMakerSimpleList<GameMakerExtensionFunctionArg>();
+    public GameMakerSimpleList<GameMakerExtensionFunctionArg> Arguments { get; set; } = [];
 
     /// <inheritdoc />
     public void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         writer.WriteGameMakerString(Name);
         writer.Write(ID);
         writer.Write(Kind);
@@ -138,6 +139,7 @@ public class GameMakerExtensionFunction : GameMakerObject, IDisposable
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         Name = reader.ReadGameMakerString();
         ID = reader.ReadUInt32();
         Kind = reader.ReadUInt32();
@@ -149,6 +151,7 @@ public class GameMakerExtensionFunction : GameMakerObject, IDisposable
     /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
     public static uint UnserializeChildObjectCount(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         reader.Position += 20;
 
         return 1 + GameMakerSimpleList<GameMakerExtensionFunctionArg>.UnserializeChildObjectCount(reader);
@@ -165,7 +168,7 @@ public class GameMakerExtensionFunction : GameMakerObject, IDisposable
     {
         GC.SuppressFinalize(this);
 
-        Arguments = new();
+        Arguments = [];
         Name = null;
         ExtName = null;
     }
@@ -200,11 +203,12 @@ public class GameMakerExtensionFile : GameMakerObject, IDisposable
     /// <summary>
     /// The functions this file has defined.
     /// </summary>
-    public GameMakerPointerList<GameMakerExtensionFunction> Functions { get; set; } = new GameMakerPointerList<GameMakerExtensionFunction>();
+    public GameMakerPointerList<GameMakerExtensionFunction> Functions { get; set; } = [];
 
     /// <inheritdoc />
     public void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         writer.WriteGameMakerString(Filename);
         writer.WriteGameMakerString(CleanupScript);
         writer.WriteGameMakerString(InitScript);
@@ -215,6 +219,7 @@ public class GameMakerExtensionFile : GameMakerObject, IDisposable
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         Filename = reader.ReadGameMakerString();
         CleanupScript = reader.ReadGameMakerString();
         InitScript = reader.ReadGameMakerString();
@@ -225,6 +230,7 @@ public class GameMakerExtensionFile : GameMakerObject, IDisposable
     /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
     public static uint UnserializeChildObjectCount(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         uint count = 0;
 
         reader.Position += 16;
@@ -247,13 +253,13 @@ public class GameMakerExtensionFile : GameMakerObject, IDisposable
 
         if (Functions is not null)
         {
-            foreach (GameMakerExtensionFunction func in Functions)
+            foreach (var func in Functions)
                 func?.Dispose();
         }
         Filename = null;
         CleanupScript = null;
         InitScript = null;
-        Functions = new();
+        Functions = [];
     }
 }
 
@@ -301,6 +307,7 @@ public class GameMakerExtensionOption : GameMakerNamedResource, IStaticChildObje
     /// <inheritdoc />
     public void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         writer.WriteGameMakerString(Name);
         writer.WriteGameMakerString(Value);
         writer.Write((uint)Kind);
@@ -309,6 +316,7 @@ public class GameMakerExtensionOption : GameMakerNamedResource, IStaticChildObje
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         Name = reader.ReadGameMakerString();
         Value = reader.ReadGameMakerString();
         Kind = (OptionKind)reader.ReadUInt32();
@@ -361,12 +369,12 @@ public class GameMakerExtension : GameMakerNamedResource, IDisposable
     /// <summary>
     /// The files that this extension contains.
     /// </summary>
-    public GameMakerPointerList<GameMakerExtensionFile> Files { get; set; } = new GameMakerPointerList<GameMakerExtensionFile>();
+    public GameMakerPointerList<GameMakerExtensionFile> Files { get; set; } = [];
 
     /// <summary>
     /// The options that this extension contains.
     /// </summary>
-    public GameMakerPointerList<GameMakerExtensionOption> Options { get; set; } = new GameMakerPointerList<GameMakerExtensionOption>();
+    public GameMakerPointerList<GameMakerExtensionOption> Options { get; set; } = [];
 
     /// <inheritdoc />
     public override string ToString()
@@ -380,13 +388,13 @@ public class GameMakerExtension : GameMakerNamedResource, IDisposable
         GC.SuppressFinalize(this);
 
         if (Files is not null)
-            foreach (GameMakerExtensionFile file in Files)
+            foreach (var file in Files)
                 file?.Dispose();
-        Files = new();
+        Files = [];
         if (Options is not null)
-            foreach (GameMakerExtensionOption opt in Options)
+            foreach (var opt in Options)
                 opt?.Dispose();
-        Options = new();
+        Options = [];
         FolderName = null;
         Name = null;
         ClassName = null;
@@ -396,6 +404,7 @@ public class GameMakerExtension : GameMakerNamedResource, IDisposable
     /// <inheritdoc />
     public void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         if (FolderName is null)
             throw new GameMakerSerializationException($"{nameof(FolderName)} on {nameof(GameMakerExtension)} is null; this causes crashes upon loading");
 
@@ -420,6 +429,7 @@ public class GameMakerExtension : GameMakerNamedResource, IDisposable
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         FolderName = reader.ReadGameMakerString();
         Name = reader.ReadGameMakerString();
         if (reader.gameMakerData.IsVersionAtLeast(2023, 4))
@@ -444,6 +454,7 @@ public class GameMakerExtension : GameMakerNamedResource, IDisposable
     /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
     public static uint UnserializeChildObjectCount(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         uint count = 0;
 
         if (reader.gameMakerData.IsVersionAtLeast(2023, 4))
@@ -453,8 +464,8 @@ public class GameMakerExtension : GameMakerNamedResource, IDisposable
 
         if (reader.gameMakerData.IsVersionAtLeast(2022, 6))
         {
-            uint filesPtr = reader.ReadUInt32();
-            uint optionsPtr = reader.ReadUInt32();
+            var filesPtr = reader.ReadUInt32();
+            var optionsPtr = reader.ReadUInt32();
 
             reader.AbsPosition = filesPtr;
             count += 1 + GameMakerPointerList<GameMakerExtensionFile>.UnserializeChildObjectCount(reader);
@@ -469,13 +480,13 @@ public class GameMakerExtension : GameMakerNamedResource, IDisposable
 
     public static bool ProductDataEligible(GameMakerData data)
     {
-        uint major = data?.GeneralInfo?.Major ?? 0;
+        var major = data?.GeneralInfo?.Major ?? 0;
         if (major >= 2)
         {
             return true;
         }
-        uint build = data?.GeneralInfo?.Build ?? 0;
-        if (build >= 1773 || build == 1559) // NOTE: unknown if 1773 is the earliest version which contains product IDs/data
+        var build = data?.GeneralInfo?.Build ?? 0;
+        if (build is >= 1773 or 1559) // NOTE: unknown if 1773 is the earliest version which contains product IDs/data
         {
             return true;
         }

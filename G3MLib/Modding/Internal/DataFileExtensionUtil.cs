@@ -1,15 +1,14 @@
-using System;
 using System.IO;
-using System.Linq;
 
 namespace G3MLib.Modding.Internal;
 
 public static class DataFileExtensionUtil
 {
-	public static readonly string[] ValidExtensions = new string[4] { ".win", ".ios", ".droid", ".unx" };
+	public static readonly string[] ValidExtensions = [".win", ".ios", ".droid", ".unx"];
 
 	public static bool IsValidDataExtension(string extension)
 	{
+		ArgumentNullException.ThrowIfNull(extension);
 		return ValidExtensions.Contains(extension.ToLowerInvariant());
 	}
 
@@ -24,7 +23,7 @@ public static class DataFileExtensionUtil
 		{
 			return ".win";
 		}
-		string ext = Path.GetExtension(inputPath).ToLowerInvariant();
+		var ext = Path.GetExtension(inputPath).ToLowerInvariant();
 		if (!IsValidDataExtension(ext))
 		{
 			return ".win";
@@ -34,6 +33,6 @@ public static class DataFileExtensionUtil
 
 	public static string GetValidExtensionsDisplay()
 	{
-		return string.Join(", ", ValidExtensions.Select((string e) => "`" + e + "`"));
+		return string.Join(", ", ValidExtensions.Select(e => "`" + e + "`"));
 	}
 }

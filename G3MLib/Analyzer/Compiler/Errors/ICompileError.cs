@@ -14,11 +14,16 @@ public interface ICompileError
     /// <summary>
     /// A simple, but possibly non-user-friendly error message.
     /// </summary>
-    public string BaseMessage { get; }
+    string BaseMessage { get; }
 
     /// <summary>
     /// Generates a full, user-friendly error message based on the contents of this compile error.
     /// </summary>
     /// <returns>Generated message</returns>
-    public string GenerateMessage();
+    string GenerateMessage();
+
+    /// <summary>
+    /// The error as structured data: severity, code, message and source range.
+    /// </summary>
+    GmlDiagnostic Diagnostic { get; }
 }

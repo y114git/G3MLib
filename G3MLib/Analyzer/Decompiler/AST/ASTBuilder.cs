@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Decompiler.ControlFlow;
 
 namespace G3MLib.Analyzer.Decompiler.AST;
@@ -23,28 +22,28 @@ public sealed class ASTBuilder(DecompileContext context)
     /// Reusable expression stack for instruction simulation. When non-empty after building a control flow node,
     /// usually signifies data that needs to get processed by the following control flow node.
     /// </summary>
-    internal Stack<IExpressionNode> ExpressionStack { get => TopFragmentContext!.ExpressionStack; }
+    internal Stack<IExpressionNode> ExpressionStack => TopFragmentContext.ExpressionStack;
 
     /// <summary>
     /// The index to start processing instructions for the next ControlFlow.Block we encounter.
     /// Used by code fragments to skip processing instructions twice.
     /// </summary>
-    internal int StartBlockInstructionIndex { get; set; } = 0;
+    internal int StartBlockInstructionIndex { get; set; }
 
     /// <summary>
     /// List of arguments passed into a struct fragment.
     /// </summary>
-    internal List<IExpressionNode>? StructArguments { get => TopFragmentContext!.StructArguments; set => TopFragmentContext!.StructArguments = value; }
+    internal List<IExpressionNode>? StructArguments { get => TopFragmentContext.StructArguments; set => TopFragmentContext.StructArguments = value; }
 
     /// <summary>
     /// Set of all local variables present in the current fragment.
     /// </summary>
-    internal HashSet<string> LocalVariableNames { get => TopFragmentContext!.LocalVariableNames; }
+    internal HashSet<string> LocalVariableNames => TopFragmentContext.LocalVariableNames;
 
     /// <summary>
     /// Set of all local variables present in the current fragment.
     /// </summary>
-    internal List<string> LocalVariableNamesList { get => TopFragmentContext!.LocalVariableNamesList; }
+    internal List<string> LocalVariableNamesList => TopFragmentContext.LocalVariableNamesList;
 
     /// <summary>
     /// The current/top fragment context.
@@ -54,7 +53,7 @@ public sealed class ASTBuilder(DecompileContext context)
     /// <summary>
     /// Current queue of switch case expressions.
     /// </summary>
-    internal Queue<IExpressionNode>? SwitchCases { get; set; } = null;
+    internal Queue<IExpressionNode>? SwitchCases { get; set; }
 
     /// <summary>
     /// Builds the AST for an entire code entry, starting from the root fragment node.
@@ -62,7 +61,7 @@ public sealed class ASTBuilder(DecompileContext context)
     public IStatementNode Build()
     {
         List<IStatementNode> output = new(1);
-        PushFragmentContext(Context.FragmentNodes![0]);
+        PushFragmentContext(Context.FragmentNodes[0]);
         Context.FragmentNodes[0].BuildAST(this, output);
         PopFragmentContext();
         return output[0];
@@ -101,7 +100,7 @@ public sealed class ASTBuilder(DecompileContext context)
     /// </summary>
     internal BlockNode BuildBlock(IControlFlowNode? startNode)
     {
-        BlockNode block = new(TopFragmentContext ?? throw new System.InvalidOperationException());
+        BlockNode block = new(TopFragmentContext ?? throw new InvalidOperationException());
 
         // Advance through all successors, building out this block
         var currentNode = startNode;
@@ -127,7 +126,7 @@ public sealed class ASTBuilder(DecompileContext context)
     /// </summary>
     internal BlockNode BuildBlockWhile(IControlFlowNode? startNode, WhileLoop whileLoop)
     {
-        BlockNode block = new(TopFragmentContext!);
+        BlockNode block = new(TopFragmentContext);
 
         // Advance through all successors, building out this block
         var currentNode = startNode;
@@ -157,7 +156,7 @@ public sealed class ASTBuilder(DecompileContext context)
     internal IExpressionNode BuildExpression(IControlFlowNode? startNode, List<IStatementNode>? output = null)
     {
         output ??= expressionOutput;
-        int stackCountBefore = ExpressionStack.Count;
+        var stackCountBefore = ExpressionStack.Count;
 
         // Advance through all successors, building expression
         var currentNode = startNode;
@@ -168,7 +167,7 @@ public sealed class ASTBuilder(DecompileContext context)
             currentNode = Follow(currentNode);
         }
 
-        int stackCountAfter = ExpressionStack.Count;
+        var stackCountAfter = ExpressionStack.Count;
 
         // Ensure we didn't produce any statements while evaluating expression
         if (expressionOutput.Count > 0)
@@ -196,7 +195,7 @@ public sealed class ASTBuilder(DecompileContext context)
     internal void BuildArbitrary(IControlFlowNode? startNode, List<IStatementNode>? output = null, int numAllowedExpressions = 0)
     {
         output ??= expressionOutput;
-        int stackCountBefore = ExpressionStack.Count;
+        var stackCountBefore = ExpressionStack.Count;
 
         // Advance through all successors, building expression
         var currentNode = startNode;
@@ -207,7 +206,7 @@ public sealed class ASTBuilder(DecompileContext context)
             currentNode = Follow(currentNode);
         }
 
-        int stackCountAfter = ExpressionStack.Count;
+        var stackCountAfter = ExpressionStack.Count;
 
         // Ensure we didn't produce any statements while evaluating (if desired)
         if (expressionOutput.Count > 0)
@@ -216,7 +215,7 @@ public sealed class ASTBuilder(DecompileContext context)
         }
 
         // Ensure we didn't add too many expressions to the stack
-        if (numAllowedExpressions != -1 && stackCountAfter > (stackCountBefore + numAllowedExpressions))
+        if (numAllowedExpressions != -1 && stackCountAfter > stackCountBefore + numAllowedExpressions)
         {
             throw new DecompilerException(
                 $"Unexpected change of stack count from {stackCountBefore} to " +
@@ -240,7 +239,7 @@ public sealed class ASTBuilder(DecompileContext context)
     /// </summary>
     internal void PopFragmentContext()
     {
-        ASTFragmentContext context = TopFragmentContext!;
+        var context = TopFragmentContext;
         if (context.ExpressionStack.Count > 0)
         {
             if (Context.Settings.AllowLeftoverDataOnStack)
@@ -256,7 +255,7 @@ public sealed class ASTBuilder(DecompileContext context)
         }
 
         // Add sub-function names to lookup, if any exist
-        foreach (ASTFragmentContext child in context.Children)
+        foreach (var child in context.Children)
         {
             if (child.FunctionName is not null)
             {

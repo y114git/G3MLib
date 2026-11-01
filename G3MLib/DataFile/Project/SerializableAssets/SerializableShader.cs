@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -39,12 +37,12 @@ internal sealed class SerializableShader : ISerializableProjectAsset
     public List<string> VertexShaderAttributes { get; set; } = [];
 
     // Data asset that was located during pre-import.
-    private GameMakerShader _dataAsset = null;
+    private GameMakerShader? _dataAsset;
 
     /// <summary>
     /// Populates this serializable script with data from an actual script.
     /// </summary>
-    internal void PopulateFromData(ProjectContext projectContext, GameMakerShader shader)
+    internal void PopulateFromData(GameMakerShader shader)
     {
         // Update all main properties
         DataName = shader.Name.Content;
@@ -101,7 +99,7 @@ internal sealed class SerializableShader : ISerializableProjectAsset
         }
 
         // Write plaintext and data files
-        string directory = Path.GetDirectoryName(destinationFile);
+        var directory = Path.GetDirectoryName(destinationFile);
         SerializeShaderPlaintext(directory, _dataAsset.GLSL_ES_Fragment, "GLSL_ES_Fragment");
         SerializeShaderPlaintext(directory, _dataAsset.GLSL_ES_Vertex, "GLSL_ES_Vertex");
         SerializeShaderPlaintext(directory, _dataAsset.GLSL_Fragment, "GLSL_Fragment");
@@ -142,7 +140,7 @@ internal sealed class SerializableShader : ISerializableProjectAsset
     /// </summary>
     private static void ImportShaderPlaintextFile(string importDirectory, ProjectContext projectContext, Action<GameMakerString> stringSetter, string name)
     {
-        string path = Path.Join(importDirectory, $"{name}.txt");
+        var path = Path.Join(importDirectory, $"{name}.txt");
         if (!File.Exists(path))
         {
             stringSetter(projectContext.MakeString(""));
@@ -156,7 +154,7 @@ internal sealed class SerializableShader : ISerializableProjectAsset
     /// </summary>
     private static void ImportShaderBinaryFile(string importDirectory, Action<GameMakerRawShaderData> dataSetter, string name)
     {
-        string path = Path.Join(importDirectory, $"{name}.bin");
+        var path = Path.Join(importDirectory, $"{name}.bin");
         if (!File.Exists(path))
         {
             dataSetter(new());
@@ -172,13 +170,13 @@ internal sealed class SerializableShader : ISerializableProjectAsset
     /// <inheritdoc/>
     public IProjectAsset Import(ProjectContext projectContext)
     {
-        GameMakerShader shader = _dataAsset;
+        var shader = _dataAsset;
 
         // Update all main properties
         shader.Type = Type;
         shader.Version = Version;
         shader.VertexShaderAttributes.Clear();
-        foreach (string attr in VertexShaderAttributes ?? [])
+        foreach (var attr in VertexShaderAttributes ?? [])
         {
             shader.VertexShaderAttributes.Add(new()
             {
@@ -187,11 +185,11 @@ internal sealed class SerializableShader : ISerializableProjectAsset
         }
 
         // Import plaintext and data files
-        if (!projectContext.AssetDataNamesToPaths.TryGetValue(new(DataName, AssetType), out string jsonFilename))
+        if (!projectContext.AssetDataNamesToPaths.TryGetValue(new(DataName, AssetType), out var jsonFilename))
         {
             throw new ProjectException("Failed to get shader asset path");
         }
-        string directory = Path.GetDirectoryName(jsonFilename);
+        var directory = Path.GetDirectoryName(jsonFilename);
         ImportShaderPlaintextFile(directory, projectContext, (str) => shader.GLSL_ES_Fragment = str, "GLSL_ES_Fragment");
         ImportShaderPlaintextFile(directory, projectContext, (str) => shader.GLSL_ES_Vertex = str, "GLSL_ES_Vertex");
         ImportShaderPlaintextFile(directory, projectContext, (str) => shader.GLSL_Fragment = str, "GLSL_Fragment");

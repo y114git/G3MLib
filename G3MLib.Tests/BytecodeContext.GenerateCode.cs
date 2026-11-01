@@ -1719,9 +1719,9 @@ public class BytecodeContext_GenerateCode
         gameContext.DefineMockAsset(AssetType.Script, 124, "AnotherFunction");
         gameContext.DefineMockAsset(AssetType.Script, 125, "global_func_AnotherFunction");
         gameContext.DefineMockAsset(AssetType.Script, 123, "ExampleFunction");
-        ((G3MLib.Analyzer.Decompiler.GlobalFunctions)gameContext.GlobalFunctions)
+        ((Analyzer.Decompiler.GlobalFunctions)gameContext.GlobalFunctions)
             .DefineFunction("ExampleFunction", new GMFunction("ExampleFunction"));
-        ((G3MLib.Analyzer.Decompiler.GlobalFunctions)gameContext.GlobalFunctions)
+        ((Analyzer.Decompiler.GlobalFunctions)gameContext.GlobalFunctions)
             .DefineFunction("AnotherFunction", new GMFunction("global_func_AnotherFunction"));
         ((BuiltinsMock)gameContext.Builtins).BuiltinFunctions["script_execute"] =
             new("script_execute", 0, int.MaxValue);
@@ -1811,9 +1811,9 @@ public class BytecodeContext_GenerateCode
         gameContext.DefineMockAsset(AssetType.Script, 124, "AnotherFunction");
         gameContext.DefineMockAsset(AssetType.Script, 125, "global_func_AnotherFunction");
         gameContext.DefineMockAsset(AssetType.Script, 123, "ExampleFunction");
-        ((G3MLib.Analyzer.Decompiler.GlobalFunctions)gameContext.GlobalFunctions)
+        ((Analyzer.Decompiler.GlobalFunctions)gameContext.GlobalFunctions)
             .DefineFunction("ExampleFunction", new GMFunction("ExampleFunction"));
-        ((G3MLib.Analyzer.Decompiler.GlobalFunctions)gameContext.GlobalFunctions)
+        ((Analyzer.Decompiler.GlobalFunctions)gameContext.GlobalFunctions)
             .DefineFunction("AnotherFunction", new GMFunction("global_func_AnotherFunction"));
         ((BuiltinsMock)gameContext.Builtins).BuiltinFunctions["script_execute"] =
             new("script_execute", 0, int.MaxValue);
@@ -1904,9 +1904,9 @@ public class BytecodeContext_GenerateCode
         gameContext.DefineMockAsset(AssetType.Script, 124, "AnotherFunction");
         gameContext.DefineMockAsset(AssetType.Script, 125, "global_func_AnotherFunction");
         gameContext.DefineMockAsset(AssetType.Script, 123, "ExampleFunction");
-        ((G3MLib.Analyzer.Decompiler.GlobalFunctions)gameContext.GlobalFunctions)
+        ((Analyzer.Decompiler.GlobalFunctions)gameContext.GlobalFunctions)
             .DefineFunction("ExampleFunction", new GMFunction("ExampleFunction"));
-        ((G3MLib.Analyzer.Decompiler.GlobalFunctions)gameContext.GlobalFunctions)
+        ((Analyzer.Decompiler.GlobalFunctions)gameContext.GlobalFunctions)
             .DefineFunction("AnotherFunction", new GMFunction("global_func_AnotherFunction"));
         ((BuiltinsMock)gameContext.Builtins).BuiltinFunctions["script_execute"] =
             new("script_execute", 0, int.MaxValue);
@@ -1992,9 +1992,9 @@ public class BytecodeContext_GenerateCode
         gameContext.DefineMockAsset(AssetType.Script, 124, "AnotherFunction");
         gameContext.DefineMockAsset(AssetType.Script, 125, "global_func_AnotherFunction");
         gameContext.DefineMockAsset(AssetType.Script, 123, "ExampleFunction");
-        ((G3MLib.Analyzer.Decompiler.GlobalFunctions)gameContext.GlobalFunctions)
+        ((Analyzer.Decompiler.GlobalFunctions)gameContext.GlobalFunctions)
             .DefineFunction("ExampleFunction", new GMFunction("ExampleFunction"));
-        ((G3MLib.Analyzer.Decompiler.GlobalFunctions)gameContext.GlobalFunctions)
+        ((Analyzer.Decompiler.GlobalFunctions)gameContext.GlobalFunctions)
             .DefineFunction("AnotherFunction", new GMFunction("global_func_AnotherFunction"));
         ((BuiltinsMock)gameContext.Builtins).BuiltinFunctions["script_execute"] =
             new("script_execute", 0, int.MaxValue);
@@ -2050,9 +2050,9 @@ public class BytecodeContext_GenerateCode
         gameContext.DefineMockAsset(AssetType.Script, 124, "AnotherFunction");
         gameContext.DefineMockAsset(AssetType.Script, 125, "global_func_AnotherFunction");
         gameContext.DefineMockAsset(AssetType.Script, 123, "ExampleFunction");
-        ((G3MLib.Analyzer.Decompiler.GlobalFunctions)gameContext.GlobalFunctions)
+        ((Analyzer.Decompiler.GlobalFunctions)gameContext.GlobalFunctions)
             .DefineFunction("ExampleFunction", new GMFunction("ExampleFunction"));
-        ((G3MLib.Analyzer.Decompiler.GlobalFunctions)gameContext.GlobalFunctions)
+        ((Analyzer.Decompiler.GlobalFunctions)gameContext.GlobalFunctions)
             .DefineFunction("AnotherFunction", new GMFunction("global_func_AnotherFunction"));
         ((BuiltinsMock)gameContext.Builtins).BuiltinFunctions["script_execute"] =
             new("script_execute", 0, int.MaxValue);
@@ -2107,7 +2107,7 @@ public class BytecodeContext_GenerateCode
             UsingGMLv2 = false
         };
         gameContext.DefineMockAsset(AssetType.Script, 123, "ExampleFunction");
-        ((G3MLib.Analyzer.Decompiler.GlobalFunctions)gameContext.GlobalFunctions)
+        ((Analyzer.Decompiler.GlobalFunctions)gameContext.GlobalFunctions)
             .DefineFunction("ExampleFunction", new GMFunction("ExampleFunction"));
         TestUtil.AssertBytecode(
             """
@@ -5164,10 +5164,10 @@ public class BytecodeContext_GenerateCode
             UsingObjectFunctionForesight = false
         };
         gameContextMock.DefineMockAsset(AssetType.Script, 123, "DifferentScript");
-        ((G3MLib.Analyzer.Decompiler.GlobalFunctions)gameContextMock.GlobalFunctions).
+        ((Analyzer.Decompiler.GlobalFunctions)gameContextMock.GlobalFunctions).
             DefineFunction("DifferentScript", new GMFunction("DifferentScript"));
         gameContextMock.DefineMockAsset(AssetType.Script, 124, "global_func_DifferentScript_SubFunction");
-        ((G3MLib.Analyzer.Decompiler.GlobalFunctions)gameContextMock.GlobalFunctions).
+        ((Analyzer.Decompiler.GlobalFunctions)gameContextMock.GlobalFunctions).
             DefineFunction("DifferentScript_SubFunction", new GMFunction("global_func_DifferentScript_SubFunction"));
         TestUtil.AssertBytecode(
             """
@@ -5588,10 +5588,10 @@ public class BytecodeContext_GenerateCode
             UsingObjectFunctionForesight = false
         };
         gameContextMock.DefineMockAsset(AssetType.Script, 123, "DifferentScript");
-        ((G3MLib.Analyzer.Decompiler.GlobalFunctions)gameContextMock.GlobalFunctions).
+        ((Analyzer.Decompiler.GlobalFunctions)gameContextMock.GlobalFunctions).
             DefineFunction("DifferentScript", new GMFunction("DifferentScript"));
         gameContextMock.DefineMockAsset(AssetType.Script, 124, "global_func_DifferentScript_SubFunction");
-        ((G3MLib.Analyzer.Decompiler.GlobalFunctions)gameContextMock.GlobalFunctions).
+        ((Analyzer.Decompiler.GlobalFunctions)gameContextMock.GlobalFunctions).
             DefineFunction("DifferentScript_SubFunction", new GMFunction("global_func_DifferentScript_SubFunction"));
         TestUtil.AssertBytecode(
             """
@@ -6015,10 +6015,10 @@ public class BytecodeContext_GenerateCode
             UsingNewFunctionResolution = true
         };
         gameContextMock.DefineMockAsset(AssetType.Script, 123, "DifferentScript");
-        ((G3MLib.Analyzer.Decompiler.GlobalFunctions)gameContextMock.GlobalFunctions).
+        ((Analyzer.Decompiler.GlobalFunctions)gameContextMock.GlobalFunctions).
             DefineFunction("DifferentScript", new GMFunction("DifferentScript"));
         gameContextMock.DefineMockAsset(AssetType.Script, 124, "global_func_DifferentScript_SubFunction");
-        ((G3MLib.Analyzer.Decompiler.GlobalFunctions)gameContextMock.GlobalFunctions).
+        ((Analyzer.Decompiler.GlobalFunctions)gameContextMock.GlobalFunctions).
             DefineFunction("DifferentScript_SubFunction", new GMFunction("global_func_DifferentScript_SubFunction"));
         TestUtil.AssertBytecode(
             """
@@ -6434,10 +6434,10 @@ public class BytecodeContext_GenerateCode
             UsingNewFunctionResolution = true
         };
         gameContextMock.DefineMockAsset(AssetType.Script, 123, "DifferentScript");
-        ((G3MLib.Analyzer.Decompiler.GlobalFunctions)gameContextMock.GlobalFunctions).
+        ((Analyzer.Decompiler.GlobalFunctions)gameContextMock.GlobalFunctions).
             DefineFunction("DifferentScript", new GMFunction("DifferentScript"));
         gameContextMock.DefineMockAsset(AssetType.Script, 124, "global_func_DifferentScript_SubFunction");
-        ((G3MLib.Analyzer.Decompiler.GlobalFunctions)gameContextMock.GlobalFunctions).
+        ((Analyzer.Decompiler.GlobalFunctions)gameContextMock.GlobalFunctions).
             DefineFunction("DifferentScript_SubFunction", new GMFunction("global_func_DifferentScript_SubFunction"));
         TestUtil.AssertBytecode(
             """

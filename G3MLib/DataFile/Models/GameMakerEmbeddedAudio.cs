@@ -1,4 +1,3 @@
-using System;
 using System.IO;
 
 namespace G3MLib.DataFile.Models;
@@ -18,11 +17,12 @@ public class GameMakerEmbeddedAudio : GameMakerNamedResource, PaddedObject, IDis
     /// <summary>
     /// The audio data of the embedded audio entry.
     /// </summary>
-    public byte[] Data { get; set; } = Array.Empty<byte>();
+    public byte[] Data { get; set; } = [];
 
     /// <inheritdoc />
     public void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         writer.Write((uint)Data.Length);
         writer.Write(Data);
     }
@@ -30,6 +30,7 @@ public class GameMakerEmbeddedAudio : GameMakerNamedResource, PaddedObject, IDis
     /// <inheritdoc />
     public void SerializePadding(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         while (writer.Position % 4 != 0)
             writer.Write((byte)0);
     }
@@ -37,7 +38,8 @@ public class GameMakerEmbeddedAudio : GameMakerNamedResource, PaddedObject, IDis
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
-        uint len = reader.ReadUInt32();
+        ArgumentNullException.ThrowIfNull(reader);
+        var len = reader.ReadUInt32();
         if (len > int.MaxValue || len > reader.Length - reader.Position)
             throw new IOException("Embedded audio data exceeds the available input.");
         Data = reader.ReadBytes((int)len);
@@ -47,6 +49,7 @@ public class GameMakerEmbeddedAudio : GameMakerNamedResource, PaddedObject, IDis
     /// <inheritdoc />
     public void UnserializePadding(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         while (reader.AbsPosition % 4 != 0)
             if (reader.ReadByte() != 0)
                 throw new IOException("Padding error!");
@@ -64,6 +67,6 @@ public class GameMakerEmbeddedAudio : GameMakerNamedResource, PaddedObject, IDis
         GC.SuppressFinalize(this);
 
         Name = null;
-        Data = Array.Empty<byte>();
+        Data = [];
     }
 }

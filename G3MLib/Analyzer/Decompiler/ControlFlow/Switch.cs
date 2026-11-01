@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Decompiler.AST;
 
 namespace G3MLib.Analyzer.Decompiler.ControlFlow;
@@ -18,10 +17,10 @@ internal sealed class Switch : IControlFlowNode
     {
         public Block EndBlock { get; set; } = endBlock;
         public IControlFlowNode EndNode { get; set; } = endNode;
-        public Block? ContinueBlock { get; set; } = null;
-        public Block? ContinueSkipBlock { get; set; } = null;
-        public Block? EndOfCaseBlock { get; set; } = null;
-        public Block? DefaultBranchBlock { get; set; } = null;
+        public Block? ContinueBlock { get; set; }
+        public Block? ContinueSkipBlock { get; set; }
+        public Block? EndOfCaseBlock { get; set; }
+        public Block? DefaultBranchBlock { get; set; }
         public bool MayBeMisdetected { get; set; } = mayBeMisdetected;
     }
 
@@ -35,11 +34,11 @@ internal sealed class Switch : IControlFlowNode
 
         public List<IControlFlowNode> Successors { get; } = [];
 
-        public IControlFlowNode? Parent { get; set; } = null;
+        public IControlFlowNode? Parent { get; set; }
 
         public List<IControlFlowNode?> Children { get; } = [];
 
-        public bool Unreachable { get; set; } = false;
+        public bool Unreachable { get; set; }
 
         /// <summary>
         /// Whether this case's expression is compared as a boolean type.
@@ -54,7 +53,7 @@ internal sealed class Switch : IControlFlowNode
         public void BuildAST(ASTBuilder builder, List<IStatementNode> output)
         {
             // Take expression from stack
-            IExpressionNode expression = builder.ExpressionStack.Pop();
+            var expression = builder.ExpressionStack.Pop();
 
             // If this is a boolean type case, and the expression was an int16 that was directly
             // used without conversion, that means it was a boolean
@@ -67,7 +66,7 @@ internal sealed class Switch : IControlFlowNode
             }
 
             // Queue our expression to be used later, when the case destination is processed
-            builder.SwitchCases!.Enqueue(expression);
+            builder.SwitchCases.Enqueue(expression);
 
             // Get rid of duplicated expression
             builder.ExpressionStack.Pop();
@@ -84,13 +83,13 @@ internal sealed class Switch : IControlFlowNode
 
         public List<IControlFlowNode> Successors { get; } = [];
 
-        public IControlFlowNode? Parent { get; set; } = null;
+        public IControlFlowNode? Parent { get; set; }
 
         public List<IControlFlowNode?> Children { get; } = [];
 
-        public bool Unreachable { get; set; } = false;
+        public bool Unreachable { get; set; }
 
-        public bool IsDefault { get; set; } = false;
+        public bool IsDefault { get; set; }
 
         public override string ToString()
         {
@@ -107,7 +106,7 @@ internal sealed class Switch : IControlFlowNode
             else
             {
                 // Retrieve expression from earlier evaluation
-                output.Add(new SwitchCaseNode(builder.SwitchCases!.Dequeue()));
+                output.Add(new SwitchCaseNode(builder.SwitchCases.Dequeue()));
             }
         }
     }
@@ -120,16 +119,16 @@ internal sealed class Switch : IControlFlowNode
 
     public List<IControlFlowNode> Successors { get; } = [];
 
-    public IControlFlowNode? Parent { get; set; } = null;
+    public IControlFlowNode? Parent { get; set; }
 
     public List<IControlFlowNode?> Children { get; } = [null, null, null];
 
-    public bool Unreachable { get; set; } = false;
+    public bool Unreachable { get; set; }
 
     /// <summary>
     /// The first block that begins the chain of case conditions. Should always be a Block.
     /// </summary>
-    public IControlFlowNode Cases { get => Children[0] ?? throw new System.InvalidOperationException(); private set => Children[0] = value; }
+    public IControlFlowNode Cases { get => Children[0] ?? throw new InvalidOperationException(); private set => Children[0] = value; }
 
     /// <summary>
     /// The first node of the switch statement body. Should always be a CaseDestinationNode, or <see langword="null"/>.
@@ -166,7 +165,7 @@ internal sealed class Switch : IControlFlowNode
         {
             if (x is null || y is null)
             {
-                throw new System.ArgumentNullException(x is null ? nameof(x) : nameof(y));
+                throw new ArgumentNullException(x is null ? nameof(x) : nameof(y));
             }
             return x.BlockIndex - y.BlockIndex;
         }
@@ -174,27 +173,27 @@ internal sealed class Switch : IControlFlowNode
 
     private static void DetectionPass(DecompileContext ctx)
     {
-        List<Block> blocks = ctx.Blocks!;
-        List<Fragment> fragments = ctx.FragmentNodes!;
-        ctx.BlockSurroundingLoops ??= Branches.FindSurroundingLoops(blocks, ctx.BlocksByAddress!, ctx.LoopNodes!);
+        var blocks = ctx.Blocks;
+        var fragments = ctx.FragmentNodes;
+        ctx.BlockSurroundingLoops ??= Branches.FindSurroundingLoops(blocks, ctx.BlocksByAddress, ctx.LoopNodes);
         ctx.BlockAfterLimits ??= Branches.ComputeBlockAfterLimits(blocks, ctx.BlockSurroundingLoops);
 
-        foreach (Fragment fragment in fragments)
+        foreach (var fragment in fragments)
         {
             ctx.ThrowIfCancellationRequested();
-            for (int i = 0; i < fragment.Blocks.Count - 1; i++)
+            for (var i = 0; i < fragment.Blocks.Count - 1; i++)
             {
-                Block block = fragment.Blocks[i];
+                var block = fragment.Blocks[i];
                 Block? endCaseBlock = null;
                 IControlFlowNode? endNode = null;
                 Block? endBlock = null;
-                bool mayBeMisdetected = false;
+                var mayBeMisdetected = false;
                 if (block.Instructions is [.., { Kind: IGMInstruction.Opcode.BranchTrue }])
                 {
                     // We have the very top of a switch statement.
                     // Now, repeatedly follow successors until we find a Branch instruction,
                     // which is either a default case branch or the "end of cases" branch.
-                    IControlFlowNode node = block.Successors[0];
+                    var node = block.Successors[0];
                     while (node is not Block b || b.Instructions is not [.., { Kind: IGMInstruction.Opcode.Branch }])
                     {
                         ctx.ThrowIfCancellationRequested();
@@ -221,8 +220,8 @@ internal sealed class Switch : IControlFlowNode
                     // If there exists a default case branch in this switch statement, it would be this one.
                     // To check, we look at the next block (at least one more *should* exist) to see if it's an unreachable Branch block.
                     // We use this to determine endNode.
-                    Block firstBranchBlock = node as Block ?? throw new System.InvalidOperationException();
-                    Block nextBlock = blocks[firstBranchBlock.BlockIndex + 1];
+                    var firstBranchBlock = node as Block ?? throw new InvalidOperationException();
+                    var nextBlock = blocks[firstBranchBlock.BlockIndex + 1];
                     if (nextBlock is { Unreachable: true, Instructions: [{ Kind: IGMInstruction.Opcode.Branch }] })
                     {
                         // nextBlock is the end of case block
@@ -234,18 +233,18 @@ internal sealed class Switch : IControlFlowNode
                         endCaseBlock = firstBranchBlock;
                     }
                     endNode = endCaseBlock.Successors[0];
-                    endBlock = ctx.BlocksByAddress![endNode.StartAddress];
+                    endBlock = ctx.BlocksByAddress[endNode.StartAddress];
                 }
                 else if (block.Instructions is [.., { Kind: IGMInstruction.Opcode.Branch }])
                 {
                     // If we have an unreachable Branch block immediately after this block, then this block is a default case.
-                    Block nextBlock = blocks[block.BlockIndex + 1];
+                    var nextBlock = blocks[block.BlockIndex + 1];
                     if (nextBlock is { Unreachable: true, Instructions: [{ Kind: IGMInstruction.Opcode.Branch }] })
                     {
                         // nextBlock is the end of case block
                         endCaseBlock = nextBlock;
                         endNode = nextBlock.Successors[0];
-                        endBlock = ctx.BlocksByAddress![endNode.StartAddress];
+                        endBlock = ctx.BlocksByAddress[endNode.StartAddress];
 
                         // Ensure both branches are forward branches (past these two blocks)
                         if (block.Successors[0].StartAddress < nextBlock.EndAddress ||
@@ -284,10 +283,10 @@ internal sealed class Switch : IControlFlowNode
                             }
 
                             // Ensure end block is only branched to by internal nodes
-                            bool externalPredecessor = false;
-                            for (int j = 0; j < endNode.Predecessors.Count; j++)
+                            var externalPredecessor = false;
+                            for (var j = 0; j < endNode.Predecessors.Count; j++)
                             {
-                                IControlFlowNode currPred = endNode.Predecessors[j];
+                                var currPred = endNode.Predecessors[j];
                                 if (currPred.StartAddress < block.StartAddress || currPred.StartAddress >= endNode.StartAddress)
                                 {
                                     externalPredecessor = true;
@@ -318,7 +317,7 @@ internal sealed class Switch : IControlFlowNode
                             // Perform extra checks only if we're inside of a loop, and nextBlock ends with return/exit
                             // (as this pattern can be produced with continue statments in a for loop, with an incrementor that exits)
                             if (ctx.BlockSurroundingLoops.ContainsKey(block) &&
-                                nextBlock.Instructions is [.., { Kind: IGMInstruction.Opcode.Return or IGMInstruction.Opcode.Exit } ])
+                                nextBlock.Instructions is [.., { Kind: IGMInstruction.Opcode.Return or IGMInstruction.Opcode.Exit }])
                             {
                                 mayBeMisdetected = true;
                             }
@@ -340,15 +339,15 @@ internal sealed class Switch : IControlFlowNode
                 {
                     if (endBlock is null || endCaseBlock is null)
                     {
-                        throw new System.InvalidOperationException();
+                        throw new InvalidOperationException();
                     }
 
                     // Check that we're not detecting the same switch twice (e.g. due to a break/continue statement)
-                    if (ctx.SwitchEndNodes!.Contains(endNode))
+                    if (ctx.SwitchEndNodes.Contains(endNode))
                     {
                         continue;
                     }
-                    if (ctx.SwitchContinueBlocks!.Contains(endBlock))
+                    if (ctx.SwitchContinueBlocks.Contains(endBlock))
                     {
                         continue;
                     }
@@ -358,10 +357,10 @@ internal sealed class Switch : IControlFlowNode
 
                     // Create detection data
                     SwitchDetectionData data = new(endBlock, endNode, mayBeMisdetected);
-                    ctx.SwitchData!.Add(data);
+                    ctx.SwitchData.Add(data);
 
                     // Update index for next iteration (to be after the end case node's block index).
-                    int endCaseBlockIndex =
+                    var endCaseBlockIndex =
                         fragment.Blocks.BinarySearch(i, fragment.Blocks.Count - i, endCaseBlock, BlockIndexComparer.Instance);
                     i = endCaseBlockIndex;
 
@@ -370,7 +369,7 @@ internal sealed class Switch : IControlFlowNode
                     {
                         continue;
                     }
-                    Block previousBlock = blocks[endBlock.BlockIndex - 1];
+                    var previousBlock = blocks[endBlock.BlockIndex - 1];
                     if (previousBlock.Instructions is not
                         [{ Kind: IGMInstruction.Opcode.PopDelete }, { Kind: IGMInstruction.Opcode.Branch }])
                     {
@@ -382,7 +381,7 @@ internal sealed class Switch : IControlFlowNode
                     {
                         continue;
                     }
-                    Block previousPreviousBlock = blocks[previousBlock.BlockIndex - 1];
+                    var previousPreviousBlock = blocks[previousBlock.BlockIndex - 1];
                     if (previousPreviousBlock.Instructions is not [.., { Kind: IGMInstruction.Opcode.Branch }])
                     {
                         continue;
@@ -394,7 +393,7 @@ internal sealed class Switch : IControlFlowNode
 
                     // This is definitely a switch continue block
                     ctx.SwitchContinueBlocks.Add(previousBlock);
-                    ctx.SwitchIgnoreJumpBlocks!.Add(previousPreviousBlock);
+                    ctx.SwitchIgnoreJumpBlocks.Add(previousPreviousBlock);
                     data.ContinueBlock = previousBlock;
                     data.ContinueSkipBlock = previousPreviousBlock;
                 }
@@ -404,14 +403,14 @@ internal sealed class Switch : IControlFlowNode
 
     private static void DetailPass(DecompileContext ctx)
     {
-        List<Block> blocks = ctx.Blocks!;
+        var blocks = ctx.Blocks;
 
-        foreach (SwitchDetectionData data in ctx.SwitchData!)
+        foreach (var data in ctx.SwitchData)
         {
             ctx.ThrowIfCancellationRequested();
             // Find first predecessor that ends in Branch (should be the first one that *doesn't* end in BranchTrue)
             Block? firstBranchPredecessor = null;
-            foreach (IControlFlowNode pred in data.EndNode.Predecessors)
+            foreach (var pred in data.EndNode.Predecessors)
             {
                 if (pred is Block predBlock && predBlock.Instructions is [.., { Kind: IGMInstruction.Opcode.Branch }])
                 {
@@ -427,9 +426,9 @@ internal sealed class Switch : IControlFlowNode
             // A predecessor which branches beyond the switch cannot be its default block.
             data.EndOfCaseBlock = firstBranchPredecessor;
             bool prevBlockIsDefaultBranch;
-            if (firstBranchPredecessor.BlockIndex >= 1 && !ctx.SwitchEndNodes!.Contains(firstBranchPredecessor))
+            if (firstBranchPredecessor.BlockIndex >= 1 && !ctx.SwitchEndNodes.Contains(firstBranchPredecessor))
             {
-                Block prevBlock = blocks[firstBranchPredecessor.BlockIndex - 1];
+                var prevBlock = blocks[firstBranchPredecessor.BlockIndex - 1];
                 if (prevBlock.Instructions is not [.., { Kind: IGMInstruction.Opcode.Branch }])
                 {
                     prevBlockIsDefaultBranch = false;
@@ -451,7 +450,7 @@ internal sealed class Switch : IControlFlowNode
             }
             if (!prevBlockIsDefaultBranch)
             {
-                Block nextBlock = blocks[firstBranchPredecessor.BlockIndex + 1];
+                var nextBlock = blocks[firstBranchPredecessor.BlockIndex + 1];
                 if (nextBlock.Unreachable && nextBlock.Instructions is [{ Kind: IGMInstruction.Opcode.Branch }])
                 {
                     data.DefaultBranchBlock = firstBranchPredecessor;
@@ -460,7 +459,7 @@ internal sealed class Switch : IControlFlowNode
             }
 
             // Update list of blocks that we should ignore
-            ctx.SwitchIgnoreJumpBlocks!.Add(data.EndOfCaseBlock);
+            ctx.SwitchIgnoreJumpBlocks.Add(data.EndOfCaseBlock);
             if (data.DefaultBranchBlock is not null)
             {
                 ctx.SwitchIgnoreJumpBlocks.Add(data.DefaultBranchBlock);
@@ -497,10 +496,10 @@ internal sealed class Switch : IControlFlowNode
     {
         List<Switch> res = [];
 
-        for (int j = 0; j < ctx.SwitchData!.Count; j++)
+        for (var j = 0; j < ctx.SwitchData.Count; j++)
         {
             ctx.ThrowIfCancellationRequested();
-            SwitchDetectionData data = ctx.SwitchData[j];
+            var data = ctx.SwitchData[j];
 
             // Find all cases
             IControlFlowNode? currentNode = data.EndOfCaseBlock;
@@ -516,7 +515,7 @@ internal sealed class Switch : IControlFlowNode
                         caseBranches.Add(currentBlock);
                     }
 
-                    if (ctx.SwitchEndNodes!.Contains(currentBlock))
+                    if (ctx.SwitchEndNodes.Contains(currentBlock))
                     {
                         // We're at the end of another switch statement - do not continue
                         break;
@@ -547,9 +546,9 @@ internal sealed class Switch : IControlFlowNode
             }
 
             List<IControlFlowNode> caseDestinationNodes = new(caseBranches.Count);
-            for (int i = caseBranches.Count - 1; i >= 0; i--)
+            for (var i = caseBranches.Count - 1; i >= 0; i--)
             {
-                Block currentBlock = caseBranches[i];
+                var currentBlock = caseBranches[i];
                 caseDestinationNodes.Add(currentBlock.Successors[1]);
 
                 // Clear out the Compare & BranchTrue and replace it with a CaseJumpNode
@@ -557,7 +556,7 @@ internal sealed class Switch : IControlFlowNode
                 {
                     throw new DecompilerException("Expected Compare instruction in switch case");
                 }
-                bool caseIsBooleanType = currentBlock.Instructions[^2].Type1 == IGMInstruction.DataType.Boolean;
+                var caseIsBooleanType = currentBlock.Instructions[^2].Type1 == IGMInstruction.DataType.Boolean;
                 currentBlock.Instructions.RemoveRange(currentBlock.Instructions.Count - 2, 2);
                 IControlFlowNode.DisconnectSuccessor(currentBlock, 1);
                 CaseJumpNode caseJumpNode = new(currentBlock.EndAddress, caseIsBooleanType);
@@ -572,18 +571,18 @@ internal sealed class Switch : IControlFlowNode
             IControlFlowNode? defaultDestinationNode = null;
             if (data.DefaultBranchBlock is not null)
             {
-                Block defaultBlock = data.DefaultBranchBlock;
+                var defaultBlock = data.DefaultBranchBlock;
                 defaultDestinationNode = defaultBlock.Successors[0];
 
                 // Clear out Branch and disconnect successors (multiple successors because unreachable blocks are possible)
                 defaultBlock.Instructions.RemoveAt(defaultBlock.Instructions.Count - 1);
-                for (int i = defaultBlock.Successors.Count - 1; i >= 0; i--)
+                for (var i = defaultBlock.Successors.Count - 1; i >= 0; i--)
                 {
                     IControlFlowNode.DisconnectSuccessor(defaultBlock, i);
                 }
             }
             // Second pass: update destinations
-            foreach (IControlFlowNode caseDestination in caseDestinationNodes)
+            foreach (var caseDestination in caseDestinationNodes)
             {
                 // Insert case destination node before destination
                 CaseDestinationNode caseDestNode = new(caseDestination.StartAddress);
@@ -597,7 +596,7 @@ internal sealed class Switch : IControlFlowNode
                     }
                     else
                     {
-                        endCaseDestinationsEnd!.Successors.Add(caseDestNode);
+                        endCaseDestinationsEnd.Successors.Add(caseDestNode);
                         caseDestNode.Predecessors.Add(endCaseDestinationsEnd);
                         endCaseDestinationsEnd = caseDestNode;
                     }
@@ -626,7 +625,7 @@ internal sealed class Switch : IControlFlowNode
                     }
                     else
                     {
-                        endCaseDestinationsEnd!.Successors.Add(caseDestNode);
+                        endCaseDestinationsEnd.Successors.Add(caseDestNode);
                         caseDestNode.Predecessors.Add(endCaseDestinationsEnd);
                     }
                 }
@@ -641,7 +640,7 @@ internal sealed class Switch : IControlFlowNode
             // Remove branch from end of case block
             if (data.EndOfCaseBlock is not null)
             {
-                Block endOfCaseBlock = data.EndOfCaseBlock;
+                var endOfCaseBlock = data.EndOfCaseBlock;
 
                 // Clear out Branch and disconnect successor
                 endOfCaseBlock.Instructions.RemoveAt(endOfCaseBlock.Instructions.Count - 1);
@@ -651,24 +650,24 @@ internal sealed class Switch : IControlFlowNode
             // Remove continue block (and branch around it) if it exists
             if (data.ContinueBlock is not null)
             {
-                Block continueBlock = data.ContinueBlock;
+                var continueBlock = data.ContinueBlock;
                 continueBlock.Instructions.Clear();
-                for (int i = continueBlock.Predecessors.Count - 1; i >= 0; i--)
+                for (var i = continueBlock.Predecessors.Count - 1; i >= 0; i--)
                 {
                     IControlFlowNode.DisconnectPredecessor(continueBlock, i);
                 }
-                for (int i = continueBlock.Successors.Count - 1; i >= 0; i--)
+                for (var i = continueBlock.Successors.Count - 1; i >= 0; i--)
                 {
                     IControlFlowNode.DisconnectSuccessor(continueBlock, i);
                 }
 
-                Block skipContinueBlock = data.ContinueSkipBlock!;
+                var skipContinueBlock = data.ContinueSkipBlock;
                 skipContinueBlock.Instructions.RemoveAt(skipContinueBlock.Instructions.Count - 1);
-                for (int i = skipContinueBlock.Predecessors.Count - 1; i >= 0; i--)
+                for (var i = skipContinueBlock.Predecessors.Count - 1; i >= 0; i--)
                 {
                     IControlFlowNode.DisconnectPredecessor(skipContinueBlock, i);
                 }
-                for (int i = skipContinueBlock.Successors.Count - 1; i >= 0; i--)
+                for (var i = skipContinueBlock.Successors.Count - 1; i >= 0; i--)
                 {
                     IControlFlowNode.DisconnectSuccessor(skipContinueBlock, i);
                 }
@@ -676,19 +675,19 @@ internal sealed class Switch : IControlFlowNode
 
             // Disconnect all branches going into the end node, and remove PopDelete
             data.EndBlock.Instructions.RemoveAt(0);
-            IControlFlowNode endNode = data.EndNode;
+            var endNode = data.EndNode;
             while (endNode.Parent is not null)
             {
                 ctx.ThrowIfCancellationRequested();
                 endNode = endNode.Parent;
             }
-            for (int i = endNode.Predecessors.Count - 1; i >= 0; i--)
+            for (var i = endNode.Predecessors.Count - 1; i >= 0; i--)
             {
                 IControlFlowNode.DisconnectPredecessor(endNode, i);
             }
 
             // Construct actual switch node
-            Block startOfStatement = (caseBranches.Count > 0) ? caseBranches[^1] : (data.DefaultBranchBlock ?? data.EndOfCaseBlock)!;
+            var startOfStatement = (caseBranches.Count > 0) ? caseBranches[^1] : (data.DefaultBranchBlock ?? data.EndOfCaseBlock);
             Switch switchNode =
                 new(startOfStatement.StartAddress, endNode.StartAddress, startOfStatement, startOfBody, endCaseDestinations, data);
             IControlFlowNode.InsertStructure(startOfStatement, endNode, switchNode);
@@ -697,10 +696,7 @@ internal sealed class Switch : IControlFlowNode
             // Update parent status of Cases/Body
             switchNode.Parent = startOfStatement.Parent;
             startOfStatement.Parent = switchNode;
-            if (startOfBody is not null)
-            {
-                startOfBody.Parent = switchNode;
-            }
+            startOfBody?.Parent = switchNode;
         }
 
         // Resolve remaining continue statements
@@ -732,15 +728,15 @@ internal sealed class Switch : IControlFlowNode
             }
 
             // Check if our continue statements go forwards or backwards, based on the end node
-            IControlFlowNode endNode = DetectionData.EndNode;
+            var endNode = DetectionData.EndNode;
             while (endNode.Parent is not null)
             {
                 endNode = endNode.Parent;
             }
-            bool forward = (endNode.StartAddress > DetectionData.EndOfCaseBlock!.EndAddress - 4);
+            var forward = endNode.StartAddress > DetectionData.EndOfCaseBlock.EndAddress - 4;
 
             // Now, we check our surrounding loop to see if it needs to be transformed between while/for.
-            Loop? loop = builder.TopFragmentContext!.SurroundingLoop;
+            var loop = builder.TopFragmentContext.SurroundingLoop;
             if (loop is WhileLoop whileLoop)
             {
                 if (forward)
@@ -760,10 +756,10 @@ internal sealed class Switch : IControlFlowNode
         }
 
         // All that's left on stack is the expression we're switching on
-        IExpressionNode expression = builder.ExpressionStack.Pop();
+        var expression = builder.ExpressionStack.Pop();
 
         // Evaluate block
-        BlockNode body = builder.BuildBlock(Body);
+        var body = builder.BuildBlock(Body);
         body.UseBraces = true;
         body.PartOfSwitch = true;
 

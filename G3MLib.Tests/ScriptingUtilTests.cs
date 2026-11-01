@@ -1,11 +1,6 @@
-using System;
-using System.IO;
 using System.Text;
-using System.Threading.Tasks;
 using G3MLib.DataFile.Util;
 using Microsoft.CodeAnalysis.CSharp.Scripting;
-using Microsoft.CodeAnalysis.Scripting;
-using Xunit;
 
 namespace G3MLib.Tests;
 
@@ -14,18 +9,18 @@ public sealed class ScriptingUtilTests
     [Fact("ScriptingUtilTests.cs", 13)]
     public void PrettifyExceptionGroupsAggregateExceptionTypes()
     {
-        string pretty = ScriptingUtil.PrettifyException((Exception)new AggregateException(new InvalidOperationException("first"), new InvalidOperationException("second")));
-        Assert.Contains("System.InvalidOperationException (x2)", pretty);
+        var pretty = ScriptingUtil.PrettifyException(new AggregateException(new InvalidOperationException("first"), new InvalidOperationException("second")));
+        Assert.Contains("System.InvalidOperationException (x2)", pretty, StringComparison.Ordinal);
     }
 
     [Fact("ScriptingUtilTests.cs", 23)]
     public async Task PrettifyExceptionIncludesFailingScriptLine()
     {
-        string scriptPath = Path.Combine(Path.GetTempPath(), $"G3MLib-{Guid.NewGuid():N}.csx");
+        var scriptPath = Path.Combine(Path.GetTempPath(), $"G3MLib-{Guid.NewGuid():N}.csx");
         try
         {
             await File.WriteAllTextAsync(scriptPath, "throw new InvalidOperationException(\"boom\");", TestContext.Current.CancellationToken);
-            ScriptOptions options = ScriptingUtil.CreateDefaultScriptOptions().WithFilePath(scriptPath).WithFileEncoding(Encoding.UTF8);
+            var options = ScriptingUtil.CreateDefaultScriptOptions().WithFilePath(scriptPath).WithFileEncoding(Encoding.UTF8);
             Exception exception;
             try
             {
@@ -37,8 +32,8 @@ public sealed class ScriptingUtilTests
                 exception = ex;
             }
             Assert.IsType<InvalidOperationException>(exception);
-            string pretty = ScriptingUtil.PrettifyException(in exception);
-            Assert.Contains("Line 1 in script " + Path.GetFileName(scriptPath) + ": throw new InvalidOperationException(\"boom\");", pretty);
+            var pretty = ScriptingUtil.PrettifyException(in exception);
+            Assert.Contains("Line 1 in script " + Path.GetFileName(scriptPath) + ": throw new InvalidOperationException(\"boom\");", pretty, StringComparison.Ordinal);
         }
         finally
         {

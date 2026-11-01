@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System;
 using System.Text;
 
 namespace G3MLib.Analyzer.Compiler.Lexer;
@@ -21,7 +20,7 @@ internal static class Strings
     /// </summary>
     public static int ParseVerbatim(LexContext context, int startPosition, char startChar)
     {
-        int pos = startPosition;
+        var pos = startPosition;
         if (startChar == '@')
         {
             // Modern verbatim string; advance by one character
@@ -29,7 +28,7 @@ internal static class Strings
             pos++;
         }
 
-        pos = ContiguousTextReader.ReadUntilChar(context.Text, pos + 1, startChar, out ReadOnlySpan<char> str);
+        pos = ContiguousTextReader.ReadUntilChar(context.Text, pos + 1, startChar, out var str);
 
         // If at the end of the code, the string was not correctly closed
         if (pos >= context.Text.Length)
@@ -50,11 +49,11 @@ internal static class Strings
     {
         ReadOnlySpan<char> text = context.Text;
         StringBuilder sb = new(64);
-        int pos = startPosition + 1;
-        bool newlineErroredAlready = false;
+        var pos = startPosition + 1;
+        var newlineErroredAlready = false;
         while (pos < text.Length)
         {
-            char c = text[pos];
+            var c = text[pos];
 
             // Stop at closing quote
             if (c == '"')
@@ -84,13 +83,13 @@ internal static class Strings
     {
         ReadOnlySpan<char> text = context.Text;
         StringBuilder sb = new(64);
-        int pos = startPosition + 2;
-        bool newlineErroredAlready = false;
+        var pos = startPosition + 2;
+        var newlineErroredAlready = false;
 
         context.Tokens.Add(new TokenTemplateStringStart(context, pos));
         while (pos < text.Length)
         {
-            char c = text[pos];
+            var c = text[pos];
 
             // Stop at closing quote
             if (c == '"')
@@ -109,7 +108,7 @@ internal static class Strings
             }
 
             // Any other character
-            int tokenStartPos = pos;
+            var tokenStartPos = pos;
             sb.Clear();
             while (pos < text.Length && text[pos] is not ('"' or '{'))
             {
@@ -148,7 +147,7 @@ internal static class Strings
     private static int ParseChar(LexContext context, int pos, StringBuilder sb, ref bool newlineErroredAlready)
     {
         ReadOnlySpan<char> text = context.Text;
-        char c = text[pos];
+        var c = text[pos];
 
         // Error on newlines
         if (c == '\n')
@@ -162,7 +161,7 @@ internal static class Strings
             return pos;
         }
 
-        if (c != '\\' || (pos + 1) >= text.Length)
+        if (c != '\\' || pos + 1 >= text.Length)
         {
             // All non-backslash characters are just normal text
             sb.Append(c);
@@ -171,8 +170,8 @@ internal static class Strings
         }
 
         // Handle escape sequences
-        int escapeStartPos = pos;
-        char escapedChar = text[pos + 1];
+        var escapeStartPos = pos;
+        var escapedChar = text[pos + 1];
         pos += 2;
 
         switch (escapedChar)
@@ -201,12 +200,12 @@ internal static class Strings
             case 'u':
                 {
                     // Unicode character (as hex)
-                    int result = 0;
-                    int charsRead = 0;
+                    var result = 0;
+                    var charsRead = 0;
                     while (pos < text.Length && charsRead < 6)
                     {
                         // Read current character as 4 bits (one hex digit)
-                        int curr = HexCharToInt(text[pos]);
+                        var curr = HexCharToInt(text[pos]);
                         if (curr == -1)
                         {
                             // Not a valid hex digit, so stop here
@@ -235,12 +234,12 @@ internal static class Strings
             case 'x':
                 {
                     // Hex character
-                    int result = 0;
-                    int charsRead = 0;
+                    var result = 0;
+                    var charsRead = 0;
                     while (pos < text.Length && charsRead < 2)
                     {
                         // Read current character as 4 bits (one hex digit)
-                        int curr = HexCharToInt(text[pos]);
+                        var curr = HexCharToInt(text[pos]);
                         if (curr == -1)
                         {
                             // Not a valid hex digit, so stop here
@@ -265,22 +264,22 @@ internal static class Strings
                 break;
             default:
                 {
-                    if (escapedChar >= '0' && escapedChar <= '7')
+                    if (escapedChar is >= '0' and <= '7')
                     {
                         // Octal character
-                        int result = 0;
-                        int charsRead = 0;
+                        var result = 0;
+                        var charsRead = 0;
                         pos--;
                         while (pos < text.Length && charsRead < 3)
                         {
                             // Read current character as octal
-                            char octalChar = text[pos];
-                            if (octalChar < '0' || octalChar > '7')
+                            var octalChar = text[pos];
+                            if (octalChar is < '0' or > '7')
                             {
                                 // Not a valid octal digit, so stop here
                                 break;
                             }
-                            result = (result * 8) + (octalChar - '0');
+                            result = result * 8 + (octalChar - '0');
 
                             pos++;
                             charsRead++;
@@ -313,15 +312,15 @@ internal static class Strings
     /// </summary>
     private static int HexCharToInt(char c)
     {
-        if (c >= '0' && c <= '9')
+        if (c is >= '0' and <= '9')
         {
             return c - '0';
         }
-        if (c >= 'A' && c <= 'F')
+        if (c is >= 'A' and <= 'F')
         {
             return 10 + (c - 'A');
         }
-        if (c >= 'a' && c <= 'f')
+        if (c is >= 'a' and <= 'f')
         {
             return 10 + (c - 'a');
         }

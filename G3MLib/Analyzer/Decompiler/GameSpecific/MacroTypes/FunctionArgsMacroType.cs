@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Decompiler.AST;
 
 namespace G3MLib.Analyzer.Decompiler.GameSpecific;
@@ -14,15 +13,16 @@ namespace G3MLib.Analyzer.Decompiler.GameSpecific;
 /// </summary>
 public class FunctionArgsMacroType(IEnumerable<IMacroType?> types) : IMacroTypeFunctionArgs
 {
-    private List<IMacroType?> Types { get; } = new(types);
+    private List<IMacroType?> Types { get; } = [.. types];
 
     /// <summary>
     /// Resolves this macro type for a given function call in the AST.
     /// </summary>
     public IFunctionCallNode? Resolve(ASTCleaner cleaner, IFunctionCallNode call)
     {
-        int callArgumentsCount = call.Arguments.Count;
-        int callArgumentsStart = 0;
+        ArgumentNullException.ThrowIfNull(call);
+        var callArgumentsCount = call.Arguments.Count;
+        var callArgumentsStart = 0;
         if (call.FunctionName == VMConstants.ScriptExecuteFunction)
         {
             // Special case: arguments are shifted to the right by 1
@@ -35,12 +35,12 @@ public class FunctionArgsMacroType(IEnumerable<IMacroType?> types) : IMacroTypeF
             return null;
         }
 
-        bool didAnything = false;
+        var didAnything = false;
 
         List<IExpressionNode> resolved = new(callArgumentsCount);
-        for (int i = callArgumentsStart; i < (callArgumentsStart + callArgumentsCount); i++)
+        for (var i = callArgumentsStart; i < callArgumentsStart + callArgumentsCount; i++)
         {
-            IMacroType? currentType = Types[i - callArgumentsStart];
+            var currentType = Types[i - callArgumentsStart];
             if (currentType is null || call.Arguments[i] is not IMacroResolvableNode node)
             {
                 // Current type is not defined, or current argument is not resolvable, so just use existing argument
@@ -72,7 +72,7 @@ public class FunctionArgsMacroType(IEnumerable<IMacroType?> types) : IMacroTypeF
         }
 
         // Assign resolved values to arguments
-        for (int i = 0; i < callArgumentsCount; i++)
+        for (var i = 0; i < callArgumentsCount; i++)
         {
             call.Arguments[i + callArgumentsStart] = resolved[i];
         }

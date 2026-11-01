@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Decompiler.GameSpecific;
 
 namespace G3MLib.Analyzer.Decompiler.AST;
@@ -31,11 +30,12 @@ public class ReturnNode(IExpressionNode value) : IStatementNode, IBlockCleanupNo
     /// <inheritdoc/>
     public IStatementNode Clean(ASTCleaner cleaner)
     {
+        ArgumentNullException.ThrowIfNull(cleaner);
         Value = Value.Clean(cleaner);
 
         // Handle macro type resolution
         if (Value is IMacroResolvableNode valueResolvable &&
-            cleaner.GlobalMacroResolver.ResolveReturnValueType(cleaner, cleaner.TopFragmentContext!.CodeEntryName) is IMacroType returnMacroType &&
+            cleaner.GlobalMacroResolver.ResolveReturnValueType(cleaner, cleaner.TopFragmentContext.CodeEntryName) is IMacroType returnMacroType &&
             valueResolvable.ResolveMacroType(cleaner, returnMacroType) is IExpressionNode valueResolved)
         {
             Value = valueResolved;
@@ -54,8 +54,9 @@ public class ReturnNode(IExpressionNode value) : IStatementNode, IBlockCleanupNo
     /// <inheritdoc/>
     public void Print(ASTPrinter printer)
     {
+        ArgumentNullException.ThrowIfNull(printer);
         printer.Write("return ");
-        Value.Print(printer);
+        printer.PrintNode(Value);
 
         if (!printer.Context.Settings.UseSemicolon)
         {
@@ -73,6 +74,8 @@ public class ReturnNode(IExpressionNode value) : IStatementNode, IBlockCleanupNo
     /// <inheritdoc/>
     public int BlockClean(ASTCleaner cleaner, BlockNode block, int i)
     {
+        ArgumentNullException.ThrowIfNull(block);
+        ArgumentNullException.ThrowIfNull(cleaner);
         // Check for return temp variable (done on first pass)
         if (i > 0 && Value is VariableNode returnVariable &&
             returnVariable is { Variable.Name.Content: VMConstants.TempReturnVariable } &&
@@ -86,10 +89,10 @@ public class ReturnNode(IExpressionNode value) : IStatementNode, IBlockCleanupNo
         }
 
         // Remove duplicated finally statements (done on second pass)
-        if (cleaner.TopFragmentContext!.FinallyStatementCount.Count > 0)
+        if (cleaner.TopFragmentContext.FinallyStatementCount.Count > 0)
         {
-            int count = 0;
-            foreach (int statementCount in cleaner.TopFragmentContext.FinallyStatementCount)
+            var count = 0;
+            foreach (var statementCount in cleaner.TopFragmentContext.FinallyStatementCount)
             {
                 count += statementCount;
             }
@@ -100,8 +103,11 @@ public class ReturnNode(IExpressionNode value) : IStatementNode, IBlockCleanupNo
                 // Additionally remove temporary variable, if it exists
                 if (i - count - 1 >= 0 &&
                     block.Children[i - count - 1] is AssignNode { Value: not null, AssignKind: AssignNode.AssignType.Normal } assign &&
-                    assign.Variable is VariableNode { Variable.Name.Content: VMConstants.TryCopyVariable,
-                                                      Variable.InstanceType: IGMInstruction.InstanceType.Local })
+                    assign.Variable is VariableNode
+                    {
+                        Variable.Name.Content: VMConstants.TryCopyVariable,
+                        Variable.InstanceType: IGMInstruction.InstanceType.Local
+                    })
                 {
                     block.Children[i - count - 1] = new ReturnNode(assign.Value);
                     block.Children.RemoveAt(i - count);

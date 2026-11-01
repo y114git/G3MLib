@@ -1,5 +1,3 @@
-using System;
-
 namespace G3MLib.DataFile.Models;
 
 /// <summary>
@@ -23,7 +21,7 @@ public class GameMakerFeatureFlags : GameMakerObject, IDisposable
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
-        List = new GameMakerSimpleListString();
+        List = [];
         List.Unserialize(reader);
     }
 

@@ -7,7 +7,7 @@ public sealed class PathsTests
     [Fact]
     public void ContainmentRespectsDirectoryBoundariesAndPlatformCasing()
     {
-        string root = Path.Combine(Path.GetTempPath(), "GameData");
+        var root = Path.Combine(Path.GetTempPath(), "GameData");
         Assert.True(Paths.IsWithinDirectory(root, Path.Combine(root, "audio", "group.dat")));
         Assert.False(Paths.IsWithinDirectory(root, Path.Combine(root, "..", "outside.dat")));
         Assert.False(Paths.IsWithinDirectory(root, root + "Sibling" + Path.DirectorySeparatorChar + "group.dat"));

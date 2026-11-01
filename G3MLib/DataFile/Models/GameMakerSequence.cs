@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using G3MLib.DataFile.Project;
@@ -107,6 +105,7 @@ public class GameMakerSequence : GameMakerNamedResource, IProjectAsset, INotifyP
     /// <inheritdoc />
     public void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         writer.WriteGameMakerString(Name);
         writer.Write((uint)Playback);
         writer.Write(PlaybackSpeed);
@@ -126,7 +125,7 @@ public class GameMakerSequence : GameMakerNamedResource, IProjectAsset, INotifyP
         Tracks.Serialize(writer);
 
         writer.Write(FunctionIDs.Count);
-        foreach (FunctionIDEntry entry in FunctionIDs)
+        foreach (var entry in FunctionIDs)
         {
             entry.Serialize(writer);
         }
@@ -137,6 +136,7 @@ public class GameMakerSequence : GameMakerNamedResource, IProjectAsset, INotifyP
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         Name = reader.ReadGameMakerString();
         Playback = (PlaybackType)reader.ReadUInt32();
         PlaybackSpeed = reader.ReadSingle();
@@ -160,7 +160,7 @@ public class GameMakerSequence : GameMakerNamedResource, IProjectAsset, INotifyP
 
         Tracks = reader.ReadGameMakerObject<GameMakerSimpleList<Track>>();
 
-        int functionIdCount = reader.ReadInt32();
+        var functionIdCount = reader.ReadInt32();
         if (functionIdCount < 0)
             throw new IOException("Negative sequence function ID count.");
 
@@ -168,7 +168,7 @@ public class GameMakerSequence : GameMakerNamedResource, IProjectAsset, INotifyP
             throw new IOException("Sequence function ID data exceeds the available input.");
 
         FunctionIDs = new GameMakerObservableList<FunctionIDEntry>(functionIdCount);
-        for (int i = 0; i < functionIdCount; i++)
+        for (var i = 0; i < functionIdCount; i++)
         {
             FunctionIDEntry entry = new();
             entry.Unserialize(reader);
@@ -181,6 +181,7 @@ public class GameMakerSequence : GameMakerNamedResource, IProjectAsset, INotifyP
     /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
     public static uint UnserializeChildObjectCount(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         uint count = 0;
 
         reader.Position += reader.gameMakerData.IsVersionAtLeast(2024, 13) ? 40 : 32;
@@ -189,7 +190,7 @@ public class GameMakerSequence : GameMakerNamedResource, IProjectAsset, INotifyP
 
         count += 1 + GameMakerSimpleList<Track>.UnserializeChildObjectCount(reader);
 
-        int funcIDsCount = reader.ReadInt32();
+        var funcIDsCount = reader.ReadInt32();
         if (funcIDsCount < 0)
             throw new IOException("Negative sequence function ID count.");
         if ((long)funcIDsCount * (sizeof(int) + sizeof(uint)) > reader.Length - reader.Position)
@@ -276,7 +277,7 @@ public class GameMakerSequence : GameMakerNamedResource, IProjectAsset, INotifyP
         /// <remarks>
         /// Usually, there's 1 channel for 1D properties (such as image index/speed), and 2 channels for 2D properties (position, scale), etc.
         /// </remarks>
-        public GameMakerSimpleList<KeyframeChannel> Channels { get; set; } = new();
+        public GameMakerSimpleList<KeyframeChannel> Channels { get; set; } = [];
 
         /// <summary>
         /// A channel for a keyframe, containing the channel number and the value for that channel.
@@ -301,6 +302,7 @@ public class GameMakerSequence : GameMakerNamedResource, IProjectAsset, INotifyP
             /// <inheritdoc />
             public void Serialize(GameMakerWriter writer)
             {
+                ArgumentNullException.ThrowIfNull(writer);
                 writer.Write(Channel);
                 Value.Serialize(writer);
             }
@@ -308,6 +310,7 @@ public class GameMakerSequence : GameMakerNamedResource, IProjectAsset, INotifyP
             /// <inheritdoc />
             public void Unserialize(GameMakerReader reader)
             {
+                ArgumentNullException.ThrowIfNull(reader);
                 Channel = reader.ReadInt32();
                 Value.Unserialize(reader);
             }
@@ -321,6 +324,7 @@ public class GameMakerSequence : GameMakerNamedResource, IProjectAsset, INotifyP
         /// <inheritdoc />
         public void Serialize(GameMakerWriter writer)
         {
+            ArgumentNullException.ThrowIfNull(writer);
             writer.Write(Key);
             writer.Write(Length);
             writer.Write(Stretch);
@@ -331,6 +335,7 @@ public class GameMakerSequence : GameMakerNamedResource, IProjectAsset, INotifyP
         /// <inheritdoc />
         public void Unserialize(GameMakerReader reader)
         {
+            ArgumentNullException.ThrowIfNull(reader);
             Key = reader.ReadSingle();
             Length = reader.ReadSingle();
             Stretch = reader.ReadBoolean();
@@ -341,15 +346,16 @@ public class GameMakerSequence : GameMakerNamedResource, IProjectAsset, INotifyP
         /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
         public static uint UnserializeChildObjectCount(GameMakerReader reader)
         {
+            ArgumentNullException.ThrowIfNull(reader);
             uint count = 0;
 
             reader.Position += 16;
-            uint chCount = reader.ReadUInt32();
+            var chCount = reader.ReadUInt32();
 
-            Type t = typeof(T);
+            var t = typeof(T);
             if (t.IsAssignableTo(typeof(IStaticChildObjectsSize)))
             {
-                uint subSize = reader.GetStaticChildObjectsSize(t);
+                var subSize = reader.GetStaticChildObjectsSize(t);
                 uint subCount = 0;
 
                 if (t.IsAssignableTo(typeof(IStaticChildObjCount)))
@@ -390,7 +396,7 @@ public class GameMakerSequence : GameMakerNamedResource, IProjectAsset, INotifyP
         /// <inheritdoc />
         public void Unserialize(GameMakerReader reader)
         {
-            Messages = new GameMakerSimpleListString();
+            Messages = [];
             Messages.Unserialize(reader);
         }
 
@@ -420,7 +426,7 @@ public class GameMakerSequence : GameMakerNamedResource, IProjectAsset, INotifyP
         /// <inheritdoc />
         public void Unserialize(GameMakerReader reader)
         {
-            Events = new GameMakerSimpleListString();
+            Events = [];
             Events.Unserialize(reader);
         }
 
@@ -526,6 +532,7 @@ public class GameMakerSequence : GameMakerNamedResource, IProjectAsset, INotifyP
         /// <inheritdoc />
         public void Serialize(GameMakerWriter writer)
         {
+            ArgumentNullException.ThrowIfNull(writer);
             writer.WriteGameMakerString(ModelName);
             writer.WriteGameMakerString(Name);
             writer.Write((int)BuiltinName);
@@ -536,10 +543,10 @@ public class GameMakerSequence : GameMakerNamedResource, IProjectAsset, INotifyP
             writer.Write(OwnedResources.Count);
             writer.Write(Tracks.Count);
 
-            foreach (int i in Tags)
+            foreach (var i in Tags)
                 writer.Write(i);
 
-            foreach (GameMakerResource res in OwnedResources)
+            foreach (var res in OwnedResources)
             {
                 if (res is GameMakerAnimationCurve)
                 {
@@ -550,7 +557,7 @@ public class GameMakerSequence : GameMakerNamedResource, IProjectAsset, INotifyP
                     throw new IOException("Expected an animation curve");
             }
 
-            foreach (Track t in Tracks)
+            foreach (var t in Tracks)
                 writer.WriteGameMakerObject(t);
 
             // Now, handle specific keyframe/etc. data
@@ -572,7 +579,7 @@ public class GameMakerSequence : GameMakerNamedResource, IProjectAsset, INotifyP
                     writer.WriteGameMakerObject(Keyframes as SpriteFramesKeyframes);
                     break;
                 case "GMAssetTrack":
-                    throw new NotSupportedException("GMAssetTrack is not supported.");
+                    throw new NotSupportedException("GMAssetTrack has no known layout: UndertaleModLib does not implement it and no GameMaker asset compiler emits it, so it cannot be read or written safely.");
                 case "GMBoolTrack":
                     writer.WriteGameMakerObject(Keyframes as BoolKeyframes);
                     break;
@@ -598,15 +605,16 @@ public class GameMakerSequence : GameMakerNamedResource, IProjectAsset, INotifyP
         /// <inheritdoc />
         public void Unserialize(GameMakerReader reader)
         {
+            ArgumentNullException.ThrowIfNull(reader);
             // This reads the string content immediately, if necessary (which it should be)
             GameMakerString ForceReadString()
             {
-                GameMakerString res = reader.ReadGameMakerString();
+                var res = reader.ReadGameMakerString();
                 if (res.Content is not null)
                     return res;
 
                 reader.SwitchReaderType(false);
-                long returnTo = reader.Position;
+                var returnTo = reader.Position;
                 reader.Position = reader.GetOffsetMapRev()[res];
                 reader.ReadGameMakerObject<GameMakerString>();
                 reader.Position = returnTo;
@@ -621,35 +629,35 @@ public class GameMakerSequence : GameMakerNamedResource, IProjectAsset, INotifyP
             Traits = (TrackTraits)reader.ReadInt32();
             IsCreationTrack = reader.ReadBoolean();
 
-            int tagCount = reader.ReadInt32();
-            int ownedResCount = reader.ReadInt32();
-            int trackCount = reader.ReadInt32();
+            var tagCount = reader.ReadInt32();
+            var ownedResCount = reader.ReadInt32();
+            var trackCount = reader.ReadInt32();
             if (tagCount < 0 || ownedResCount < 0 || trackCount < 0)
                 throw new IOException("Negative sequence track list count.");
 
-            long minimumDataSize = ((long)tagCount * sizeof(int)) +
-                                   ((long)ownedResCount * 12) +
-                                   ((long)trackCount * 36);
+            var minimumDataSize = (long)tagCount * sizeof(int) +
+                                   (long)ownedResCount * 12 +
+                                   (long)trackCount * 36;
             if (minimumDataSize > reader.Length - reader.Position)
                 throw new IOException("Sequence track data exceeds the available input.");
 
             Tags = new List<int>(tagCount);
-            for (int i = 0; i < tagCount; i++)
+            for (var i = 0; i < tagCount; i++)
                 Tags.Add(reader.ReadInt32());
 
             OwnedResources = new List<GameMakerResource>(ownedResCount);
-            for (int i = 0; i < ownedResCount; i++)
+            for (var i = 0; i < ownedResCount; i++)
             {
                 _gmAnimCurveString = ForceReadString();
                 if (_gmAnimCurveString.Content != "GMAnimCurve")
                     throw new IOException("Expected GMAnimCurve");
-                GameMakerAnimationCurve res = new GameMakerAnimationCurve();
+                var res = new GameMakerAnimationCurve();
                 res.Unserialize(reader);
                 OwnedResources.Add(res);
             }
 
             Tracks = new List<Track>(trackCount);
-            for (int i = 0; i < trackCount; i++)
+            for (var i = 0; i < trackCount; i++)
                 Tracks.Add(reader.ReadGameMakerObject<Track>());
 
             // Now, handle specific keyframe/etc. data
@@ -671,7 +679,7 @@ public class GameMakerSequence : GameMakerNamedResource, IProjectAsset, INotifyP
                     Keyframes = reader.ReadGameMakerObject<SpriteFramesKeyframes>();
                     break;
                 case "GMAssetTrack":
-                    throw new NotSupportedException("GMAssetTrack is not supported.");
+                    throw new NotSupportedException("GMAssetTrack has no known layout: UndertaleModLib does not implement it and no GameMaker asset compiler emits it, so it cannot be read or written safely.");
                 case "GMBoolTrack":
                     Keyframes = reader.ReadGameMakerObject<BoolKeyframes>();
                     break;
@@ -694,54 +702,55 @@ public class GameMakerSequence : GameMakerNamedResource, IProjectAsset, INotifyP
                     Keyframes = reader.ReadGameMakerObject<ParticleKeyframes>();
                     break;
 
-                // "GMGroupTrack" and "GMClipMaskTrack" have null keyframes
+                    // "GMGroupTrack" and "GMClipMaskTrack" have null keyframes
             }
         }
 
         /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
         public static uint UnserializeChildObjectCount(GameMakerReader reader)
         {
+            ArgumentNullException.ThrowIfNull(reader);
             uint count = 0;
 
             string ForceReadString()
             {
-                uint strPtr = reader.ReadUInt32();
+                var strPtr = reader.ReadUInt32();
 
                 reader.SwitchReaderType(false);
-                long returnTo = reader.Position;
+                var returnTo = reader.Position;
                 reader.Position = strPtr - 4;
-                string res = reader.ReadGMString();
+                var res = reader.ReadGMString();
                 reader.Position = returnTo;
                 reader.SwitchReaderType(true);
 
                 return res;
             }
 
-            string modelName = ForceReadString();
+            var modelName = ForceReadString();
             reader.Position += 16;
 
-            int tagCount = reader.ReadInt32();
-            int ownedResCount = reader.ReadInt32();
-            int trackCount = reader.ReadInt32();
+            var tagCount = reader.ReadInt32();
+            var ownedResCount = reader.ReadInt32();
+            var trackCount = reader.ReadInt32();
             if (tagCount < 0 || ownedResCount < 0 || trackCount < 0)
                 throw new IOException("Negative sequence track list count.");
 
-            long minimumDataSize = ((long)tagCount * sizeof(int)) +
-                                   ((long)ownedResCount * 12) +
-                                   ((long)trackCount * 36);
+            var minimumDataSize = (long)tagCount * sizeof(int) +
+                                   (long)ownedResCount * 12 +
+                                   (long)trackCount * 36;
             if (minimumDataSize > reader.Length - reader.Position)
                 throw new IOException("Sequence track data exceeds the available input.");
 
             reader.Position += (long)tagCount * 4; // "Tags"
 
-            for (int i = 0; i < ownedResCount; i++)
+            for (var i = 0; i < ownedResCount; i++)
             {
                 reader.Position += 4; // "GMAnimCurveString"
                 count += GameMakerAnimationCurve.UnserializeChildObjectCount(reader);
             }
 
             // "Tracks"
-            for (int i = 0; i < trackCount; i++)
+            for (var i = 0; i < trackCount; i++)
                 count += 1 + UnserializeChildObjectCount(reader);
 
             switch (modelName)
@@ -762,7 +771,7 @@ public class GameMakerSequence : GameMakerNamedResource, IProjectAsset, INotifyP
                     count += 1 + SpriteFramesKeyframes.UnserializeChildObjectCount(reader);
                     break;
                 case "GMAssetTrack":
-                    throw new NotSupportedException("GMAssetTrack is not supported.");
+                    throw new NotSupportedException("GMAssetTrack has no known layout: UndertaleModLib does not implement it and no GameMaker asset compiler emits it, so it cannot be read or written safely.");
                 case "GMBoolTrack":
                     count += 1 + BoolKeyframes.UnserializeChildObjectCount(reader);
                     break;
@@ -783,7 +792,7 @@ public class GameMakerSequence : GameMakerNamedResource, IProjectAsset, INotifyP
                     count += 1 + ParticleKeyframes.UnserializeChildObjectCount(reader);
                     break;
 
-                // "GMGroupTrack" and "GMClipMaskTrack" have null keyframes
+                    // "GMGroupTrack" and "GMClipMaskTrack" have null keyframes
             }
 
             return count;
@@ -825,6 +834,7 @@ public class GameMakerSequence : GameMakerNamedResource, IProjectAsset, INotifyP
         /// <inheritdoc />
         public virtual void Serialize(GameMakerWriter writer)
         {
+            ArgumentNullException.ThrowIfNull(writer);
             writer.Align(4);
 
             List.Serialize(writer);
@@ -833,15 +843,17 @@ public class GameMakerSequence : GameMakerNamedResource, IProjectAsset, INotifyP
         /// <inheritdoc />
         public virtual void Unserialize(GameMakerReader reader)
         {
+            ArgumentNullException.ThrowIfNull(reader);
             reader.Align(4);
 
-            List = new GameMakerSimpleList<Keyframe<T>>();
+            List = [];
             List.Unserialize(reader);
         }
 
         /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
         public static uint UnserializeChildObjectCount(GameMakerReader reader)
         {
+            ArgumentNullException.ThrowIfNull(reader);
             while (reader.AbsPosition % 4 != 0)
                 reader.Position++;
 
@@ -877,6 +889,7 @@ public class GameMakerSequence : GameMakerNamedResource, IProjectAsset, INotifyP
         /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
         public static uint UnserializeChildObjectCount(GameMakerReader reader)
         {
+            ArgumentNullException.ThrowIfNull(reader);
             reader.Position += 4;
             return 0;
         }
@@ -898,12 +911,14 @@ public class GameMakerSequence : GameMakerNamedResource, IProjectAsset, INotifyP
         /// <inheritdoc />
         public void Serialize(GameMakerWriter writer)
         {
+            ArgumentNullException.ThrowIfNull(writer);
             writer.Write(Value);
         }
 
         /// <inheritdoc />
         public void Unserialize(GameMakerReader reader)
         {
+            ArgumentNullException.ThrowIfNull(reader);
             Value = reader.ReadInt32();
         }
     }
@@ -947,8 +962,9 @@ public class GameMakerSequence : GameMakerNamedResource, IProjectAsset, INotifyP
             }
 
             /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
-            public new static uint UnserializeChildObjectCount(GameMakerReader reader)
+            public static new uint UnserializeChildObjectCount(GameMakerReader reader)
             {
+                ArgumentNullException.ThrowIfNull(reader);
                 reader.Position += 12;
                 return 0;
             }
@@ -1031,12 +1047,14 @@ public class GameMakerSequence : GameMakerNamedResource, IProjectAsset, INotifyP
             /// <inheritdoc />
             public void Serialize(GameMakerWriter writer)
             {
+                ArgumentNullException.ThrowIfNull(writer);
                 writer.WriteGameMakerString(Value);
             }
 
             /// <inheritdoc />
             public void Unserialize(GameMakerReader reader)
             {
+                ArgumentNullException.ThrowIfNull(reader);
                 Value = reader.ReadGameMakerString();
             }
         }
@@ -1065,6 +1083,7 @@ public class GameMakerSequence : GameMakerNamedResource, IProjectAsset, INotifyP
         /// <inheritdoc />
         public virtual void Serialize(GameMakerWriter writer)
         {
+            ArgumentNullException.ThrowIfNull(writer);
             writer.Write(IsCurveEmbedded);
             if (IsCurveEmbedded)
             {
@@ -1080,6 +1099,7 @@ public class GameMakerSequence : GameMakerNamedResource, IProjectAsset, INotifyP
         /// <inheritdoc />
         public virtual void Unserialize(GameMakerReader reader)
         {
+            ArgumentNullException.ThrowIfNull(reader);
             if (reader.ReadBoolean())
             {
                 // The curve data is embedded in this sequence, right here
@@ -1103,6 +1123,7 @@ public class GameMakerSequence : GameMakerNamedResource, IProjectAsset, INotifyP
         /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
         public static uint UnserializeChildObjectCount(GameMakerReader reader)
         {
+            ArgumentNullException.ThrowIfNull(reader);
             uint count = 0;
 
             // "IsCurveEmbedded"
@@ -1144,8 +1165,9 @@ public class GameMakerSequence : GameMakerNamedResource, IProjectAsset, INotifyP
         }
 
         /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
-        public new static uint UnserializeChildObjectCount(GameMakerReader reader)
+        public static new uint UnserializeChildObjectCount(GameMakerReader reader)
         {
+            ArgumentNullException.ThrowIfNull(reader);
             reader.Position += 4; // "Value"
 
             return CurveData.UnserializeChildObjectCount(reader);
@@ -1179,13 +1201,14 @@ public class GameMakerSequence : GameMakerNamedResource, IProjectAsset, INotifyP
 
             Interpolation = reader.ReadInt32();
 
-            List = new GameMakerSimpleList<Keyframe<IntData>>();
+            List = [];
             List.Unserialize(reader);
         }
 
         /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
-        public new static uint UnserializeChildObjectCount(GameMakerReader reader)
+        public static new uint UnserializeChildObjectCount(GameMakerReader reader)
         {
+            ArgumentNullException.ThrowIfNull(reader);
             while (reader.AbsPosition % 4 != 0)
                 reader.Position++;
 
@@ -1220,8 +1243,9 @@ public class GameMakerSequence : GameMakerNamedResource, IProjectAsset, INotifyP
         }
 
         /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
-        public new static uint UnserializeChildObjectCount(GameMakerReader reader)
+        public static new uint UnserializeChildObjectCount(GameMakerReader reader)
         {
+            ArgumentNullException.ThrowIfNull(reader);
             reader.Position += 4; // "Value"
 
             return CurveData.UnserializeChildObjectCount(reader);
@@ -1255,13 +1279,14 @@ public class GameMakerSequence : GameMakerNamedResource, IProjectAsset, INotifyP
 
             Interpolation = reader.ReadInt32();
 
-            List = new GameMakerSimpleList<Keyframe<RealData>>();
+            List = [];
             List.Unserialize(reader);
         }
 
         /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
-        public new static uint UnserializeChildObjectCount(GameMakerReader reader)
+        public static new uint UnserializeChildObjectCount(GameMakerReader reader)
         {
+            ArgumentNullException.ThrowIfNull(reader);
             while (reader.AbsPosition % 4 != 0)
                 reader.Position++;
 
@@ -1344,6 +1369,7 @@ public class GameMakerSequence : GameMakerNamedResource, IProjectAsset, INotifyP
             /// <inheritdoc />
             public void Serialize(GameMakerWriter writer)
             {
+                ArgumentNullException.ThrowIfNull(writer);
                 writer.WriteGameMakerString(Text);
                 writer.Write(Wrap);
                 writer.Write(_alignment);
@@ -1358,6 +1384,7 @@ public class GameMakerSequence : GameMakerNamedResource, IProjectAsset, INotifyP
             /// <inheritdoc />
             public void Unserialize(GameMakerReader reader)
             {
+                ArgumentNullException.ThrowIfNull(reader);
                 Text = reader.ReadGameMakerString();
                 Wrap = reader.ReadBoolean();
                 _alignment = reader.ReadInt32();
@@ -1377,6 +1404,7 @@ public class GameMakerSequence : GameMakerNamedResource, IProjectAsset, INotifyP
             /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
             public static uint UnserializeChildObjectCount(GameMakerReader reader)
             {
+                ArgumentNullException.ThrowIfNull(reader);
                 reader.Position += 16;
 
                 if (reader.gameMakerData.IsVersionAtLeast(2024, 14))
@@ -1418,6 +1446,7 @@ public class GameMakerSequence : GameMakerNamedResource, IProjectAsset, INotifyP
         /// <inheritdoc/>
         public void Serialize(GameMakerWriter writer)
         {
+            ArgumentNullException.ThrowIfNull(writer);
             writer.Write(ID);
             writer.WriteGameMakerString(FunctionName);
         }
@@ -1425,6 +1454,7 @@ public class GameMakerSequence : GameMakerNamedResource, IProjectAsset, INotifyP
         /// <inheritdoc/>
         public void Unserialize(GameMakerReader reader)
         {
+            ArgumentNullException.ThrowIfNull(reader);
             ID = reader.ReadInt32();
             FunctionName = reader.ReadGameMakerString();
         }

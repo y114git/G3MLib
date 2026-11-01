@@ -4,8 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
-
 namespace G3MLib.Analyzer.Decompiler.AST;
 
 /// <summary>
@@ -16,24 +14,24 @@ public interface IExpressionNode : IASTNode<IExpressionNode>
     /// <summary>
     /// If true, this node was duplicated during simulation.
     /// </summary>
-    public bool Duplicated { get; internal set; }
+    bool Duplicated { get; internal set; }
 
     /// <summary>
     /// Whether or not this expression has to be separately grouped with parentheses.
     /// </summary>
-    public bool Group { get; internal set; }
+    bool Group { get; internal set; }
 
     /// <summary>
     /// The data type assigned to this node on the simulated VM stack.
     /// </summary>
-    public IGMInstruction.DataType StackType { get; internal set; }
+    IGMInstruction.DataType StackType { get; internal set; }
 }
 
 internal static class ExpressionNodeList
 {
     public static void PostClean(ASTCleaner cleaner, List<IExpressionNode> nodes)
     {
-        for (int i = 0; i < nodes.Count; i++)
+        for (var i = 0; i < nodes.Count; i++)
         {
             nodes[i] = nodes[i].PostClean(cleaner);
         }

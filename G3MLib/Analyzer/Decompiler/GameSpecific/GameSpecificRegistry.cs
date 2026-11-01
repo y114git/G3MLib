@@ -4,8 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System;
-using System.Collections.Generic;
 using System.Text.Json;
 using G3MLib.Analyzer.Decompiler.GameSpecific.Json;
 
@@ -92,7 +90,7 @@ public class GameSpecificRegistry
 
     public IMacroType FindType(string name)
     {
-        if (MacroTypes.TryGetValue(name, out IMacroType? type))
+        if (MacroTypes.TryGetValue(name, out var type))
         {
             return type;
         }
@@ -101,12 +99,13 @@ public class GameSpecificRegistry
 
     public UnionMacroType FindTypeUnion(IEnumerable<string> names)
     {
+        ArgumentNullException.ThrowIfNull(names);
         return new UnionMacroType(EnumerateFindTypes(names));
     }
 
     private IEnumerable<IMacroType> EnumerateFindTypes(IEnumerable<string> names)
     {
-        foreach (string name in names)
+        foreach (var name in names)
         {
             yield return FindType(name);
         }

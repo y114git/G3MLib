@@ -1,12 +1,8 @@
-using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Linq;
 using G3MLib.DataFile.Models;
 using G3MLib.DataFile.Project.Json;
-using System;
-using System.Reflection;
 
 namespace G3MLib.DataFile.Project.SerializableAssets;
 
@@ -574,12 +570,12 @@ internal sealed class SerializableRoom : ISerializableProjectAsset
     }
 
     // Data asset that was located during pre-import.
-    private GameMakerRoom _dataAsset = null;
+    private GameMakerRoom? _dataAsset;
 
     /// <summary>
     /// Populates this serializable room with data from an actual room.
     /// </summary>
-    internal void PopulateFromData(ProjectContext projectContext, GameMakerRoom room)
+    internal void PopulateFromData(GameMakerRoom room)
     {
         // Update all main properties
         DataName = room.Name.Content;
@@ -603,7 +599,7 @@ internal sealed class SerializableRoom : ISerializableProjectAsset
 
         // Update backgrounds
         Backgrounds = new(room.Backgrounds.Count);
-        foreach (GameMakerRoom.Background bg in room.Backgrounds)
+        foreach (var bg in room.Backgrounds)
         {
             Backgrounds.Add(new()
             {
@@ -622,7 +618,7 @@ internal sealed class SerializableRoom : ISerializableProjectAsset
 
         // Update views
         Views = new(room.Views.Count);
-        foreach (GameMakerRoom.View view in room.Views)
+        foreach (var view in room.Views)
         {
             Views.Add(new()
             {
@@ -649,7 +645,7 @@ internal sealed class SerializableRoom : ISerializableProjectAsset
         Dictionary<uint, int> gameObjectIndicesById =
             room.InstanceCreationOrderIDs is not null ? new(room.GameObjects.Count) : null;
         GameObjects = new(room.GameObjects.Count);
-        foreach (GameMakerRoom.GameObject obj in room.GameObjects)
+        foreach (var obj in room.GameObjects)
         {
             gameObjectIndices?.Add(obj, GameObjects.Count);
             gameObjectIndicesById?.Add(obj.InstanceID, GameObjects.Count);
@@ -672,7 +668,7 @@ internal sealed class SerializableRoom : ISerializableProjectAsset
 
         // Update tiles
         Tiles = new(room.Tiles.Count);
-        foreach (GameMakerRoom.Tile tile in room.Tiles)
+        foreach (var tile in room.Tiles)
         {
             Tiles.Add(new()
             {
@@ -694,26 +690,25 @@ internal sealed class SerializableRoom : ISerializableProjectAsset
         if (room.Layers is GameMakerPointerList<GameMakerRoom.Layer> layers)
         {
             Layers = new(layers.Count);
-            foreach (GameMakerRoom.Layer layer in layers)
+            foreach (var layer in layers)
             {
                 Layer newLayer = layer.LayerType switch
                 {
                     GameMakerRoom.LayerType.Instances => new InstancesLayer()
                     {
                         InstanceIndices =
-                            layer.InstancesData.Instances.Select((GameMakerRoom.GameObject instance) =>
+                            [.. layer.InstancesData.Instances.Select(instance =>
                             {
                                 if (instance.Nonexistent)
                                 {
                                     return -1;
                                 }
-                                if (gameObjectIndices.TryGetValue(instance, out int index))
+                                if (gameObjectIndices.TryGetValue(instance, out var index))
                                 {
                                     return index;
                                 }
                                 return -1;
-                            })
-                            .ToList()
+                            })]
                     },
                     GameMakerRoom.LayerType.Tiles => new TilesLayer()
                     {
@@ -737,8 +732,7 @@ internal sealed class SerializableRoom : ISerializableProjectAsset
                     },
                     GameMakerRoom.LayerType.Assets => new AssetsLayer()
                     {
-                        LegacyTiles = layer.AssetsData.LegacyTiles.Select((GameMakerRoom.Tile tile) =>
-                            new Tile()
+                        LegacyTiles = [.. layer.AssetsData.LegacyTiles.Select(tile => new Tile()
                             {
                                 Asset = tile.ObjectDefinition?.Name?.Content,
                                 X = tile.X,
@@ -751,10 +745,8 @@ internal sealed class SerializableRoom : ISerializableProjectAsset
                                 ScaleX = tile.ScaleX,
                                 ScaleY = tile.ScaleY,
                                 Color = tile.Color
-                            })
-                            .ToList(),
-                        Sprites = layer.AssetsData.Sprites.Select((GameMakerRoom.SpriteInstance sprite) =>
-                            new AssetsLayer.SpriteAssetInstance()
+                            })],
+                        Sprites = [.. layer.AssetsData.Sprites.Select(sprite => new AssetsLayer.SpriteAssetInstance()
                             {
                                 Name = sprite.Name?.Content,
                                 Sprite = sprite.Sprite?.Name?.Content,
@@ -767,87 +759,80 @@ internal sealed class SerializableRoom : ISerializableProjectAsset
                                 AnimationSpeedType = (AnimationSpeedType)sprite.AnimationSpeedType,
                                 FrameIndex = sprite.FrameIndex,
                                 Rotation = sprite.Rotation
-                            })
+                            })],
+                        Sequences = layer.AssetsData.Sequences?.Select(seq => new AssetsLayer.SequenceAssetInstance()
+                        {
+                            Name = seq.Name?.Content,
+                            Sequence = seq.Sequence?.Name?.Content,
+                            X = seq.X,
+                            Y = seq.Y,
+                            ScaleX = seq.ScaleX,
+                            ScaleY = seq.ScaleY,
+                            Color = seq.Color,
+                            AnimationSpeed = seq.AnimationSpeed,
+                            AnimationSpeedType = (AnimationSpeedType)seq.AnimationSpeedType,
+                            FrameIndex = seq.FrameIndex,
+                            Rotation = seq.Rotation
+                        })
                             .ToList(),
-                        Sequences = layer.AssetsData.Sequences?.Select((GameMakerRoom.SequenceInstance seq) =>
-                            new AssetsLayer.SequenceAssetInstance()
-                            {
-                                Name = seq.Name?.Content,
-                                Sequence = seq.Sequence?.Name?.Content,
-                                X = seq.X,
-                                Y = seq.Y,
-                                ScaleX = seq.ScaleX,
-                                ScaleY = seq.ScaleY,
-                                Color = seq.Color,
-                                AnimationSpeed = seq.AnimationSpeed,
-                                AnimationSpeedType = (AnimationSpeedType)seq.AnimationSpeedType,
-                                FrameIndex = seq.FrameIndex,
-                                Rotation = seq.Rotation
-                            })
+                        NineSlices = layer.AssetsData.NineSlices?.Select(sprite => new AssetsLayer.SpriteAssetInstance()
+                        {
+                            Name = sprite.Name?.Content,
+                            Sprite = sprite.Sprite?.Name?.Content,
+                            X = sprite.X,
+                            Y = sprite.Y,
+                            ScaleX = sprite.ScaleX,
+                            ScaleY = sprite.ScaleY,
+                            Color = sprite.Color,
+                            AnimationSpeed = sprite.AnimationSpeed,
+                            AnimationSpeedType = (AnimationSpeedType)sprite.AnimationSpeedType,
+                            FrameIndex = sprite.FrameIndex,
+                            Rotation = sprite.Rotation
+                        })
                             .ToList(),
-                        NineSlices = layer.AssetsData.NineSlices?.Select((GameMakerRoom.SpriteInstance sprite) =>
-                            new AssetsLayer.SpriteAssetInstance()
-                            {
-                                Name = sprite.Name?.Content,
-                                Sprite = sprite.Sprite?.Name?.Content,
-                                X = sprite.X,
-                                Y = sprite.Y,
-                                ScaleX = sprite.ScaleX,
-                                ScaleY = sprite.ScaleY,
-                                Color = sprite.Color,
-                                AnimationSpeed = sprite.AnimationSpeed,
-                                AnimationSpeedType = (AnimationSpeedType)sprite.AnimationSpeedType,
-                                FrameIndex = sprite.FrameIndex,
-                                Rotation = sprite.Rotation
-                            })
+                        ParticleSystems = layer.AssetsData.ParticleSystems?.Select(psys => new AssetsLayer.ParticleSystemAssetInstance()
+                        {
+                            Name = psys.Name?.Content,
+                            ParticleSystem = psys.ParticleSystem?.Name?.Content,
+                            X = psys.X,
+                            Y = psys.Y,
+                            ScaleX = psys.ScaleX,
+                            ScaleY = psys.ScaleY,
+                            Color = psys.Color,
+                            Rotation = psys.Rotation
+                        })
                             .ToList(),
-                        ParticleSystems = layer.AssetsData.ParticleSystems?.Select((GameMakerRoom.ParticleSystemInstance psys) =>
-                            new AssetsLayer.ParticleSystemAssetInstance()
-                            {
-                                Name = psys.Name?.Content,
-                                ParticleSystem = psys.ParticleSystem?.Name?.Content,
-                                X = psys.X,
-                                Y = psys.Y,
-                                ScaleX = psys.ScaleX,
-                                ScaleY = psys.ScaleY,
-                                Color = psys.Color,
-                                Rotation = psys.Rotation
-                            })
-                            .ToList(),
-                        TextItems = layer.AssetsData.TextItems?.Select((GameMakerRoom.TextItemInstance text) =>
-                            new AssetsLayer.TextItemAssetInstance()
-                            {
-                                Name = text.Name?.Content,
-                                Font = text.Font?.Name?.Content,
-                                Text = text.Text?.Content,
-                                X = text.X,
-                                Y = text.Y,
-                                ScaleX = text.ScaleX,
-                                ScaleY = text.ScaleY,
-                                Color = text.Color,
-                                Rotation = text.Rotation,
-                                OriginX = text.OriginX,
-                                OriginY = text.OriginY,
-                                Alignment = text.Alignment,
-                                CharSpacing = text.CharSpacing,
-                                LineSpacing = text.LineSpacing,
-                                FrameWidth = text.FrameWidth,
-                                FrameHeight = text.FrameHeight,
-                                Wrap = text.Wrap
-                            })
+                        TextItems = layer.AssetsData.TextItems?.Select(text => new AssetsLayer.TextItemAssetInstance()
+                        {
+                            Name = text.Name?.Content,
+                            Font = text.Font?.Name?.Content,
+                            Text = text.Text?.Content,
+                            X = text.X,
+                            Y = text.Y,
+                            ScaleX = text.ScaleX,
+                            ScaleY = text.ScaleY,
+                            Color = text.Color,
+                            Rotation = text.Rotation,
+                            OriginX = text.OriginX,
+                            OriginY = text.OriginY,
+                            Alignment = text.Alignment,
+                            CharSpacing = text.CharSpacing,
+                            LineSpacing = text.LineSpacing,
+                            FrameWidth = text.FrameWidth,
+                            FrameHeight = text.FrameHeight,
+                            Wrap = text.Wrap
+                        })
                             .ToList()
                     },
                     GameMakerRoom.LayerType.Effect => new EffectLayer()
                     {
                         EffectType = layer.EffectType?.Content,
-                        Properties = layer.EffectProperties.Select((GameMakerRoom.EffectProperty prop) =>
-                            new EffectLayer.EffectProperty()
+                        Properties = [.. layer.EffectProperties.Select(prop => new EffectLayer.EffectProperty()
                             {
                                 Kind = (EffectLayer.EffectProperty.PropertyType)prop.Kind,
                                 Name = prop.Name?.Content,
                                 Value = prop.Value?.Content
-                            })
-                            .ToList()
+                            })]
                     },
                     GameMakerRoom.LayerType.Path => new PathLayer(),
                     GameMakerRoom.LayerType.Path2 => new PathLayer2(),
@@ -879,9 +864,9 @@ internal sealed class SerializableRoom : ISerializableProjectAsset
         if (room.InstanceCreationOrderIDs is not null)
         {
             InstanceCreationOrderIDs = new(room.InstanceCreationOrderIDs.InstanceIDs.Count);
-            foreach (uint id in room.InstanceCreationOrderIDs.InstanceIDs)
+            foreach (var id in room.InstanceCreationOrderIDs.InstanceIDs)
             {
-                if (!gameObjectIndicesById.TryGetValue(id, out int gameObjectIndex))
+                if (!gameObjectIndicesById.TryGetValue(id, out var gameObjectIndex))
                 {
                     gameObjectIndex = -1;
                 }
@@ -919,7 +904,7 @@ internal sealed class SerializableRoom : ISerializableProjectAsset
     /// <inheritdoc/>
     public IProjectAsset Import(ProjectContext projectContext)
     {
-        GameMakerRoom room = _dataAsset;
+        var room = _dataAsset;
 
         // Update all main properties
         room.Caption = projectContext.MakeString(Caption);
@@ -944,7 +929,7 @@ internal sealed class SerializableRoom : ISerializableProjectAsset
         room.Backgrounds ??= [];
         room.Backgrounds.Clear();
         room.Backgrounds.SetCapacity(Backgrounds?.Count ?? 0);
-        foreach (Background bg in Backgrounds ?? [])
+        foreach (var bg in Backgrounds ?? [])
         {
             room.Backgrounds.Add(new()
             {
@@ -965,7 +950,7 @@ internal sealed class SerializableRoom : ISerializableProjectAsset
         room.Views ??= [];
         room.Views.Clear();
         room.Views.SetCapacity(Views?.Count ?? 0);
-        foreach (View view in Views ?? [])
+        foreach (var view in Views ?? [])
         {
             room.Views.Add(new()
             {
@@ -990,7 +975,7 @@ internal sealed class SerializableRoom : ISerializableProjectAsset
         room.GameObjects ??= [];
         room.GameObjects.Clear();
         room.GameObjects.SetCapacity(GameObjects?.Count ?? 0);
-        foreach (GameObject obj in GameObjects ?? [])
+        foreach (var obj in GameObjects ?? [])
         {
             room.GameObjects.Add(new()
             {
@@ -1013,7 +998,7 @@ internal sealed class SerializableRoom : ISerializableProjectAsset
         room.Tiles ??= [];
         room.Tiles.Clear();
         room.Tiles.SetCapacity(Tiles?.Count ?? 0);
-        foreach (Tile tile in Tiles ?? [])
+        foreach (var tile in Tiles ?? [])
         {
             GameMakerRoom.Tile newTile = new()
             {
@@ -1046,7 +1031,7 @@ internal sealed class SerializableRoom : ISerializableProjectAsset
             room.Layers ??= [];
             room.Layers.Clear();
             room.Layers.SetCapacity(Layers.Count);
-            foreach (Layer layer in Layers)
+            foreach (var layer in Layers)
             {
                 room.Layers.Add(new()
                 {
@@ -1073,7 +1058,7 @@ internal sealed class SerializableRoom : ISerializableProjectAsset
                     {
                         InstancesLayer instances => new GameMakerRoom.Layer.LayerInstancesData()
                         {
-                            Instances = new(instances.InstanceIndices.Select((int index) =>
+                            Instances = new(instances.InstanceIndices.Select(index =>
                             {
                                 if (index < 0 || index >= room.GameObjects.Count)
                                 {
@@ -1108,7 +1093,7 @@ internal sealed class SerializableRoom : ISerializableProjectAsset
                         },
                         AssetsLayer assets => new GameMakerRoom.Layer.LayerAssetsData()
                         {
-                            LegacyTiles = new(assets.LegacyTiles.Select((Tile tile) =>
+                            LegacyTiles = new(assets.LegacyTiles.Select(tile =>
                             {
                                 GameMakerRoom.Tile newTile = new()
                                 {
@@ -1135,21 +1120,20 @@ internal sealed class SerializableRoom : ISerializableProjectAsset
                                 }
                                 return newTile;
                             })),
-                            Sprites = new(assets.Sprites.Select((AssetsLayer.SpriteAssetInstance sprite) =>
-                                new GameMakerRoom.SpriteInstance()
-                                {
-                                    Name = projectContext.MakeString(sprite.Name),
-                                    Sprite = projectContext.FindSprite(sprite.Sprite, this),
-                                    X = sprite.X,
-                                    Y = sprite.Y,
-                                    ScaleX = sprite.ScaleX,
-                                    ScaleY = sprite.ScaleY,
-                                    Color = sprite.Color,
-                                    AnimationSpeed = sprite.AnimationSpeed,
-                                    AnimationSpeedType = (Models.AnimationSpeedType)sprite.AnimationSpeedType,
-                                    FrameIndex = sprite.FrameIndex,
-                                    Rotation = sprite.Rotation
-                                })),
+                            Sprites = new(assets.Sprites.Select(sprite => new GameMakerRoom.SpriteInstance()
+                            {
+                                Name = projectContext.MakeString(sprite.Name),
+                                Sprite = projectContext.FindSprite(sprite.Sprite, this),
+                                X = sprite.X,
+                                Y = sprite.Y,
+                                ScaleX = sprite.ScaleX,
+                                ScaleY = sprite.ScaleY,
+                                Color = sprite.Color,
+                                AnimationSpeed = sprite.AnimationSpeed,
+                                AnimationSpeedType = (Models.AnimationSpeedType)sprite.AnimationSpeedType,
+                                FrameIndex = sprite.FrameIndex,
+                                Rotation = sprite.Rotation
+                            })),
                             Sequences = assets.Sequences is null ? null :
                                 new(assets.Sequences.Select((AssetsLayer.SequenceAssetInstance seq) =>
                                     new GameMakerRoom.SequenceInstance()
@@ -1221,13 +1205,12 @@ internal sealed class SerializableRoom : ISerializableProjectAsset
                         EffectLayer effect => new GameMakerRoom.Layer.LayerEffectData()
                         {
                             EffectType = projectContext.MakeString(effect.EffectType),
-                            Properties = new(effect.Properties.Select((EffectLayer.EffectProperty prop) =>
-                                new GameMakerRoom.EffectProperty()
-                                {
-                                    Kind = (GameMakerRoom.EffectProperty.PropertyType)prop.Kind,
-                                    Name = projectContext.MakeString(prop.Name),
-                                    Value = projectContext.MakeString(prop.Value)
-                                }))
+                            Properties = new(effect.Properties.Select(prop => new GameMakerRoom.EffectProperty()
+                            {
+                                Kind = (GameMakerRoom.EffectProperty.PropertyType)prop.Kind,
+                                Name = projectContext.MakeString(prop.Name),
+                                Value = projectContext.MakeString(prop.Value)
+                            }))
                         },
                         PathLayer or PathLayer2 => null,
                         _ => throw new ProjectException($"Failed to find valid layer type for {room.Name.Content}")
@@ -1240,7 +1223,7 @@ internal sealed class SerializableRoom : ISerializableProjectAsset
         if (Sequences is not null)
         {
             room.Sequences = new(Sequences.Count);
-            foreach (string seq in Sequences)
+            foreach (var seq in Sequences)
             {
                 room.Sequences.Add(new(projectContext.FindSequence(seq, this)));
             }
@@ -1252,7 +1235,7 @@ internal sealed class SerializableRoom : ISerializableProjectAsset
             // Preserve the serialized creation order when the source project supplies one.
             room.InstanceCreationOrderIDs ??= new();
             room.InstanceCreationOrderIDs.InstanceIDs = new(InstanceCreationOrderIDs.Count);
-            foreach (int index in InstanceCreationOrderIDs)
+            foreach (var index in InstanceCreationOrderIDs)
             {
                 uint id;
                 if (index < 0 || index >= room.GameObjects.Count)
@@ -1281,7 +1264,7 @@ internal sealed class SerializableRoom : ISerializableProjectAsset
         }
 
         List<uint> tiles = new(tileData.Length * tileData[0].Length);
-        foreach (uint[] subarray in tileData)
+        foreach (var subarray in tileData)
         {
             tiles.AddRange(subarray);
         }
@@ -1293,15 +1276,15 @@ internal sealed class SerializableRoom : ISerializableProjectAsset
     /// </summary>
     private static uint[][] ConvertListToTileData(uint tilesX, uint tilesY, List<uint> tileData)
     {
-        uint[][] newData = new uint[tilesY][];
-        int pos = 0;
-        int y = 0;
+        var newData = new uint[tilesY][];
+        var pos = 0;
+        var y = 0;
         while (pos < tileData.Count)
         {
-            uint[] row = newData[y] = new uint[tilesX];
+            var row = newData[y] = new uint[tilesX];
 
-            int numElemsInRow = Math.Min((int)tilesX, tileData.Count - pos);
-            for (int i = 0; i < numElemsInRow; i++)
+            var numElemsInRow = Math.Min((int)tilesX, tileData.Count - pos);
+            for (var i = 0; i < numElemsInRow; i++)
             {
                 row[i] = tileData[pos++];
             }

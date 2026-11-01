@@ -18,5 +18,5 @@ public interface IMacroResolvableNode : IExpressionNode
     /// Returns the node, but with macros resolved using the given macro type.
     /// If any modifications are made, this should return a reference; otherwise, <see langword="null"/>.
     /// </summary>
-    public IExpressionNode? ResolveMacroType(ASTCleaner cleaner, IMacroType type);
+    IExpressionNode? ResolveMacroType(ASTCleaner cleaner, IMacroType type);
 }

@@ -4,8 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
-using System.Linq;
 using G3MLib.Analyzer.Decompiler.GameSpecific;
 
 namespace G3MLib.Analyzer;
@@ -23,7 +21,7 @@ public sealed class GMEnum
     /// <summary>
     /// The values of this enum.
     /// </summary>
-    public IEnumerable<GMEnumValue> Values { get => _values; }
+    public IEnumerable<GMEnumValue> Values => _values;
 
     // Internal list of values used for this enum
     private readonly List<GMEnumValue> _values;
@@ -55,13 +53,14 @@ public sealed class GMEnum
     /// </summary>
     public GMEnum(EnumMacroType enumMacroType)
     {
+        ArgumentNullException.ThrowIfNull(enumMacroType);
         Name = enumMacroType.Name;
 
         // Construct list and lookup dictionaries
         _values = new(enumMacroType.ValueToValueName.Count);
         _valueLookupByValue = new(enumMacroType.ValueToValueName.Count);
         _valueLookupByName = new(enumMacroType.ValueToValueName.Count);
-        foreach ((long value, string valueName) in enumMacroType.ValueToValueName)
+        foreach ((var value, var valueName) in enumMacroType.ValueToValueName)
         {
             GMEnumValue newValue = new(valueName, value);
             _values.Add(newValue);
@@ -75,8 +74,9 @@ public sealed class GMEnum
     /// </summary>
     public GMEnum(GMEnum existing)
     {
+        ArgumentNullException.ThrowIfNull(existing);
         Name = existing.Name;
-        _values = new(existing._values);
+        _values = [.. existing._values];
         _valueLookupByValue = new(existing._valueLookupByValue);
         _valueLookupByName = new(existing._valueLookupByName);
     }
@@ -87,7 +87,8 @@ public sealed class GMEnum
     /// </summary>
     public void AddNewValuesFrom(GMEnum other)
     {
-        foreach (GMEnumValue value in other.Values.Where(value => !_valueLookupByName.ContainsKey(value.Name)))
+        ArgumentNullException.ThrowIfNull(other);
+        foreach (var value in other.Values.Where(value => !_valueLookupByName.ContainsKey(value.Name)))
         {
             // The name doesn't exist in this enum, so add it
             _values.Add(value);
@@ -110,7 +111,7 @@ public sealed class GMEnum
     /// </summary>
     public bool TryGetValue(string name, out long value)
     {
-        if (_valueLookupByName.TryGetValue(name, out GMEnumValue? enumValue))
+        if (_valueLookupByName.TryGetValue(name, out var enumValue))
         {
             value = enumValue.Value;
             return true;
@@ -124,7 +125,7 @@ public sealed class GMEnum
     /// </summary>
     public GMEnumValue? FindValue(long value)
     {
-        if (_valueLookupByValue.TryGetValue(value, out GMEnumValue? result))
+        if (_valueLookupByValue.TryGetValue(value, out var result))
         {
             return result;
         }

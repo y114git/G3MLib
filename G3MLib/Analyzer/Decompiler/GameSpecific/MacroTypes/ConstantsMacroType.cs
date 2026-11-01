@@ -4,8 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System;
-using System.Collections.Generic;
 using G3MLib.Analyzer.Decompiler.AST;
 
 namespace G3MLib.Analyzer.Decompiler.GameSpecific;
@@ -30,8 +28,9 @@ public class ConstantsMacroType : IMacroTypeInt32
     /// </summary>
     public ConstantsMacroType(Dictionary<string, int> constants)
     {
+        ArgumentNullException.ThrowIfNull(constants);
         ValueToConstantName = new(constants.Count);
-        foreach ((string name, int value) in constants)
+        foreach ((var name, var value) in constants)
         {
             ValueToConstantName[value] = name;
         }
@@ -43,7 +42,7 @@ public class ConstantsMacroType : IMacroTypeInt32
     /// </summary>
     public ConstantsMacroType(Type enumType)
     {
-        Array values = Enum.GetValues(enumType);
+        var values = Enum.GetValues(enumType);
         ValueToConstantName = new(values.Length);
         foreach (int value in values)
         {
@@ -53,7 +52,7 @@ public class ConstantsMacroType : IMacroTypeInt32
 
     public IExpressionNode? Resolve(ASTCleaner cleaner, IMacroResolvableNode node, int data)
     {
-        if (ValueToConstantName.TryGetValue(data, out string? name))
+        if (ValueToConstantName.TryGetValue(data, out var name))
         {
             return new MacroValueNode(name);
         }

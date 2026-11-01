@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text.Json;
@@ -145,7 +143,7 @@ internal sealed class SerializableGameObject : ISerializableProjectAsset
     }
 
     // Data asset that was located during pre-import.
-    private GameMakerGameObject _dataAsset = null;
+    private GameMakerGameObject? _dataAsset;
 
     /// <summary>
     /// Populates this serializable game object with data from an actual game object.
@@ -184,10 +182,10 @@ internal sealed class SerializableGameObject : ISerializableProjectAsset
 
         // Convert events
         Events = new(8);
-        int categoryIndex = 0;
+        var categoryIndex = 0;
         foreach (var category in obj.Events)
         {
-            EventType categoryType = (EventType)categoryIndex;
+            var categoryType = (EventType)categoryIndex;
             foreach (var ev in category)
             {
                 if (ev.Actions.Count == 0)
@@ -234,7 +232,7 @@ internal sealed class SerializableGameObject : ISerializableProjectAsset
     /// <inheritdoc/>
     public IProjectAsset Import(ProjectContext projectContext)
     {
-        GameMakerGameObject obj = _dataAsset;
+        var obj = _dataAsset;
 
         // Update all main properties
         obj.Sprite = projectContext.FindSprite(Sprite, this);
@@ -283,17 +281,17 @@ internal sealed class SerializableGameObject : ISerializableProjectAsset
             eventCategoryCount = GameMakerGameObject.EventTypeCount;
         }
         obj.Events.Clear();
-        for (int i = 0; i < eventCategoryCount; i++)
+        for (var i = 0; i < eventCategoryCount; i++)
         {
-            obj.Events.InternalAdd(new GameMakerPointerList<GameMakerGameObject.Event>());
+            obj.Events.InternalAdd([]);
         }
-        foreach (GameObjectEvent ev in Events ?? [])
+        foreach (var ev in Events ?? [])
         {
             obj.Events[(int)ev.Category].Add(new GameMakerGameObject.Event()
             {
                 EventSubtype = StringToEventSubtype(projectContext, ev.Category, ev.Subtype),
-                Actions = new()
-                {
+                Actions =
+                [
                     new GameMakerGameObject.EventAction()
                     {
                         LibID = 1,
@@ -311,7 +309,7 @@ internal sealed class SerializableGameObject : ISerializableProjectAsset
                         IsNot = false,
                         UnknownAlwaysZero = 0
                     }
-                }
+                ]
             });
         }
 
@@ -328,7 +326,7 @@ internal sealed class SerializableGameObject : ISerializableProjectAsset
             EventType.Create => "",
             EventType.Destroy => "",
             EventType.Step => ((EventSubtypeStep)subtype).ToString(),
-            EventType.Collision => projectContext.Data.GameObjects[(int)subtype]?.Name?.Content ?? subtype.ToString(),
+            EventType.Collision => projectContext.Data.GameObjects[(int)subtype]?.Name?.Content ?? subtype.ToString(CultureInfo.InvariantCulture),
             EventType.Keyboard => ((EventSubtypeKey)subtype).ToString(),
             EventType.Mouse => ((EventSubtypeMouse)subtype).ToString(),
             EventType.Other => ((EventSubtypeOther)subtype).ToString(),
@@ -356,7 +354,7 @@ internal sealed class SerializableGameObject : ISerializableProjectAsset
             EventType.Draw => (uint)Enum.Parse<EventSubtypeDraw>(subtype, true),
             EventType.KeyPress => (uint)Enum.Parse<EventSubtypeKey>(subtype, true),
             EventType.KeyRelease => (uint)Enum.Parse<EventSubtypeKey>(subtype, true),
-            _ => uint.Parse(subtype, NumberStyles.Integer)
+            _ => uint.Parse(subtype, NumberStyles.Integer, CultureInfo.InvariantCulture)
         };
     }
 }

@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Compiler.Bytecode;
 using G3MLib.Analyzer.Compiler.Lexer;
 using G3MLib.Analyzer.Compiler.Parser;
@@ -85,10 +84,10 @@ internal sealed class NumberNode : IConstantASTNode
         if (double.IsInteger(value) && value is >= long.MinValue and <= long.MaxValue)
         {
             // Integer value
-            long integerValue = (long)value;
-            if (integerValue <= int.MaxValue && integerValue >= int.MinValue)
+            var integerValue = (long)value;
+            if (integerValue is <= int.MaxValue and >= int.MinValue)
             {
-                if (integerValue <= short.MaxValue && integerValue >= short.MinValue)
+                if (integerValue is <= short.MaxValue and >= short.MinValue)
                 {
                     // 16-bit integer
                     context.Emit(Opcode.PushImmediate, (short)integerValue, DataType.Int16);

@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Compiler.Bytecode;
 using G3MLib.Analyzer.Compiler.Lexer;
 using G3MLib.Analyzer.Compiler.Parser;
@@ -61,7 +60,7 @@ internal sealed class SwitchNode : IASTNode
         while (!context.EndOfCode && !context.IsCurrentToken(SeparatorKind.BlockClose, KeywordKind.End))
         {
             // Parse statements, but particularly "case" and "default" labels
-            IToken currentToken = context.Tokens[context.Position];
+            var currentToken = context.Tokens[context.Position];
             if (currentToken is TokenKeyword { Kind: KeywordKind.Case } tokenCase)
             {
                 // "case" label: parse expression
@@ -103,7 +102,7 @@ internal sealed class SwitchNode : IASTNode
     public IASTNode PostProcess(ParseContext context)
     {
         // Enter switch context
-        bool previousProcessingSwitch = context.ProcessingSwitch;
+        var previousProcessingSwitch = context.ProcessingSwitch;
         context.ProcessingSwitch = true;
 
         // Normal post-processing
@@ -118,7 +117,7 @@ internal sealed class SwitchNode : IASTNode
             {
                 context.CompileContext.PushError("Switch statement body must begin with \"case\" or \"default\"", NearbyToken);
             }
-            for (int i = 0; i < Children.Count; i++)
+            for (var i = 0; i < Children.Count; i++)
             {
                 Children[i] = Children[i].PostProcess(context);
             }
@@ -135,8 +134,8 @@ internal sealed class SwitchNode : IASTNode
     /// <inheritdoc/>
     public IASTNode Duplicate(ParseContext context)
     {
-        List<IASTNode> newChildren = new(Children);
-        for (int i = 0; i < newChildren.Count; i++)
+        List<IASTNode> newChildren = [.. Children];
+        for (var i = 0; i < newChildren.Count; i++)
         {
             newChildren[i] = newChildren[i].Duplicate(context);
         }
@@ -151,19 +150,19 @@ internal sealed class SwitchNode : IASTNode
     {
         // Expression being switched upon
         Expression.GenerateCode(context);
-        DataType expressionType = context.PopDataType();
+        var expressionType = context.PopDataType();
 
         // Store current last array owner ID
-        long lastArrayOwnerID = context.LastArrayOwnerID;
-        bool arrayOwnerChanged = false;
+        var lastArrayOwnerID = context.LastArrayOwnerID;
+        var arrayOwnerChanged = false;
 
         // Generate comparison and branch logic for all cases
         MultiForwardBranchPatch tailPatch = new();
         MultiForwardBranchPatch continuePatch = new();
         MultiForwardBranchPatch defaultPatch = new();
-        bool defaultCaseExists = false;
+        var defaultCaseExists = false;
         List<SwitchCase> cases = new(16);
-        for (int i = 0; i < Children.Count; i++)
+        for (var i = 0; i < Children.Count; i++)
         {
             if (Children[i] is SwitchCaseNode caseNode)
             {
@@ -183,7 +182,7 @@ internal sealed class SwitchNode : IASTNode
                     cases.Add(new SwitchCase(casePatch, i));
 
                     // If array owner ID has changed, keep track of it
-                    arrayOwnerChanged |= (context.LastArrayOwnerID != lastArrayOwnerID);
+                    arrayOwnerChanged |= context.LastArrayOwnerID != lastArrayOwnerID;
                 }
                 else
                 {
@@ -203,25 +202,25 @@ internal sealed class SwitchNode : IASTNode
 
         // Enter switch context, and generate actual body code
         context.PushControlFlowContext(new SwitchContext(expressionType, tailPatch, continuePatch));
-        for (int i = 0; i < cases.Count; i++)
+        for (var i = 0; i < cases.Count; i++)
         {
             // Get range of children nodes to generate code for
-            SwitchCase currentCase = cases[i];
-            int startIndex = currentCase.ChildIndex + 1;
-            int endIndexExclusive = (i + 1 < cases.Count) ? cases[i + 1].ChildIndex : Children.Count;
+            var currentCase = cases[i];
+            var startIndex = currentCase.ChildIndex + 1;
+            var endIndexExclusive = (i + 1 < cases.Count) ? cases[i + 1].ChildIndex : Children.Count;
 
             // Set array owner to initial one
             context.LastArrayOwnerID = lastArrayOwnerID;
 
             // Generate code for case
             currentCase.Branch.Patch(context);
-            for (int j = startIndex; j < endIndexExclusive; j++)
+            for (var j = startIndex; j < endIndexExclusive; j++)
             {
                 Children[j].GenerateCode(context);
             }
 
             // If array owner ID has changed, keep track of it
-            arrayOwnerChanged |= (context.LastArrayOwnerID != lastArrayOwnerID);
+            arrayOwnerChanged |= context.LastArrayOwnerID != lastArrayOwnerID;
         }
         context.PopControlFlowContext();
 
@@ -252,7 +251,7 @@ internal sealed class SwitchNode : IASTNode
     public IEnumerable<IASTNode> EnumerateChildren()
     {
         yield return Expression;
-        foreach (IASTNode child in Children)
+        foreach (var child in Children)
         {
             yield return child;
         }

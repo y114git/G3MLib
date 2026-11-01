@@ -13,7 +13,7 @@ public class DecompileContext_DecompileToString_Settings
     [Fact]
     public void TestDataLeftoverOnStack()
     {
-        DecompileContext context = TestUtil.VerifyDecompileResult(
+        var context = TestUtil.VerifyDecompileResult(
             """
             pushi.e 0
             """,
@@ -27,8 +27,8 @@ public class DecompileContext_DecompileToString_Settings
                 AllowLeftoverDataOnStack = true
             }
         );
-        Assert.Single(context.Warnings);
-        Assert.IsType<DecompileDataLeftoverWarning>(context.Warnings[0]);
+        var item = Assert.Single(context.Warnings);
+        Assert.IsType<DecompileDataLeftoverWarning>(item);
         Assert.Equal("root", context.Warnings[0].CodeEntryName);
         Assert.Equal(1, ((DecompileDataLeftoverWarning)context.Warnings[0]).NumberOfElements);
     }

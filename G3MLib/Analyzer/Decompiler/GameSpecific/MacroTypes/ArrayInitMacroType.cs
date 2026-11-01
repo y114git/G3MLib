@@ -20,9 +20,10 @@ public class ArrayInitMacroType(IMacroType type) : IMacroTypeArrayInit
     /// </summary>
     public ArrayInitNode? Resolve(ASTCleaner cleaner, ArrayInitNode arrayInit)
     {
-        bool didAnything = false;
+        ArgumentNullException.ThrowIfNull(arrayInit);
+        var didAnything = false;
 
-        for (int i = 0; i < arrayInit.Elements.Count; i++)
+        for (var i = 0; i < arrayInit.Elements.Count; i++)
         {
             if (arrayInit.Elements[i] is not IMacroResolvableNode node)
             {

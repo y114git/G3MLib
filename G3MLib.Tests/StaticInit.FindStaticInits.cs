@@ -6,7 +6,6 @@
 
 using G3MLib.Analyzer.Decompiler;
 using G3MLib.Analyzer.Decompiler.ControlFlow;
-using G3MLib.Analyzer.Mock;
 
 namespace G3MLib.Tests;
 
@@ -15,7 +14,7 @@ public class StaticInit_FindStaticInits
     [Fact]
     public void TestBasic()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             b [4]
@@ -37,12 +36,12 @@ public class StaticInit_FindStaticInits
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<StaticInit> sis = StaticInit.FindStaticInits(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var sis = StaticInit.FindStaticInits(ctx);
 
-        Assert.Single(sis);
-        Assert.Equal([blocks[1]], sis[0].Predecessors);
+        var item = Assert.Single(sis);
+        Assert.Equal([blocks[1]], item.Predecessors);
         Assert.Equal([blocks[3]], sis[0].Successors);
         Assert.Equal(blocks[2], sis[0].Head);
         Assert.Empty(sis[0].Head.Predecessors);
@@ -59,7 +58,7 @@ public class StaticInit_FindStaticInits
     [Fact]
     public void TestStruct()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             b [6]
@@ -100,12 +99,12 @@ public class StaticInit_FindStaticInits
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<StaticInit> sis = StaticInit.FindStaticInits(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var sis = StaticInit.FindStaticInits(ctx);
 
-        Assert.Single(sis);
-        Assert.Equal([blocks[1]], sis[0].Predecessors);
+        var item = Assert.Single(sis);
+        Assert.Equal([blocks[1]], item.Predecessors);
         Assert.Equal([blocks[5]], sis[0].Successors);
         Assert.Equal(blocks[2], sis[0].Head);
         Assert.Empty(sis[0].Head.Predecessors);

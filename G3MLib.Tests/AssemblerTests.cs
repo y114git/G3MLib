@@ -1,7 +1,6 @@
 using G3MLib.DataFile;
 using G3MLib.DataFile.Decompiler;
 using G3MLib.DataFile.Models;
-using Xunit;
 
 namespace G3MLib.Tests;
 
@@ -10,7 +9,7 @@ public sealed class AssemblerTests
     [Fact("AssemblerTests.cs", 9)]
     public void AssembleBuildsInstructionsWithAndWithoutLookupCaches()
     {
-        using GameMakerData data = GameMakerData.CreateNew2026LTS();
+        using var data = GameMakerData.CreateNew2026LTS();
         GameMakerFunction function = new()
         {
             Name = data.Strings.MakeString("test_function")
@@ -22,7 +21,7 @@ public sealed class AssemblerTests
         };
         data.Functions.Add(function);
         data.Variables.Add(variable);
-        GameMakerInstruction direct = Assembler.AssembleOne("ret.d", data);
+        var direct = Assembler.AssembleOne("ret.d", data);
         Assert.Equal(GameMakerInstruction.Opcode.Ret, direct.Kind);
         Assert.Equal("ret.d", direct.ToString());
         Assert.Equal(0, Assembler.AssembleOne("push.i room0", data).ValueInt);
@@ -37,7 +36,7 @@ public sealed class AssemblerTests
             Assert.Same(function, Assembler.AssembleOne("call.v test_function(argc=0)", data).ValueFunction);
             Assert.Equal("test string", Assembler.AssembleOne("push.s \"test string\"", data).ValueString.Resource.Content);
             Assert.Same(variable, Assembler.AssembleOne("push.v self.test_variable", data).ValueVariable);
-            using GameMakerData otherData = GameMakerData.CreateNew2026LTS();
+            using var otherData = GameMakerData.CreateNew2026LTS();
             Assert.Equal(0, Assembler.AssembleOne("push.i room0", otherData).ValueInt);
         }
         finally
@@ -49,8 +48,8 @@ public sealed class AssemblerTests
     [Fact("AssemblerTests.cs", 49)]
     public void AssembleResolvesLabelsAndSpecialBranchForms()
     {
-        using GameMakerData data = GameMakerData.CreateNew2026LTS();
-        List<GameMakerInstruction> instructions = Assembler.Assemble("""
+        using var data = GameMakerData.CreateNew2026LTS();
+        var instructions = Assembler.Assemble("""
 			:[start]
 			push.i 1
 			bf [end]

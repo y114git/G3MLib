@@ -1,4 +1,3 @@
-using System;
 using System.IO;
 
 namespace G3MLib.DataFile.Util;
@@ -17,12 +16,12 @@ public static class Paths
     /// </remarks>
     public static bool IsWithinDirectory(string directory, string pathToTest)
     {
-        string fullDirectoryPath = Path.GetFullPath(directory);
+        var fullDirectoryPath = Path.GetFullPath(directory);
         if (!fullDirectoryPath.EndsWith(Path.DirectorySeparatorChar))
         {
             fullDirectoryPath += Path.DirectorySeparatorChar;
         }
-        string fullPathToTest = Path.GetFullPath(pathToTest);
+        var fullPathToTest = Path.GetFullPath(pathToTest);
         return fullPathToTest.StartsWith(fullDirectoryPath, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
     }
 
@@ -46,7 +45,7 @@ public static class Paths
     /// </summary>
     public static string JoinVerifyWithinDirectory(string directory, string path)
     {
-        string joined = Path.Join(directory, path);
+        var joined = Path.Join(directory, path);
         VerifyWithinDirectory(directory, joined);
         return joined;
     }
@@ -57,7 +56,7 @@ public static class Paths
     /// </summary>
     public static string JoinVerifyWithinDirectory(string directory, string path1, string path2)
     {
-        string joined = Path.Join(directory, path1, path2);
+        var joined = Path.Join(directory, path1, path2);
         VerifyWithinDirectory(directory, joined);
         return joined;
     }
@@ -68,7 +67,7 @@ public static class Paths
     /// </summary>
     public static string JoinVerifyWithinDirectory(string directory, string path1, string path2, string path3)
     {
-        string joined = Path.Join(directory, path1, path2, path3);
+        var joined = Path.Join(directory, path1, path2, path3);
         VerifyWithinDirectory(directory, joined);
         return joined;
     }
@@ -80,7 +79,7 @@ public static class Paths
     /// </summary>
     public static string TryJoinVerifyWithinDirectory(string directory, string path)
     {
-        string joined = Path.Join(directory, path);
+        var joined = Path.Join(directory, path);
         if (!IsWithinDirectory(directory, joined))
         {
             return null;
@@ -95,7 +94,7 @@ public static class Paths
     /// </summary>
     public static string TryJoinVerifyWithinDirectory(string directory, string path1, string path2)
     {
-        string joined = Path.Join(directory, path1, path2);
+        var joined = Path.Join(directory, path1, path2);
         if (!IsWithinDirectory(directory, joined))
         {
             return null;
@@ -110,7 +109,7 @@ public static class Paths
     /// </summary>
     public static string TryJoinVerifyWithinDirectory(string directory, string path1, string path2, string path3)
     {
-        string joined = Path.Join(directory, path1, path2, path3);
+        var joined = Path.Join(directory, path1, path2, path3);
         if (!IsWithinDirectory(directory, joined))
         {
             return null;

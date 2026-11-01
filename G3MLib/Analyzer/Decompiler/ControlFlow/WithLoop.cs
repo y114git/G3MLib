@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Decompiler.AST;
 
 namespace G3MLib.Analyzer.Decompiler.ControlFlow;
@@ -19,7 +18,7 @@ internal sealed class WithLoop : Loop
     /// <remarks>
     /// Upon being processed, this is connected to the loop.
     /// </remarks>
-    public IControlFlowNode Before { get => Children[0]!; private set => Children[0] = value; }
+    public IControlFlowNode Before { get => Children[0]; private set => Children[0] = value; }
 
     /// <summary>
     /// The start of the loop body of the with loop.
@@ -27,7 +26,7 @@ internal sealed class WithLoop : Loop
     /// <remarks>
     /// Upon being processed, this is disconnected from its predecessors.
     /// </remarks>
-    public IControlFlowNode Head { get => Children[1]!; private set => Children[1] = value; }
+    public IControlFlowNode Head { get => Children[1]; private set => Children[1] = value; }
 
     /// <summary>
     /// The end of the with loop.
@@ -35,7 +34,7 @@ internal sealed class WithLoop : Loop
     /// <remarks>
     /// Upon being processed, this is disconnected from its successors.
     /// </remarks>
-    public IControlFlowNode Tail { get => Children[2]!; private set => Children[2] = value; }
+    public IControlFlowNode Tail { get => Children[2]; private set => Children[2] = value; }
 
     /// <summary>
     /// The node reached after the with loop is completed.
@@ -43,7 +42,7 @@ internal sealed class WithLoop : Loop
     /// <remarks>
     /// Upon being processed, this becomes a new <see cref="EmptyNode"/>, which is then disconnected from the external graph.
     /// </remarks>
-    public IControlFlowNode After { get => Children[3]!; private set => Children[3] = value; }
+    public IControlFlowNode After { get => Children[3]; private set => Children[3] = value; }
 
     /// <summary>
     /// If not null, this is a special block jumped to from within the with statement for "break" statements.
@@ -84,13 +83,13 @@ internal sealed class WithLoop : Loop
         IControlFlowNode.DisconnectSuccessor(Tail, 1);
         IControlFlowNode.DisconnectSuccessor(Tail, 0);
 
-        IControlFlowNode nodeToEndAt = oldAfter;
+        var nodeToEndAt = oldAfter;
         if (BreakBlock is not null)
         {
             // Reroute everything going into BreakBlock to instead go into newAfter
-            for (int i = 0; i < BreakBlock.Predecessors.Count; i++)
+            for (var i = 0; i < BreakBlock.Predecessors.Count; i++)
             {
-                IControlFlowNode pred = BreakBlock.Predecessors[i];
+                var pred = BreakBlock.Predecessors[i];
                 newAfter.Predecessors.Add(pred);
                 IControlFlowNode.ReplaceConnections(pred.Successors, BreakBlock, newAfter);
                 BreakBlock.Predecessors.RemoveAt(i);
@@ -102,7 +101,7 @@ internal sealed class WithLoop : Loop
             IControlFlowNode.DisconnectSuccessor(BreakBlock, 0);
 
             // Get rid of branch instruction from oldAfter
-            Block oldAfterBlock = oldAfter as Block ?? throw new DecompilerException("Expected old after to be block");
+            var oldAfterBlock = oldAfter as Block ?? throw new DecompilerException("Expected old after to be block");
             oldAfterBlock.Instructions.RemoveAt(oldAfterBlock.Instructions.Count - 1);
 
             // Reroute successor of After to instead go to nodeToEndAt
@@ -121,8 +120,8 @@ internal sealed class WithLoop : Loop
             {
                 throw new DecompilerException("Expected 2 branches on Before");
             }
-            if ((Before.Successors[0] != this && Before.Successors[0] != Tail) ||
-                (Before.Successors[1] != this && Before.Successors[1] != Tail))
+            if (Before.Successors[0] != this && Before.Successors[0] != Tail ||
+                Before.Successors[1] != this && Before.Successors[1] != Tail)
             {
                 throw new DecompilerException("Expected 2 branches to this loop on Before");
             }
@@ -133,9 +132,9 @@ internal sealed class WithLoop : Loop
         }
 
         // Remove all predecessors of Tail that are before this loop
-        for (int i = Tail.Predecessors.Count - 1; i >= 0; i--)
+        for (var i = Tail.Predecessors.Count - 1; i >= 0; i--)
         {
-            IControlFlowNode curr = Tail.Predecessors[i];
+            var curr = Tail.Predecessors[i];
             if (curr.StartAddress < StartAddress)
             {
                 IControlFlowNode.DisconnectPredecessor(Tail, i);
@@ -154,7 +153,7 @@ internal sealed class WithLoop : Loop
 
     public override void BuildAST(ASTBuilder builder, List<IStatementNode> output)
     {
-        IExpressionNode target = builder.ExpressionStack.Pop();
+        var target = builder.ExpressionStack.Pop();
         if (target is Int16Node i16 && i16.Value == (int)IGMInstruction.InstanceType.StackTop &&
             builder.ExpressionStack.Count != 0 && !builder.ExpressionStack.Peek().Duplicated)
         {
@@ -163,11 +162,11 @@ internal sealed class WithLoop : Loop
         }
 
         // Push this loop context
-        Loop? prevLoop = builder.TopFragmentContext!.SurroundingLoop;
+        var prevLoop = builder.TopFragmentContext.SurroundingLoop;
         builder.TopFragmentContext.SurroundingLoop = this;
 
         // Build loop body, and create statement
-        BlockNode body = builder.BuildBlock(Head);
+        var body = builder.BuildBlock(Head);
         output.Add(new WithLoopNode(target, body));
 
         // Pop this loop context

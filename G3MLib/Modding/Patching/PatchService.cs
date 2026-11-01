@@ -1,19 +1,13 @@
-using System;
-using System.CodeDom.Compiler;
+using System.Globalization;
 using System.Collections;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
-using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using System.Threading;
-using System.Threading.Tasks;
 using G3MLib.Analyzer.Decompiler;
 using G3MLib.DataFile;
 using G3MLib.DataFile.Compiler;
@@ -23,7 +17,7 @@ using G3MLib.DataFile.Util;
 
 namespace G3MLib.Modding.Patching;
 
-public class PatchService
+public partial class PatchService
 {
 	private sealed class PatchHelperSnapshot
 	{
@@ -58,7 +52,7 @@ public class PatchService
 
 		public string? StagedEmbeddedTexturesDir { get; init; }
 
-		public Dictionary<string, List<string>> AssetNamesAtCodeImportStart { get; set; } = new Dictionary<string, List<string>>();
+		public Dictionary<string, List<string>> AssetNamesAtCodeImportStart { get; set; } = [];
 
 		public string? CodeMetadataForFinalCleanup { get; set; }
 
@@ -75,7 +69,7 @@ public class PatchService
 			}
 			if (!string.IsNullOrWhiteSpace(explicitCodeName))
 			{
-				GameMakerCode byExplicit = FindCodeByName(data, explicitCodeName);
+				var byExplicit = FindCodeByName(data, explicitCodeName);
 				if (byExplicit != null)
 				{
 					return byExplicit;
@@ -85,16 +79,16 @@ public class PatchService
 			{
 				return null;
 			}
-			GameMakerCode byExact = FindCodeByName(data, scriptName);
+			var byExact = FindCodeByName(data, scriptName);
 			if (byExact != null)
 			{
 				return byExact;
 			}
-			bool alreadyScriptPrefixed = scriptName.StartsWith("gml_Script_", StringComparison.Ordinal);
-			bool alreadyGlobalPrefixed = scriptName.StartsWith("gml_GlobalScript_", StringComparison.Ordinal);
+			var alreadyScriptPrefixed = scriptName.StartsWith("gml_Script_", StringComparison.Ordinal);
+			var alreadyGlobalPrefixed = scriptName.StartsWith("gml_GlobalScript_", StringComparison.Ordinal);
 			if (scriptName.StartsWith("gml_Script_gml_GlobalScript_", StringComparison.Ordinal))
 			{
-				GameMakerCode byCanonicalScript = FindCodeByName(data, "gml_Script_" + scriptName.Substring("gml_Script_gml_GlobalScript_".Length));
+				var byCanonicalScript = FindCodeByName(data, "gml_Script_" + scriptName["gml_Script_gml_GlobalScript_".Length..]);
 				if (byCanonicalScript != null)
 				{
 					return byCanonicalScript;
@@ -102,7 +96,7 @@ public class PatchService
 			}
 			if (!alreadyScriptPrefixed)
 			{
-				GameMakerCode byScriptPrefix = FindCodeByName(data, "gml_Script_" + scriptName);
+				var byScriptPrefix = FindCodeByName(data, "gml_Script_" + scriptName);
 				if (byScriptPrefix != null)
 				{
 					return byScriptPrefix;
@@ -110,7 +104,7 @@ public class PatchService
 			}
 			if (!alreadyGlobalPrefixed)
 			{
-				GameMakerCode byGlobalPrefix = FindCodeByName(data, "gml_GlobalScript_" + scriptName);
+				var byGlobalPrefix = FindCodeByName(data, "gml_GlobalScript_" + scriptName);
 				if (byGlobalPrefix != null)
 				{
 					return byGlobalPrefix;
@@ -118,11 +112,11 @@ public class PatchService
 			}
 			if (alreadyScriptPrefixed)
 			{
-				return FindCodeByName(data, "gml_GlobalScript_" + scriptName.Substring("gml_Script_".Length));
+				return FindCodeByName(data, "gml_GlobalScript_" + scriptName["gml_Script_".Length..]);
 			}
 			if (alreadyGlobalPrefixed)
 			{
-				return FindCodeByName(data, "gml_Script_" + scriptName.Substring("gml_GlobalScript_".Length));
+				return FindCodeByName(data, "gml_Script_" + scriptName["gml_GlobalScript_".Length..]);
 			}
 			return null;
 		}
@@ -133,14 +127,14 @@ public class PatchService
 			{
 				return null;
 			}
-			GameMakerCode topLevel = data.Code.ByName(codeName);
+			var topLevel = data.Code.ByName(codeName);
 			if (topLevel != null)
 			{
 				return topLevel;
 			}
-			foreach (GameMakerCode item in data.Code)
+			foreach (var item in data.Code)
 			{
-				GameMakerCode found = FindCodeByNameRecursive(item, codeName);
+				var found = FindCodeByNameRecursive(item, codeName);
 				if (found != null)
 				{
 					return found;
@@ -159,9 +153,9 @@ public class PatchService
 			{
 				return null;
 			}
-			foreach (GameMakerCode childEntry in code.ChildEntries)
+			foreach (var childEntry in code.ChildEntries)
 			{
-				GameMakerCode found = FindCodeByNameRecursive(childEntry, codeName);
+				var found = FindCodeByNameRecursive(childEntry, codeName);
 				if (found != null)
 				{
 					return found;
@@ -173,7 +167,7 @@ public class PatchService
 
 	private sealed class ReferenceEqualityComparer : IEqualityComparer<object>
 	{
-		public static readonly ReferenceEqualityComparer Instance = new ReferenceEqualityComparer();
+		public static readonly ReferenceEqualityComparer Instance = new();
 
 		public new bool Equals(object? x, object? y)
 		{
@@ -186,15 +180,12 @@ public class PatchService
 		}
 	}
 
-	private static readonly JsonSerializerOptions s_jsonOptions = new JsonSerializerOptions
+	private static readonly JsonSerializerOptions s_jsonOptions = new()
 	{
 		WriteIndented = true
 	};
 
-	private static readonly Lock s_codeImportLock = new Lock();
-
-	private const int DataFileBufferSize = 1048576;
-
+	private static readonly Lock s_codeImportLock = new();
 
 	private static FileStream OpenDataReadStream(string path)
 	{
@@ -210,9 +201,9 @@ public class PatchService
 	{
 		try
 		{
-			using FileStream stream = OpenDataReadStream(path);
-			using GameMakerData savedData = GameMakerIO.Read(stream);
-			DataIntegrityResult integrity = DataIntegrityService.ValidateOnly(savedData);
+			using var stream = OpenDataReadStream(path);
+			using var savedData = GameMakerIO.Read(stream);
+			var integrity = DataIntegrityService.ValidateOnly(savedData);
 			return integrity.Success ? null : string.Join("; ", integrity.Errors.Take(20));
 		}
 		catch (Exception ex)
@@ -235,20 +226,20 @@ public class PatchService
 
 	private static List<string> BuildResourceTypesToProcess(PatchFileSystem pfs, G3MPatchManifest? manifest)
 	{
-		string[] importOrder = ResourceTypeRegistry.ImportOrder;
-		HashSet<string> existingFolders = pfs.GetResourceTypes();
-		List<string> resourceTypesToProcess = new List<string>(importOrder.Length);
-		string[] array = importOrder;
-		foreach (string rt in array)
+		var importOrder = ResourceTypeRegistry.ImportOrder;
+		var existingFolders = pfs.GetResourceTypes();
+		var resourceTypesToProcess = new List<string>(importOrder.Length);
+		var array = importOrder;
+		foreach (var rt in array)
 		{
 			if (existingFolders.Contains(rt))
 			{
 				resourceTypesToProcess.Add(rt);
 			}
 		}
-		foreach (string rt2 in manifest?.Resources?.Where(kvp => (kvp.Value.Deleted?.Count ?? 0) > 0).Select(kvp => kvp.Key) ?? [])
+		foreach (var rt2 in manifest?.Resources?.Where(kvp => (kvp.Value.Deleted?.Count ?? 0) > 0).Select(kvp => kvp.Key) ?? [])
 		{
-			if (!resourceTypesToProcess.Contains<string>(rt2, StringComparer.OrdinalIgnoreCase))
+			if (!resourceTypesToProcess.Contains(rt2, StringComparer.OrdinalIgnoreCase))
 			{
 				resourceTypesToProcess.Add(rt2);
 			}
@@ -262,17 +253,17 @@ public class PatchService
 
 	private static bool HasScriptOrderOnlyAssetPayload(PatchFileSystem pfs)
 	{
-		string assetOrderPath = Path.Combine(pfs.HelpersPrefix, "asset_order.txt");
+		var assetOrderPath = Path.Combine(pfs.HelpersPrefix, "asset_order.txt");
 		if (pfs.FileExists(assetOrderPath))
 		{
-			return pfs.ReadAllLines(assetOrderPath).Any((string line) => string.Equals(line, "@@scripts@@", StringComparison.OrdinalIgnoreCase));
+			return pfs.ReadAllLines(assetOrderPath).Any(line => string.Equals(line, "@@scripts@@", StringComparison.OrdinalIgnoreCase));
 		}
 		return false;
 	}
 
 	private static (Dictionary<string, int> Weights, int TotalNonCodeWeight, bool HasCodeEntries, int NonCodeRangeStart, int NonCodeRange) CreateImportProgressState(IReadOnlyList<string> resourceTypes)
 	{
-		Dictionary<string, int> weights = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+		var weights = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
 		{
 			["AudioGroups"] = 1,
 			["TextureGroupInfo"] = 1,
@@ -286,38 +277,38 @@ public class PatchService
 			["Tilesets"] = 1,
 			["GeneralInfo"] = 1
 		};
-		int totalNonCodeWeight = resourceTypes.Where((string resourceType) => resourceType != "CodeEntries").Sum((string resourceType) => weights.GetValueOrDefault(resourceType, 1));
-		bool hasCodeEntries = resourceTypes.Contains("CodeEntries");
-		int nonCodeRangeEnd = (hasCodeEntries ? 40 : 90);
+		var totalNonCodeWeight = resourceTypes.Where(resourceType => resourceType != "CodeEntries").Sum(resourceType => weights.GetValueOrDefault(resourceType, 1));
+		var hasCodeEntries = resourceTypes.Contains("CodeEntries");
+		var nonCodeRangeEnd = hasCodeEntries ? 40 : 90;
 		return (Weights: weights, TotalNonCodeWeight: totalNonCodeWeight, HasCodeEntries: hasCodeEntries, NonCodeRangeStart: 5, NonCodeRange: nonCodeRangeEnd - 5);
 	}
 
 	private static PatchHelperSnapshot CapturePatchHelpers(PatchFileSystem pfs, bool includeAssetOrder, bool includeObjectEvents, bool includeTextureMappingHelpers)
 	{
-		string helpersDir = pfs.HelpersPrefix;
-		string capturedAssetOrderPath = Path.Combine(helpersDir, "asset_order.txt");
-		string capturedObjectEventsPath = Path.Combine(helpersDir, "object_events.json");
-		string capturedTexturePageItemsPath = Path.Combine(helpersDir, "texture_page_items.json");
-		string capturedSpriteFrameMapPath = Path.Combine(helpersDir, "sprite_frame_map.json");
+		var helpersDir = pfs.HelpersPrefix;
+		var capturedAssetOrderPath = Path.Combine(helpersDir, "asset_order.txt");
+		var capturedObjectEventsPath = Path.Combine(helpersDir, "object_events.json");
+		var capturedTexturePageItemsPath = Path.Combine(helpersDir, "texture_page_items.json");
+		var capturedSpriteFrameMapPath = Path.Combine(helpersDir, "sprite_frame_map.json");
 		return new PatchHelperSnapshot
 		{
 			HelpersDir = helpersDir,
-			AssetOrderLines = ((includeAssetOrder && pfs.FileExists(capturedAssetOrderPath)) ? pfs.ReadAllLines(capturedAssetOrderPath) : null),
-			ObjectEventsBytes = ((includeObjectEvents && pfs.FileExists(capturedObjectEventsPath)) ? pfs.ReadAllBytes(capturedObjectEventsPath) : null),
-			TexturePageItemsBytes = ((includeTextureMappingHelpers && pfs.FileExists(capturedTexturePageItemsPath)) ? pfs.ReadAllBytes(capturedTexturePageItemsPath) : null),
-			SpriteFrameMapBytes = ((includeTextureMappingHelpers && pfs.FileExists(capturedSpriteFrameMapPath)) ? pfs.ReadAllBytes(capturedSpriteFrameMapPath) : null)
+			AssetOrderLines = (includeAssetOrder && pfs.FileExists(capturedAssetOrderPath)) ? pfs.ReadAllLines(capturedAssetOrderPath) : null,
+			ObjectEventsBytes = (includeObjectEvents && pfs.FileExists(capturedObjectEventsPath)) ? pfs.ReadAllBytes(capturedObjectEventsPath) : null,
+			TexturePageItemsBytes = (includeTextureMappingHelpers && pfs.FileExists(capturedTexturePageItemsPath)) ? pfs.ReadAllBytes(capturedTexturePageItemsPath) : null,
+			SpriteFrameMapBytes = (includeTextureMappingHelpers && pfs.FileExists(capturedSpriteFrameMapPath)) ? pfs.ReadAllBytes(capturedSpriteFrameMapPath) : null
 		};
 	}
 
 	private static PatchApplyPreparation PreparePatchApply(GameMakerData data, PatchFileSystem pfs, IReadOnlyList<string> resourceTypes, PatchApplyPlan applyPlan, bool hasCodeEntries, bool scriptOrderOnly)
 	{
-		bool requiresFinalAssetReorder = applyPlan.RequiresAssetReorder || scriptOrderOnly;
-		bool touchesTextureWorld = RequiresTextureMappingHelpers(resourceTypes) || resourceTypes.Contains<string>("EmbeddedTextures", StringComparer.OrdinalIgnoreCase) || resourceTypes.Contains<string>("TexturePageItems", StringComparer.OrdinalIgnoreCase);
-		bool needsCodeRemapPreparation = hasCodeEntries && RequiresCodeRemapPreparation(resourceTypes);
-		bool needsTexturePreservation = requiresFinalAssetReorder && touchesTextureWorld;
-		PatchHelperSnapshot helpers = CapturePatchHelpers(pfs, hasCodeEntries || requiresFinalAssetReorder, hasCodeEntries || requiresFinalAssetReorder, needsTexturePreservation);
-		string variablesFunctionsPath = Path.Combine(helpers.HelpersDir, "variables_functions.json");
-		string variablesFunctionsContent = ((hasCodeEntries && pfs.FileExists(variablesFunctionsPath)) ? pfs.ReadAllText(variablesFunctionsPath) : null);
+		var requiresFinalAssetReorder = applyPlan.RequiresAssetReorder || scriptOrderOnly;
+		var touchesTextureWorld = RequiresTextureMappingHelpers(resourceTypes) || resourceTypes.Contains("EmbeddedTextures", StringComparer.OrdinalIgnoreCase) || resourceTypes.Contains("TexturePageItems", StringComparer.OrdinalIgnoreCase);
+		var needsCodeRemapPreparation = hasCodeEntries && RequiresCodeRemapPreparation(resourceTypes);
+		var needsTexturePreservation = requiresFinalAssetReorder && touchesTextureWorld;
+		var helpers = CapturePatchHelpers(pfs, hasCodeEntries || requiresFinalAssetReorder, hasCodeEntries || requiresFinalAssetReorder, needsTexturePreservation);
+		var variablesFunctionsPath = Path.Combine(helpers.HelpersDir, "variables_functions.json");
+		var variablesFunctionsContent = (hasCodeEntries && pfs.FileExists(variablesFunctionsPath)) ? pfs.ReadAllText(variablesFunctionsPath) : null;
 		return new PatchApplyPreparation
 		{
 			NeedsFinalAssetReorder = requiresFinalAssetReorder,
@@ -325,19 +316,19 @@ public class PatchService
 			NeedsCodeRemapPreparation = needsCodeRemapPreparation,
 			Helpers = helpers,
 			VariablesFunctionsContent = variablesFunctionsContent,
-			OriginalGmlForCodeRemap = (needsCodeRemapPreparation ? CaptureOriginalCodeGmlForAssetRemap(data, resourceTypes) : new Dictionary<string, string>()),
-			PatchCodeEntryNames = (needsCodeRemapPreparation ? CapturePatchCodeEntryNames(pfs) : new HashSet<string>()),
-			UntouchedEmbeddedTextureSnapshot = (needsTexturePreservation ? CaptureUntouchedEmbeddedTextures(data, pfs) : new Dictionary<int, byte[]>()),
-			StagedEmbeddedTexturesDir = (needsTexturePreservation ? StageEmbeddedTexturesForAssetOrder(data, pfs) : null),
+			OriginalGmlForCodeRemap = needsCodeRemapPreparation ? CaptureOriginalCodeGmlForAssetRemap(data, resourceTypes) : [],
+			PatchCodeEntryNames = needsCodeRemapPreparation ? CapturePatchCodeEntryNames(pfs) : [],
+			UntouchedEmbeddedTextureSnapshot = needsTexturePreservation ? CaptureUntouchedEmbeddedTextures(data, pfs) : [],
+			StagedEmbeddedTexturesDir = needsTexturePreservation ? StageEmbeddedTexturesForAssetOrder(data, pfs) : null,
 			CodeMetadataForFinalCleanup = variablesFunctionsContent
 		};
 	}
 
 	private static (int AppliedCount, int FailedCount) ImportMinimalResources(GameMakerData data, PatchFileSystem pfs, IReadOnlyList<string> resourceTypes, string dataPath, string outputPath)
 	{
-		int appliedCount = 0;
-		int failedCount = 0;
-		foreach (string resourceType in resourceTypes)
+		var appliedCount = 0;
+		var failedCount = 0;
+		foreach (var resourceType in resourceTypes)
 		{
 			if (!pfs.DirectoryExists(resourceType))
 			{
@@ -370,16 +361,16 @@ public class PatchService
 
 	private static (int AppliedCount, int FailedCount) ImportPatchResources(GameMakerData data, PatchFileSystem pfs, G3MPatchManifest? manifest, IReadOnlyList<string> resourceTypes, PatchApplyPreparation preparation, bool hasCodeEntries, string dataPath, string outputPath, Stopwatch nonCodeImportSw, Stopwatch codeImportSw, Stopwatch phaseSw, Stopwatch preCodeReorderSw, Stopwatch postSpriteReorderSw, bool logDetailedCodeImport)
 	{
-		(Dictionary<string, int> Weights, int TotalNonCodeWeight, bool HasCodeEntries, int NonCodeRangeStart, int NonCodeRange) tuple = CreateImportProgressState(resourceTypes);
-		Dictionary<string, int> resourceWeights = tuple.Weights;
-		int totalNonCodeWeight = tuple.TotalNonCodeWeight;
-		int nonCodeRangeStart = tuple.NonCodeRangeStart;
-		int nonCodeRange = tuple.NonCodeRange;
-		int nonCodeProgress = 0;
-		int appliedCount = 0;
-		int failedCount = 0;
+		(var Weights, var TotalNonCodeWeight, _, var NonCodeRangeStart, var NonCodeRange) = CreateImportProgressState(resourceTypes);
+		var resourceWeights = Weights;
+		var totalNonCodeWeight = TotalNonCodeWeight;
+		var nonCodeRangeStart = NonCodeRangeStart;
+		var nonCodeRange = NonCodeRange;
+		var nonCodeProgress = 0;
+		var appliedCount = 0;
+		var failedCount = 0;
 		nonCodeImportSw.Start();
-		foreach (string resourceType in resourceTypes)
+		foreach (var resourceType in resourceTypes)
 		{
 			if (ApplyDeletedResources(data, manifest, resourceType) > 0)
 			{
@@ -407,7 +398,7 @@ public class PatchService
 				(bool, bool, string) codeImportResult = ImportCodeEntries(data, pfs, preparation.Helpers.HelpersDir, preparation.VariablesFunctionsContent);
 				if (preparation.CodeMetadataForFinalCleanup == null)
 				{
-					string text = (preparation.CodeMetadataForFinalCleanup = codeImportResult.Item3);
+					var text = preparation.CodeMetadataForFinalCleanup = codeImportResult.Item3;
 				}
 				preparation.GmlCompilationRan = codeImportResult.Item2;
 				if (codeImportResult.Item1)
@@ -421,7 +412,7 @@ public class PatchService
 				codeImportSw.Stop();
 				if (logDetailedCodeImport)
 				{
-					LogInterpolatedStringHandler handler = new LogInterpolatedStringHandler(46, 1, out shouldAppend);
+					var handler = new LogInterpolatedStringHandler(46, 1, out shouldAppend);
 					if (shouldAppend)
 					{
 						handler.AppendLiteral("[PatchService] Released PFS file data, RAM: ");
@@ -429,7 +420,7 @@ public class PatchService
 						handler.AppendLiteral("MB");
 					}
 					LogService.Log(ref handler);
-					LogInterpolatedStringHandler handler2 = new LogInterpolatedStringHandler(39, 2, out shouldAppend);
+					var handler2 = new LogInterpolatedStringHandler(39, 2, out shouldAppend);
 					if (shouldAppend)
 					{
 						handler2.AppendLiteral("[Timing] Import CodeEntries: ");
@@ -457,7 +448,7 @@ public class PatchService
 				LogService.Progress(nonCodeRangeStart + nonCodeRange * nonCodeProgress / Math.Max(totalNonCodeWeight, 1), 100);
 				continue;
 			}
-			LogInterpolatedStringHandler handler3 = new LogInterpolatedStringHandler(27, 1, out shouldAppend);
+			var handler3 = new LogInterpolatedStringHandler(27, 1, out shouldAppend);
 			if (shouldAppend)
 			{
 				handler3.AppendLiteral("[PatchService] Applying ");
@@ -495,7 +486,7 @@ public class PatchService
 			}
 			if (logDetailedCodeImport)
 			{
-				LogInterpolatedStringHandler handler4 = new LogInterpolatedStringHandler(28, 3, out shouldAppend);
+				var handler4 = new LogInterpolatedStringHandler(28, 3, out shouldAppend);
 				if (shouldAppend)
 				{
 					handler4.AppendLiteral("[Timing] Import ");
@@ -525,18 +516,18 @@ public class PatchService
 		{
 			return false;
 		}
-		string reorderDir = null;
+		string? reorderDir = null;
 		try
 		{
 			if (helpers.AssetOrderLines == null)
 			{
 				return false;
 			}
-			reorderDir = Path.Combine(Path.GetTempPath(), $"g3mlib_final_reorder_{Guid.NewGuid():N}");
+			reorderDir = Path.Combine(TempRoot.Path, $"g3mlib_final_reorder_{Guid.NewGuid():N}");
 			Directory.CreateDirectory(reorderDir);
-			HashSet<string> sections = BuildRelevantAssetOrderSections(resourceTypes, includeScriptsForCodeEntries: true);
+			var sections = BuildRelevantAssetOrderSections(resourceTypes, includeScriptsForCodeEntries: true);
 			sections.Add("counts");
-			string[] filteredLines = SelectAssetOrderSections(helpers.AssetOrderLines, sections, "TexturePageItems", "EmbeddedTextures");
+			var filteredLines = SelectAssetOrderSections(helpers.AssetOrderLines, sections, "TexturePageItems", "EmbeddedTextures");
 			if (helpers.TexturePageItemsBytes == null && helpers.SpriteFrameMapBytes == null && stagedEmbeddedTexturesDir == null && AssetOrderAlreadyMatches(data, filteredLines))
 			{
 				LogService.Log("[PatchService] Final asset order already matches target; skipping final reorder.");
@@ -572,8 +563,7 @@ public class PatchService
 			{
 				reorderStopwatch.Stop();
 			}
-			bool shouldAppend;
-			LogInterpolatedStringHandler handler = new LogInterpolatedStringHandler(44, 1, out shouldAppend);
+			var handler = new LogInterpolatedStringHandler(44, 1, out var shouldAppend);
 			if (shouldAppend)
 			{
 				handler.AppendLiteral("[PatchService] Final asset reorder warning: ");
@@ -610,14 +600,14 @@ public class PatchService
 
 	private static void ReorderAfterSpriteImport(GameMakerData data, PatchFileSystem pfs, IReadOnlyList<string> resourceTypes, string helpersDir, Stopwatch reorderStopwatch)
 	{
-		string assetOrderPath = Path.Combine(helpersDir, "asset_order.txt");
+		var assetOrderPath = Path.Combine(helpersDir, "asset_order.txt");
 		if (!pfs.FileExists(assetOrderPath))
 		{
 			return;
 		}
-		string reorderDir = Path.Combine(Path.GetTempPath(), $"g3mlib_reorder_{Guid.NewGuid():N}");
+		var reorderDir = Path.Combine(TempRoot.Path, $"g3mlib_reorder_{Guid.NewGuid():N}");
 		Directory.CreateDirectory(reorderDir);
-		string[] filteredLines = SelectAssetOrderSections(pfs.ReadAllLines(assetOrderPath), BuildRelevantAssetOrderSections(resourceTypes, includeScriptsForCodeEntries: false), "TexturePageItems", "EmbeddedTextures");
+		var filteredLines = SelectAssetOrderSections(pfs.ReadAllLines(assetOrderPath), BuildRelevantAssetOrderSections(resourceTypes, includeScriptsForCodeEntries: false), "TexturePageItems", "EmbeddedTextures");
 		File.WriteAllLines(Path.Combine(reorderDir, "asset_order.txt"), filteredLines);
 		LogService.Log("[PatchService] Re-ordering assets after sprite import...");
 		ResourceImportService.SetPatchFileSystem(null);
@@ -633,8 +623,7 @@ public class PatchService
 			{
 				reorderStopwatch.Stop();
 			}
-			bool shouldAppend;
-			LogInterpolatedStringHandler handler = new LogInterpolatedStringHandler(44, 1, out shouldAppend);
+			var handler = new LogInterpolatedStringHandler(44, 1, out var shouldAppend);
 			if (shouldAppend)
 			{
 				handler.AppendLiteral("[PatchService] Post-sprite reorder warning: ");
@@ -657,48 +646,48 @@ public class PatchService
 
 	private static bool PrepareCodeAssetOrder(GameMakerData data, PatchFileSystem pfs, IReadOnlyList<string> resourceTypes, string helpersDir, string[]? capturedAssetOrderLines, byte[]? objectEvents, Stopwatch reorderStopwatch)
 	{
-		string assetOrderPath = Path.Combine(helpersDir, "asset_order.txt");
+		var assetOrderPath = Path.Combine(helpersDir, "asset_order.txt");
 		if (!pfs.FileExists(assetOrderPath))
 		{
 			return false;
 		}
-		string[] orderLines = capturedAssetOrderLines ?? pfs.ReadAllLines(assetOrderPath);
-		Dictionary<string, int> targetObjectCounts = new Dictionary<string, int>();
-		bool inObjects = false;
-		string[] array = orderLines;
+		var orderLines = capturedAssetOrderLines ?? pfs.ReadAllLines(assetOrderPath);
+		Dictionary<string, int> targetObjectCounts = [];
+		var inObjects = false;
+		var array = orderLines;
 		int i;
 		for (i = 0; i < array.Length; i++)
 		{
-			string line = array[i];
-			if (line.StartsWith("@@"))
+			var line = array[i];
+			if (line.StartsWith("@@", StringComparison.Ordinal))
 			{
 				inObjects = line == "@@objects@@";
 			}
 			else if (inObjects && !string.IsNullOrWhiteSpace(line))
 			{
-				string name = line.Trim();
+				var name = line.Trim();
 				if (!(name == "(null)") && !int.TryParse(name, out var _))
 				{
 					targetObjectCounts[name] = targetObjectCounts.GetValueOrDefault(name) + 1;
 				}
 			}
 		}
-		Dictionary<string, int> existingObjectCounts = new Dictionary<string, int>();
-		foreach (GameMakerGameObject gameObject in data.GameObjects)
+		Dictionary<string, int> existingObjectCounts = [];
+		foreach (var gameObject in data.GameObjects)
 		{
-			string name2 = gameObject?.Name?.Content;
+			var name2 = gameObject?.Name?.Content;
 			if (name2 != null)
 			{
 				existingObjectCounts[name2] = existingObjectCounts.GetValueOrDefault(name2) + 1;
 			}
 		}
-		int createdObjects = 0;
-		foreach (KeyValuePair<string, int> item in targetObjectCounts)
+		var createdObjects = 0;
+		foreach (var item in targetObjectCounts)
 		{
 			item.Deconstruct(out var key, out i);
-			string name3 = key;
-			int targetCount = i;
-			for (int count = existingObjectCounts.GetValueOrDefault(name3); count < targetCount; count++)
+			var name3 = key;
+			var targetCount = i;
+			for (var count = existingObjectCounts.GetValueOrDefault(name3); count < targetCount; count++)
 			{
 				data.GameObjects.Add(new GameMakerGameObject
 				{
@@ -710,7 +699,7 @@ public class PatchService
 		bool shouldAppend;
 		if (createdObjects > 0)
 		{
-			LogInterpolatedStringHandler handler = new LogInterpolatedStringHandler(61, 1, out shouldAppend);
+			var handler = new LogInterpolatedStringHandler(61, 1, out shouldAppend);
 			if (shouldAppend)
 			{
 				handler.AppendLiteral("[PatchService] Created ");
@@ -719,13 +708,13 @@ public class PatchService
 			}
 			LogService.Log(ref handler);
 		}
-		string reorderDir = Path.Combine(Path.GetTempPath(), $"g3mlib_aoreorder_{Guid.NewGuid():N}");
+		var reorderDir = Path.Combine(TempRoot.Path, $"g3mlib_aoreorder_{Guid.NewGuid():N}");
 		try
 		{
 			LogService.Log("[PatchService] Reordering assets to match TARGET order...");
 			reorderStopwatch.Start();
 			Directory.CreateDirectory(reorderDir);
-			HashSet<string> sections = BuildRelevantAssetOrderSections(resourceTypes, includeScriptsForCodeEntries: true);
+			var sections = BuildRelevantAssetOrderSections(resourceTypes, includeScriptsForCodeEntries: true);
 			sections.Add("counts");
 			File.WriteAllLines(Path.Combine(reorderDir, "asset_order.txt"), SelectAssetOrderSections(orderLines, sections, "TexturePageItems", "EmbeddedTextures"));
 			if (objectEvents != null)
@@ -744,8 +733,7 @@ public class PatchService
 			{
 				reorderStopwatch.Stop();
 			}
-			bool shouldAppend2;
-			LogInterpolatedStringHandler handler2 = new LogInterpolatedStringHandler(38, 1, out shouldAppend2);
+			var handler2 = new LogInterpolatedStringHandler(38, 1, out var shouldAppend2);
 			if (shouldAppend2)
 			{
 				handler2.AppendLiteral("[PatchService] Asset reorder warning: ");
@@ -770,27 +758,26 @@ public class PatchService
 
 	private static (bool Success, bool GmlCompilationRan, string? CodeMetadata) ImportCodeEntries(GameMakerData data, PatchFileSystem pfs, string helpersDir, string? capturedVariablesFunctionsContent)
 	{
-		string codeMetadata = ReadCodeMetadataContent(pfs, helpersDir);
+		var codeMetadata = ReadCodeMetadataContent(pfs, helpersDir);
 		if (codeMetadata != null && pfs.FileExists(Path.Combine(helpersDir, "variables_functions.json")))
 		{
 			codeMetadata = capturedVariablesFunctionsContent ?? codeMetadata;
 		}
-		string objectEvents = null;
-		string objectEventsPath = Path.Combine(helpersDir, "object_events.json");
+		string? objectEvents = null;
+		var objectEventsPath = Path.Combine(helpersDir, "object_events.json");
 		if (pfs.FileExists(objectEventsPath))
 		{
 			objectEvents = pfs.ReadAllText(objectEventsPath);
 		}
-		string globalScripts = null;
+		string? globalScripts = null;
 		if (pfs.FileExists("GlobalScripts/global_scripts.json"))
 		{
 			globalScripts = pfs.ReadAllText("GlobalScripts/global_scripts.json");
 		}
-		bool hasScripts = pfs.DirectoryExists("Scripts");
+		var hasScripts = pfs.DirectoryExists("Scripts");
 		try
 		{
-			bool shouldAppend;
-			LogInterpolatedStringHandler handler = new LogInterpolatedStringHandler(49, 2, out shouldAppend);
+			var handler = new LogInterpolatedStringHandler(49, 2, out var shouldAppend);
 			if (shouldAppend)
 			{
 				handler.AppendLiteral("[PatchService] Using ");
@@ -827,8 +814,13 @@ public class PatchService
 		}
 	}
 
-	public static async Task<PatchCreateResult> CreatePatchAsync(string originalPath, string modifiedPath, string outputPath, Dictionary<string, Dictionary<string, string>>? precomputedOriginalHashes = null, DataFileInfo? precomputedOriginalInfo = null, Dictionary<string, Dictionary<string, int>>? precomputedOriginalNameCounts = null, Dictionary<string, IReadOnlyList<string>>? precomputedOriginalOrderedNames = null, GameMakerData? precomputedModifiedData = null, bool includeXdeltaFallback = false, G3MCacheOptions? cacheOptions = null)
+	public static Task<PatchCreateResult> CreatePatchAsync(string originalPath, string modifiedPath, string outputPath, Dictionary<string, Dictionary<string, string>>? precomputedOriginalHashes, DataFileInfo? precomputedOriginalInfo, Dictionary<string, Dictionary<string, int>>? precomputedOriginalNameCounts, Dictionary<string, IReadOnlyList<string>>? precomputedOriginalOrderedNames, GameMakerData? precomputedModifiedData, bool includeXdeltaFallback, G3MCacheOptions? cacheOptions)
+		=> CreatePatchAsync(originalPath, modifiedPath, outputPath, precomputedOriginalHashes, precomputedOriginalInfo, precomputedOriginalNameCounts, precomputedOriginalOrderedNames, precomputedModifiedData, includeXdeltaFallback, cacheOptions, CancellationToken.None);
+
+	public static async Task<PatchCreateResult> CreatePatchAsync(string originalPath, string modifiedPath, string outputPath, Dictionary<string, Dictionary<string, string>>? precomputedOriginalHashes = null, DataFileInfo? precomputedOriginalInfo = null, Dictionary<string, Dictionary<string, int>>? precomputedOriginalNameCounts = null, Dictionary<string, IReadOnlyList<string>>? precomputedOriginalOrderedNames = null, GameMakerData? precomputedModifiedData = null, bool includeXdeltaFallback = false, G3MCacheOptions? cacheOptions = null, CancellationToken cancellationToken = default)
 	{
+		using var cancellationScope = ModdingCancellation.Begin(cancellationToken);
+		cancellationToken.ThrowIfCancellationRequested();
 		if (!File.Exists(originalPath))
 		{
 			return new PatchCreateResult
@@ -845,26 +837,27 @@ public class PatchService
 				Error = "Modified file not found: " + modifiedPath
 			};
 		}
-		string tempOutputPath = null;
-		string tempExactPatch = null;
-		string exactPatchSourcePath = null;
-		string materializationDirectory = null;
+		string? tempOutputPath = null;
+		string? tempExactPatch = null;
+		string? exactPatchSourcePath = null;
+		string? materializationDirectory = null;
+		string? tempDir2 = null;
 		try
 		{
 			if (PatchInputService.IsXDelta(modifiedPath))
 			{
 				materializationDirectory = Directory.CreateTempSubdirectory("g3mlib-xdelta-").FullName;
-				modifiedPath = await PatchInputService.MaterializeDataAsync(originalPath, modifiedPath, materializationDirectory);
+				modifiedPath = await PatchInputService.MaterializeDataAsync(originalPath, modifiedPath, materializationDirectory).ConfigureAwait(false);
 			}
-			Stopwatch totalSw = Stopwatch.StartNew();
-			Stopwatch phaseSw = new Stopwatch();
-			string tempDir2 = Path.Combine(Path.GetTempPath(), $"g3mlib_{Guid.NewGuid():N}");
-			string modifiedExportDir = Path.Combine(tempDir2, "modified");
+			var totalSw = Stopwatch.StartNew();
+			var phaseSw = new Stopwatch();
+			tempDir2 = Path.Combine(TempRoot.Path, $"g3mlib_{Guid.NewGuid():N}");
+			var modifiedExportDir = Path.Combine(tempDir2, "modified");
 			Directory.CreateDirectory(modifiedExportDir);
 			LogService.SetOperation("Creating patch");
 			LogService.Progress(0, 100);
-			int originalCodeEntryCount = -1;
-			bool originalCodeEntryCountRecovered = false;
+			var originalCodeEntryCount = -1;
+			var originalCodeEntryCountRecovered = false;
 			Dictionary<string, Dictionary<string, string>> originalHashes;
 			DataFileInfo originalInfo;
 			Dictionary<string, Dictionary<string, int>> originalNameCounts;
@@ -881,21 +874,21 @@ public class PatchService
 			}
 			else
 			{
-				G3MDataAnalysisCache cachedOriginal = G3MCacheService.TryReadDataCache(originalPath, cacheOptions);
+				var cachedOriginal = G3MCacheService.TryReadDataCache(originalPath, cacheOptions);
 				if (cachedOriginal != null)
 				{
 					originalInfo = cachedOriginal.DataInfo;
 					originalHashes = cachedOriginal.ResourceHashes;
 					originalNameCounts = cachedOriginal.ResourceNameCounts;
 					originalOrderedNames = G3MCacheService.ToReadOnlyOrderNames(cachedOriginal.OrderSensitiveNames);
-					LogInterpolatedStringHandler handler = new LogInterpolatedStringHandler(25, 1, out shouldAppend);
+					var handler = new LogInterpolatedStringHandler(25, 1, out shouldAppend);
 					if (shouldAppend)
 					{
 						handler.AppendLiteral("[PatchService] Original: ");
 						handler.AppendFormatted(originalInfo.GeneralInfo?.DisplayName ?? "Unknown");
 					}
 					LogService.Log(ref handler);
-					LogInterpolatedStringHandler handler2 = new LogInterpolatedStringHandler(41, 2, out shouldAppend);
+					var handler2 = new LogInterpolatedStringHandler(41, 2, out shouldAppend);
 					if (shouldAppend)
 					{
 						handler2.AppendLiteral("[Timing] Original cache: ");
@@ -910,24 +903,24 @@ public class PatchService
 				{
 					phaseSw.Restart();
 					LogService.Log("[PatchService] Loading original data file...");
-					using FileStream stream = OpenDataReadStream(originalPath);
-					using GameMakerData originalData = GameMakerIO.Read(stream);
+					using var stream = OpenDataReadStream(originalPath);
+					using var originalData = await GameMakerIO.ReadAsync(stream).ConfigureAwait(false);
 					originalCodeEntryCount = originalData.Code?.Count ?? 0;
-					TimeSpan originalLoadTime = phaseSw.Elapsed;
-					LogInterpolatedStringHandler handler3 = new LogInterpolatedStringHandler(25, 1, out shouldAppend);
+					var originalLoadTime = phaseSw.Elapsed;
+					var handler3 = new LogInterpolatedStringHandler(25, 1, out shouldAppend);
 					if (shouldAppend)
 					{
 						handler3.AppendLiteral("[PatchService] Original: ");
 						handler3.AppendFormatted(originalData.GeneralInfo?.DisplayName?.Content ?? "Unknown");
 					}
 					LogService.Log(ref handler3);
-					DataFileInfo dataFileInfo = new DataFileInfo
+					var dataFileInfo = new DataFileInfo
 					{
 						Filename = Path.GetFileName(originalPath),
 						Size = new FileInfo(originalPath).Length
 					};
-					DataFileInfo dataFileInfo2 = dataFileInfo;
-					key = (dataFileInfo2.Md5 = await HashService.ComputeFileHashAsync(originalPath));
+					var dataFileInfo2 = dataFileInfo;
+					key = dataFileInfo2.Md5 = await HashService.ComputeFileHashAsync(originalPath).ConfigureAwait(false);
 					dataFileInfo.BytecodeVersion = originalData.GeneralInfo?.BytecodeVersion ?? 0;
 					dataFileInfo.GmsVersion = GeneralInfoUtil.GetVersionDisplay(originalData.GeneralInfo);
 					dataFileInfo.GeneralInfo = GeneralInfoUtil.ExtractGeneralInfo(originalData);
@@ -937,8 +930,8 @@ public class PatchService
 					originalHashes = ResourceHashService.HashAll(originalData, originalPath);
 					originalNameCounts = GetResourceNameCounts(originalData);
 					originalOrderedNames = GetOrderSensitiveResourceNames(originalData);
-					await G3MCacheService.WriteDataCacheAsync(originalPath, originalInfo, originalHashes, originalNameCounts, originalOrderedNames, cacheOptions);
-					LogInterpolatedStringHandler handler4 = new LogInterpolatedStringHandler(48, 3, out shouldAppend);
+					await G3MCacheService.WriteDataCacheAsync(originalPath, originalInfo, originalHashes, originalNameCounts, originalOrderedNames, cacheOptions).ConfigureAwait(false);
+					var handler4 = new LogInterpolatedStringHandler(48, 3, out shouldAppend);
 					if (shouldAppend)
 					{
 						handler4.AppendLiteral("[Timing] Original load: ");
@@ -953,7 +946,7 @@ public class PatchService
 				}
 				phaseSw.Restart();
 				GC.Collect();
-				LogInterpolatedStringHandler handler5 = new LogInterpolatedStringHandler(48, 2, out shouldAppend);
+				var handler5 = new LogInterpolatedStringHandler(48, 2, out shouldAppend);
 				if (shouldAppend)
 				{
 					handler5.AppendLiteral("[Timing] GC after original: ");
@@ -964,7 +957,9 @@ public class PatchService
 				}
 				LogService.Log(ref handler5);
 			}
-			if (originalCodeEntryCount < 0 && originalHashes.TryGetValue("CodeEntries", out Dictionary<string, string> originalCodeHashes))
+#pragma warning disable CA1062 // originalHashes is assigned from a non-null source in every branch above
+			if (originalCodeEntryCount < 0 && originalHashes.TryGetValue("CodeEntries", out var originalCodeHashes))
+#pragma warning restore CA1062
 			{
 				originalCodeEntryCount = originalCodeHashes.Count;
 				originalCodeEntryCountRecovered = true;
@@ -972,27 +967,27 @@ public class PatchService
 			LogService.Progress(20, 100);
 			phaseSw.Restart();
 			LogService.Log((precomputedModifiedData != null) ? "[PatchService] Using preloaded modified data..." : "[PatchService] Loading modified data file...");
-			G3MCacheOptions modifiedCacheOptions = materializationDirectory is null ? cacheOptions : null;
-			HashSet<string> helperForcedResourceTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+			var modifiedCacheOptions = materializationDirectory is null ? cacheOptions : null;
+			var helperForcedResourceTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 			DataFileInfo modifiedInfo;
 			Dictionary<string, Dictionary<string, string>> modifiedHashes;
 			string key2;
 			Dictionary<string, HashSet<string>> manifestChangedNamesPerType;
 			Dictionary<string, (string LogicalName, string? gml, string? asm, Dictionary<string, (string LogicalName, string Asm)>? childAsms)> codeEntriesInMemory;
-			using (FileStream stream = ((precomputedModifiedData == null) ? OpenDataReadStream(modifiedPath) : null))
+			using (var stream = (precomputedModifiedData == null) ? OpenDataReadStream(modifiedPath) : null)
 			{
-				using GameMakerData originalData = ((stream == null) ? null : GameMakerIO.Read(stream));
-				GameMakerData modifiedData = precomputedModifiedData ?? originalData;
-				int modifiedCodeEntryCount = modifiedData.Code?.Count ?? 0;
-				TimeSpan originalLoadTime = phaseSw.Elapsed;
-				LogInterpolatedStringHandler handler6 = new LogInterpolatedStringHandler(25, 1, out shouldAppend);
+				using var originalData = (stream == null) ? null : (await GameMakerIO.ReadAsync(stream).ConfigureAwait(false));
+				var modifiedData = precomputedModifiedData ?? originalData;
+				var modifiedCodeEntryCount = modifiedData.Code?.Count ?? 0;
+				var originalLoadTime = phaseSw.Elapsed;
+				var handler6 = new LogInterpolatedStringHandler(25, 1, out shouldAppend);
 				if (shouldAppend)
 				{
 					handler6.AppendLiteral("[PatchService] Modified: ");
 					handler6.AppendFormatted(modifiedData.GeneralInfo?.DisplayName?.Content ?? "Unknown");
 				}
 				LogService.Log(ref handler6);
-				G3MDataAnalysisCache cachedModified = G3MCacheService.TryReadDataCache(modifiedPath, modifiedCacheOptions);
+				var cachedModified = G3MCacheService.TryReadDataCache(modifiedPath, modifiedCacheOptions);
 				if (cachedModified != null)
 				{
 					modifiedInfo = cachedModified.DataInfo;
@@ -1000,13 +995,13 @@ public class PatchService
 				}
 				else
 				{
-					DataFileInfo dataFileInfo2 = new DataFileInfo
+					var dataFileInfo2 = new DataFileInfo
 					{
 						Filename = Path.GetFileName(modifiedPath),
 						Size = new FileInfo(modifiedPath).Length
 					};
-					DataFileInfo dataFileInfo = dataFileInfo2;
-					key = (dataFileInfo.Md5 = await HashService.ComputeFileHashAsync(modifiedPath));
+					var dataFileInfo = dataFileInfo2;
+					key = dataFileInfo.Md5 = await HashService.ComputeFileHashAsync(modifiedPath).ConfigureAwait(false);
 					dataFileInfo2.BytecodeVersion = modifiedData.GeneralInfo?.BytecodeVersion ?? 0;
 					dataFileInfo2.GmsVersion = GeneralInfoUtil.GetVersionDisplay(modifiedData.GeneralInfo);
 					dataFileInfo2.GeneralInfo = GeneralInfoUtil.ExtractGeneralInfo(modifiedData);
@@ -1014,25 +1009,25 @@ public class PatchService
 					phaseSw.Restart();
 					LogService.Log("[PatchService] Hashing modified resources in memory...");
 					modifiedHashes = ResourceHashService.HashAll(modifiedData, modifiedPath);
-					await G3MCacheService.WriteDataCacheAsync(modifiedPath, modifiedInfo, modifiedHashes, GetResourceNameCounts(modifiedData), GetOrderSensitiveResourceNames(modifiedData), modifiedCacheOptions);
+					await G3MCacheService.WriteDataCacheAsync(modifiedPath, modifiedInfo, modifiedHashes, GetResourceNameCounts(modifiedData), GetOrderSensitiveResourceNames(modifiedData), modifiedCacheOptions).ConfigureAwait(false);
 				}
 				LogCreateCompatibilityWarnings(originalInfo, modifiedInfo);
 				LogService.Progress(40, 100);
-				TimeSpan hashTime = phaseSw.Elapsed;
+				var hashTime = phaseSw.Elapsed;
 				phaseSw.Restart();
 				LogService.Log("[PatchService] Comparing hashes to build selective export filter...");
-				Dictionary<string, HashSet<string>> changedNamesPerType = new Dictionary<string, HashSet<string>>();
-				string[] files = ResourceTypeRegistry.AllTypes;
-				foreach (string resourceType in files)
+				Dictionary<string, HashSet<string>> changedNamesPerType = [];
+				var files = ResourceTypeRegistry.AllTypes;
+				foreach (var resourceType in files)
 				{
-					Dictionary<string, string> origTypeHashes = originalHashes.GetValueOrDefault(resourceType) ?? new Dictionary<string, string>();
-					Dictionary<string, string>? obj = modifiedHashes.GetValueOrDefault(resourceType) ?? new Dictionary<string, string>();
-					HashSet<string> changedNames = new HashSet<string>();
-					foreach (KeyValuePair<string, string> item in obj)
+					var origTypeHashes = originalHashes.GetValueOrDefault(resourceType) ?? [];
+					var obj = modifiedHashes.GetValueOrDefault(resourceType) ?? [];
+					HashSet<string> changedNames = [];
+					foreach (var item in obj)
 					{
 						item.Deconstruct(out key, out key2);
-						string name = key;
-						string hash = key2;
+						var name = key;
+						var hash = key2;
 						if (!origTypeHashes.TryGetValue(name, out var origHash) || origHash != hash)
 						{
 							changedNames.Add(name);
@@ -1047,7 +1042,7 @@ public class PatchService
 				AddDuplicateCountChanges(originalNameCounts, modifiedData, changedNamesPerType);
 				PromoteOrderSensitiveExportsIfNeeded(originalOrderedNames, modifiedData, modifiedHashes, changedNamesPerType, helperForcedResourceTypes);
 				PromoteVersionSensitiveExportsIfNeeded(originalInfo.GeneralInfo, modifiedInfo.GeneralInfo, modifiedHashes, changedNamesPerType);
-				LogInterpolatedStringHandler handler7 = new LogInterpolatedStringHandler(41, 1, out shouldAppend);
+				var handler7 = new LogInterpolatedStringHandler(41, 1, out shouldAppend);
 				if (shouldAppend)
 				{
 					handler7.AppendLiteral("[Timing] Hash comparison (pre-export): ");
@@ -1058,12 +1053,12 @@ public class PatchService
 				ExpandChangedCodeEntriesForTopology(modifiedData, changedNamesPerType);
 				phaseSw.Restart();
 				LogService.Log("[PatchService] Exporting modified resources (selective)...");
-				ResourceExportService.ExportSelectiveExceptCode(modifiedData, modifiedExportDir, modifiedPath, changedNamesPerType);
-				HashSet<string> changedCodeNames = changedNamesPerType.GetValueOrDefault("CodeEntries") ?? new HashSet<string>();
-				Stopwatch codeExportSw = Stopwatch.StartNew();
+				ResourceExportService.ExportSelectiveExceptCode(modifiedData, modifiedExportDir, modifiedPath, changedNamesPerType, cancellationToken);
+				var changedCodeNames = changedNamesPerType.GetValueOrDefault("CodeEntries") ?? [];
+				var codeExportSw = Stopwatch.StartNew();
 				codeEntriesInMemory = ResourceExportService.ExportCodeEntriesToMemory(modifiedData, changedCodeNames);
 				codeExportSw.Stop();
-				LogInterpolatedStringHandler handler8 = new LogInterpolatedStringHandler(43, 2, out shouldAppend);
+				var handler8 = new LogInterpolatedStringHandler(43, 2, out shouldAppend);
 				if (shouldAppend)
 				{
 					handler8.AppendLiteral("[Export Timing] CodeEntries (in-memory ");
@@ -1073,11 +1068,11 @@ public class PatchService
 					handler8.AppendLiteral("s");
 				}
 				LogService.Log(ref handler8);
-				TimeSpan exportTime = phaseSw.Elapsed;
+				var exportTime = phaseSw.Elapsed;
 				phaseSw.Restart();
-				string helpersExportDir = Path.Combine(tempDir2, "Helpers");
+				var helpersExportDir = Path.Combine(tempDir2, "Helpers");
 				ExportPatchHelpers(modifiedData, helpersExportDir, originalHashes, modifiedHashes, changedNamesPerType, helperForcedResourceTypes, originalCodeEntryCount, originalCodeEntryCountRecovered, modifiedCodeEntryCount, codeEntriesInMemory);
-				LogInterpolatedStringHandler handler9 = new LogInterpolatedStringHandler(71, 5, out shouldAppend);
+				var handler9 = new LogInterpolatedStringHandler(71, 5, out shouldAppend);
 				if (shouldAppend)
 				{
 					handler9.AppendLiteral("[Timing] Modified load: ");
@@ -1098,7 +1093,7 @@ public class PatchService
 			{
 				phaseSw.Restart();
 				GC.Collect();
-				LogInterpolatedStringHandler handler10 = new LogInterpolatedStringHandler(48, 2, out shouldAppend);
+				var handler10 = new LogInterpolatedStringHandler(48, 2, out shouldAppend);
 				if (shouldAppend)
 				{
 					handler10.AppendLiteral("[Timing] GC after modified: ");
@@ -1110,7 +1105,7 @@ public class PatchService
 				LogService.Log(ref handler10);
 			}
 			LogService.Progress(60, 100);
-			G3MPatchManifest manifest = new G3MPatchManifest
+			var manifest = new G3MPatchManifest
 			{
 				CreatedAt = DateTime.UtcNow.ToString("o"),
 				Library = new ToolInfo { Name = "G3MLib", Version = ModdingMetadata.LibraryVersion },
@@ -1121,19 +1116,19 @@ public class PatchService
 				},
 				Original = originalInfo,
 				Modified = modifiedInfo,
-				Resources = new Dictionary<string, ResourceTypeChanges>(),
+				Resources = [],
 				Statistics = new PatchStatistics()
 			};
 			try
 			{
 				phaseSw.Restart();
 				LogService.Log("[PatchService] Comparing resources by in-memory hash...");
-				string[] files = ResourceTypeRegistry.AllTypes;
-				foreach (string resourceType2 in files)
+				var files = ResourceTypeRegistry.AllTypes;
+				foreach (var resourceType2 in files)
 				{
-					Dictionary<string, string>? originalHashes2 = originalHashes.GetValueOrDefault(resourceType2) ?? new Dictionary<string, string>();
-					Dictionary<string, string> modTypeHashes = modifiedHashes.GetValueOrDefault(resourceType2) ?? new Dictionary<string, string>();
-					ResourceTypeChanges changes = BuildResourceTypeChangesFromKnownDifferences(originalHashes2, modTypeHashes, modifiedExportDir, resourceType2, manifestChangedNamesPerType.GetValueOrDefault(resourceType2));
+					var originalHashes2 = originalHashes.GetValueOrDefault(resourceType2) ?? [];
+					var modTypeHashes = modifiedHashes.GetValueOrDefault(resourceType2) ?? [];
+					var changes = BuildResourceTypeChangesFromKnownDifferences(originalHashes2, modTypeHashes, modifiedExportDir, resourceType2, manifestChangedNamesPerType.GetValueOrDefault(resourceType2));
 					if (resourceType2 == "CodeEntries")
 					{
 						PopulateCodeEntryFiles(changes, codeEntriesInMemory);
@@ -1144,7 +1139,7 @@ public class PatchService
 					}
 				}
 				LogService.Progress(65, 100);
-				LogInterpolatedStringHandler handler11 = new LogInterpolatedStringHandler(27, 1, out shouldAppend);
+				var handler11 = new LogInterpolatedStringHandler(27, 1, out shouldAppend);
 				if (shouldAppend)
 				{
 					handler11.AppendLiteral("[Timing] Hash comparison: ");
@@ -1153,26 +1148,26 @@ public class PatchService
 				}
 				LogService.Log(ref handler11);
 				ResourceTypeChanges value;
-				foreach (KeyValuePair<string, ResourceTypeChanges> resource in manifest.Resources)
+				foreach (var resource in manifest.Resources)
 				{
 					resource.Deconstruct(out key2, out value);
-					ResourceTypeChanges changes2 = value;
+					var changes2 = value;
 					manifest.Statistics.TotalChanged += changes2.Changed?.Count ?? 0;
 					manifest.Statistics.TotalNew += changes2.New?.Count ?? 0;
 					manifest.Statistics.TotalDeleted += changes2.Deleted?.Count ?? 0;
 					IEnumerable<ResourceChange> changed = changes2.Changed;
-					foreach (ResourceChange c in changed ?? Enumerable.Empty<ResourceChange>())
+					foreach (var c in changed ?? [])
 					{
 						manifest.Statistics.TotalChangedFiles += c.Files?.Count ?? 0;
 					}
 					changed = changes2.New;
-					foreach (ResourceChange n in changed ?? Enumerable.Empty<ResourceChange>())
+					foreach (var n in changed ?? [])
 					{
 						manifest.Statistics.TotalNewFiles += n.Files?.Count ?? 0;
 					}
 				}
 				manifest.ApplyPlan = BuildPatchApplyPlan(manifest.Resources);
-				string outputDir = Path.GetDirectoryName(outputPath);
+				var outputDir = Path.GetDirectoryName(outputPath);
 				if (!string.IsNullOrEmpty(outputDir) && !Directory.Exists(outputDir))
 				{
 					Directory.CreateDirectory(outputDir);
@@ -1180,69 +1175,69 @@ public class PatchService
 				phaseSw.Restart();
 				LogService.Log("[PatchService] Creating .g3mpatch file...");
 				tempOutputPath = Path.GetFullPath(outputPath) + $".{Guid.NewGuid():N}.tmp";
-				using (FileStream stream = new FileStream(tempOutputPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, 1048576, FileOptions.SequentialScan))
+				using (var stream = new FileStream(tempOutputPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, 1048576, FileOptions.SequentialScan))
 				{
-					using ZipArchive archive = new ZipArchive(stream, ZipArchiveMode.Create);
-					using (StreamWriter writer = new StreamWriter(await archive.CreateEntry("g3mpatch.json", ArchiveCompressionUtil.GetLevel("g3mpatch.json")).OpenAsync()))
+					using var archive = new ZipArchive(stream, ZipArchiveMode.Create);
+					using (var writer = new StreamWriter(await archive.CreateEntry("g3mpatch.json", ArchiveCompressionUtil.GetLevel("g3mpatch.json")).OpenAsync(cancellationToken).ConfigureAwait(false)))
 					{
-						string json = JsonSerializer.Serialize(manifest, s_jsonOptions);
-						await writer.WriteAsync(json);
+						var json = JsonSerializer.Serialize(manifest, s_jsonOptions);
+						await writer.WriteAsync(json).ConfigureAwait(false);
 					}
-					foreach (KeyValuePair<string, ResourceTypeChanges> resource2 in manifest.Resources)
+					foreach (var resource2 in manifest.Resources)
 					{
 						resource2.Deconstruct(out key2, out value);
-						string resourceType3 = key2;
-						ResourceTypeChanges changes3 = value;
+						var resourceType3 = key2;
+						var changes3 = value;
 						if (resourceType3 == "CodeEntries")
 						{
 							continue;
 						}
-						string modifiedResDir = Path.Combine(modifiedExportDir, resourceType3);
+						var modifiedResDir = Path.Combine(modifiedExportDir, resourceType3);
 						IEnumerable<ResourceChange> changed = changes3.Changed;
-						foreach (ResourceChange changed2 in changed ?? Enumerable.Empty<ResourceChange>())
+						foreach (var changed2 in changed ?? [])
 						{
-							await AddResourceToArchiveAsync(archive, modifiedResDir, resourceType3, changed2.Name);
+							await AddResourceToArchiveAsync(archive, modifiedResDir, resourceType3, changed2.Name).ConfigureAwait(false);
 						}
 						changed = changes3.New;
-						foreach (ResourceChange newRes in changed ?? Enumerable.Empty<ResourceChange>())
+						foreach (var newRes in changed ?? [])
 						{
-							await AddResourceToArchiveAsync(archive, modifiedResDir, resourceType3, newRes.Name);
+							await AddResourceToArchiveAsync(archive, modifiedResDir, resourceType3, newRes.Name).ConfigureAwait(false);
 						}
 					}
 					if (codeEntriesInMemory.Count > 0)
 					{
-						foreach (KeyValuePair<string, (string, string, string, Dictionary<string, (string, string)>)> item2 in codeEntriesInMemory)
+						foreach (var item2 in codeEntriesInMemory)
 						{
 							item2.Deconstruct(out key2, out var value2);
-							string resourceType3 = key2;
-							(string LogicalName, string? gml, string? asm, Dictionary<string, (string LogicalName, string Asm)>? childAsms) entry = value2;
-							if (entry.gml != null)
+							var resourceType3 = key2;
+							(var LogicalName, var gml, var asm, var childAsms) = value2;
+							if (gml != null)
 							{
-								string gmlPath = $"CodeEntries/{resourceType3}/{resourceType3}.gml";
-								using StreamWriter writer = new StreamWriter(await archive.CreateEntry(gmlPath, ArchiveCompressionUtil.GetLevel(gmlPath)).OpenAsync(), Encoding.UTF8);
-								await writer.WriteAsync(entry.gml);
+								var gmlPath = $"CodeEntries/{resourceType3}/{resourceType3}.gml";
+								using var writer = new StreamWriter(await archive.CreateEntry(gmlPath, ArchiveCompressionUtil.GetLevel(gmlPath)).OpenAsync(cancellationToken).ConfigureAwait(false), Encoding.UTF8);
+								await writer.WriteAsync(gml).ConfigureAwait(false);
 							}
-							if (entry.asm != null)
+							if (asm != null)
 							{
-								string asmPath = $"CodeEntries/{resourceType3}/{resourceType3}.asm";
-								using StreamWriter writer = new StreamWriter(await archive.CreateEntry(asmPath, ArchiveCompressionUtil.GetLevel(asmPath)).OpenAsync(), Encoding.UTF8);
-								await writer.WriteAsync(entry.asm);
+								var asmPath = $"CodeEntries/{resourceType3}/{resourceType3}.asm";
+								using var writer = new StreamWriter(await archive.CreateEntry(asmPath, ArchiveCompressionUtil.GetLevel(asmPath)).OpenAsync(cancellationToken).ConfigureAwait(false), Encoding.UTF8);
+								await writer.WriteAsync(asm).ConfigureAwait(false);
 							}
-							if (entry.childAsms == null)
+							if (childAsms == null)
 							{
 								continue;
 							}
-							foreach (KeyValuePair<string, (string, string)> item3 in entry.childAsms)
+							foreach (var item3 in childAsms)
 							{
 								item3.Deconstruct(out key2, out var value3);
-								string childLeafKey = key2;
-								(string LogicalName, string Asm) childEntry = value3;
-								string childPath = $"CodeEntries/{resourceType3}/{childLeafKey}.asm";
-								using StreamWriter writer = new StreamWriter(await archive.CreateEntry(childPath, ArchiveCompressionUtil.GetLevel(childPath)).OpenAsync(), Encoding.UTF8);
-								await writer.WriteAsync(childEntry.Asm);
+								var childLeafKey = key2;
+								var childEntry = value3;
+								var childPath = $"CodeEntries/{resourceType3}/{childLeafKey}.asm";
+								using var writer = new StreamWriter(await archive.CreateEntry(childPath, ArchiveCompressionUtil.GetLevel(childPath)).OpenAsync(cancellationToken).ConfigureAwait(false), Encoding.UTF8);
+								await writer.WriteAsync(childEntry.Asm).ConfigureAwait(false);
 							}
 						}
-						LogInterpolatedStringHandler handler12 = new LogInterpolatedStringHandler(54, 1, out shouldAppend);
+						var handler12 = new LogInterpolatedStringHandler(54, 1, out shouldAppend);
 						if (shouldAppend)
 						{
 							handler12.AppendLiteral("[PatchService] CodeEntries: ");
@@ -1251,29 +1246,29 @@ public class PatchService
 						}
 						LogService.Log(ref handler12);
 					}
-					string helpersDir = Path.Combine(tempDir2, "Helpers");
+					var helpersDir = Path.Combine(tempDir2, "Helpers");
 					if (Directory.Exists(helpersDir))
 					{
-						string[] files2 = Directory.GetFiles(helpersDir, "*", SearchOption.AllDirectories);
-						foreach (string resourceType3 in files2)
+						var files2 = Directory.GetFiles(helpersDir, "*", SearchOption.AllDirectories);
+						foreach (var resourceType3 in files2)
 						{
-							string relative = Path.GetRelativePath(helpersDir, resourceType3).Replace('\\', '/');
+							var relative = Path.GetRelativePath(helpersDir, resourceType3).Replace('\\', '/');
 							if (relative.StartsWith("EmbeddedTextures/", StringComparison.OrdinalIgnoreCase))
 							{
 								continue;
 							}
-							string helperEntryPath = "Helpers/" + relative;
-							using Stream entryStream = await archive.CreateEntry(helperEntryPath, ArchiveCompressionUtil.GetLevel(helperEntryPath)).OpenAsync();
-							using FileStream fileStream = File.OpenRead(resourceType3);
-							await fileStream.CopyToAsync(entryStream);
+							var helperEntryPath = "Helpers/" + relative;
+							using var entryStream = await archive.CreateEntry(helperEntryPath, ArchiveCompressionUtil.GetLevel(helperEntryPath)).OpenAsync(cancellationToken).ConfigureAwait(false);
+							using var fileStream = File.OpenRead(resourceType3);
+							await fileStream.CopyToAsync(entryStream, cancellationToken).ConfigureAwait(false);
 						}
 						LogService.Log("[PatchService] Helpers data added to patch");
 					}
 					if (includeXdeltaFallback && exactPatchSourcePath == null)
 					{
-						XDeltaService xDeltaService2 = new XDeltaService();
-						tempExactPatch = Path.Combine(Path.GetTempPath(), $"g3mlib_xdelta_fallback_{Guid.NewGuid():N}.xdelta");
-						XDeltaResult exactResult = await xDeltaService2.CreatePatchAsync(originalPath, modifiedPath, tempExactPatch);
+						var xDeltaService2 = new XDeltaService();
+						tempExactPatch = Path.Combine(TempRoot.Path, $"g3mlib_xdelta_fallback_{Guid.NewGuid():N}.xdelta");
+						var exactResult = await xDeltaService2.CreatePatchAsync(originalPath, modifiedPath, tempExactPatch).ConfigureAwait(false);
 						if (exactResult.Success && File.Exists(tempExactPatch))
 						{
 							exactPatchSourcePath = tempExactPatch;
@@ -1286,13 +1281,14 @@ public class PatchService
 					}
 					if (includeXdeltaFallback && exactPatchSourcePath != null && File.Exists(exactPatchSourcePath))
 					{
-						using Stream entryStream = await archive.CreateEntry("Xdelta/" + Path.GetFileName(exactPatchSourcePath), CompressionLevel.Fastest).OpenAsync();
-						using FileStream fileStream = File.OpenRead(exactPatchSourcePath);
-						await fileStream.CopyToAsync(entryStream);
+						using var entryStream = await archive.CreateEntry("Xdelta/" + Path.GetFileName(exactPatchSourcePath), CompressionLevel.Fastest).OpenAsync(cancellationToken).ConfigureAwait(false);
+						using var fileStream = File.OpenRead(exactPatchSourcePath);
+						await fileStream.CopyToAsync(entryStream, cancellationToken).ConfigureAwait(false);
 					}
 				}
+				LogService.Progress(100, 100);
 				File.Move(tempOutputPath, outputPath, overwrite: true);
-				LogInterpolatedStringHandler handler13 = new LogInterpolatedStringHandler(23, 1, out shouldAppend);
+				var handler13 = new LogInterpolatedStringHandler(23, 1, out shouldAppend);
 				if (shouldAppend)
 				{
 					handler13.AppendLiteral("[Timing] Patch write: ");
@@ -1300,10 +1296,9 @@ public class PatchService
 					handler13.AppendLiteral("s");
 				}
 				LogService.Log(ref handler13);
-				LogService.Progress(100, 100);
 				LogService.ProgressComplete();
 				totalSw.Stop();
-				LogInterpolatedStringHandler handler14 = new LogInterpolatedStringHandler(46, 2, out shouldAppend);
+				var handler14 = new LogInterpolatedStringHandler(46, 2, out shouldAppend);
 				if (shouldAppend)
 				{
 					handler14.AppendLiteral("[Timing] === PATCH CREATE TOTAL: ");
@@ -1342,6 +1337,16 @@ public class PatchService
 				}
 			}
 		}
+		catch (Exception ex) when (ModdingCancellation.IsCancellation(ex))
+		{
+			if (tempExactPatch != null)
+			{
+				try { File.Delete(tempExactPatch); }
+				catch { }
+			}
+			ModdingCancellation.Rethrow(ex, cancellationToken);
+			throw;
+		}
 		catch (Exception ex)
 		{
 			if (tempExactPatch != null)
@@ -1362,6 +1367,12 @@ public class PatchService
 		}
 		finally
 		{
+			if (tempDir2 is not null && Directory.Exists(tempDir2))
+			{
+				try { Directory.Delete(tempDir2, recursive: true); }
+				catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+				{ LogService.Warning("Could not delete temporary export directory: " + ex.Message); }
+			}
 			if (materializationDirectory is not null)
 			{
 				try { Directory.Delete(materializationDirectory, recursive: true); }
@@ -1374,8 +1385,8 @@ public class PatchService
 
 	private static Dictionary<string, Dictionary<string, int>> ReadResourceNameCounts(string dataPath)
 	{
-		using FileStream stream = OpenDataReadStream(dataPath);
-		using GameMakerData data = GameMakerIO.Read(stream);
+		using var stream = OpenDataReadStream(dataPath);
+		using var data = GameMakerIO.Read(stream);
 		return GetResourceNameCounts(data);
 	}
 
@@ -1400,14 +1411,14 @@ public class PatchService
 
 	private static Dictionary<string, int> CountResourceNames<T>(IList<T>? list) where T : GameMakerNamedResource
 	{
-		Dictionary<string, int> counts = new Dictionary<string, int>(StringComparer.Ordinal);
+		var counts = new Dictionary<string, int>(StringComparer.Ordinal);
 		if (list == null)
 		{
 			return counts;
 		}
-		foreach (T item2 in list)
+		foreach (var item2 in list)
 		{
-			string name = item2?.Name?.Content;
+			var name = item2?.Name?.Content;
 			if (!string.IsNullOrEmpty(name))
 			{
 				counts[name] = counts.GetValueOrDefault(name) + 1;
@@ -1434,13 +1445,13 @@ public class PatchService
 
 	private static Dictionary<string, HashSet<string>> CloneChangedNameMap(Dictionary<string, HashSet<string>> source)
 	{
-		return source.ToDictionary<KeyValuePair<string, HashSet<string>>, string, HashSet<string>>((KeyValuePair<string, HashSet<string>> pair) => pair.Key, (KeyValuePair<string, HashSet<string>> pair) => new HashSet<string>(pair.Value, StringComparer.Ordinal), StringComparer.OrdinalIgnoreCase);
+		return source.ToDictionary(pair => pair.Key, pair => new HashSet<string>(pair.Value, StringComparer.Ordinal), StringComparer.OrdinalIgnoreCase);
 	}
 
 	private static void ExportPatchHelpers(GameMakerData modifiedData, string helpersExportDir, Dictionary<string, Dictionary<string, string>> originalHashes, Dictionary<string, Dictionary<string, string>> modifiedHashes, Dictionary<string, HashSet<string>> changedNamesPerType, HashSet<string> helperForcedResourceTypes, int originalCodeEntryCount, bool originalCodeEntryCountRecovered, int modifiedCodeEntryCount, Dictionary<string, (string LogicalName, string? gml, string? asm, Dictionary<string, (string LogicalName, string Asm)>? childAsms)> codeEntriesInMemory)
 	{
-		HashSet<string> helperRelevantResourceTypes = GetHelperRelevantResourceTypes(originalHashes, modifiedHashes, changedNamesPerType);
-		foreach (string forcedType in helperForcedResourceTypes)
+		var helperRelevantResourceTypes = GetHelperRelevantResourceTypes(originalHashes, modifiedHashes, changedNamesPerType);
+		foreach (var forcedType in helperForcedResourceTypes)
 		{
 			helperRelevantResourceTypes.Add(forcedType);
 		}
@@ -1448,36 +1459,36 @@ public class PatchService
 		{
 			return;
 		}
-		HashSet<string> changedCodeNames = changedNamesPerType.GetValueOrDefault("CodeEntries") ?? new HashSet<string>();
+		var changedCodeNames = changedNamesPerType.GetValueOrDefault("CodeEntries") ?? [];
 		if (CanUseCompactCodeMetadata(originalHashes, modifiedHashes, helperRelevantResourceTypes, helperForcedResourceTypes, originalCodeEntryCount, originalCodeEntryCountRecovered, modifiedCodeEntryCount, changedCodeNames, codeEntriesInMemory))
 		{
-			bool includeAssetOrder = helperRelevantResourceTypes.Any((string type) => !type.Equals("CodeEntries", StringComparison.OrdinalIgnoreCase));
+			var includeAssetOrder = helperRelevantResourceTypes.Any(type => !type.Equals("CodeEntries", StringComparison.OrdinalIgnoreCase));
 			ResourceExportService.ExportAssetOrder(modifiedData, helpersExportDir, RequiresObjectEventsHelper(changedNamesPerType), includeVariablesFunctions: false, RequiresTextureMappingHelpers(helperRelevantResourceTypes), includeAssetOrder ? BuildRelevantAssetOrderSections(helperRelevantResourceTypes, includeScriptsForCodeEntries: true) : null, includeAssetOrder, changedCodeNames);
 			LogService.Log("[PatchService] Using compact code metadata for index-stable ASM code changes.");
 		}
 		else
 		{
-			bool includeVariablesFunctions = RequiresVariableFunctionsHelper(helperRelevantResourceTypes);
-			bool includeTextureHelpers = RequiresTextureMappingHelpers(helperRelevantResourceTypes);
-			HashSet<string> assetOrderSections = BuildRelevantAssetOrderSections(helperRelevantResourceTypes, changedCodeNames.Count > 0);
+			var includeVariablesFunctions = RequiresVariableFunctionsHelper(helperRelevantResourceTypes);
+			var includeTextureHelpers = RequiresTextureMappingHelpers(helperRelevantResourceTypes);
+			var assetOrderSections = BuildRelevantAssetOrderSections(helperRelevantResourceTypes, changedCodeNames.Count > 0);
 			ResourceExportService.ExportAssetOrder(modifiedData, helpersExportDir, RequiresObjectEventsHelper(changedNamesPerType), includeVariablesFunctions, includeTextureHelpers, assetOrderSections);
 		}
 	}
 
 	private static bool CanUseCompactCodeMetadata(Dictionary<string, Dictionary<string, string>> originalHashes, Dictionary<string, Dictionary<string, string>> modifiedHashes, HashSet<string> helperRelevantResourceTypes, HashSet<string> helperForcedResourceTypes, int originalCodeEntryCount, bool originalCodeEntryCountRecovered, int modifiedCodeEntryCount, HashSet<string> changedCodeNames, Dictionary<string, (string LogicalName, string? gml, string? asm, Dictionary<string, (string LogicalName, string Asm)>? childAsms)> codeEntriesInMemory)
 	{
-		if (helperForcedResourceTypes.Count != 0 || !helperRelevantResourceTypes.Contains("CodeEntries") || originalCodeEntryCount < 0 || (!originalCodeEntryCountRecovered && originalCodeEntryCount != modifiedCodeEntryCount) || changedCodeNames.Count == 0 || codeEntriesInMemory.Count == 0 || codeEntriesInMemory.Values.Any<(string, string, string, Dictionary<string, (string, string)>)>(((string LogicalName, string gml, string asm, Dictionary<string, (string LogicalName, string Asm)> childAsms) entry) => entry.asm == null))
+		if (helperForcedResourceTypes.Count != 0 || !helperRelevantResourceTypes.Contains("CodeEntries") || originalCodeEntryCount < 0 || !originalCodeEntryCountRecovered && originalCodeEntryCount != modifiedCodeEntryCount || changedCodeNames.Count == 0 || codeEntriesInMemory.Count == 0 || codeEntriesInMemory.Values.Any<(string, string, string, Dictionary<string, (string, string)>)>(((string LogicalName, string gml, string asm, Dictionary<string, (string LogicalName, string Asm)> childAsms) entry) => entry.asm == null))
 		{
 			return false;
 		}
-		string[] allTypes = ResourceTypeRegistry.AllTypes;
-		foreach (string resourceType in allTypes)
+		var allTypes = ResourceTypeRegistry.AllTypes;
+		foreach (var resourceType in allTypes)
 		{
 			IEnumerable<string> enumerable = originalHashes.GetValueOrDefault(resourceType)?.Keys;
-			IEnumerable<string> source = enumerable ?? Enumerable.Empty<string>();
+			var source = enumerable ?? [];
 			enumerable = modifiedHashes.GetValueOrDefault(resourceType)?.Keys;
-			IEnumerable<string> modifiedNames = enumerable ?? Enumerable.Empty<string>();
-			if (!source.ToHashSet<string>(StringComparer.Ordinal).SetEquals(modifiedNames))
+			var modifiedNames = enumerable ?? [];
+			if (!source.ToHashSet(StringComparer.Ordinal).SetEquals(modifiedNames))
 			{
 				return false;
 			}
@@ -1487,24 +1498,24 @@ public class PatchService
 
 	private static void ExpandChangedCodeEntriesForTopology(GameMakerData modifiedData, Dictionary<string, HashSet<string>> changedNamesPerType)
 	{
-		if (!changedNamesPerType.TryGetValue("CodeEntries", out HashSet<string> changedCode) || changedCode.Count == 0)
+		if (!changedNamesPerType.TryGetValue("CodeEntries", out var changedCode) || changedCode.Count == 0)
 		{
 			return;
 		}
-		int addedParents = 0;
-		int addedChildren = 0;
+		var addedParents = 0;
+		var addedChildren = 0;
 		bool changed;
 		do
 		{
 			changed = false;
-			foreach (GameMakerCode code in modifiedData.Code ?? new List<GameMakerCode>())
+			foreach (var code in modifiedData.Code ?? [])
 			{
-				string codeName = code?.Name?.Content;
+				var codeName = code?.Name?.Content;
 				if (code == null || string.IsNullOrEmpty(codeName))
 				{
 					continue;
 				}
-				string parentName = code.ParentEntry?.Name?.Content;
+				var parentName = code.ParentEntry?.Name?.Content;
 				if (!string.IsNullOrEmpty(parentName) && changedCode.Contains(codeName) && changedCode.Add(parentName))
 				{
 					addedParents++;
@@ -1514,9 +1525,9 @@ public class PatchService
 				{
 					continue;
 				}
-				foreach (GameMakerCode item in code.ChildEntries ?? new List<GameMakerCode>())
+				foreach (var item in code.ChildEntries ?? [])
 				{
-					string childName = item?.Name?.Content;
+					var childName = item?.Name?.Content;
 					if (!string.IsNullOrEmpty(childName) && changedCode.Add(childName))
 					{
 						addedChildren++;
@@ -1528,8 +1539,7 @@ public class PatchService
 		while (changed);
 		if (addedParents > 0 || addedChildren > 0)
 		{
-			bool shouldAppend;
-			LogInterpolatedStringHandler handler = new LogInterpolatedStringHandler(73, 2, out shouldAppend);
+			var handler = new LogInterpolatedStringHandler(73, 2, out var shouldAppend);
 			if (shouldAppend)
 			{
 				handler.AppendLiteral("[PatchService] Expanded CodeEntries topology: +");
@@ -1548,22 +1558,14 @@ public class PatchService
 		{
 			return;
 		}
-		originalNameCounts.TryGetValue(resourceType, out Dictionary<string, int> originalCounts);
-		if (originalCounts == null)
+		originalNameCounts.TryGetValue(resourceType, out var originalCounts);
+		originalCounts ??= [];
+		var modifiedCounts = CountResourceNames(modified);
+		if (modifiedCounts.Any(pair => originalCounts.GetValueOrDefault(pair.Key) != pair.Value) && resourceType.Equals("GameObjects", StringComparison.OrdinalIgnoreCase))
 		{
-			originalCounts = new Dictionary<string, int>();
-		}
-		Dictionary<string, int> modifiedCounts = CountResourceNames(modified);
-		if (modifiedCounts.Any((KeyValuePair<string, int> pair) => originalCounts.GetValueOrDefault(pair.Key) != pair.Value) && resourceType.Equals("GameObjects", StringComparison.OrdinalIgnoreCase))
-		{
-			HashSet<string> hashSet = new HashSet<string>();
-			foreach (string key in modifiedCounts.Keys)
-			{
-				hashSet.Add(key);
-			}
+			HashSet<string> hashSet = [.. modifiedCounts.Keys];
 			changedNamesPerType[resourceType] = hashSet;
-			bool shouldAppend;
-			LogInterpolatedStringHandler handler = new LogInterpolatedStringHandler(66, 1, out shouldAppend);
+			var handler = new LogInterpolatedStringHandler(66, 1, out var shouldAppend);
 			if (shouldAppend)
 			{
 				handler.AppendLiteral("[PatchService] ");
@@ -1577,9 +1579,9 @@ public class PatchService
 		{
 			if (originalCounts.GetValueOrDefault(name) != count)
 			{
-				if (!changedNamesPerType.TryGetValue(resourceType, out HashSet<string> changedNames))
+				if (!changedNamesPerType.TryGetValue(resourceType, out var changedNames))
 				{
-					changedNames = (changedNamesPerType[resourceType] = new HashSet<string>());
+					changedNames = changedNamesPerType[resourceType] = [];
 				}
 				changedNames.Add(name);
 			}
@@ -1597,13 +1599,13 @@ public class PatchService
 
 	private static void PromoteOrderSensitiveExportsIfNeeded(Dictionary<string, IReadOnlyList<string>> originalOrderedNames, GameMakerData modifiedData, Dictionary<string, Dictionary<string, string>> modifiedHashes, Dictionary<string, HashSet<string>> changedNamesPerType, HashSet<string> helperForcedResourceTypes)
 	{
-		PromoteOrderSensitiveExportIfNeeded("Rooms", originalOrderedNames, modifiedData.Rooms?.Select((GameMakerRoom r) => r?.Name?.Content ?? "").ToList(), modifiedHashes, changedNamesPerType, helperForcedResourceTypes, forceHelpers: true);
-		PromoteOrderSensitiveExportIfNeeded("Scripts", originalOrderedNames, modifiedData.Scripts?.Select((GameMakerScript s) => s?.Name?.Content ?? "").ToList(), modifiedHashes, changedNamesPerType, helperForcedResourceTypes, forceHelpers: false);
+		PromoteOrderSensitiveExportIfNeeded("Rooms", originalOrderedNames, modifiedData.Rooms?.Select(r => r?.Name?.Content ?? "").ToList(), modifiedHashes, changedNamesPerType, helperForcedResourceTypes, forceHelpers: true);
+		PromoteOrderSensitiveExportIfNeeded("Scripts", originalOrderedNames, modifiedData.Scripts?.Select(s => s?.Name?.Content ?? "").ToList(), modifiedHashes, changedNamesPerType, helperForcedResourceTypes, forceHelpers: false);
 	}
 
 	private static void PromoteOrderSensitiveExportIfNeeded(string resourceType, Dictionary<string, IReadOnlyList<string>> originalOrderedNames, IReadOnlyList<string>? modifiedOrderedNames, Dictionary<string, Dictionary<string, string>> modifiedHashes, Dictionary<string, HashSet<string>> changedNamesPerType, HashSet<string> helperForcedResourceTypes, bool forceHelpers)
 	{
-		if (!originalOrderedNames.TryGetValue(resourceType, out IReadOnlyList<string> originalNames) || modifiedOrderedNames == null || originalNames.SequenceEqual<string>(modifiedOrderedNames, StringComparer.Ordinal))
+		if (!originalOrderedNames.TryGetValue(resourceType, out var originalNames) || modifiedOrderedNames == null || originalNames.SequenceEqual(modifiedOrderedNames, StringComparer.Ordinal))
 		{
 			return;
 		}
@@ -1618,7 +1620,7 @@ public class PatchService
 		if (forceHelpers)
 		{
 			helperForcedResourceTypes.Add(resourceType);
-			LogInterpolatedStringHandler handler = new LogInterpolatedStringHandler(83, 1, out shouldAppend);
+			var handler = new LogInterpolatedStringHandler(83, 1, out shouldAppend);
 			if (shouldAppend)
 			{
 				handler.AppendLiteral("[PatchService] ");
@@ -1629,7 +1631,7 @@ public class PatchService
 		}
 		else
 		{
-			LogInterpolatedStringHandler handler2 = new LogInterpolatedStringHandler(51, 1, out shouldAppend);
+			var handler2 = new LogInterpolatedStringHandler(51, 1, out shouldAppend);
 			if (shouldAppend)
 			{
 				handler2.AppendLiteral("[PatchService] ");
@@ -1642,18 +1644,13 @@ public class PatchService
 
 	private static void PromoteResourceTypeToFullExport(Dictionary<string, HashSet<string>> changedNamesPerType, Dictionary<string, Dictionary<string, string>> modifiedHashes, string resourceType)
 	{
-		if (!modifiedHashes.TryGetValue(resourceType, out Dictionary<string, string> typeHashes) || typeHashes.Count == 0)
+		if (!modifiedHashes.TryGetValue(resourceType, out var typeHashes) || typeHashes.Count == 0)
 		{
 			return;
 		}
-		HashSet<string> hashSet = new HashSet<string>();
-		foreach (string key in typeHashes.Keys)
-		{
-			hashSet.Add(key);
-		}
+		HashSet<string> hashSet = [.. typeHashes.Keys];
 		changedNamesPerType[resourceType] = hashSet;
-		bool shouldAppend;
-		LogInterpolatedStringHandler handler = new LogInterpolatedStringHandler(64, 1, out shouldAppend);
+		var handler = new LogInterpolatedStringHandler(64, 1, out var shouldAppend);
 		if (shouldAppend)
 		{
 			handler.AppendLiteral("[PatchService] Version change detected, exporting all ");
@@ -1665,8 +1662,8 @@ public class PatchService
 
 	private static Dictionary<string, IReadOnlyList<string>> ReadOrderSensitiveResourceNames(string dataPath)
 	{
-		using FileStream stream = OpenDataReadStream(dataPath);
-		using GameMakerData data = GameMakerIO.Read(stream);
+		using var stream = OpenDataReadStream(dataPath);
+		using var data = GameMakerIO.Read(stream);
 		return GetOrderSensitiveResourceNames(data);
 	}
 
@@ -1674,36 +1671,38 @@ public class PatchService
 	{
 		return new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase)
 		{
-			["Rooms"] = data.Rooms?.Select((GameMakerRoom r) => r?.Name?.Content ?? "").ToList() ?? new List<string>(),
-			["Scripts"] = data.Scripts?.Select((GameMakerScript s) => s?.Name?.Content ?? "").ToList() ?? new List<string>()
+			["Rooms"] = data.Rooms?.Select(r => r?.Name?.Content ?? "").ToList() ?? [],
+			["Scripts"] = data.Scripts?.Select(s => s?.Name?.Content ?? "").ToList() ?? []
 		};
 	}
 
 	public static Dictionary<string, Dictionary<string, int>> GetResourceNameCountsForReuse(GameMakerData data)
 	{
+		ArgumentNullException.ThrowIfNull(data);
 		return GetResourceNameCounts(data);
 	}
 
 	public static Dictionary<string, IReadOnlyList<string>> GetOrderSensitiveResourceNamesForReuse(GameMakerData data)
 	{
+		ArgumentNullException.ThrowIfNull(data);
 		return GetOrderSensitiveResourceNames(data);
 	}
 
 	private static ResourceTypeChanges BuildResourceTypeChangesFromKnownDifferences(Dictionary<string, string> originalHashes, Dictionary<string, string> modifiedHashes, string modifiedExportDir, string resourceType, HashSet<string>? knownChangedOrNewNames)
 	{
-		ResourceTypeChanges changes = new ResourceTypeChanges
+		var changes = new ResourceTypeChanges
 		{
-			Changed = new List<ResourceChange>(),
-			New = new List<ResourceChange>(),
-			Deleted = new List<string>()
+			Changed = [],
+			New = [],
+			Deleted = []
 		};
-		string modifiedResDir = Path.Combine(modifiedExportDir, resourceType);
-		Dictionary<string, string> folderMap = BuildBaseNameMap(modifiedResDir);
+		var modifiedResDir = Path.Combine(modifiedExportDir, resourceType);
+		var folderMap = BuildBaseNameMap(modifiedResDir);
 		if (knownChangedOrNewNames != null)
 		{
-			foreach (string name in knownChangedOrNewNames)
+			foreach (var name in knownChangedOrNewNames)
 			{
-				List<string> folderNames = new List<string>();
+				List<string> folderNames = [];
 				if (folderMap.TryGetValue(name, out var mappedFolder))
 				{
 					folderNames.Add(mappedFolder);
@@ -1716,8 +1715,8 @@ public class PatchService
 				{
 					folderNames.Add(name);
 				}
-				bool isNew = !originalHashes.ContainsKey(name) && modifiedHashes.ContainsKey(name);
-				foreach (string folderName in folderNames)
+				var isNew = !originalHashes.ContainsKey(name) && modifiedHashes.ContainsKey(name);
+				foreach (var folderName in folderNames)
 				{
 					if (isNew)
 					{
@@ -1730,13 +1729,13 @@ public class PatchService
 				}
 			}
 		}
-		foreach (string name2 in originalHashes.Keys.Intersect(modifiedHashes.Keys))
+		foreach (var name2 in originalHashes.Keys.Intersect(modifiedHashes.Keys))
 		{
-			if ((knownChangedOrNewNames != null && knownChangedOrNewNames.Contains(name2)) || originalHashes[name2] == modifiedHashes[name2])
+			if (knownChangedOrNewNames != null && knownChangedOrNewNames.Contains(name2) || originalHashes[name2] == modifiedHashes[name2])
 			{
 				continue;
 			}
-			List<string> folderNames2 = new List<string>();
+			List<string> folderNames2 = [];
 			if (folderMap.TryGetValue(name2, out var mappedFolder2))
 			{
 				folderNames2.Add(mappedFolder2);
@@ -1749,12 +1748,12 @@ public class PatchService
 			{
 				folderNames2.Add(name2);
 			}
-			foreach (string folderName2 in folderNames2)
+			foreach (var folderName2 in folderNames2)
 			{
 				changes.Changed.Add(CreateResourceChange(modifiedResDir, resourceType, folderName2));
 			}
 		}
-		foreach (string name3 in originalHashes.Keys.Except(modifiedHashes.Keys))
+		foreach (var name3 in originalHashes.Keys.Except(modifiedHashes.Keys))
 		{
 			changes.Deleted.Add(name3);
 		}
@@ -1765,13 +1764,13 @@ public class PatchService
 	{
 		if (!Directory.Exists(directory))
 		{
-			return new List<string>();
+			return [];
 		}
-		List<string> result = new List<string>();
-		string[] directories = Directory.GetDirectories(directory);
-		for (int i = 0; i < directories.Length; i++)
+		List<string> result = [];
+		var directories = Directory.GetDirectories(directory);
+		for (var i = 0; i < directories.Length; i++)
 		{
-			string folderName = Path.GetFileName(directories[i]);
+			var folderName = Path.GetFileName(directories[i]);
 			if (string.Equals(StripIdxSuffix(folderName), baseName, StringComparison.Ordinal))
 			{
 				result.Add(folderName);
@@ -1791,18 +1790,18 @@ public class PatchService
 
 	private static void PopulateCodeEntryFiles(ResourceTypeChanges changes, Dictionary<string, (string LogicalName, string? gml, string? asm, Dictionary<string, (string LogicalName, string Asm)>? childAsms)> codeEntriesInMemory)
 	{
-		foreach (ResourceChange change in (changes.Changed ?? new List<ResourceChange>()).Concat(changes.New ?? new List<ResourceChange>()))
+		foreach (var change in (changes.Changed ?? []).Concat(changes.New ?? []))
 		{
 			if (string.IsNullOrWhiteSpace(change.Name) || !codeEntriesInMemory.TryGetValue(change.Name, out (string, string, string, Dictionary<string, (string, string)>) entry))
 			{
-				ResourceChange resourceChange = change;
+				var resourceChange = change;
 				if (resourceChange.Files == null)
 				{
-					Dictionary<string, string> dictionary = (resourceChange.Files = new Dictionary<string, string>());
+					_ = resourceChange.Files = [];
 				}
 				continue;
 			}
-			Dictionary<string, string> files = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+			var files = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 			if (entry.Item2 != null)
 			{
 				files[change.Name + ".gml"] = $"CodeEntries/{change.Name}/{change.Name}.gml";
@@ -1824,8 +1823,8 @@ public class PatchService
 
 	private static Dictionary<string, string> BuildResourceFileMap(string sourceDir, string resourceType, string resourceName)
 	{
-		string resourcePath = Path.Combine(sourceDir, resourceName);
-		Dictionary<string, string> files = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+		var resourcePath = Path.Combine(sourceDir, resourceName);
+		var files = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 		string[] files2;
 		if (!Directory.Exists(resourcePath) && resourceName == Path.GetFileName(sourceDir))
 		{
@@ -1834,10 +1833,10 @@ public class PatchService
 				return files;
 			}
 			files2 = Directory.GetFiles(sourceDir, "*", SearchOption.AllDirectories);
-			foreach (string file in files2)
+			foreach (var file in files2)
 			{
-				string relativeToResource = Path.GetRelativePath(sourceDir, file).Replace('\\', '/');
-				string entryPath = Path.Combine(resourceType, relativeToResource).Replace('\\', '/');
+				var relativeToResource = Path.GetRelativePath(sourceDir, file).Replace('\\', '/');
+				var entryPath = Path.Combine(resourceType, relativeToResource).Replace('\\', '/');
 				files[relativeToResource] = entryPath;
 			}
 			return files;
@@ -1847,10 +1846,10 @@ public class PatchService
 			return files;
 		}
 		files2 = Directory.GetFiles(resourcePath, "*", SearchOption.AllDirectories);
-		foreach (string file2 in files2)
+		foreach (var file2 in files2)
 		{
-			string relativeToResource2 = Path.GetRelativePath(resourcePath, file2).Replace('\\', '/');
-			string entryPath2 = Path.Combine(resourceType, resourceName, relativeToResource2).Replace('\\', '/');
+			var relativeToResource2 = Path.GetRelativePath(resourcePath, file2).Replace('\\', '/');
+			var entryPath2 = Path.Combine(resourceType, resourceName, relativeToResource2).Replace('\\', '/');
 			files[relativeToResource2] = entryPath2;
 		}
 		return files;
@@ -1858,18 +1857,18 @@ public class PatchService
 
 	private static Dictionary<string, string> BuildBaseNameMap(string directory)
 	{
-		Dictionary<string, string> map = new Dictionary<string, string>();
+		Dictionary<string, string> map = [];
 		if (!Directory.Exists(directory))
 		{
 			return map;
 		}
-		Dictionary<string, int> baseNameCounts = new Dictionary<string, int>();
-		List<(string, string)> entries = new List<(string, string)>();
-		string[] directories = Directory.GetDirectories(directory);
-		for (int i = 0; i < directories.Length; i++)
+		Dictionary<string, int> baseNameCounts = [];
+		List<(string, string)> entries = [];
+		var directories = Directory.GetDirectories(directory);
+		for (var i = 0; i < directories.Length; i++)
 		{
-			string folderName = Path.GetFileName(directories[i]);
-			string baseName = StripIdxSuffix(folderName);
+			var folderName = Path.GetFileName(directories[i]);
+			var baseName = StripIdxSuffix(folderName);
 			entries.Add((folderName, baseName));
 			baseNameCounts[baseName] = baseNameCounts.GetValueOrDefault(baseName) + 1;
 		}
@@ -1889,40 +1888,40 @@ public class PatchService
 
 	private static string StripIdxSuffix(string folderName)
 	{
-		int idxPos = folderName.LastIndexOf("__idx");
+		var idxPos = folderName.LastIndexOf("__idx", StringComparison.Ordinal);
 		if (idxPos <= 0)
 		{
 			return folderName;
 		}
-		string after = folderName.Substring(idxPos + 5);
+		var after = folderName[(idxPos + 5)..];
 		if (after.Length > 0 && after.All(char.IsDigit))
 		{
-			return folderName.Substring(0, idxPos);
+			return folderName[..idxPos];
 		}
 		return folderName;
 	}
 
 	private static async Task AddResourceToArchiveAsync(ZipArchive archive, string sourceDir, string resourceType, string resourceName, Dictionary<string, string>? filesToInclude = null)
 	{
-		string resourcePath = Path.Combine(sourceDir, resourceName);
+		var resourcePath = Path.Combine(sourceDir, resourceName);
 		if (!Directory.Exists(resourcePath) && resourceName == Path.GetFileName(sourceDir))
 		{
 			if (!Directory.Exists(sourceDir))
 			{
 				return;
 			}
-			string[] files = Directory.GetFiles(sourceDir, "*", SearchOption.AllDirectories);
-			foreach (string file in files)
+			var files = Directory.GetFiles(sourceDir, "*", SearchOption.AllDirectories);
+			foreach (var file in files)
 			{
-				string relativeToResource = Path.GetRelativePath(sourceDir, file);
+				var relativeToResource = Path.GetRelativePath(sourceDir, file);
 				if (filesToInclude != null && !filesToInclude.ContainsKey(relativeToResource))
 				{
 					continue;
 				}
-				string entryPath = Path.Combine(resourceType, relativeToResource).Replace('\\', '/');
-				using Stream entryStream = await archive.CreateEntry(entryPath, ArchiveCompressionUtil.GetLevel(entryPath)).OpenAsync();
-				using FileStream fileStream = File.OpenRead(file);
-				await fileStream.CopyToAsync(entryStream);
+				var entryPath = Path.Combine(resourceType, relativeToResource).Replace('\\', '/');
+				using var entryStream = await archive.CreateEntry(entryPath, ArchiveCompressionUtil.GetLevel(entryPath)).OpenAsync().ConfigureAwait(false);
+				using var fileStream = File.OpenRead(file);
+				await fileStream.CopyToAsync(entryStream).ConfigureAwait(false);
 			}
 		}
 		else
@@ -1931,40 +1930,52 @@ public class PatchService
 			{
 				return;
 			}
-			string[] files = Directory.GetFiles(resourcePath, "*", SearchOption.AllDirectories);
-			foreach (string file in files)
+			var files = Directory.GetFiles(resourcePath, "*", SearchOption.AllDirectories);
+			foreach (var file in files)
 			{
-				string relativeToResource2 = Path.GetRelativePath(resourcePath, file);
+				var relativeToResource2 = Path.GetRelativePath(resourcePath, file);
 				if (filesToInclude != null && !filesToInclude.ContainsKey(relativeToResource2))
 				{
 					continue;
 				}
-				string entryPath2 = Path.Combine(resourceType, resourceName, relativeToResource2).Replace('\\', '/');
-				using Stream entryStream = await archive.CreateEntry(entryPath2, ArchiveCompressionUtil.GetLevel(entryPath2)).OpenAsync();
-				using FileStream fileStream = File.OpenRead(file);
-				await fileStream.CopyToAsync(entryStream);
+				var entryPath2 = Path.Combine(resourceType, resourceName, relativeToResource2).Replace('\\', '/');
+				using var entryStream = await archive.CreateEntry(entryPath2, ArchiveCompressionUtil.GetLevel(entryPath2)).OpenAsync().ConfigureAwait(false);
+				using var fileStream = File.OpenRead(file);
+				await fileStream.CopyToAsync(entryStream).ConfigureAwait(false);
 			}
 		}
 	}
 
-	public static async Task<PatchApplyResult> ApplyPatchAsync(string dataPath, string patchPath, string outputPath, bool allowXdeltaFallback = false, bool verifyModifiedHash = true)
+	public static Task<PatchApplyResult> ApplyPatchAsync(string dataPath, string patchPath, string outputPath, bool allowXdeltaFallback, bool verifyModifiedHash)
+		=> ApplyPatchAsync(dataPath, patchPath, outputPath, allowXdeltaFallback, verifyModifiedHash, CancellationToken.None);
+
+	/// <summary>Applies a patch. A cancelled call throws <see cref="OperationCanceledException"/>, leaves the data file and any existing output untouched and removes its temporary files.</summary>
+	public static async Task<PatchApplyResult> ApplyPatchAsync(string dataPath, string patchPath, string outputPath, bool allowXdeltaFallback = false, bool verifyModifiedHash = true, CancellationToken cancellationToken = default)
 	{
+		using var cancellationScope = ModdingCancellation.Begin(cancellationToken);
+		cancellationToken.ThrowIfCancellationRequested();
 		string? temporaryDirectory = null;
 		try
 		{
-			string destinationPath = Path.GetFullPath(outputPath);
-			string directory = Path.GetDirectoryName(destinationPath)!;
+			var destinationPath = Path.GetFullPath(outputPath);
+			var directory = Path.GetDirectoryName(destinationPath);
 			Directory.CreateDirectory(directory);
 			temporaryDirectory = Path.Combine(directory, $".g3mlib-apply-{Guid.NewGuid():N}");
 			Directory.CreateDirectory(temporaryDirectory);
-			string temporaryPath = Path.Combine(temporaryDirectory, Path.GetFileName(destinationPath));
-			PatchApplyResult result = await ApplyPatchCoreAsync(dataPath, patchPath, temporaryPath, allowXdeltaFallback, verifyModifiedHash);
+			var temporaryPath = Path.Combine(temporaryDirectory, Path.GetFileName(destinationPath));
+			var result = await ApplyPatchCoreAsync(dataPath, patchPath, temporaryPath, allowXdeltaFallback, verifyModifiedHash).ConfigureAwait(false);
+			cancellationToken.ThrowIfCancellationRequested();
 			if (result.Success)
 			{
 				PatchInputService.CopyExternalAudioGroups(dataPath, temporaryPath);
 				PatchInputService.CommitDataFile(temporaryPath, destinationPath);
 			}
 			return result;
+		}
+		catch (Exception ex) when (ModdingCancellation.IsCancellation(ex))
+		{
+			ModdingCancellation.Rethrow(ex, cancellationToken);
+			throw;
 		}
 		catch (Exception ex)
 		{
@@ -1999,42 +2010,42 @@ public class PatchService
 				Error = "Patch file not found: " + patchPath
 			};
 		}
-		PatchFileSystem pfsForFallback = null;
-		G3MPatchManifest manifestForFallback = null;
+		PatchFileSystem? pfsForFallback = null;
+		G3MPatchManifest? manifestForFallback = null;
 		bool shouldAppend;
 		try
 		{
-			Stopwatch totalSw = Stopwatch.StartNew();
-			Stopwatch phaseSw = new Stopwatch();
-			Stopwatch patchLoadSw = new Stopwatch();
-			Stopwatch dataLoadSw = new Stopwatch();
-			Stopwatch nonCodeImportSw = new Stopwatch();
-			Stopwatch codeImportSw = new Stopwatch();
-			Stopwatch finalizeSw = new Stopwatch();
-			Stopwatch saveSw = new Stopwatch();
-			Stopwatch verifyHashSw = new Stopwatch();
-			Stopwatch preCodeReorderSw = new Stopwatch();
-			Stopwatch postSpriteReorderSw = new Stopwatch();
-			Stopwatch finalReorderSw = new Stopwatch();
-			Stopwatch repairDuplicatesSw = new Stopwatch();
-			Stopwatch applyEventsSw = new Stopwatch();
-			Stopwatch repairDanglingCodeSw = new Stopwatch();
-			Stopwatch ensureScriptsSw = new Stopwatch();
-			Stopwatch integritySw = new Stopwatch();
+			var totalSw = Stopwatch.StartNew();
+			var phaseSw = new Stopwatch();
+			var patchLoadSw = new Stopwatch();
+			var dataLoadSw = new Stopwatch();
+			var nonCodeImportSw = new Stopwatch();
+			var codeImportSw = new Stopwatch();
+			var finalizeSw = new Stopwatch();
+			var saveSw = new Stopwatch();
+			var verifyHashSw = new Stopwatch();
+			var preCodeReorderSw = new Stopwatch();
+			var postSpriteReorderSw = new Stopwatch();
+			var finalReorderSw = new Stopwatch();
+			var repairDuplicatesSw = new Stopwatch();
+			var applyEventsSw = new Stopwatch();
+			var repairDanglingCodeSw = new Stopwatch();
+			var ensureScriptsSw = new Stopwatch();
+			var integritySw = new Stopwatch();
 			LogService.SetOperation("Applying patch");
 			LogService.Progress(0, 100);
 			patchLoadSw.Start();
 			phaseSw.Restart();
 			LogService.Log("[PatchService] Loading .g3mpatch file into memory...");
-			PatchFileSystem pfs = await Task.Run(() => PatchFileSystem.LoadFromZip(patchPath, allowXdeltaFallback));
-			G3MPatchManifest manifest = pfs.Manifest;
+			var pfs = await Task.Run(() => PatchFileSystem.LoadFromZip(patchPath, allowXdeltaFallback)).ConfigureAwait(false);
+			var manifest = pfs.Manifest;
 			patchLoadSw.Stop();
 			pfsForFallback = pfs;
 			manifestForFallback = manifest;
 			shouldAppend = allowXdeltaFallback;
 			if (shouldAppend)
 			{
-				shouldAppend = await TryApplyXdeltaFallbackFromPatchAsync(dataPath, outputPath, patchPath, pfs, manifest);
+				shouldAppend = await TryApplyXdeltaFallbackFromPatchAsync(dataPath, outputPath, patchPath, pfs, manifest).ConfigureAwait(false);
 			}
 			if (shouldAppend)
 			{
@@ -2045,17 +2056,17 @@ public class PatchService
 					Success = true
 				};
 			}
-			PatchApplyPlan applyPlan = manifest?.ApplyPlan ?? BuildPatchApplyPlan(manifest?.Resources ?? new Dictionary<string, ResourceTypeChanges>(StringComparer.OrdinalIgnoreCase));
+			var applyPlan = manifest?.ApplyPlan ?? BuildPatchApplyPlan(manifest?.Resources ?? new Dictionary<string, ResourceTypeChanges>(StringComparer.OrdinalIgnoreCase));
 			dataLoadSw.Start();
 			phaseSw.Restart();
 			LogService.Log("[PatchService] Loading data file for .g3mpatch apply...");
 			GameMakerData data;
-			using (FileStream stream = OpenDataReadStream(dataPath))
+			using (var stream = OpenDataReadStream(dataPath))
 			{
-				data = GameMakerIO.Read(stream);
+				data = await GameMakerIO.ReadAsync(stream).ConfigureAwait(false);
 			}
 			dataLoadSw.Stop();
-			LogInterpolatedStringHandler handler = new LogInterpolatedStringHandler(30, 2, out shouldAppend);
+			var handler = new LogInterpolatedStringHandler(30, 2, out shouldAppend);
 			if (shouldAppend)
 			{
 				handler.AppendLiteral("[Timing] Data load: ");
@@ -2066,7 +2077,7 @@ public class PatchService
 			}
 			LogService.Log(ref handler);
 			LogService.Progress(5, 100);
-			LogInterpolatedStringHandler handler2 = new LogInterpolatedStringHandler(28, 1, out shouldAppend);
+			var handler2 = new LogInterpolatedStringHandler(28, 1, out shouldAppend);
 			if (shouldAppend)
 			{
 				handler2.AppendLiteral("[PatchService] Data loaded: ");
@@ -2076,13 +2087,13 @@ public class PatchService
 			ResourceImportService.SetPatchFileSystem(pfs);
 			try
 			{
-				List<string> resourceTypesToProcess = BuildResourceTypesToProcess(pfs, manifest);
-				bool scriptOrderOnly = resourceTypesToProcess.Count == 0 && HasScriptOrderOnlyAssetPayload(pfs);
+				var resourceTypesToProcess = BuildResourceTypesToProcess(pfs, manifest);
+				var scriptOrderOnly = resourceTypesToProcess.Count == 0 && HasScriptOrderOnlyAssetPayload(pfs);
 				if (scriptOrderOnly)
 				{
 					resourceTypesToProcess.Add("Scripts");
 				}
-				LogInterpolatedStringHandler handler3 = new LogInterpolatedStringHandler(37, 1, out shouldAppend);
+				var handler3 = new LogInterpolatedStringHandler(37, 1, out shouldAppend);
 				if (shouldAppend)
 				{
 					handler3.AppendLiteral("[PatchService] Resources to process: ");
@@ -2092,7 +2103,7 @@ public class PatchService
 				if (resourceTypesToProcess.Count == 0)
 				{
 					LogService.Log("[PatchService] No resources to apply");
-					string noOpOutDir = Path.GetDirectoryName(outputPath);
+					var noOpOutDir = Path.GetDirectoryName(outputPath);
 					if (!string.IsNullOrEmpty(noOpOutDir) && !Directory.Exists(noOpOutDir))
 					{
 						Directory.CreateDirectory(noOpOutDir);
@@ -2107,23 +2118,23 @@ public class PatchService
 				}
 				if (!scriptOrderOnly && CanUseMinimalStandardApply(applyPlan, resourceTypesToProcess))
 				{
-					LogInterpolatedStringHandler handler4 = new LogInterpolatedStringHandler(58, 1, out shouldAppend);
+					var handler4 = new LogInterpolatedStringHandler(58, 1, out shouldAppend);
 					if (shouldAppend)
 					{
 						handler4.AppendLiteral("[PatchService] Applying only required resource functions: ");
 						handler4.AppendFormatted(string.Join(", ", resourceTypesToProcess));
 					}
 					LogService.Log(ref handler4);
-					(int minimalAppliedCount, int minimalFailedCount) = ImportMinimalResources(data, pfs, resourceTypesToProcess, dataPath, outputPath);
+					(var minimalAppliedCount, var minimalFailedCount) = ImportMinimalResources(data, pfs, resourceTypesToProcess, dataPath, outputPath);
 					if (minimalFailedCount > 0 || minimalAppliedCount == 0)
 					{
 						return new PatchApplyResult
 						{
 							Success = false,
-							Error = ((minimalFailedCount > 0) ? $"Patch apply failed: {minimalFailedCount} resource type(s) failed during import; output was not written" : "No resources were applied successfully")
+							Error = (minimalFailedCount > 0) ? $"Patch apply failed: {minimalFailedCount} resource type(s) failed during import; output was not written" : "No resources were applied successfully"
 						};
 					}
-					DataIntegrityResult minimalIntegrity = DataIntegrityService.ValidateOnly(data);
+					var minimalIntegrity = DataIntegrityService.ValidateOnly(data);
 					if (!minimalIntegrity.Success)
 					{
 						return new PatchApplyResult
@@ -2135,17 +2146,17 @@ public class PatchService
 					phaseSw.Restart();
 					LogService.Log("[PatchService] Saving modified data file...");
 					saveSw.Start();
-					string minimalOutDir = Path.GetDirectoryName(outputPath);
+					var minimalOutDir = Path.GetDirectoryName(outputPath);
 					if (!string.IsNullOrEmpty(minimalOutDir) && !Directory.Exists(minimalOutDir))
 					{
 						Directory.CreateDirectory(minimalOutDir);
 					}
-					using (FileStream outStream = OpenDataWriteStream(outputPath))
+					using (var outStream = OpenDataWriteStream(outputPath))
 					{
-						GameMakerIO.Write(outStream, data);
+						await GameMakerIO.WriteAsync(outStream, data).ConfigureAwait(false);
 					}
 					saveSw.Stop();
-					string minimalValidationError = ValidateSavedDataFile(outputPath);
+					var minimalValidationError = ValidateSavedDataFile(outputPath);
 					if (minimalValidationError != null)
 					{
 						DeleteInvalidOutput(outputPath);
@@ -2156,7 +2167,7 @@ public class PatchService
 						};
 					}
 					totalSw.Stop();
-					LogInterpolatedStringHandler handler5 = new LogInterpolatedStringHandler(31, 1, out shouldAppend);
+					var handler5 = new LogInterpolatedStringHandler(31, 1, out shouldAppend);
 					if (shouldAppend)
 					{
 						handler5.AppendLiteral("[Timing] Minimal apply total: ");
@@ -2169,14 +2180,14 @@ public class PatchService
 						Success = true
 					};
 				}
-				bool hasCodeEntries = CreateImportProgressState(resourceTypesToProcess).HasCodeEntries;
+				var hasCodeEntries = CreateImportProgressState(resourceTypesToProcess).HasCodeEntries;
 				LogService.Progress(5, 100);
-				PatchApplyPreparation preparation = PreparePatchApply(data, pfs, resourceTypesToProcess, applyPlan, hasCodeEntries, scriptOrderOnly);
+				var preparation = PreparePatchApply(data, pfs, resourceTypesToProcess, applyPlan, hasCodeEntries, scriptOrderOnly);
 				int failedCount;
 				int appliedCount;
 				(appliedCount, failedCount) = ImportPatchResources(data, pfs, manifest, resourceTypesToProcess, preparation, hasCodeEntries, dataPath, outputPath, nonCodeImportSw, codeImportSw, phaseSw, preCodeReorderSw, postSpriteReorderSw, logDetailedCodeImport: true);
 				finalizeSw.Start();
-				appliedCount += (ApplyFinalAssetOrder(preparation.NeedsFinalAssetReorder, data, pfs, resourceTypesToProcess, preparation.Helpers, preparation.StagedEmbeddedTexturesDir, scriptOrderOnly, finalReorderSw) ? 1 : 0);
+				appliedCount += ApplyFinalAssetOrder(preparation.NeedsFinalAssetReorder, data, pfs, resourceTypesToProcess, preparation.Helpers, preparation.StagedEmbeddedTexturesDir, scriptOrderOnly, finalReorderSw) ? 1 : 0;
 				if (preparation.VariablesFunctionsContent != null && preparation.OriginalGmlForCodeRemap.Count > 0)
 				{
 					preparation.GmlCompilationRan |= RecompileUntouchedCodeForAssetOrderShifts(data, preparation.AssetNamesAtCodeImportStart, preparation.OriginalGmlForCodeRemap, preparation.PatchCodeEntryNames, preparation.Helpers.HelpersDir, preparation.VariablesFunctionsContent);
@@ -2189,10 +2200,10 @@ public class PatchService
 				}
 				PruneDeletedScriptOrphans(data, manifest);
 				PruneMissingScriptCodeOrphans(data);
-				DataIntegrityResult integrity = RepairAndValidateImportedData(data, resourceTypesToProcess, preparation.NeedsHeavyFinalize, repairDanglingCodeSw, ensureScriptsSw, integritySw);
+				var integrity = RepairAndValidateImportedData(data, resourceTypesToProcess, preparation.NeedsHeavyFinalize, repairDanglingCodeSw, ensureScriptsSw, integritySw);
 				if (integrity != null && !integrity.Success)
 				{
-					if (await TryApplyXdeltaFallbackFromPatchAsync(dataPath, outputPath, patchPath, pfs, manifest))
+					if (await TryApplyXdeltaFallbackFromPatchAsync(dataPath, outputPath, patchPath, pfs, manifest).ConfigureAwait(false))
 					{
 						return new PatchApplyResult
 						{
@@ -2209,7 +2220,7 @@ public class PatchService
 				if (failedCount > 0)
 				{
 					finalizeSw.Stop();
-					if (await TryApplyXdeltaFallbackFromPatchAsync(dataPath, outputPath, patchPath, pfs, manifest))
+					if (await TryApplyXdeltaFallbackFromPatchAsync(dataPath, outputPath, patchPath, pfs, manifest).ConfigureAwait(false))
 					{
 						return new PatchApplyResult
 						{
@@ -2225,22 +2236,22 @@ public class PatchService
 				phaseSw.Restart();
 				LogService.Log("[PatchService] Saving modified data file...");
 				saveSw.Start();
-				string outDir = Path.GetDirectoryName(outputPath);
+				var outDir = Path.GetDirectoryName(outputPath);
 				if (!string.IsNullOrEmpty(outDir) && !Directory.Exists(outDir))
 				{
 					Directory.CreateDirectory(outDir);
 				}
-				using (FileStream outStream2 = OpenDataWriteStream(outputPath))
+				using (var outStream2 = OpenDataWriteStream(outputPath))
 				{
-					GameMakerIO.Write(outStream2, data);
+					await GameMakerIO.WriteAsync(outStream2, data).ConfigureAwait(false);
 				}
 				saveSw.Stop();
-				string savedValidationError = ValidateSavedDataFile(outputPath);
+				var savedValidationError = ValidateSavedDataFile(outputPath);
 				if (savedValidationError != null)
 				{
 					DeleteInvalidOutput(outputPath);
 					finalizeSw.Stop();
-					if (await TryApplyXdeltaFallbackFromPatchAsync(dataPath, outputPath, patchPath, pfs, manifest))
+					if (await TryApplyXdeltaFallbackFromPatchAsync(dataPath, outputPath, patchPath, pfs, manifest).ConfigureAwait(false))
 					{
 						return new PatchApplyResult
 						{
@@ -2254,7 +2265,7 @@ public class PatchService
 					};
 				}
 				finalizeSw.Stop();
-				LogInterpolatedStringHandler handler6 = new LogInterpolatedStringHandler(31, 2, out shouldAppend);
+				var handler6 = new LogInterpolatedStringHandler(31, 2, out shouldAppend);
 				if (shouldAppend)
 				{
 					handler6.AppendLiteral("[Timing] Final save: ");
@@ -2267,7 +2278,7 @@ public class PatchService
 				LogService.Progress(100, 100);
 				LogService.ProgressComplete();
 				totalSw.Stop();
-				LogInterpolatedStringHandler handler7 = new LogInterpolatedStringHandler(45, 2, out shouldAppend);
+				var handler7 = new LogInterpolatedStringHandler(45, 2, out shouldAppend);
 				if (shouldAppend)
 				{
 					handler7.AppendLiteral("[Timing] === PATCH APPLY TOTAL: ");
@@ -2277,16 +2288,16 @@ public class PatchService
 					handler7.AppendLiteral("MB");
 				}
 				LogService.Log(ref handler7);
-				string expectedModifiedHash = manifest?.Modified?.Md5;
+				var expectedModifiedHash = manifest?.Modified?.Md5;
 				if (verifyModifiedHash && allowXdeltaFallback && !string.IsNullOrWhiteSpace(expectedModifiedHash))
 				{
 					verifyHashSw.Start();
-					string obj = await HashService.ComputeFileHashAsync(outputPath);
+					var obj = await HashService.ComputeFileHashAsync(outputPath).ConfigureAwait(false);
 					verifyHashSw.Stop();
 					if (!obj.Equals(expectedModifiedHash, StringComparison.OrdinalIgnoreCase))
 					{
 						LogService.Warning("[PatchService] Output hash differs from the patch's modified file hash");
-						if (await TryApplyXdeltaFallbackFromPatchAsync(dataPath, outputPath, patchPath, pfs, manifest))
+						if (await TryApplyXdeltaFallbackFromPatchAsync(dataPath, outputPath, patchPath, pfs, manifest).ConfigureAwait(false))
 						{
 							return new PatchApplyResult
 							{
@@ -2297,7 +2308,7 @@ public class PatchService
 				}
 				if (appliedCount == 0)
 				{
-					if (await TryApplyXdeltaFallbackFromPatchAsync(dataPath, outputPath, patchPath, pfs, manifest))
+					if (await TryApplyXdeltaFallbackFromPatchAsync(dataPath, outputPath, patchPath, pfs, manifest).ConfigureAwait(false))
 					{
 						return new PatchApplyResult
 						{
@@ -2314,7 +2325,7 @@ public class PatchService
 				{
 					LogService.Warning($"Patch applied with warnings: {appliedCount} succeeded, {failedCount} failed");
 				}
-				LogInterpolatedStringHandler handler8 = new LogInterpolatedStringHandler(235, 15, out shouldAppend);
+				var handler8 = new LogInterpolatedStringHandler(235, 15, out shouldAppend);
 				if (shouldAppend)
 				{
 					handler8.AppendLiteral("[Timing] Apply breakdown: patchLoad=");
@@ -2371,12 +2382,17 @@ public class PatchService
 				data.Dispose();
 			}
 		}
+		catch (Exception ex2) when (ModdingCancellation.IsCancellation(ex2))
+		{
+			ModdingCancellation.Rethrow(ex2, ModdingCancellation.Token);
+			throw;
+		}
 		catch (Exception ex2)
 		{
 			shouldAppend = pfsForFallback != null;
 			if (shouldAppend)
 			{
-				shouldAppend = await TryApplyXdeltaFallbackFromPatchAsync(dataPath, outputPath, patchPath, pfsForFallback, manifestForFallback);
+				shouldAppend = await TryApplyXdeltaFallbackFromPatchAsync(dataPath, outputPath, patchPath, pfsForFallback, manifestForFallback).ConfigureAwait(false);
 			}
 			if (shouldAppend)
 			{
@@ -2415,38 +2431,37 @@ public class PatchService
 		}
 		try
 		{
-			Stopwatch totalSw = Stopwatch.StartNew();
-			Stopwatch phaseSw = new Stopwatch();
-			Stopwatch patchLoadSw = new Stopwatch();
-			Stopwatch nonCodeImportSw = new Stopwatch();
-			Stopwatch codeImportSw = new Stopwatch();
-			Stopwatch finalizeSw = new Stopwatch();
-			Stopwatch preCodeReorderSw = new Stopwatch();
-			Stopwatch postSpriteReorderSw = new Stopwatch();
-			Stopwatch finalReorderSw = new Stopwatch();
-			Stopwatch repairDuplicatesSw = new Stopwatch();
-			Stopwatch applyEventsSw = new Stopwatch();
-			Stopwatch repairDanglingCodeSw = new Stopwatch();
-			Stopwatch ensureScriptsSw = new Stopwatch();
-			Stopwatch integritySw = new Stopwatch();
+			var totalSw = Stopwatch.StartNew();
+			var phaseSw = new Stopwatch();
+			var patchLoadSw = new Stopwatch();
+			var nonCodeImportSw = new Stopwatch();
+			var codeImportSw = new Stopwatch();
+			var finalizeSw = new Stopwatch();
+			var preCodeReorderSw = new Stopwatch();
+			var postSpriteReorderSw = new Stopwatch();
+			var finalReorderSw = new Stopwatch();
+			var repairDuplicatesSw = new Stopwatch();
+			var applyEventsSw = new Stopwatch();
+			var repairDanglingCodeSw = new Stopwatch();
+			var ensureScriptsSw = new Stopwatch();
+			var integritySw = new Stopwatch();
 			patchLoadSw.Start();
 			phaseSw.Restart();
 			LogService.Log("[PatchService] Loading .g3mpatch file into memory for in-memory apply...");
-			PatchFileSystem pfs = await Task.Run(() => PatchFileSystem.LoadFromZip(patchPath, loadExactPayloads: false));
-			G3MPatchManifest manifest = pfs.Manifest;
-			PatchApplyPlan applyPlan = manifest?.ApplyPlan ?? BuildPatchApplyPlan(manifest?.Resources ?? new Dictionary<string, ResourceTypeChanges>(StringComparer.OrdinalIgnoreCase));
+			var pfs = await Task.Run(() => PatchFileSystem.LoadFromZip(patchPath, loadExactPayloads: false)).ConfigureAwait(false);
+			var manifest = pfs.Manifest;
+			var applyPlan = manifest?.ApplyPlan ?? BuildPatchApplyPlan(manifest?.Resources ?? new Dictionary<string, ResourceTypeChanges>(StringComparer.OrdinalIgnoreCase));
 			patchLoadSw.Stop();
 			ResourceImportService.SetPatchFileSystem(pfs);
 			try
 			{
-				List<string> resourceTypesToProcess = BuildResourceTypesToProcess(pfs, manifest);
-				bool scriptOrderOnly = resourceTypesToProcess.Count == 0 && HasScriptOrderOnlyAssetPayload(pfs);
+				var resourceTypesToProcess = BuildResourceTypesToProcess(pfs, manifest);
+				var scriptOrderOnly = resourceTypesToProcess.Count == 0 && HasScriptOrderOnlyAssetPayload(pfs);
 				if (scriptOrderOnly)
 				{
 					resourceTypesToProcess.Add("Scripts");
 				}
-				bool shouldAppend;
-				LogInterpolatedStringHandler handler = new LogInterpolatedStringHandler(49, 1, out shouldAppend);
+				var handler = new LogInterpolatedStringHandler(49, 1, out var shouldAppend);
 				if (shouldAppend)
 				{
 					handler.AppendLiteral("[PatchService] Resources to process (in-memory): ");
@@ -2462,23 +2477,23 @@ public class PatchService
 				}
 				if (!scriptOrderOnly && CanUseMinimalStandardApply(applyPlan, resourceTypesToProcess))
 				{
-					LogInterpolatedStringHandler handler2 = new LogInterpolatedStringHandler(70, 1, out shouldAppend);
+					var handler2 = new LogInterpolatedStringHandler(70, 1, out shouldAppend);
 					if (shouldAppend)
 					{
 						handler2.AppendLiteral("[PatchService] Applying only required resource functions (in-memory): ");
 						handler2.AppendFormatted(string.Join(", ", resourceTypesToProcess));
 					}
 					LogService.Log(ref handler2);
-					(int minimalAppliedCount, int minimalFailedCount) = ImportMinimalResources(data, pfs, resourceTypesToProcess, workingDataPath, workingDataPath);
+					(var minimalAppliedCount, var minimalFailedCount) = ImportMinimalResources(data, pfs, resourceTypesToProcess, workingDataPath, workingDataPath);
 					if (minimalFailedCount > 0 || minimalAppliedCount == 0)
 					{
 						return new PatchApplyResult
 						{
 							Success = false,
-							Error = ((minimalFailedCount > 0) ? $"Patch apply failed: {minimalFailedCount} resource type(s) failed during import; in-memory output was not committed" : "No resources were applied successfully")
+							Error = (minimalFailedCount > 0) ? $"Patch apply failed: {minimalFailedCount} resource type(s) failed during import; in-memory output was not committed" : "No resources were applied successfully"
 						};
 					}
-					DataIntegrityResult minimalIntegrity = DataIntegrityService.ValidateOnly(data);
+					var minimalIntegrity = DataIntegrityService.ValidateOnly(data);
 					if (!minimalIntegrity.Success)
 					{
 						return new PatchApplyResult
@@ -2488,7 +2503,7 @@ public class PatchService
 						};
 					}
 					totalSw.Stop();
-					LogInterpolatedStringHandler handler3 = new LogInterpolatedStringHandler(41, 1, out shouldAppend);
+					var handler3 = new LogInterpolatedStringHandler(41, 1, out shouldAppend);
 					if (shouldAppend)
 					{
 						handler3.AppendLiteral("[Timing] Minimal apply in-memory total: ");
@@ -2501,9 +2516,9 @@ public class PatchService
 						Success = true
 					};
 				}
-				bool hasCodeEntries = CreateImportProgressState(resourceTypesToProcess).HasCodeEntries;
-				PatchApplyPreparation preparation = PreparePatchApply(data, pfs, resourceTypesToProcess, applyPlan, hasCodeEntries, scriptOrderOnly);
-				int failedCount = ImportPatchResources(data, pfs, manifest, resourceTypesToProcess, preparation, hasCodeEntries, workingDataPath, workingDataPath, nonCodeImportSw, codeImportSw, phaseSw, preCodeReorderSw, postSpriteReorderSw, logDetailedCodeImport: false).FailedCount;
+				var hasCodeEntries = CreateImportProgressState(resourceTypesToProcess).HasCodeEntries;
+				var preparation = PreparePatchApply(data, pfs, resourceTypesToProcess, applyPlan, hasCodeEntries, scriptOrderOnly);
+				var failedCount = ImportPatchResources(data, pfs, manifest, resourceTypesToProcess, preparation, hasCodeEntries, workingDataPath, workingDataPath, nonCodeImportSw, codeImportSw, phaseSw, preCodeReorderSw, postSpriteReorderSw, logDetailedCodeImport: false).FailedCount;
 				finalizeSw.Start();
 				ApplyFinalAssetOrder(preparation.NeedsFinalAssetReorder, data, pfs, resourceTypesToProcess, preparation.Helpers, preparation.StagedEmbeddedTexturesDir, scriptOrderOnly, finalReorderSw);
 				RepairImportedResourceStructures(data, preparation.UntouchedEmbeddedTextureSnapshot, resourceTypesToProcess, manifest, repairDuplicatesSw);
@@ -2518,7 +2533,7 @@ public class PatchService
 				}
 				PruneDeletedScriptOrphans(data, manifest);
 				PruneMissingScriptCodeOrphans(data);
-				DataIntegrityResult integrity = RepairAndValidateImportedData(data, resourceTypesToProcess, preparation.NeedsHeavyFinalize, repairDanglingCodeSw, ensureScriptsSw, integritySw);
+				var integrity = RepairAndValidateImportedData(data, resourceTypesToProcess, preparation.NeedsHeavyFinalize, repairDanglingCodeSw, ensureScriptsSw, integritySw);
 				if (integrity != null && !integrity.Success)
 				{
 					finalizeSw.Stop();
@@ -2539,7 +2554,7 @@ public class PatchService
 					};
 				}
 				totalSw.Stop();
-				LogInterpolatedStringHandler handler4 = new LogInterpolatedStringHandler(55, 2, out shouldAppend);
+				var handler4 = new LogInterpolatedStringHandler(55, 2, out shouldAppend);
 				if (shouldAppend)
 				{
 					handler4.AppendLiteral("[Timing] === PATCH APPLY IN-MEMORY TOTAL: ");
@@ -2549,7 +2564,7 @@ public class PatchService
 					handler4.AppendLiteral("MB");
 				}
 				LogService.Log(ref handler4);
-				LogInterpolatedStringHandler handler5 = new LogInterpolatedStringHandler(211, 12, out shouldAppend);
+				var handler5 = new LogInterpolatedStringHandler(211, 12, out shouldAppend);
 				if (shouldAppend)
 				{
 					handler5.AppendLiteral("[Timing] Apply in-memory breakdown: patchLoad=");
@@ -2595,6 +2610,11 @@ public class PatchService
 				ResourceImportService.SetPatchFileSystem(null);
 			}
 		}
+		catch (Exception ex2) when (ModdingCancellation.IsCancellation(ex2))
+		{
+			ModdingCancellation.Rethrow(ex2, ModdingCancellation.Token);
+			throw;
+		}
 		catch (Exception ex2)
 		{
 			return new PatchApplyResult
@@ -2623,7 +2643,7 @@ public class PatchService
 		if (capturedObjectEventsBytes != null && ShouldApplyAuthoritativeObjectEvents(resourceTypes, manifest, capturedObjectEventsBytes))
 		{
 			applyEventsSw.Start();
-			HashSet<string> objectEventCodeFilter = (resourceTypes.Contains<string>("GameObjects", StringComparer.OrdinalIgnoreCase) ? null : GetChangedCodeEntryNames(manifest));
+			var objectEventCodeFilter = resourceTypes.Contains("GameObjects", StringComparer.OrdinalIgnoreCase) ? null : GetChangedCodeEntryNames(manifest);
 			ApplyAuthoritativeObjectEvents(data, Encoding.UTF8.GetString(capturedObjectEventsBytes), objectEventCodeFilter);
 			applyEventsSw.Stop();
 		}
@@ -2644,39 +2664,39 @@ public class PatchService
 			}
 		}
 		integritySw.Start();
-		DataIntegrityResult result = DataIntegrityService.RepairAndValidate(data);
+		var result = DataIntegrityService.RepairAndValidate(data);
 		integritySw.Stop();
 		return result;
 	}
 
 	private static void RepairDuplicateGameObjectPlaceholders(GameMakerData data)
 	{
-		Dictionary<string, List<GameMakerGameObject>> byName = new Dictionary<string, List<GameMakerGameObject>>(StringComparer.Ordinal);
-		foreach (GameMakerGameObject obj in data.GameObjects)
+		var byName = new Dictionary<string, List<GameMakerGameObject>>(StringComparer.Ordinal);
+		foreach (var obj in data.GameObjects)
 		{
-			string name = obj?.Name?.Content;
+			var name = obj?.Name?.Content;
 			if (!string.IsNullOrEmpty(name))
 			{
 				if (!byName.TryGetValue(name, out var list))
 				{
-					list = (byName[name] = new List<GameMakerGameObject>());
+					list = byName[name] = [];
 				}
 				list.Add(obj);
 			}
 		}
-		int repaired = 0;
-		foreach (List<GameMakerGameObject> group in byName.Values)
+		var repaired = 0;
+		foreach (var group in byName.Values)
 		{
 			if (group.Count < 2)
 			{
 				continue;
 			}
-			GameMakerGameObject source = group.Where((GameMakerGameObject o) => !IsGameObjectPlaceholder(o)).OrderByDescending(GameObjectCompletenessScore).FirstOrDefault();
+			var source = group.Where(o => !IsGameObjectPlaceholder(o)).OrderByDescending(GameObjectCompletenessScore).FirstOrDefault();
 			if (source == null)
 			{
 				continue;
 			}
-			foreach (GameMakerGameObject target in group)
+			foreach (var target in group)
 			{
 				if (source != target && IsGameObjectPlaceholder(target))
 				{
@@ -2687,8 +2707,7 @@ public class PatchService
 		}
 		if (repaired > 0)
 		{
-			bool shouldAppend;
-			LogInterpolatedStringHandler handler = new LogInterpolatedStringHandler(60, 1, out shouldAppend);
+			var handler = new LogInterpolatedStringHandler(60, 1, out var shouldAppend);
 			if (shouldAppend)
 			{
 				handler.AppendLiteral("[PatchService] Repaired ");
@@ -2701,7 +2720,7 @@ public class PatchService
 
 	private static bool IsGameObjectPlaceholder(GameMakerGameObject obj)
 	{
-		bool hasEvents = obj.Events.Any((GameMakerPointerList<GameMakerGameObject.Event> e) => e.Count > 0);
+		var hasEvents = obj.Events.Any(e => e.Count > 0);
 		if (obj.Sprite == null && obj.ParentId == null && obj.TextureMaskId == null && !obj.Solid && obj.Depth == 0 && !obj.Persistent)
 		{
 			return !hasEvents;
@@ -2711,7 +2730,7 @@ public class PatchService
 
 	private static int GameObjectCompletenessScore(GameMakerGameObject obj)
 	{
-		int score = 0;
+		var score = 0;
 		if (obj.Sprite != null)
 		{
 			score += 4;
@@ -2724,7 +2743,7 @@ public class PatchService
 		{
 			score += 2;
 		}
-		if (obj.Events.Any((GameMakerPointerList<GameMakerGameObject.Event> e) => e.Count > 0))
+		if (obj.Events.Any(e => e.Count > 0))
 		{
 			score += 4;
 		}
@@ -2768,16 +2787,16 @@ public class PatchService
 		target.Friction = source.Friction;
 		target.Awake = source.Awake;
 		target.Kinematic = source.Kinematic;
-		for (int eventType = 0; eventType < Math.Min(source.Events.Count, target.Events.Count); eventType++)
+		for (var eventType = 0; eventType < Math.Min(source.Events.Count, target.Events.Count); eventType++)
 		{
 			target.Events[eventType].Clear();
-			foreach (GameMakerGameObject.Event sourceEvent in source.Events[eventType])
+			foreach (var sourceEvent in source.Events[eventType])
 			{
-				GameMakerGameObject.Event targetEvent = new GameMakerGameObject.Event
+				var targetEvent = new GameMakerGameObject.Event
 				{
 					EventSubtype = sourceEvent.EventSubtype
 				};
-				foreach (GameMakerGameObject.EventAction sourceAction in sourceEvent.Actions)
+				foreach (var sourceAction in sourceEvent.Actions)
 				{
 					targetEvent.Actions.Add(CloneEventAction(sourceAction));
 				}
@@ -2809,7 +2828,7 @@ public class PatchService
 
 	private static GameMakerGameObject.EventAction CreateEventActionFromJson(GameMakerData data, JsonElement actionElm)
 	{
-		GameMakerGameObject.EventAction action = new GameMakerGameObject.EventAction();
+		var action = new GameMakerGameObject.EventAction();
 		if (actionElm.TryGetProperty("libId", out var libIdElm))
 		{
 			action.LibID = (uint)libIdElm.GetInt64();
@@ -2840,12 +2859,12 @@ public class PatchService
 		}
 		if (actionElm.TryGetProperty("actionName", out var actionNameElm))
 		{
-			string actionName = actionNameElm.GetString();
-			action.ActionName = ((!string.IsNullOrEmpty(actionName)) ? data.Strings.MakeString(actionName) : null);
+			var actionName = actionNameElm.GetString();
+			action.ActionName = (!string.IsNullOrEmpty(actionName)) ? data.Strings.MakeString(actionName) : null;
 		}
 		if (actionElm.TryGetProperty("codeId", out var codeIdElm))
 		{
-			string codeName = codeIdElm.GetString();
+			var codeName = codeIdElm.GetString();
 			if (!string.IsNullOrEmpty(codeName))
 			{
 				action.CodeId = data.Code.ByName(codeName);
@@ -2872,31 +2891,31 @@ public class PatchService
 
 	private static void RepairDanglingCodeReferences(GameMakerData data)
 	{
-		HashSet<GameMakerCode> liveCodeEntries = new HashSet<GameMakerCode>();
-		foreach (GameMakerCode code in data.Code)
+		HashSet<GameMakerCode> liveCodeEntries = [];
+		foreach (var code in data.Code)
 		{
 			if (code != null)
 			{
 				liveCodeEntries.Add(code);
 			}
 		}
-		int repairedScripts = 0;
-		int nulledScripts = 0;
-		foreach (GameMakerScript script in data.Scripts)
+		var repairedScripts = 0;
+		var nulledScripts = 0;
+		foreach (var script in data.Scripts)
 		{
 			if (script?.Code == null || liveCodeEntries.Contains(script.Code))
 			{
 				continue;
 			}
-			GameMakerCode replacement = null;
-			string currentCodeName = script.Code.Name?.Content;
+			GameMakerCode? replacement = null;
+			var currentCodeName = script.Code.Name?.Content;
 			if (!string.IsNullOrEmpty(currentCodeName))
 			{
 				replacement = ScriptCodeResolver.Resolve(data, script.Name?.Content, currentCodeName);
 			}
 			if (replacement == null)
 			{
-				string scriptName = script.Name?.Content;
+				var scriptName = script.Name?.Content;
 				if (scriptName != null && !string.IsNullOrEmpty(scriptName))
 				{
 					replacement = ScriptCodeResolver.Resolve(data, scriptName);
@@ -2913,8 +2932,8 @@ public class PatchService
 				nulledScripts++;
 			}
 		}
-		int removedGlobalInit = 0;
-		for (int i = data.GlobalInitScripts.Count - 1; i >= 0; i--)
+		var removedGlobalInit = 0;
+		for (var i = data.GlobalInitScripts.Count - 1; i >= 0; i--)
 		{
 			if (data.GlobalInitScripts[i]?.Code != null && !liveCodeEntries.Contains(data.GlobalInitScripts[i].Code))
 			{
@@ -2934,10 +2953,10 @@ public class PatchService
 		{
 			return;
 		}
-		int relinked = 0;
-		int created = 0;
-		HashSet<string> scriptNames = new HashSet<string>(StringComparer.Ordinal);
-		foreach (GameMakerScript script in data.Scripts)
+		var relinked = 0;
+		var created = 0;
+		var scriptNames = new HashSet<string>(StringComparer.Ordinal);
+		foreach (var script in data.Scripts)
 		{
 			if (script == null || script.Name?.Content == null)
 			{
@@ -2953,11 +2972,11 @@ public class PatchService
 				}
 			}
 		}
-		foreach (GameMakerCode item in data.Code)
+		foreach (var item in data.Code)
 		{
-			foreach (GameMakerCode code in EnumerateCodeTreeRecursive(item))
+			foreach (var code in EnumerateCodeTreeRecursive(item))
 			{
-				string codeName = code?.Name?.Content;
+				var codeName = code?.Name?.Content;
 				if (!string.IsNullOrEmpty(codeName) && codeName.StartsWith("gml_Script_", StringComparison.Ordinal) && scriptNames.Add(codeName))
 				{
 					data.Scripts.Add(new GameMakerScript
@@ -2973,7 +2992,7 @@ public class PatchService
 		bool shouldAppend;
 		if (relinked > 0)
 		{
-			LogInterpolatedStringHandler handler = new LogInterpolatedStringHandler(53, 1, out shouldAppend);
+			var handler = new LogInterpolatedStringHandler(53, 1, out shouldAppend);
 			if (shouldAppend)
 			{
 				handler.AppendLiteral("[PatchService] Re-linked ");
@@ -2984,7 +3003,7 @@ public class PatchService
 		}
 		if (created > 0)
 		{
-			LogInterpolatedStringHandler handler2 = new LogInterpolatedStringHandler(71, 1, out shouldAppend);
+			var handler2 = new LogInterpolatedStringHandler(71, 1, out shouldAppend);
 			if (shouldAppend)
 			{
 				handler2.AppendLiteral("[PatchService] Created ");
@@ -2997,12 +3016,12 @@ public class PatchService
 
 	private static int ApplyDeletedResources(GameMakerData data, G3MPatchManifest? manifest, string resourceType)
 	{
-		if (manifest?.Resources == null || !manifest.Resources.TryGetValue(resourceType, out ResourceTypeChanges changes) || changes.Deleted == null || changes.Deleted.Count == 0)
+		if (manifest?.Resources == null || !manifest.Resources.TryGetValue(resourceType, out var changes) || changes.Deleted == null || changes.Deleted.Count == 0)
 		{
 			return 0;
 		}
-		int handled = 0;
-		foreach (string name in changes.Deleted)
+		var handled = 0;
+		foreach (var name in changes.Deleted)
 		{
 			if (RemoveResourceByName(data, resourceType, name))
 			{
@@ -3011,8 +3030,7 @@ public class PatchService
 		}
 		if (handled > 0)
 		{
-			bool shouldAppend;
-			LogInterpolatedStringHandler handler = new LogInterpolatedStringHandler(48, 2, out shouldAppend);
+			var handler = new LogInterpolatedStringHandler(48, 2, out var shouldAppend);
 			if (shouldAppend)
 			{
 				handler.AppendLiteral("[PatchService] Handled ");
@@ -3025,6 +3043,8 @@ public class PatchService
 		}
 		return handled;
 	}
+
+	internal static bool DeleteResource(GameMakerData data, string resourceType, string? name) => RemoveResourceByName(data, resourceType, name);
 
 	private static bool RemoveResourceByName(GameMakerData data, string resourceType, string? name)
 	{
@@ -3061,16 +3081,15 @@ public class PatchService
 
 	private static bool RemoveReferencedOrNamed<T>(GameMakerData data, IList<T> list, string resourceType, string name, Func<GameMakerData, T, bool> isReferenced)
 	{
-		for (int i = list.Count - 1; i >= 0; i--)
+		for (var i = list.Count - 1; i >= 0; i--)
 		{
-			T item = list[i];
-			object itemName = item?.GetType().GetProperty("Name")?.GetValue(item);
+			var item = list[i];
+			var itemName = item?.GetType().GetProperty("Name")?.GetValue(item);
 			if (string.Equals(itemName?.GetType().GetProperty("Content")?.GetValue(itemName) as string, name, StringComparison.Ordinal))
 			{
 				if (item != null && isReferenced(data, item))
 				{
-					bool shouldAppend;
-					LogInterpolatedStringHandler handler = new LogInterpolatedStringHandler(69, 2, out shouldAppend);
+					var handler = new LogInterpolatedStringHandler(69, 2, out var shouldAppend);
 					if (shouldAppend)
 					{
 						handler.AppendLiteral("[PatchService] Preserved ");
@@ -3091,10 +3110,10 @@ public class PatchService
 
 	private static bool RemoveNamed<T>(IList<T> list, string name)
 	{
-		for (int i = list.Count - 1; i >= 0; i--)
+		for (var i = list.Count - 1; i >= 0; i--)
 		{
-			T item = list[i];
-			object itemName = item?.GetType().GetProperty("Name")?.GetValue(item);
+			var item = list[i];
+			var itemName = item?.GetType().GetProperty("Name")?.GetValue(item);
 			if (string.Equals(itemName?.GetType().GetProperty("Content")?.GetValue(itemName) as string, name, StringComparison.Ordinal))
 			{
 				list.RemoveAt(i);
@@ -3106,12 +3125,12 @@ public class PatchService
 
 	private static bool RemoveExtension(GameMakerData data, string name)
 	{
-		for (int i = data.Extensions.Count - 1; i >= 0; i--)
+		for (var i = data.Extensions.Count - 1; i >= 0; i--)
 		{
 			if (string.Equals(data.Extensions[i]?.Name?.Content, name, StringComparison.Ordinal))
 			{
 				data.Extensions.RemoveAt(i);
-				List<byte[]> productIdData = data.FORM.EXTN?.productIdData;
+				var productIdData = data.FORM.EXTN?.productIdData;
 				if (productIdData != null && i < productIdData.Count)
 				{
 					productIdData.RemoveAt(i);
@@ -3124,16 +3143,15 @@ public class PatchService
 
 	private static bool RemoveScriptOnlyWhenCodeIsGone(GameMakerData data, string name)
 	{
-		for (int i = data.Scripts.Count - 1; i >= 0; i--)
+		for (var i = data.Scripts.Count - 1; i >= 0; i--)
 		{
-			GameMakerScript script = data.Scripts[i];
+			var script = data.Scripts[i];
 			if (string.Equals(script?.Name?.Content, name, StringComparison.Ordinal))
 			{
-				string codeName = script.Code?.Name?.Content;
+				var codeName = script.Code?.Name?.Content;
 				if (!string.IsNullOrEmpty(codeName) && ScriptCodeResolver.Resolve(data, name, codeName) != null)
 				{
-					bool shouldAppend;
-					LogInterpolatedStringHandler handler = new LogInterpolatedStringHandler(77, 1, out shouldAppend);
+					var handler = new LogInterpolatedStringHandler(77, 1, out var shouldAppend);
 					if (shouldAppend)
 					{
 						handler.AppendLiteral("[PatchService] Preserved Script deletion for ");
@@ -3166,13 +3184,12 @@ public class PatchService
 		{
 			return false;
 		}
-		for (int i = data.Functions.Count - 1; i >= 0; i--)
+		for (var i = data.Functions.Count - 1; i >= 0; i--)
 		{
 			if (string.Equals(data.Functions[i]?.Name?.Content, codeName, StringComparison.Ordinal))
 			{
 				data.Functions.RemoveAt(i);
-				bool shouldAppend;
-				LogInterpolatedStringHandler handler = new LogInterpolatedStringHandler(63, 1, out shouldAppend);
+				var handler = new LogInterpolatedStringHandler(63, 1, out var shouldAppend);
 				if (shouldAppend)
 				{
 					handler.AppendLiteral("[PatchService] Removed orphan Function for deleted script code ");
@@ -3187,11 +3204,11 @@ public class PatchService
 
 	private static bool IsFunctionReferencedByCode(GameMakerData data, string functionName)
 	{
-		foreach (GameMakerCode item in data.Code)
+		foreach (var item in data.Code)
 		{
-			foreach (GameMakerCode item2 in EnumerateCodeTreeRecursive(item))
+			foreach (var item2 in EnumerateCodeTreeRecursive(item))
 			{
-				foreach (GameMakerInstruction item3 in item2.Instructions ?? new List<GameMakerInstruction>())
+				foreach (var item3 in item2.Instructions ?? [])
 				{
 					if (string.Equals(item3.ValueFunction?.Name?.Content, functionName, StringComparison.Ordinal))
 					{
@@ -3205,15 +3222,15 @@ public class PatchService
 
 	private static void PruneMissingScriptCodeOrphans(GameMakerData data)
 	{
-		int removedScripts = 0;
-		int removedFunctions = 0;
-		for (int i = data.Scripts.Count - 1; i >= 0; i--)
+		var removedScripts = 0;
+		var removedFunctions = 0;
+		for (var i = data.Scripts.Count - 1; i >= 0; i--)
 		{
-			GameMakerScript script = data.Scripts[i];
-			string scriptName = script?.Name?.Content;
+			var script = data.Scripts[i];
+			var scriptName = script?.Name?.Content;
 			if (!string.IsNullOrWhiteSpace(scriptName) && script?.Code != null)
 			{
-				GameMakerCode liveCode = ScriptCodeResolver.Resolve(data, scriptName, script.Code.Name?.Content);
+				var liveCode = ScriptCodeResolver.Resolve(data, scriptName, script.Code.Name?.Content);
 				if (liveCode != null)
 				{
 					if (script.Code != liveCode)
@@ -3234,8 +3251,7 @@ public class PatchService
 		}
 		if (removedScripts > 0 || removedFunctions > 0)
 		{
-			bool shouldAppend;
-			LogInterpolatedStringHandler handler = new LogInterpolatedStringHandler(71, 2, out shouldAppend);
+			var handler = new LogInterpolatedStringHandler(71, 2, out var shouldAppend);
 			if (shouldAppend)
 			{
 				handler.AppendLiteral("[PatchService] Pruned missing script-code orphans: ");
@@ -3250,21 +3266,21 @@ public class PatchService
 
 	private static void PruneDeletedScriptOrphans(GameMakerData data, G3MPatchManifest? manifest)
 	{
-		if (manifest?.Resources == null || !manifest.Resources.TryGetValue("Scripts", out ResourceTypeChanges changes) || changes.Deleted == null || changes.Deleted.Count == 0)
+		if (manifest?.Resources == null || !manifest.Resources.TryGetValue("Scripts", out var changes) || changes.Deleted == null || changes.Deleted.Count == 0)
 		{
 			return;
 		}
-		int removedScripts = 0;
-		int removedFunctions = 0;
-		foreach (string deletedScriptName in changes.Deleted)
+		var removedScripts = 0;
+		var removedFunctions = 0;
+		foreach (var deletedScriptName in changes.Deleted)
 		{
 			if (string.IsNullOrWhiteSpace(deletedScriptName) || ScriptCodeResolver.Resolve(data, deletedScriptName, deletedScriptName) != null)
 			{
 				continue;
 			}
-			for (int i = data.Scripts.Count - 1; i >= 0; i--)
+			for (var i = data.Scripts.Count - 1; i >= 0; i--)
 			{
-				GameMakerScript script = data.Scripts[i];
+				var script = data.Scripts[i];
 				if (string.Equals(script?.Name?.Content, deletedScriptName, StringComparison.Ordinal) || string.Equals(script?.Code?.Name?.Content, deletedScriptName, StringComparison.Ordinal))
 				{
 					data.Scripts.RemoveAt(i);
@@ -3278,8 +3294,7 @@ public class PatchService
 		}
 		if (removedScripts > 0 || removedFunctions > 0)
 		{
-			bool shouldAppend;
-			LogInterpolatedStringHandler handler = new LogInterpolatedStringHandler(66, 2, out shouldAppend);
+			var handler = new LogInterpolatedStringHandler(66, 2, out var shouldAppend);
 			if (shouldAppend)
 			{
 				handler.AppendLiteral("[PatchService] Pruned deleted script orphans: ");
@@ -3294,34 +3309,34 @@ public class PatchService
 
 	private static bool IsCodeReferenced(GameMakerData data, GameMakerCode code)
 	{
-		foreach (GameMakerScript script in data.Scripts)
+		foreach (var script in data.Scripts)
 		{
 			if (script?.Code == code)
 			{
 				return true;
 			}
 		}
-		foreach (GameMakerGlobalInit item in data.GlobalInitScripts ?? new List<GameMakerGlobalInit>())
+		foreach (var item in data.GlobalInitScripts ?? [])
 		{
 			if (item?.Code == code)
 			{
 				return true;
 			}
 		}
-		foreach (GameMakerGlobalInit item2 in data.GameEndScripts ?? new List<GameMakerGlobalInit>())
+		foreach (var item2 in data.GameEndScripts ?? [])
 		{
 			if (item2?.Code == code)
 			{
 				return true;
 			}
 		}
-		foreach (GameMakerGameObject gameObject in data.GameObjects)
+		foreach (var gameObject in data.GameObjects)
 		{
-			foreach (GameMakerPointerList<GameMakerGameObject.Event> item3 in gameObject?.Events ?? new GameMakerPointerList<GameMakerPointerList<GameMakerGameObject.Event>>())
+			foreach (var item3 in gameObject?.Events ?? [])
 			{
-				foreach (GameMakerGameObject.Event item4 in item3 ?? new GameMakerPointerList<GameMakerGameObject.Event>())
+				foreach (var item4 in item3 ?? [])
 				{
-					foreach (GameMakerGameObject.EventAction item5 in item4.Actions ?? new GameMakerPointerList<GameMakerGameObject.EventAction>())
+					foreach (var item5 in item4.Actions ?? [])
 					{
 						if (item5?.CodeId == code)
 						{
@@ -3331,22 +3346,22 @@ public class PatchService
 				}
 			}
 		}
-		foreach (GameMakerRoom room in data.Rooms)
+		foreach (var room in data.Rooms)
 		{
 			if (room?.CreationCodeId == code)
 			{
 				return true;
 			}
-			foreach (GameMakerRoom.GameObject inst in room?.GameObjects ?? new GameMakerPointerList<GameMakerRoom.GameObject>())
+			foreach (var inst in room?.GameObjects ?? [])
 			{
 				if (inst?.CreationCode == code || inst?.PreCreateCode == code)
 				{
 					return true;
 				}
 			}
-			foreach (GameMakerRoom.Layer item6 in room?.Layers ?? new GameMakerPointerList<GameMakerRoom.Layer>())
+			foreach (var item6 in room?.Layers ?? [])
 			{
-				foreach (GameMakerRoom.GameObject inst2 in item6?.InstancesData?.Instances ?? new ObservableCollection<GameMakerRoom.GameObject>())
+				foreach (var inst2 in item6?.InstancesData?.Instances ?? [])
 				{
 					if (inst2?.CreationCode == code || inst2?.PreCreateCode == code)
 					{
@@ -3360,18 +3375,18 @@ public class PatchService
 
 	private static bool IsGameObjectReferenced(GameMakerData data, GameMakerGameObject gameObject)
 	{
-		foreach (GameMakerGameObject obj in data.GameObjects)
+		foreach (var obj in data.GameObjects)
 		{
 			if (obj?.ParentId == gameObject)
 			{
 				return true;
 			}
-			int eventType = 0;
+			var eventType = 0;
 			while (obj != null && eventType < obj.Events.Count)
 			{
 				if (eventType == 4)
 				{
-					foreach (GameMakerGameObject.Event evt in obj.Events[eventType])
+					foreach (var evt in obj.Events[eventType])
 					{
 						if (evt.EventSubtype < data.GameObjects.Count && data.GameObjects[(int)evt.EventSubtype] == gameObject)
 						{
@@ -3382,25 +3397,25 @@ public class PatchService
 				eventType++;
 			}
 		}
-		foreach (GameMakerRoom room in data.Rooms)
+		foreach (var room in data.Rooms)
 		{
-			foreach (GameMakerRoom.View item in room?.Views ?? new GameMakerPointerList<GameMakerRoom.View>())
+			foreach (var item in room?.Views ?? [])
 			{
 				if (item?.ObjectId == gameObject)
 				{
 					return true;
 				}
 			}
-			foreach (GameMakerRoom.GameObject item2 in room?.GameObjects ?? new GameMakerPointerList<GameMakerRoom.GameObject>())
+			foreach (var item2 in room?.GameObjects ?? [])
 			{
 				if (item2?.ObjectDefinition == gameObject)
 				{
 					return true;
 				}
 			}
-			foreach (GameMakerRoom.Layer item3 in room?.Layers ?? new GameMakerPointerList<GameMakerRoom.Layer>())
+			foreach (var item3 in room?.Layers ?? [])
 			{
-				foreach (GameMakerRoom.GameObject item4 in item3?.InstancesData?.Instances ?? new ObservableCollection<GameMakerRoom.GameObject>())
+				foreach (var item4 in item3?.InstancesData?.Instances ?? [])
 				{
 					if (item4?.ObjectDefinition == gameObject)
 					{
@@ -3414,50 +3429,50 @@ public class PatchService
 
 	private static bool IsSpriteReferenced(GameMakerData data, GameMakerSprite sprite)
 	{
-		foreach (GameMakerGameObject obj in data.GameObjects)
+		foreach (var obj in data.GameObjects)
 		{
 			if (obj?.Sprite == sprite || obj?.TextureMaskId == sprite)
 			{
 				return true;
 			}
 		}
-		foreach (GameMakerBackground background in data.Backgrounds)
+		foreach (var background in data.Backgrounds)
 		{
 			if (background?.GMS2ExportedSprite == sprite)
 			{
 				return true;
 			}
 		}
-		foreach (GameMakerParticleSystemEmitter item in data.ParticleSystemEmitters ?? new List<GameMakerParticleSystemEmitter>())
+		foreach (var item in data.ParticleSystemEmitters ?? [])
 		{
 			if (item?.Sprite == sprite)
 			{
 				return true;
 			}
 		}
-		foreach (GameMakerRoom room in data.Rooms)
+		foreach (var room in data.Rooms)
 		{
-			foreach (GameMakerRoom.Tile tile in room?.Tiles ?? new GameMakerPointerList<GameMakerRoom.Tile>())
+			foreach (var tile in room?.Tiles ?? [])
 			{
 				if (tile != null && tile.spriteMode && tile.SpriteDefinition == sprite)
 				{
 					return true;
 				}
 			}
-			foreach (GameMakerRoom.Layer layer in room?.Layers ?? new GameMakerPointerList<GameMakerRoom.Layer>())
+			foreach (var layer in room?.Layers ?? [])
 			{
 				if (layer?.BackgroundData?.Sprite == sprite)
 				{
 					return true;
 				}
-				foreach (GameMakerRoom.SpriteInstance item2 in layer?.AssetsData?.Sprites ?? new GameMakerPointerList<GameMakerRoom.SpriteInstance>())
+				foreach (var item2 in layer?.AssetsData?.Sprites ?? [])
 				{
 					if (item2?.Sprite == sprite)
 					{
 						return true;
 					}
 				}
-				foreach (GameMakerRoom.Tile tile2 in layer?.AssetsData?.LegacyTiles ?? new GameMakerPointerList<GameMakerRoom.Tile>())
+				foreach (var tile2 in layer?.AssetsData?.LegacyTiles ?? [])
 				{
 					if (tile2 != null && tile2.spriteMode && tile2.SpriteDefinition == sprite)
 					{
@@ -3471,23 +3486,23 @@ public class PatchService
 
 	private static bool IsBackgroundReferenced(GameMakerData data, GameMakerBackground background)
 	{
-		foreach (GameMakerRoom room in data.Rooms)
+		foreach (var room in data.Rooms)
 		{
-			foreach (GameMakerRoom.Background item in room?.Backgrounds ?? new GameMakerPointerList<GameMakerRoom.Background>())
+			foreach (var item in room?.Backgrounds ?? [])
 			{
 				if (item?.BackgroundDefinition == background)
 				{
 					return true;
 				}
 			}
-			foreach (GameMakerRoom.Tile tile in room?.Tiles ?? new GameMakerPointerList<GameMakerRoom.Tile>())
+			foreach (var tile in room?.Tiles ?? [])
 			{
 				if (tile != null && !tile.spriteMode && tile.BackgroundDefinition == background)
 				{
 					return true;
 				}
 			}
-			foreach (GameMakerRoom.Layer item2 in room?.Layers ?? new GameMakerPointerList<GameMakerRoom.Layer>())
+			foreach (var item2 in room?.Layers ?? [])
 			{
 				if (item2?.TilesData?.Background == background)
 				{
@@ -3500,11 +3515,11 @@ public class PatchService
 
 	private static bool IsFontReferenced(GameMakerData data, GameMakerFont font)
 	{
-		foreach (GameMakerRoom room in data.Rooms)
+		foreach (var room in data.Rooms)
 		{
-			foreach (GameMakerRoom.Layer item in room?.Layers ?? new GameMakerPointerList<GameMakerRoom.Layer>())
+			foreach (var item in room?.Layers ?? [])
 			{
-				foreach (GameMakerRoom.TextItemInstance item2 in item?.AssetsData?.TextItems ?? new GameMakerPointerList<GameMakerRoom.TextItemInstance>())
+				foreach (var item2 in item?.AssetsData?.TextItems ?? [])
 				{
 					if (item2?.Font == font)
 					{
@@ -3518,7 +3533,7 @@ public class PatchService
 
 	private static bool IsSoundReferenced(GameMakerData data, GameMakerSound sound)
 	{
-		foreach (GameMakerSequence item in data.Sequences ?? new List<GameMakerSequence>())
+		foreach (var item in data.Sequences ?? [])
 		{
 			if (SequenceReferencesSound(item, sound))
 			{
@@ -3534,7 +3549,7 @@ public class PatchService
 		{
 			return false;
 		}
-		HashSet<object> seen = new HashSet<object>(ReferenceEqualityComparer.Instance);
+		var seen = new HashSet<object>(ReferenceEqualityComparer.Instance);
 		return ObjectGraphReferences(sequence, sound, seen, 0);
 	}
 
@@ -3558,7 +3573,7 @@ public class PatchService
 		}
 		if (node is IEnumerable enumerable)
 		{
-			foreach (object item in enumerable)
+			foreach (var item in enumerable)
 			{
 				if (ObjectGraphReferences(item, target, seen, depth + 1))
 				{
@@ -3567,8 +3582,8 @@ public class PatchService
 			}
 			return false;
 		}
-		PropertyInfo[] properties = node.GetType().GetProperties(BindingFlags.Instance | BindingFlags.Public);
-		foreach (PropertyInfo prop in properties)
+		var properties = node.GetType().GetProperties(BindingFlags.Instance | BindingFlags.Public);
+		foreach (var prop in properties)
 		{
 			if (prop.CanRead && prop.GetIndexParameters().Length == 0)
 			{
@@ -3596,22 +3611,22 @@ public class PatchService
 		{
 			return false;
 		}
-		string currentHash = await HashService.ComputeFileHashAsync(dataPath);
-		string expectedOriginalHash = manifest?.Original?.Md5;
+		var currentHash = await HashService.ComputeFileHashAsync(dataPath).ConfigureAwait(false);
+		var expectedOriginalHash = manifest?.Original?.Md5;
 		if (!string.IsNullOrEmpty(expectedOriginalHash) && !currentHash.Equals(expectedOriginalHash, StringComparison.OrdinalIgnoreCase))
 		{
 			LogService.Warning("[PatchService] Xdelta fallback skipped because the original MD5 does not match");
 			return false;
 		}
-		string extension = Path.GetExtension(pfs.ExactPatchPath ?? string.Empty);
+		var extension = Path.GetExtension(pfs.ExactPatchPath ?? string.Empty);
 		if (string.IsNullOrWhiteSpace(extension))
 		{
 			extension = ".xdelta";
 		}
-		string tempExactPatch = Path.Combine(Path.GetTempPath(), $"g3mlib_exact_apply_{Guid.NewGuid():N}{extension}");
+		var tempExactPatch = Path.Combine(TempRoot.Path, $"g3mlib_exact_apply_{Guid.NewGuid():N}{extension}");
 		try
 		{
-			await File.WriteAllBytesAsync(tempExactPatch, pfs.ExactPatchBytes);
+			await File.WriteAllBytesAsync(tempExactPatch, pfs.ExactPatchBytes).ConfigureAwait(false);
 			try
 			{
 				if (File.Exists(outputPath))
@@ -3622,14 +3637,14 @@ public class PatchService
 			catch
 			{
 			}
-			XDeltaResult exactResult = await new XDeltaService().ApplyPatchAsync(dataPath, tempExactPatch, outputPath);
+			var exactResult = await new XDeltaService().ApplyPatchAsync(dataPath, tempExactPatch, outputPath).ConfigureAwait(false);
 			if (!exactResult.Success)
 			{
 				LogService.Warning("[PatchService] Xdelta fallback failed: " + exactResult.Error);
 				return false;
 			}
-			string expectedModifiedHash = manifest?.Modified?.Md5;
-			if (!string.IsNullOrEmpty(expectedModifiedHash) && !(await HashService.ComputeFileHashAsync(outputPath)).Equals(expectedModifiedHash, StringComparison.OrdinalIgnoreCase))
+			var expectedModifiedHash = manifest?.Modified?.Md5;
+			if (!string.IsNullOrEmpty(expectedModifiedHash) && !(await HashService.ComputeFileHashAsync(outputPath).ConfigureAwait(false)).Equals(expectedModifiedHash, StringComparison.OrdinalIgnoreCase))
 			{
 				LogService.Warning("[PatchService] Xdelta fallback output hash mismatch");
 				try
@@ -3662,11 +3677,8 @@ public class PatchService
 		{
 			try
 			{
-				pfs = await Task.Run(() => PatchFileSystem.LoadFromZip(patchPath, loadExactPayloads: true, skipAsmBackedGml: true));
-				if (manifest == null)
-				{
-					manifest = pfs.Manifest;
-				}
+				pfs = await Task.Run(() => PatchFileSystem.LoadFromZip(patchPath, loadExactPayloads: true, skipAsmBackedGml: true)).ConfigureAwait(false);
+				manifest ??= pfs.Manifest;
 			}
 			catch (Exception ex)
 			{
@@ -3674,12 +3686,12 @@ public class PatchService
 				return false;
 			}
 		}
-		return await TryApplyXdeltaFallbackAsync(dataPath, outputPath, pfs, manifest);
+		return await TryApplyXdeltaFallbackAsync(dataPath, outputPath, pfs, manifest).ConfigureAwait(false);
 	}
 
 	private static void ApplyDeferredGlobalScripts(GameMakerData data, string globalScriptsJson)
 	{
-		string tempDir = Path.Combine(Path.GetTempPath(), $"g3mlib_globals_{Guid.NewGuid():N}");
+		var tempDir = Path.Combine(TempRoot.Path, $"g3mlib_globals_{Guid.NewGuid():N}");
 		try
 		{
 			Directory.CreateDirectory(tempDir);
@@ -3710,9 +3722,9 @@ public class PatchService
 		{
 			yield break;
 		}
-		foreach (GameMakerCode child in code.ChildEntries)
+		foreach (var child in code.ChildEntries)
 		{
-			foreach (GameMakerCode item in EnumerateCodeTreeRecursive(child))
+			foreach (var item in EnumerateCodeTreeRecursive(child))
 			{
 				yield return item;
 			}
@@ -3721,25 +3733,24 @@ public class PatchService
 
 	private static Dictionary<string, GameMakerCode> BuildArchiveCodeLookup(GameMakerData data)
 	{
-		Dictionary<string, GameMakerCode> lookup = new Dictionary<string, GameMakerCode>(StringComparer.Ordinal);
-		Dictionary<string, List<GameMakerCode>> topLevelByName = new Dictionary<string, List<GameMakerCode>>(StringComparer.Ordinal);
-		foreach (GameMakerCode code in data.Code)
+		var lookup = new Dictionary<string, GameMakerCode>(StringComparer.Ordinal);
+		var topLevelByName = new Dictionary<string, List<GameMakerCode>>(StringComparer.Ordinal);
+		foreach (var code in data.Code)
 		{
-			string name = code?.Name?.Content;
+			var name = code?.Name?.Content;
 			if (code != null && code.ParentEntry == null && !string.IsNullOrEmpty(name))
 			{
 				if (!topLevelByName.TryGetValue(name, out var list))
 				{
-					list = (topLevelByName[name] = new List<GameMakerCode>());
+					list = topLevelByName[name] = [];
 				}
 				list.Add(code);
 			}
 		}
-		Dictionary<GameMakerCode, Dictionary<string, List<GameMakerCode>>> childByParentAndName = new Dictionary<GameMakerCode, Dictionary<string, List<GameMakerCode>>>();
-		foreach (CodeArchiveEntryDescriptor descriptor in CodeEntryArchiveIdentity.DescribeEntries(data))
+		Dictionary<GameMakerCode, Dictionary<string, List<GameMakerCode>>> childByParentAndName = [];
+		foreach (var descriptor in CodeEntryArchiveIdentity.DescribeEntries(data))
 		{
-			GameMakerCode code2 = null;
-			List<GameMakerCode> matches2;
+			GameMakerCode? code2 = null;
 			if (descriptor.ParentArchiveKey != null)
 			{
 				if (!lookup.TryGetValue(descriptor.ParentArchiveKey, out var parent))
@@ -3749,14 +3760,14 @@ public class PatchService
 				if (!childByParentAndName.TryGetValue(parent, out var childrenByName))
 				{
 					childrenByName = new Dictionary<string, List<GameMakerCode>>(StringComparer.Ordinal);
-					foreach (GameMakerCode child in parent.ChildEntries)
+					foreach (var child in parent.ChildEntries)
 					{
-						string childName = child?.Name?.Content;
+						var childName = child?.Name?.Content;
 						if (child != null && !string.IsNullOrEmpty(childName))
 						{
 							if (!childrenByName.TryGetValue(childName, out var children))
 							{
-								children = (childrenByName[childName] = new List<GameMakerCode>());
+								children = childrenByName[childName] = [];
 							}
 							children.Add(child);
 						}
@@ -3768,7 +3779,7 @@ public class PatchService
 					code2 = matches[descriptor.Occurrence - 1];
 				}
 			}
-			else if (topLevelByName.TryGetValue(descriptor.LogicalName, out matches2) && descriptor.Occurrence > 0 && descriptor.Occurrence <= matches2.Count)
+			else if (topLevelByName.TryGetValue(descriptor.LogicalName, out var matches2) && descriptor.Occurrence > 0 && descriptor.Occurrence <= matches2.Count)
 			{
 				code2 = matches2[descriptor.Occurrence - 1];
 			}
@@ -3782,23 +3793,19 @@ public class PatchService
 
 	private static Dictionary<string, (string LogicalName, int Occurrence, string? ParentArchiveKey)> ParseTargetCodeEntryMetadata(JsonElement root, Dictionary<string, string>? fallbackLogicalNames)
 	{
-		Dictionary<string, (string, int, string)> map = new Dictionary<string, (string, int, string)>(StringComparer.Ordinal);
+		var map = new Dictionary<string, (string, int, string)>(StringComparer.Ordinal);
 		if (!root.TryGetProperty("codeEntries", out var ceArray) || ceArray.ValueKind != JsonValueKind.Array)
 		{
 			return map;
 		}
-		foreach (JsonElement ce in ceArray.EnumerateArray())
+		foreach (var ce in ceArray.EnumerateArray())
 		{
 			if (ce.ValueKind == JsonValueKind.Object)
 			{
-				JsonElement keyElem;
-				string key = (ce.TryGetProperty("key", out keyElem) ? keyElem.GetString() : null);
-				JsonElement nameElem;
-				string name = (ce.TryGetProperty("name", out nameElem) ? nameElem.GetString() : null);
-				JsonElement occElem;
-				int occurrence = ((!ce.TryGetProperty("occurrence", out occElem)) ? 1 : occElem.GetInt32());
-				JsonElement parentElem;
-				string parentArchiveKey = (ce.TryGetProperty("parent", out parentElem) ? parentElem.GetString() : null);
+				var key = ce.TryGetProperty("key", out var keyElem) ? keyElem.GetString() : null;
+				var name = ce.TryGetProperty("name", out var nameElem) ? nameElem.GetString() : null;
+				var occurrence = (!ce.TryGetProperty("occurrence", out var occElem)) ? 1 : occElem.GetInt32();
+				var parentArchiveKey = ce.TryGetProperty("parent", out var parentElem) ? parentElem.GetString() : null;
 				if (!string.IsNullOrWhiteSpace(key) && !string.IsNullOrWhiteSpace(name))
 				{
 					map[key] = (name, occurrence, parentArchiveKey);
@@ -3810,11 +3817,11 @@ public class PatchService
 				{
 					continue;
 				}
-				string name2 = ce.GetString();
+				var name2 = ce.GetString();
 				if (!string.IsNullOrWhiteSpace(name2))
 				{
-					string key2 = fallbackLogicalNames?.FirstOrDefault((KeyValuePair<string, string> x) => x.Value == name2).Key ?? name2;
-					int occurrence2 = map.Values.Count<(string, int, string)>(((string LogicalName, int Occurrence, string ParentArchiveKey) x) => x.LogicalName == name2) + 1;
+					var key2 = fallbackLogicalNames?.FirstOrDefault(x => x.Value == name2).Key ?? name2;
+					var occurrence2 = map.Values.Count(((string LogicalName, int Occurrence, string ParentArchiveKey) x) => x.LogicalName == name2) + 1;
 					map[key2] = (name2, occurrence2, null);
 				}
 			}
@@ -3837,17 +3844,17 @@ public class PatchService
 		{
 			return;
 		}
-		Dictionary<string, GameMakerCode> archiveLookup = BuildArchiveCodeLookup(data);
-		HashSet<GameMakerCode> used = new HashSet<GameMakerCode>(ReferenceEqualityComparer.Instance);
-		List<GameMakerCode> reordered = new List<GameMakerCode>(data.Code.Count);
-		foreach (string entryKey in targetCodeEntriesByKey.Keys)
+		var archiveLookup = BuildArchiveCodeLookup(data);
+		var used = new HashSet<GameMakerCode>(ReferenceEqualityComparer.Instance);
+		var reordered = new List<GameMakerCode>(data.Code.Count);
+		foreach (var entryKey in targetCodeEntriesByKey.Keys)
 		{
 			if (archiveLookup.TryGetValue(entryKey, out var code) && code != null && used.Add(code))
 			{
 				reordered.Add(code);
 			}
 		}
-		foreach (GameMakerCode code2 in data.Code)
+		foreach (var code2 in data.Code)
 		{
 			if (code2 != null && used.Add(code2))
 			{
@@ -3859,7 +3866,7 @@ public class PatchService
 			return;
 		}
 		data.Code.Clear();
-		foreach (GameMakerCode code3 in reordered)
+		foreach (var code3 in reordered)
 		{
 			data.Code.Add(code3);
 		}
@@ -3871,9 +3878,9 @@ public class PatchService
 		{
 			return;
 		}
-		Dictionary<string, GameMakerCode> dictionary = BuildArchiveCodeLookup(data);
-		HashSet<GameMakerCode> seen = new HashSet<GameMakerCode>(ReferenceEqualityComparer.Instance);
-		List<GameMakerCode> toRemove = new List<GameMakerCode>();
+		var dictionary = BuildArchiveCodeLookup(data);
+		var seen = new HashSet<GameMakerCode>(ReferenceEqualityComparer.Instance);
+		List<GameMakerCode> toRemove = [];
 		foreach (var (entryKey, code) in dictionary)
 		{
 			if (!targetCodeEntriesByKey.ContainsKey(entryKey) && seen.Add(code))
@@ -3885,27 +3892,27 @@ public class PatchService
 		{
 			return;
 		}
-		HashSet<GameMakerCode> removeSet = new HashSet<GameMakerCode>(toRemove, ReferenceEqualityComparer.Instance);
-		foreach (GameMakerCode code2 in toRemove)
+		var removeSet = new HashSet<GameMakerCode>(toRemove, ReferenceEqualityComparer.Instance);
+		foreach (var code2 in toRemove)
 		{
 			code2.ParentEntry?.ChildEntries.Remove(code2);
 			code2.ParentEntry = null;
-			for (int i = code2.ChildEntries.Count - 1; i >= 0; i--)
+			for (var i = code2.ChildEntries.Count - 1; i >= 0; i--)
 			{
 				if (removeSet.Contains(code2.ChildEntries[i]))
 				{
 					code2.ChildEntries.RemoveAt(i);
 				}
 			}
-			for (int i2 = data.Scripts.Count - 1; i2 >= 0; i2--)
+			for (var i2 = data.Scripts.Count - 1; i2 >= 0; i2--)
 			{
-				GameMakerScript script = data.Scripts[i2];
+				var script = data.Scripts[i2];
 				if (script?.Code == code2 || string.Equals(script?.Name?.Content, code2.Name?.Content, StringComparison.Ordinal))
 				{
 					data.Scripts.RemoveAt(i2);
 				}
 			}
-			for (int i3 = data.CodeLocals.Count - 1; i3 >= 0; i3--)
+			for (var i3 = data.CodeLocals.Count - 1; i3 >= 0; i3--)
 			{
 				if (data.CodeLocals[i3].Name == code2.Name || string.Equals(data.CodeLocals[i3].Name?.Content, code2.Name?.Content, StringComparison.Ordinal))
 				{
@@ -3914,8 +3921,7 @@ public class PatchService
 			}
 			data.Code.Remove(code2);
 		}
-		bool shouldAppend;
-		LogInterpolatedStringHandler handler = new LogInterpolatedStringHandler(66, 1, out shouldAppend);
+		var handler = new LogInterpolatedStringHandler(66, 1, out var shouldAppend);
 		if (shouldAppend)
 		{
 			handler.AppendLiteral("[ImportCodeEntries] Pruned ");
@@ -3933,18 +3939,17 @@ public class PatchService
 		}
 		try
 		{
-			using JsonDocument doc = JsonDocument.Parse(variablesFunctionsJson);
+			using var doc = JsonDocument.Parse(variablesFunctionsJson);
 			if (HasCompleteCodeEntryMetadata(doc.RootElement))
 			{
 				Dictionary<string, (string, int, string)> targetCodeEntriesByKey = ParseTargetCodeEntryMetadata(doc.RootElement, null);
 				PruneCodeEntriesOutsideTargetMetadata(data, targetCodeEntriesByKey);
-				PruneExcessCodeAndScriptsByTargetNames(data, targetCodeEntriesByKey.Values.Select<(string, int, string), string>(((string LogicalName, int Occurrence, string ParentArchiveKey) x) => x.LogicalName));
+				PruneExcessCodeAndScriptsByTargetNames(data, targetCodeEntriesByKey.Values.Select(((string LogicalName, int Occurrence, string ParentArchiveKey) x) => x.LogicalName));
 			}
 		}
 		catch (Exception ex)
 		{
-			bool shouldAppend;
-			LogInterpolatedStringHandler handler = new LogInterpolatedStringHandler(46, 1, out shouldAppend);
+			var handler = new LogInterpolatedStringHandler(46, 1, out var shouldAppend);
 			if (shouldAppend)
 			{
 				handler.AppendLiteral("[PatchService] Code metadata cleanup warning: ");
@@ -3956,8 +3961,8 @@ public class PatchService
 
 	private static void PruneExcessCodeAndScriptsByTargetNames(GameMakerData data, IEnumerable<string> targetCodeNames)
 	{
-		Dictionary<string, int> remainingByName = new Dictionary<string, int>(StringComparer.Ordinal);
-		foreach (string name in targetCodeNames)
+		var remainingByName = new Dictionary<string, int>(StringComparer.Ordinal);
+		foreach (var name in targetCodeNames)
 		{
 			if (!string.IsNullOrEmpty(name))
 			{
@@ -3968,14 +3973,14 @@ public class PatchService
 		{
 			return;
 		}
-		HashSet<GameMakerCode> removeCodes = new HashSet<GameMakerCode>(ReferenceEqualityComparer.Instance);
-		for (int i = data.Code.Count - 1; i >= 0; i--)
+		var removeCodes = new HashSet<GameMakerCode>(ReferenceEqualityComparer.Instance);
+		for (var i = data.Code.Count - 1; i >= 0; i--)
 		{
-			GameMakerCode code = data.Code[i];
-			string name2 = code?.Name?.Content;
+			var code = data.Code[i];
+			var name2 = code?.Name?.Content;
 			if (code != null && !string.IsNullOrEmpty(name2))
 			{
-				int remaining = remainingByName.GetValueOrDefault(name2);
+				var remaining = remainingByName.GetValueOrDefault(name2);
 				if (remaining > 0)
 				{
 					remainingByName[name2] = remaining - 1;
@@ -3987,29 +3992,28 @@ public class PatchService
 				}
 			}
 		}
-		int removedScripts = 0;
+		var removedScripts = 0;
 		if (removeCodes.Count <= 0)
 		{
 			return;
 		}
-		for (int i2 = data.Scripts.Count - 1; i2 >= 0; i2--)
+		for (var i2 = data.Scripts.Count - 1; i2 >= 0; i2--)
 		{
-			GameMakerScript script = data.Scripts[i2];
-			GameMakerCode code2 = script?.Code;
-			string scriptName = script?.Name?.Content;
-			if ((code2 != null && removeCodes.Contains(code2)) || (!string.IsNullOrEmpty(scriptName) && removeCodes.Any((GameMakerCode c) => string.Equals(c.Name?.Content, scriptName, StringComparison.Ordinal))))
+			var script = data.Scripts[i2];
+			var code2 = script?.Code;
+			var scriptName = script?.Name?.Content;
+			if (code2 != null && removeCodes.Contains(code2) || !string.IsNullOrEmpty(scriptName) && removeCodes.Any(c => string.Equals(c.Name?.Content, scriptName, StringComparison.Ordinal)))
 			{
 				data.Scripts.RemoveAt(i2);
 				removedScripts++;
 			}
 		}
-		foreach (GameMakerCode code3 in removeCodes)
+		foreach (var code3 in removeCodes)
 		{
 			code3.ParentEntry?.ChildEntries.Remove(code3);
 			code3.ParentEntry = null;
 		}
-		bool shouldAppend;
-		LogInterpolatedStringHandler handler = new LogInterpolatedStringHandler(65, 2, out shouldAppend);
+		var handler = new LogInterpolatedStringHandler(65, 2, out var shouldAppend);
 		if (shouldAppend)
 		{
 			handler.AppendLiteral("[PatchService] Pruned excess code/script entries: code=");
@@ -4022,12 +4026,12 @@ public class PatchService
 
 	private static string? ReadCodeMetadataContent(PatchFileSystem pfs, string helpersDir)
 	{
-		string compactPath = Path.Combine(helpersDir, "code_patch_metadata.json");
+		var compactPath = Path.Combine(helpersDir, "code_patch_metadata.json");
 		if (pfs.FileExists(compactPath))
 		{
 			return pfs.ReadAllText(compactPath);
 		}
-		string legacyPath = Path.Combine(helpersDir, "variables_functions.json");
+		var legacyPath = Path.Combine(helpersDir, "variables_functions.json");
 		if (!pfs.FileExists(legacyPath))
 		{
 			return null;
@@ -4039,32 +4043,32 @@ public class PatchService
 	{
 		return new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase)
 		{
-			["sprites"] = data.Sprites.Select((GameMakerSprite s) => s?.Name?.Content ?? "").ToList(),
-			["objects"] = data.GameObjects.Select((GameMakerGameObject o) => o?.Name?.Content ?? "").ToList(),
-			["sounds"] = data.Sounds.Select((GameMakerSound s) => s?.Name?.Content ?? "").ToList(),
-			["backgrounds"] = data.Backgrounds.Select((GameMakerBackground b) => b?.Name?.Content ?? "").ToList(),
-			["paths"] = data.Paths.Select((GameMakerPath p) => p?.Name?.Content ?? "").ToList(),
-			["scripts"] = data.Scripts.Select((GameMakerScript s) => s?.Name?.Content ?? "").ToList(),
-			["fonts"] = data.Fonts.Select((GameMakerFont f) => f?.Name?.Content ?? "").ToList(),
-			["rooms"] = data.Rooms.Select((GameMakerRoom r) => r?.Name?.Content ?? "").ToList(),
-			["timelines"] = data.Timelines.Select((GameMakerTimeline t) => t?.Name?.Content ?? "").ToList(),
-			["shaders"] = data.Shaders.Select((GameMakerShader s) => s?.Name?.Content ?? "").ToList(),
-			["audiogroups"] = data.AudioGroups.Select((GameMakerAudioGroup a) => a?.Name?.Content ?? "").ToList()
+			["sprites"] = [.. data.Sprites.Select(s => s?.Name?.Content ?? "")],
+			["objects"] = [.. data.GameObjects.Select(o => o?.Name?.Content ?? "")],
+			["sounds"] = [.. data.Sounds.Select(s => s?.Name?.Content ?? "")],
+			["backgrounds"] = [.. data.Backgrounds.Select(b => b?.Name?.Content ?? "")],
+			["paths"] = [.. data.Paths.Select(p => p?.Name?.Content ?? "")],
+			["scripts"] = [.. data.Scripts.Select(s => s?.Name?.Content ?? "")],
+			["fonts"] = [.. data.Fonts.Select(f => f?.Name?.Content ?? "")],
+			["rooms"] = [.. data.Rooms.Select(r => r?.Name?.Content ?? "")],
+			["timelines"] = [.. data.Timelines.Select(t => t?.Name?.Content ?? "")],
+			["shaders"] = [.. data.Shaders.Select(s => s?.Name?.Content ?? "")],
+			["audiogroups"] = [.. data.AudioGroups.Select(a => a?.Name?.Content ?? "")]
 		};
 	}
 
 	private static Dictionary<int, byte[]> CaptureUntouchedEmbeddedTextures(GameMakerData data, PatchFileSystem pfs)
 	{
-		HashSet<int> touched = GetTouchedEmbeddedTextureIndices(pfs);
-		Dictionary<int, byte[]> result = new Dictionary<int, byte[]>();
-		bool gm2022_5 = data.IsVersionAtLeast(2022u, 5u);
-		for (int i = 0; i < data.EmbeddedTextures.Count; i++)
+		var touched = GetTouchedEmbeddedTextureIndices(pfs);
+		Dictionary<int, byte[]> result = [];
+		var gm2022_5 = data.IsVersionAtLeast(2022u, 5u);
+		for (var i = 0; i < data.EmbeddedTextures.Count; i++)
 		{
 			if (touched.Contains(i))
 			{
 				continue;
 			}
-			GMImage image = data.EmbeddedTextures[i]?.TextureData?.Image;
+			var image = data.EmbeddedTextures[i]?.TextureData?.Image;
 			if (image != null)
 			{
 				try
@@ -4081,17 +4085,17 @@ public class PatchService
 
 	private static HashSet<int> GetTouchedEmbeddedTextureIndices(PatchFileSystem pfs)
 	{
-		HashSet<int> result = new HashSet<int>();
-		foreach (string path in pfs.GetAllFilePaths())
+		HashSet<int> result = [];
+		foreach (var path in pfs.GetAllFilePaths())
 		{
 			if (!path.StartsWith("EmbeddedTextures/", StringComparison.OrdinalIgnoreCase) && !path.StartsWith(pfs.HelpersPrefix + "/EmbeddedTextures/", StringComparison.OrdinalIgnoreCase))
 			{
 				continue;
 			}
-			string[] parts = path.Split(new char[2] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries);
-			for (int i = 0; i < parts.Length; i++)
+			var parts = path.Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries);
+			for (var i = 0; i < parts.Length; i++)
 			{
-				if (parts[i].StartsWith("texture_", StringComparison.OrdinalIgnoreCase) && int.TryParse(parts[i].Substring("texture_".Length), out var index))
+				if (parts[i].StartsWith("texture_", StringComparison.OrdinalIgnoreCase) && int.TryParse(parts[i]["texture_".Length..], out var index))
 				{
 					result.Add(index);
 					break;
@@ -4103,8 +4107,8 @@ public class PatchService
 
 	private static void RestoreUntouchedEmbeddedTextures(GameMakerData data, Dictionary<int, byte[]> snapshot)
 	{
-		int restored = 0;
-		bool gm2022_5 = data.IsVersionAtLeast(2022u, 5u);
+		var restored = 0;
+		var gm2022_5 = data.IsVersionAtLeast(2022u, 5u);
 		foreach (var (index, imageBytes) in snapshot)
 		{
 			if (index < 0 || index >= data.EmbeddedTextures.Count || data.EmbeddedTextures[index]?.TextureData == null)
@@ -4113,8 +4117,8 @@ public class PatchService
 			}
 			try
 			{
-				using MemoryStream stream = new MemoryStream(imageBytes, writable: false);
-				using FileBinaryReader reader = new FileBinaryReader(stream);
+				using var stream = new MemoryStream(imageBytes, writable: false);
+				using var reader = new FileBinaryReader(stream);
 				data.EmbeddedTextures[index].TextureData.Image = GMImage.FromBinaryReader(reader, stream.Length, gm2022_5);
 				restored++;
 			}
@@ -4124,8 +4128,7 @@ public class PatchService
 		}
 		if (restored > 0)
 		{
-			bool shouldAppend;
-			LogInterpolatedStringHandler handler = new LogInterpolatedStringHandler(51, 1, out shouldAppend);
+			var handler = new LogInterpolatedStringHandler(51, 1, out var shouldAppend);
 			if (shouldAppend)
 			{
 				handler.AppendLiteral("[PatchService] Restored ");
@@ -4138,19 +4141,19 @@ public class PatchService
 
 	private static void TrimUnreferencedTrailingEmbeddedTextures(GameMakerData data)
 	{
-		HashSet<GameMakerEmbeddedTexture> referenced = new HashSet<GameMakerEmbeddedTexture>(ReferenceEqualityComparer.Instance);
-		foreach (GameMakerTexturePageItem tpi in data.TexturePageItems)
+		var referenced = new HashSet<GameMakerEmbeddedTexture>(ReferenceEqualityComparer.Instance);
+		foreach (var tpi in data.TexturePageItems)
 		{
 			if (tpi?.TexturePage != null)
 			{
 				referenced.Add(tpi.TexturePage);
 			}
 		}
-		int oldCount = data.EmbeddedTextures.Count;
+		var oldCount = data.EmbeddedTextures.Count;
 		while (data.EmbeddedTextures.Count > 0)
 		{
-			IList<GameMakerEmbeddedTexture> embeddedTextures = data.EmbeddedTextures;
-			GameMakerEmbeddedTexture texture = embeddedTextures[embeddedTextures.Count - 1];
+			var embeddedTextures = data.EmbeddedTextures;
+			var texture = embeddedTextures[embeddedTextures.Count - 1];
 			if (texture != null && referenced.Contains(texture))
 			{
 				break;
@@ -4159,8 +4162,7 @@ public class PatchService
 		}
 		if (data.EmbeddedTextures.Count != oldCount)
 		{
-			bool shouldAppend;
-			LogInterpolatedStringHandler handler = new LogInterpolatedStringHandler(67, 2, out shouldAppend);
+			var handler = new LogInterpolatedStringHandler(67, 2, out var shouldAppend);
 			if (shouldAppend)
 			{
 				handler.AppendLiteral("[PatchService] Trimmed unreferenced trailing EmbeddedTextures: ");
@@ -4176,15 +4178,15 @@ public class PatchService
 	{
 		try
 		{
-			using JsonDocument doc = JsonDocument.Parse(spriteFrameMapBytes);
-			using MemoryStream stream = new MemoryStream();
-			using (Utf8JsonWriter writer = new Utf8JsonWriter(stream, new JsonWriterOptions
+			using var doc = JsonDocument.Parse(spriteFrameMapBytes);
+			using var stream = new MemoryStream();
+			using (var writer = new Utf8JsonWriter(stream, new JsonWriterOptions
 			{
 				Indented = true
 			}))
 			{
 				writer.WriteStartObject();
-				foreach (JsonProperty prop in doc.RootElement.EnumerateObject())
+				foreach (var prop in doc.RootElement.EnumerateObject())
 				{
 					if (removeFontRelinks && prop.NameEquals("fonts"))
 					{
@@ -4194,7 +4196,7 @@ public class PatchService
 					{
 						writer.WritePropertyName(prop.Name);
 						writer.WriteStartObject();
-						foreach (JsonProperty item in prop.Value.EnumerateObject())
+						foreach (var item in prop.Value.EnumerateObject())
 						{
 							item.WriteTo(writer);
 						}
@@ -4217,13 +4219,13 @@ public class PatchService
 
 	private static void RepairDetachedFontTexturePageItems(GameMakerData data)
 	{
-		int repairedTpi = 0;
-		int repairedTextures = 0;
-		HashSet<GameMakerTexturePageItem> tpiSet = new HashSet<GameMakerTexturePageItem>(data.TexturePageItems);
-		HashSet<GameMakerEmbeddedTexture> textureSet = new HashSet<GameMakerEmbeddedTexture>(data.EmbeddedTextures);
-		foreach (GameMakerFont font in data.Fonts)
+		var repairedTpi = 0;
+		var repairedTextures = 0;
+		HashSet<GameMakerTexturePageItem> tpiSet = [.. data.TexturePageItems];
+		HashSet<GameMakerEmbeddedTexture> textureSet = [.. data.EmbeddedTextures];
+		foreach (var font in data.Fonts)
 		{
-			GameMakerTexturePageItem tpi = font?.Texture;
+			var tpi = font?.Texture;
 			if (tpi != null)
 			{
 				if (!tpiSet.Contains(tpi))
@@ -4242,8 +4244,7 @@ public class PatchService
 		}
 		if (repairedTpi > 0 || repairedTextures > 0)
 		{
-			bool shouldAppend;
-			LogInterpolatedStringHandler handler = new LogInterpolatedStringHandler(76, 2, out shouldAppend);
+			var handler = new LogInterpolatedStringHandler(76, 2, out var shouldAppend);
 			if (shouldAppend)
 			{
 				handler.AppendLiteral("[PatchService] Re-attached ");
@@ -4262,11 +4263,11 @@ public class PatchService
 		{
 			return;
 		}
-		int reordered = ReorderLocalChildFunctions(data);
+		var reordered = ReorderLocalChildFunctions(data);
 		bool shouldAppend;
 		if (reordered > 0)
 		{
-			LogInterpolatedStringHandler handler = new LogInterpolatedStringHandler(69, 1, out shouldAppend);
+			var handler = new LogInterpolatedStringHandler(69, 1, out shouldAppend);
 			if (shouldAppend)
 			{
 				handler.AppendLiteral("[PatchService] Restored local child Function order for ");
@@ -4275,50 +4276,50 @@ public class PatchService
 			}
 			LogService.Log(ref handler);
 		}
-		Dictionary<string, GameMakerCode> codeByName = new Dictionary<string, GameMakerCode>(StringComparer.Ordinal);
-		foreach (GameMakerCode code in data.Code)
+		var codeByName = new Dictionary<string, GameMakerCode>(StringComparer.Ordinal);
+		foreach (var code in data.Code)
 		{
-			string name = code?.Name?.Content;
+			var name = code?.Name?.Content;
 			if (!string.IsNullOrEmpty(name) && code != null)
 			{
 				codeByName[name] = code;
 			}
 		}
-		Dictionary<string, GameMakerFunction> functionByName = new Dictionary<string, GameMakerFunction>(StringComparer.Ordinal);
-		foreach (GameMakerFunction function in data.Functions)
+		var functionByName = new Dictionary<string, GameMakerFunction>(StringComparer.Ordinal);
+		foreach (var function in data.Functions)
 		{
-			string name2 = function?.Name?.Content;
+			var name2 = function?.Name?.Content;
 			if (!string.IsNullOrEmpty(name2) && function != null && !functionByName.ContainsKey(name2))
 			{
 				functionByName[name2] = function;
 			}
 		}
-		Dictionary<GameMakerCode, Dictionary<string, GameMakerFunction?>> localMaps = new Dictionary<GameMakerCode, Dictionary<string, GameMakerFunction>>();
-		Dictionary<GameMakerCode, Dictionary<string, GameMakerFunction>> localOrdinalMaps = new Dictionary<GameMakerCode, Dictionary<string, GameMakerFunction>>();
-		int repaired = 0;
-		foreach (GameMakerCode code2 in data.Code)
+		Dictionary<GameMakerCode, Dictionary<string, GameMakerFunction?>> localMaps = [];
+		Dictionary<GameMakerCode, Dictionary<string, GameMakerFunction>> localOrdinalMaps = [];
+		var repaired = 0;
+		foreach (var code2 in data.Code)
 		{
 			if (code2 == null)
 			{
 				continue;
 			}
-			GameMakerCode owner = code2.ParentEntry ?? code2;
+			var owner = code2.ParentEntry ?? code2;
 			if (owner.ChildEntries == null || owner.ChildEntries.Count == 0)
 			{
 				continue;
 			}
-			Dictionary<string, GameMakerFunction> localMap = GetLocalMap(owner);
+			var localMap = GetLocalMap(owner);
 			if (localMap.Count == 0)
 			{
 				continue;
 			}
-			foreach (GameMakerInstruction instruction in code2.Instructions ?? new List<GameMakerInstruction>())
+			foreach (var instruction in code2.Instructions ?? [])
 			{
-				GameMakerFunction currentFunction = instruction.ValueFunction;
-				string currentName = currentFunction?.Name?.Content;
+				var currentFunction = instruction.ValueFunction;
+				var currentName = currentFunction?.Name?.Content;
 				if (!string.IsNullOrEmpty(currentName) && FunctionNameUtil.IsLocalChildFunctionName(currentName) && (!codeByName.TryGetValue(currentName, out var referencedCode) || referencedCode.ParentEntry != owner))
 				{
-					if ((!localMap.TryGetValue(FunctionNameUtil.NormalizeLocalChildFunctionName(currentName), out var replacement) || replacement == null) && FunctionNameUtil.TryGetLocalChildOrdinalFamily(currentName, out string family, out int ordinal))
+					if ((!localMap.TryGetValue(FunctionNameUtil.NormalizeLocalChildFunctionName(currentName), out var replacement) || replacement == null) && FunctionNameUtil.TryGetLocalChildOrdinalFamily(currentName, out var family, out var ordinal))
 					{
 						GetLocalOrdinalMap(owner).TryGetValue(family + "|" + ordinal, out replacement);
 					}
@@ -4332,7 +4333,7 @@ public class PatchService
 		}
 		if (repaired > 0)
 		{
-			LogInterpolatedStringHandler handler2 = new LogInterpolatedStringHandler(83, 1, out shouldAppend);
+			var handler2 = new LogInterpolatedStringHandler(83, 1, out shouldAppend);
 			if (shouldAppend)
 			{
 				handler2.AppendLiteral("[PatchService] Re-linked ");
@@ -4341,10 +4342,10 @@ public class PatchService
 			}
 			LogService.Log(ref handler2);
 		}
-		int pruned = PruneDetachedLocalStructFunctions(data, codeByName);
+		var pruned = PruneDetachedLocalStructFunctions(data, codeByName);
 		if (pruned > 0)
 		{
-			LogInterpolatedStringHandler handler3 = new LogInterpolatedStringHandler(61, 1, out shouldAppend);
+			var handler3 = new LogInterpolatedStringHandler(61, 1, out shouldAppend);
 			if (shouldAppend)
 			{
 				handler3.AppendLiteral("[PatchService] Removed ");
@@ -4355,7 +4356,7 @@ public class PatchService
 		}
 		Dictionary<string, GameMakerFunction?> GetLocalMap(GameMakerCode gameMakerCode)
 		{
-			if (localMaps.TryGetValue(gameMakerCode, out Dictionary<string, GameMakerFunction> cached))
+			if (localMaps.TryGetValue(gameMakerCode, out var cached))
 			{
 				return cached;
 			}
@@ -4363,7 +4364,7 @@ public class PatchService
 		}
 		Dictionary<string, GameMakerFunction> GetLocalOrdinalMap(GameMakerCode gameMakerCode)
 		{
-			if (localOrdinalMaps.TryGetValue(gameMakerCode, out Dictionary<string, GameMakerFunction> cached))
+			if (localOrdinalMaps.TryGetValue(gameMakerCode, out var cached))
 			{
 				return cached;
 			}
@@ -4373,26 +4374,26 @@ public class PatchService
 
 	private static int ReorderLocalChildFunctions(GameMakerData data)
 	{
-		Dictionary<string, GameMakerFunction> functionByName = new Dictionary<string, GameMakerFunction>(StringComparer.Ordinal);
-		foreach (GameMakerFunction function in data.Functions)
+		var functionByName = new Dictionary<string, GameMakerFunction>(StringComparer.Ordinal);
+		foreach (var function in data.Functions)
 		{
-			string name = function?.Name?.Content;
+			var name = function?.Name?.Content;
 			if (!string.IsNullOrEmpty(name) && function != null)
 			{
 				functionByName.TryAdd(name, function);
 			}
 		}
-		int reordered = 0;
-		foreach (GameMakerCode parent in data.Code)
+		var reordered = 0;
+		foreach (var parent in data.Code)
 		{
 			if (parent?.ParentEntry != null || parent?.ChildEntries == null)
 			{
 				continue;
 			}
-			List<GameMakerFunction> expected = new List<GameMakerFunction>();
-			foreach (GameMakerCode childEntry in parent.ChildEntries)
+			List<GameMakerFunction> expected = [];
+			foreach (var childEntry in parent.ChildEntries)
 			{
-				string name2 = childEntry?.Name?.Content;
+				var name2 = childEntry?.Name?.Content;
 				if (!string.IsNullOrEmpty(name2) && FunctionNameUtil.IsLocalChildFunctionName(name2) && functionByName.TryGetValue(name2, out var function2))
 				{
 					expected.Add(function2);
@@ -4402,15 +4403,15 @@ public class PatchService
 			{
 				continue;
 			}
-			HashSet<GameMakerFunction> expectedSet = new HashSet<GameMakerFunction>(expected);
-			List<int> slots = (from index2 in Enumerable.Range(0, data.Functions.Count)
-				where expectedSet.Contains(data.Functions[index2])
-				select index2).ToList();
+			HashSet<GameMakerFunction> expectedSet = [.. expected];
+			List<int> slots = [.. from index2 in Enumerable.Range(0, data.Functions.Count)
+							   where expectedSet.Contains(data.Functions[index2])
+							   select index2];
 			if (slots.Count != expected.Count)
 			{
 				continue;
 			}
-			for (int index = 0; index < slots.Count; index++)
+			for (var index = 0; index < slots.Count; index++)
 			{
 				if (data.Functions[slots[index]] != expected[index])
 				{
@@ -4422,26 +4423,26 @@ public class PatchService
 		return reordered;
 	}
 
-	private static int PruneDetachedLocalStructFunctions(GameMakerData data, IReadOnlyDictionary<string, GameMakerCode> codeByName)
+	private static int PruneDetachedLocalStructFunctions(GameMakerData data, Dictionary<string, GameMakerCode> codeByName)
 	{
 		if (data.Functions == null)
 		{
 			return 0;
 		}
-		HashSet<GameMakerFunction> referenced = new HashSet<GameMakerFunction>();
-		foreach (GameMakerCode code in data.Code ?? new List<GameMakerCode>())
+		HashSet<GameMakerFunction> referenced = [];
+		foreach (var code in data.Code ?? [])
 		{
 			if (code == null)
 			{
 				continue;
 			}
-			foreach (GameMakerCode entry in new GameMakerCode[1] { code }.Concat(code.ChildEntries ?? new List<GameMakerCode>()))
+			foreach (var entry in new GameMakerCode[1] { code }.Concat(code.ChildEntries ?? []))
 			{
 				if (entry?.Instructions == null)
 				{
 					continue;
 				}
-				foreach (GameMakerInstruction instruction in entry.Instructions)
+				foreach (var instruction in entry.Instructions)
 				{
 					if (instruction.ValueFunction != null)
 					{
@@ -4450,19 +4451,19 @@ public class PatchService
 				}
 			}
 		}
-		HashSet<string> liveLocalSignatures = new HashSet<string>(StringComparer.Ordinal);
-		foreach (GameMakerCode code2 in data.Code ?? new List<GameMakerCode>())
+		var liveLocalSignatures = new HashSet<string>(StringComparer.Ordinal);
+		foreach (var code2 in data.Code ?? [])
 		{
 			if (code2?.ParentEntry != null && !string.IsNullOrEmpty(code2.Name?.Content) && FunctionNameUtil.IsLocalChildFunctionName(code2.Name.Content))
 			{
 				liveLocalSignatures.Add(FunctionNameUtil.NormalizeLocalChildFunctionName(code2.Name.Content));
 			}
 		}
-		int removed = 0;
-		for (int i = data.Functions.Count - 1; i >= 0; i--)
+		var removed = 0;
+		for (var i = data.Functions.Count - 1; i >= 0; i--)
 		{
-			GameMakerFunction function = data.Functions[i];
-			string name = function?.Name?.Content;
+			var function = data.Functions[i];
+			var name = function?.Name?.Content;
 			if (function != null && !string.IsNullOrEmpty(name) && FunctionNameUtil.IsLocalChildFunctionName(name) && !codeByName.ContainsKey(name) && !referenced.Contains(function) && liveLocalSignatures.Contains(FunctionNameUtil.NormalizeLocalChildFunctionName(name)))
 			{
 				data.Functions.RemoveAt(i);
@@ -4476,13 +4477,13 @@ public class PatchService
 	{
 		if (!RequiresCodeRemapPreparation(resourceTypesToProcess))
 		{
-			return new Dictionary<string, string>();
+			return [];
 		}
-		Dictionary<string, string> result = new Dictionary<string, string>(StringComparer.Ordinal);
-		GlobalDecompileContext ctx = new GlobalDecompileContext(data);
-		foreach (GameMakerCode code in data.Code)
+		var result = new Dictionary<string, string>(StringComparer.Ordinal);
+		var ctx = new GlobalDecompileContext(data);
+		foreach (var code in data.Code)
 		{
-			string codeName = code?.Name?.Content;
+			var codeName = code?.Name?.Content;
 			if (code != null && !string.IsNullOrWhiteSpace(codeName))
 			{
 				try
@@ -4499,11 +4500,11 @@ public class PatchService
 
 	private static HashSet<string> CapturePatchCodeEntryNames(PatchFileSystem pfs)
 	{
-		HashSet<string> names = new HashSet<string>(StringComparer.Ordinal);
-		foreach (string key in pfs.GmlEntries.Keys.Concat(pfs.AsmEntries.Keys))
+		var names = new HashSet<string>(StringComparer.Ordinal);
+		foreach (var key in pfs.GmlEntries.Keys.Concat(pfs.AsmEntries.Keys))
 		{
 			names.Add(key);
-			if (pfs.CodeEntryLogicalNames.TryGetValue(key, out string logicalName))
+			if (pfs.CodeEntryLogicalNames.TryGetValue(key, out var logicalName))
 			{
 				names.Add(logicalName);
 			}
@@ -4513,12 +4514,12 @@ public class PatchService
 
 	private static bool RecompileUntouchedCodeForAssetOrderShifts(GameMakerData data, Dictionary<string, List<string>> originalAssetNames, Dictionary<string, string> originalGmlByCodeName, HashSet<string> patchCodeEntryNames, string helpersDir, string variablesFunctionsContent)
 	{
-		HashSet<string> shiftedNames = GetShiftedAssetNames(originalAssetNames, CaptureAssetNamesForCodeRemap(data));
+		var shiftedNames = GetShiftedAssetNames(originalAssetNames, CaptureAssetNamesForCodeRemap(data));
 		if (shiftedNames.Count == 0)
 		{
 			return false;
 		}
-		Dictionary<string, string> gmlToRecompile = new Dictionary<string, string>(StringComparer.Ordinal);
+		var gmlToRecompile = new Dictionary<string, string>(StringComparer.Ordinal);
 		foreach (var (codeName, gml) in originalGmlByCodeName)
 		{
 			if (!patchCodeEntryNames.Contains(codeName) && ContainsAnyShiftedAssetName(gml, shiftedNames))
@@ -4530,8 +4531,7 @@ public class PatchService
 		{
 			return false;
 		}
-		bool shouldAppend;
-		LogInterpolatedStringHandler handler = new LogInterpolatedStringHandler(101, 2, out shouldAppend);
+		var handler = new LogInterpolatedStringHandler(101, 2, out var shouldAppend);
 		if (shouldAppend)
 		{
 			handler.AppendLiteral("[PatchService] Recompiling ");
@@ -4541,35 +4541,35 @@ public class PatchService
 			handler.AppendLiteral(" shifted asset name(s))");
 		}
 		LogService.Log(ref handler);
-		ImportCodeEntriesDirect(data, gmlToRecompile, new Dictionary<string, string>(), null, null, helpersDir, out var gmlCompilationRan, variablesFunctionsContent);
+		ImportCodeEntriesDirect(data, gmlToRecompile, [], null, null, helpersDir, out var gmlCompilationRan, variablesFunctionsContent);
 		return gmlCompilationRan;
 	}
 
 	private static HashSet<string> GetShiftedAssetNames(Dictionary<string, List<string>> before, Dictionary<string, List<string>> after)
 	{
-		HashSet<string> shifted = new HashSet<string>(StringComparer.Ordinal);
+		var shifted = new HashSet<string>(StringComparer.Ordinal);
 		foreach (var (section, beforeNames) in before)
 		{
-			if (!after.TryGetValue(section, out List<string> afterNames))
+			if (!after.TryGetValue(section, out var afterNames))
 			{
 				continue;
 			}
-			Dictionary<string, Queue<int>> afterIndexByName = new Dictionary<string, Queue<int>>(StringComparer.Ordinal);
-			for (int i = 0; i < afterNames.Count; i++)
+			var afterIndexByName = new Dictionary<string, Queue<int>>(StringComparer.Ordinal);
+			for (var i = 0; i < afterNames.Count; i++)
 			{
-				string name = afterNames[i];
+				var name = afterNames[i];
 				if (IsSafeAssetNameForCodeRemap(name))
 				{
 					if (!afterIndexByName.TryGetValue(name, out var queue))
 					{
-						queue = (afterIndexByName[name] = new Queue<int>());
+						queue = afterIndexByName[name] = new Queue<int>();
 					}
 					queue.Enqueue(i);
 				}
 			}
-			for (int j = 0; j < beforeNames.Count; j++)
+			for (var j = 0; j < beforeNames.Count; j++)
 			{
-				string name2 = beforeNames[j];
+				var name2 = beforeNames[j];
 				if (IsSafeAssetNameForCodeRemap(name2) && afterIndexByName.TryGetValue(name2, out var queue3) && queue3.Count != 0 && queue3.Dequeue() != j)
 				{
 					shifted.Add(name2);
@@ -4581,7 +4581,7 @@ public class PatchService
 
 	private static bool ContainsAnyShiftedAssetName(string gml, HashSet<string> shiftedNames)
 	{
-		foreach (string name in shiftedNames)
+		foreach (var name in shiftedNames)
 		{
 			if (ContainsIdentifierReference(gml, name))
 			{
@@ -4593,18 +4593,18 @@ public class PatchService
 
 	private static bool ContainsIdentifierReference(string text, string identifier)
 	{
-		int searchIndex = 0;
+		var searchIndex = 0;
 		while (searchIndex < text.Length)
 		{
-			int matchIndex = text.IndexOf(identifier, searchIndex, StringComparison.Ordinal);
+			var matchIndex = text.IndexOf(identifier, searchIndex, StringComparison.Ordinal);
 			if (matchIndex < 0)
 			{
 				return false;
 			}
-			int beforeIndex = matchIndex - 1;
-			int afterIndex = matchIndex + identifier.Length;
-			bool num = beforeIndex < 0 || !IsIdentifierChar(text[beforeIndex]);
-			bool hasIdentifierBoundaryAfter = afterIndex >= text.Length || !IsIdentifierChar(text[afterIndex]);
+			var beforeIndex = matchIndex - 1;
+			var afterIndex = matchIndex + identifier.Length;
+			var num = beforeIndex < 0 || !IsIdentifierChar(text[beforeIndex]);
+			var hasIdentifierBoundaryAfter = afterIndex >= text.Length || !IsIdentifierChar(text[afterIndex]);
 			if (num && hasIdentifierBoundaryAfter)
 			{
 				return true;
@@ -4647,10 +4647,9 @@ public class PatchService
 	private static void ImportCodeEntriesDirectCore(GameMakerData data, Dictionary<string, string> gmlEntries, Dictionary<string, string> asmEntries, Dictionary<string, string>? asmEntryPaths, Dictionary<string, string>? codeEntryLogicalNames, string helpersDir, out bool gmlCompilationRan, string? vfContentOverride = null, string? objectEventsContentOverride = null)
 	{
 		gmlCompilationRan = false;
-		Stopwatch sw = Stopwatch.StartNew();
-		Stopwatch phaseSw = new Stopwatch();
-		bool shouldAppend;
-		LogInterpolatedStringHandler handler = new LogInterpolatedStringHandler(66, 2, out shouldAppend);
+		var sw = Stopwatch.StartNew();
+		var phaseSw = new Stopwatch();
+		var handler = new LogInterpolatedStringHandler(66, 2, out var shouldAppend);
 		if (shouldAppend)
 		{
 			handler.AppendLiteral("[ImportCodeEntries] Starting hybrid import: ");
@@ -4660,7 +4659,7 @@ public class PatchService
 			handler.AppendLiteral(" ASM entries...");
 		}
 		LogService.Log(ref handler);
-		LogInterpolatedStringHandler handler2 = new LogInterpolatedStringHandler(55, 3, out shouldAppend);
+		var handler2 = new LogInterpolatedStringHandler(55, 3, out shouldAppend);
 		if (shouldAppend)
 		{
 			handler2.AppendLiteral("[ImportCodeEntries] Current state: ");
@@ -4679,37 +4678,35 @@ public class PatchService
 		}
 		else
 		{
-			string varFuncPath = Path.Combine(helpersDir, "variables_functions.json");
+			var varFuncPath = Path.Combine(helpersDir, "variables_functions.json");
 			if (!File.Exists(varFuncPath))
 			{
 				throw new FileNotFoundException("variables_functions.json was not found", varFuncPath);
 			}
 			vfContent = File.ReadAllText(varFuncPath, Encoding.UTF8);
 		}
-		using JsonDocument vfDoc = JsonDocument.Parse(vfContent);
-		JsonElement root = vfDoc.RootElement;
+		using var vfDoc = JsonDocument.Parse(vfContent);
+		var root = vfDoc.RootElement;
 		Dictionary<string, (string, int, string)> targetCodeEntriesByKey = ParseTargetCodeEntryMetadata(root, codeEntryLogicalNames);
-		bool hasCompleteCodeEntryMetadata = HasCompleteCodeEntryMetadata(root);
-		JsonElement functionsElement;
-		JsonElement variablesElement;
-		bool hasFunctionVariableTables = root.TryGetProperty("functions", out functionsElement) && functionsElement.ValueKind == JsonValueKind.Array && root.TryGetProperty("variables", out variablesElement) && variablesElement.ValueKind == JsonValueKind.Array;
-		Dictionary<string, string> targetTopLevelNamesByKey = new Dictionary<string, string>(StringComparer.Ordinal);
-		HashSet<string> targetEntryNames = new HashSet<string>(StringComparer.Ordinal);
-		Dictionary<string, int> targetEntryCounts = new Dictionary<string, int>(StringComparer.Ordinal);
-		Dictionary<string, List<(string, string)>> targetChildEntriesByParent = new Dictionary<string, List<(string, string)>>(StringComparer.Ordinal);
-		bool isAssetShiftRecompileOnly = asmEntries.Count == 0 && asmEntryPaths == null && codeEntryLogicalNames == null && objectEventsContentOverride == null;
+		var hasCompleteCodeEntryMetadata = HasCompleteCodeEntryMetadata(root);
+		var hasFunctionVariableTables = root.TryGetProperty("functions", out var functionsElement) && functionsElement.ValueKind == JsonValueKind.Array && root.TryGetProperty("variables", out var variablesElement) && variablesElement.ValueKind == JsonValueKind.Array;
+		var targetTopLevelNamesByKey = new Dictionary<string, string>(StringComparer.Ordinal);
+		var targetEntryNames = new HashSet<string>(StringComparer.Ordinal);
+		var targetEntryCounts = new Dictionary<string, int>(StringComparer.Ordinal);
+		var targetChildEntriesByParent = new Dictionary<string, List<(string, string)>>(StringComparer.Ordinal);
+		var isAssetShiftRecompileOnly = asmEntries.Count == 0 && asmEntryPaths == null && codeEntryLogicalNames == null && objectEventsContentOverride == null;
 		string key;
 		(string, int, string) value;
-		foreach (KeyValuePair<string, (string, int, string)> item in targetCodeEntriesByKey)
+		foreach (var item in targetCodeEntriesByKey)
 		{
 			item.Deconstruct(out key, out value);
-			string entryKey = key;
-			(string, int, string) meta = value;
+			var entryKey = key;
+			var meta = value;
 			if (meta.Item3 != null)
 			{
 				if (!targetChildEntriesByParent.TryGetValue(meta.Item3, out var childList))
 				{
-					childList = new List<(string, string)>();
+					childList = [];
 					targetChildEntriesByParent[meta.Item3] = childList;
 				}
 				childList.Add((entryKey, meta.Item1));
@@ -4722,11 +4719,11 @@ public class PatchService
 			}
 		}
 		phaseSw.Restart();
-		bool allGmlCoveredByAsm = !isAssetShiftRecompileOnly && asmEntries.Count > 0 && gmlEntries.Keys.All(asmEntries.ContainsKey);
-		HashSet<string> preCompileEntries = new HashSet<string>(data.Code.Count);
+		var allGmlCoveredByAsm = !isAssetShiftRecompileOnly && asmEntries.Count > 0 && gmlEntries.Keys.All(asmEntries.ContainsKey);
+		var preCompileEntries = new HashSet<string>(data.Code.Count);
 		if (!allGmlCoveredByAsm)
 		{
-			foreach (GameMakerCode c in data.Code)
+			foreach (var c in data.Code)
 			{
 				if (c != null && c.Name?.Content != null)
 				{
@@ -4734,12 +4731,12 @@ public class PatchService
 				}
 			}
 		}
-		GlobalDecompileContext ctx = null;
-		CodeImportGroup importGroup = null;
-		Dictionary<string, GameMakerCode> codeLookup = new Dictionary<string, GameMakerCode>();
-		Dictionary<string, GameMakerCode> archiveCodeLookup = new Dictionary<string, GameMakerCode>();
-		Dictionary<string, (GameMakerGameObject, int)> goLookup = new Dictionary<string, (GameMakerGameObject, int)>();
-		Dictionary<string, string> collisionTargetsByCode = new Dictionary<string, string>();
+		GlobalDecompileContext? ctx = null;
+		CodeImportGroup? importGroup = null;
+		Dictionary<string, GameMakerCode> codeLookup = [];
+		Dictionary<string, GameMakerCode> archiveCodeLookup = [];
+		Dictionary<string, (GameMakerGameObject, int)> goLookup = [];
+		Dictionary<string, string> collisionTargetsByCode = [];
 		if (!allGmlCoveredByAsm)
 		{
 			if (hasFunctionVariableTables)
@@ -4754,9 +4751,9 @@ public class PatchService
 				AutoCreateAssets = true
 			};
 			codeLookup = new Dictionary<string, GameMakerCode>(data.Code.Count);
-			foreach (GameMakerCode item2 in data.Code)
+			foreach (var item2 in data.Code)
 			{
-				foreach (GameMakerCode nested in EnumerateCodeTreeRecursive(item2))
+				foreach (var nested in EnumerateCodeTreeRecursive(item2))
 				{
 					if (nested != null && nested.Name?.Content != null)
 					{
@@ -4766,9 +4763,9 @@ public class PatchService
 			}
 			archiveCodeLookup = BuildArchiveCodeLookup(data);
 			goLookup = new Dictionary<string, (GameMakerGameObject, int)>(data.GameObjects.Count);
-			for (int i = 0; i < data.GameObjects.Count; i++)
+			for (var i = 0; i < data.GameObjects.Count; i++)
 			{
-				GameMakerGameObject go = data.GameObjects[i];
+				var go = data.GameObjects[i];
 				if (go != null && go.Name?.Content != null)
 				{
 					goLookup.TryAdd(go.Name.Content, (go, i));
@@ -4776,25 +4773,25 @@ public class PatchService
 			}
 			collisionTargetsByCode = LoadCollisionTargetsByCode(helpersDir, objectEventsContentOverride);
 		}
-		int regularCount = 0;
-		int collisionCount = 0;
-		int asmBackedCompileSkippedCount = (allGmlCoveredByAsm ? gmlEntries.Count : 0);
-		List<(string, string, bool)> gmlOnlyEntries = new List<(string, string, bool)>();
+		var regularCount = 0;
+		var collisionCount = 0;
+		var asmBackedCompileSkippedCount = allGmlCoveredByAsm ? gmlEntries.Count : 0;
+		List<(string, string, bool)> gmlOnlyEntries = [];
 		string value2;
 		if (!allGmlCoveredByAsm)
 		{
-			foreach (KeyValuePair<string, string> gmlEntry in gmlEntries)
+			foreach (var gmlEntry in gmlEntries)
 			{
 				gmlEntry.Deconstruct(out key, out value2);
-				string entryKey2 = key;
-				string gmlCode = value2;
-				string codeName = targetTopLevelNamesByKey.GetValueOrDefault(entryKey2, codeEntryLogicalNames?.GetValueOrDefault(entryKey2) ?? entryKey2);
+				var entryKey2 = key;
+				var gmlCode = value2;
+				var codeName = targetTopLevelNamesByKey.GetValueOrDefault(entryKey2, codeEntryLogicalNames?.GetValueOrDefault(entryKey2) ?? entryKey2);
 				if (!isAssetShiftRecompileOnly && asmEntries.ContainsKey(entryKey2))
 				{
 					asmBackedCompileSkippedCount++;
 					continue;
 				}
-				if (codeName.Contains("_Collision_"))
+				if (codeName.Contains("_Collision_", StringComparison.Ordinal))
 				{
 					try
 					{
@@ -4807,7 +4804,7 @@ public class PatchService
 					}
 					catch (Exception ex)
 					{
-						LogInterpolatedStringHandler handler3 = new LogInterpolatedStringHandler(38, 2, out shouldAppend);
+						var handler3 = new LogInterpolatedStringHandler(38, 2, out shouldAppend);
 						if (shouldAppend)
 						{
 							handler3.AppendLiteral("[ImportCodeEntries] Collision error ");
@@ -4842,7 +4839,7 @@ public class PatchService
 				}
 				catch (Exception ex2)
 				{
-					LogInterpolatedStringHandler handler4 = new LogInterpolatedStringHandler(31, 2, out shouldAppend);
+					var handler4 = new LogInterpolatedStringHandler(31, 2, out shouldAppend);
 					if (shouldAppend)
 					{
 						handler4.AppendLiteral("[ImportCodeEntries] Skipping ");
@@ -4856,7 +4853,7 @@ public class PatchService
 		}
 		if (asmBackedCompileSkippedCount > 0)
 		{
-			LogInterpolatedStringHandler handler5 = new LogInterpolatedStringHandler(65, 1, out shouldAppend);
+			var handler5 = new LogInterpolatedStringHandler(65, 1, out shouldAppend);
 			if (shouldAppend)
 			{
 				handler5.AppendLiteral("[ImportCodeEntries] Skipped GML compile for ");
@@ -4865,7 +4862,7 @@ public class PatchService
 			}
 			LogService.Log(ref handler5);
 		}
-		LogInterpolatedStringHandler handler6 = new LogInterpolatedStringHandler(61, 3, out shouldAppend);
+		var handler6 = new LogInterpolatedStringHandler(61, 3, out shouldAppend);
 		if (shouldAppend)
 		{
 			handler6.AppendLiteral("[ImportCodeEntries] Queued ");
@@ -4880,9 +4877,9 @@ public class PatchService
 		phaseSw.Restart();
 		if (hasCompleteCodeEntryMetadata && targetEntryNames.Count > 0)
 		{
-			List<GameMakerCode> entriesToDelete = new List<GameMakerCode>();
-			Dictionary<string, int> seenCounts = new Dictionary<string, int>(StringComparer.Ordinal);
-			foreach (GameMakerCode c2 in data.Code)
+			List<GameMakerCode> entriesToDelete = [];
+			var seenCounts = new Dictionary<string, int>(StringComparer.Ordinal);
+			foreach (var c2 in data.Code)
 			{
 				if (c2 == null || c2.Name?.Content == null || c2.ParentEntry != null)
 				{
@@ -4893,7 +4890,7 @@ public class PatchService
 					entriesToDelete.Add(c2);
 					continue;
 				}
-				int seen = seenCounts.GetValueOrDefault(c2.Name.Content) + 1;
+				var seen = seenCounts.GetValueOrDefault(c2.Name.Content) + 1;
 				seenCounts[c2.Name.Content] = seen;
 				if (seen > targetEntryCounts.GetValueOrDefault(c2.Name.Content))
 				{
@@ -4902,7 +4899,7 @@ public class PatchService
 			}
 			if (entriesToDelete.Count > 0)
 			{
-				LogInterpolatedStringHandler handler7 = new LogInterpolatedStringHandler(51, 1, out shouldAppend);
+				var handler7 = new LogInterpolatedStringHandler(51, 1, out shouldAppend);
 				if (shouldAppend)
 				{
 					handler7.AppendLiteral("[ImportCodeEntries] Removing ");
@@ -4910,21 +4907,21 @@ public class PatchService
 					handler7.AppendLiteral(" stale code entries...");
 				}
 				LogService.Log(ref handler7);
-				int deletedEvents = 0;
-				foreach (GameMakerCode code in entriesToDelete)
+				var deletedEvents = 0;
+				foreach (var code in entriesToDelete)
 				{
-					List<GameMakerCode> children = new List<GameMakerCode>();
-					foreach (GameMakerCode c3 in data.Code)
+					List<GameMakerCode> children = [];
+					foreach (var c3 in data.Code)
 					{
 						if (c3?.ParentEntry == code)
 						{
 							children.Add(c3);
 						}
 					}
-					foreach (GameMakerCode child in children)
+					foreach (var child in children)
 					{
 						data.Code.Remove(child);
-						for (int i2 = data.CodeLocals.Count - 1; i2 >= 0; i2--)
+						for (var i2 = data.CodeLocals.Count - 1; i2 >= 0; i2--)
 						{
 							if (data.CodeLocals[i2].Name == child.Name)
 							{
@@ -4933,16 +4930,16 @@ public class PatchService
 							}
 						}
 					}
-					foreach (GameMakerGameObject obj in data.GameObjects)
+					foreach (var obj in data.GameObjects)
 					{
 						if (obj == null)
 						{
 							continue;
 						}
-						for (int evtType = 0; evtType < obj.Events.Count; evtType++)
+						for (var evtType = 0; evtType < obj.Events.Count; evtType++)
 						{
-							GameMakerPointerList<GameMakerGameObject.Event> evtList = obj.Events[evtType];
-							for (int i3 = evtList.Count - 1; i3 >= 0; i3--)
+							var evtList = obj.Events[evtType];
+							for (var i3 = evtList.Count - 1; i3 >= 0; i3--)
 							{
 								if (evtList[i3].Actions.Count > 0 && evtList[i3].Actions[0].CodeId == code)
 								{
@@ -4952,21 +4949,21 @@ public class PatchService
 							}
 						}
 					}
-					foreach (GameMakerScript script in data.Scripts)
+					foreach (var script in data.Scripts)
 					{
 						if (script?.Code == code)
 						{
 							script.Code = null;
 						}
 					}
-					for (int i4 = data.GlobalInitScripts.Count - 1; i4 >= 0; i4--)
+					for (var i4 = data.GlobalInitScripts.Count - 1; i4 >= 0; i4--)
 					{
 						if (data.GlobalInitScripts[i4].Code == code)
 						{
 							data.GlobalInitScripts.RemoveAt(i4);
 						}
 					}
-					for (int i5 = data.CodeLocals.Count - 1; i5 >= 0; i5--)
+					for (var i5 = data.CodeLocals.Count - 1; i5 >= 0; i5--)
 					{
 						if (data.CodeLocals[i5].Name == code.Name)
 						{
@@ -4976,7 +4973,7 @@ public class PatchService
 					}
 					data.Code.Remove(code);
 				}
-				LogInterpolatedStringHandler handler8 = new LogInterpolatedStringHandler(51, 3, out shouldAppend);
+				var handler8 = new LogInterpolatedStringHandler(51, 3, out shouldAppend);
 				if (shouldAppend)
 				{
 					handler8.AppendLiteral("[ImportCodeEntries] Deleted ");
@@ -4991,10 +4988,10 @@ public class PatchService
 			}
 		}
 		phaseSw.Restart();
-		bool touchesObjectEventCode = false;
-		foreach (string entryKey3 in gmlEntries.Keys)
+		var touchesObjectEventCode = false;
+		foreach (var entryKey3 in gmlEntries.Keys)
 		{
-			string codeName2 = targetTopLevelNamesByKey.GetValueOrDefault(entryKey3, codeEntryLogicalNames?.GetValueOrDefault(entryKey3) ?? entryKey3);
+			var codeName2 = targetTopLevelNamesByKey.GetValueOrDefault(entryKey3, codeEntryLogicalNames?.GetValueOrDefault(entryKey3) ?? entryKey3);
 			if (codeName2.Contains("_Collision_", StringComparison.Ordinal) || codeName2.StartsWith("gml_Object_", StringComparison.Ordinal))
 			{
 				touchesObjectEventCode = true;
@@ -5003,9 +5000,9 @@ public class PatchService
 		}
 		if (!touchesObjectEventCode)
 		{
-			foreach (string entryKey4 in asmEntries.Keys)
+			foreach (var entryKey4 in asmEntries.Keys)
 			{
-				string codeName3 = codeEntryLogicalNames?.GetValueOrDefault(entryKey4) ?? targetTopLevelNamesByKey.GetValueOrDefault(entryKey4, entryKey4);
+				var codeName3 = codeEntryLogicalNames?.GetValueOrDefault(entryKey4) ?? targetTopLevelNamesByKey.GetValueOrDefault(entryKey4, entryKey4);
 				if (codeName3.Contains("_Collision_", StringComparison.Ordinal) || codeName3.StartsWith("gml_Object_", StringComparison.Ordinal))
 				{
 					touchesObjectEventCode = true;
@@ -5013,34 +5010,34 @@ public class PatchService
 				}
 			}
 		}
-		bool hasQueuedGmlCompilation = regularCount + collisionCount > 0;
+		var hasQueuedGmlCompilation = regularCount + collisionCount > 0;
 		if (touchesObjectEventCode && hasQueuedGmlCompilation)
 		{
 			LogService.Log("[ImportCodeEntries] Taking event snapshot before compilation...");
 		}
-		Dictionary<string, (GameMakerCode, GameMakerCodeLocals, GameMakerScript)> topLevelEntrySnapshot = new Dictionary<string, (GameMakerCode, GameMakerCodeLocals, GameMakerScript)>(StringComparer.Ordinal);
-		Dictionary<string, (GameMakerCode, GameMakerCodeLocals, GameMakerScript, string)> childEntrySnapshot = new Dictionary<string, (GameMakerCode, GameMakerCodeLocals, GameMakerScript, string)>(StringComparer.Ordinal);
-		List<(GameMakerCode, string)> pendingChildReattachments = new List<(GameMakerCode, string)>();
+		var topLevelEntrySnapshot = new Dictionary<string, (GameMakerCode, GameMakerCodeLocals, GameMakerScript)>(StringComparer.Ordinal);
+		var childEntrySnapshot = new Dictionary<string, (GameMakerCode, GameMakerCodeLocals, GameMakerScript, string)>(StringComparer.Ordinal);
+		List<(GameMakerCode, string)> pendingChildReattachments = [];
 		if (hasQueuedGmlCompilation)
 		{
-			Dictionary<GameMakerCode, GameMakerScript> scriptByCode = new Dictionary<GameMakerCode, GameMakerScript>(data.Scripts.Count);
-			foreach (GameMakerScript s in data.Scripts)
+			var scriptByCode = new Dictionary<GameMakerCode, GameMakerScript>(data.Scripts.Count);
+			foreach (var s in data.Scripts)
 			{
 				if (s?.Code != null)
 				{
 					scriptByCode.TryAdd(s.Code, s);
 				}
 			}
-			Dictionary<GameMakerString, GameMakerCodeLocals> codeLocalsByName = new Dictionary<GameMakerString, GameMakerCodeLocals>(data.CodeLocals.Count);
-			foreach (GameMakerCodeLocals cl in data.CodeLocals)
+			var codeLocalsByName = new Dictionary<GameMakerString, GameMakerCodeLocals>(data.CodeLocals.Count);
+			foreach (var cl in data.CodeLocals)
 			{
 				if (cl.Name != null)
 				{
 					codeLocalsByName.TryAdd(cl.Name, cl);
 				}
 			}
-			Dictionary<string, GameMakerCode> snapshotArchiveLookup = BuildArchiveCodeLookup(data);
-			foreach (CodeArchiveEntryDescriptor descriptor in CodeEntryArchiveIdentity.DescribeEntries(data))
+			var snapshotArchiveLookup = BuildArchiveCodeLookup(data);
+			foreach (var descriptor in CodeEntryArchiveIdentity.DescribeEntries(data))
 			{
 				if (descriptor.ParentArchiveKey == null && snapshotArchiveLookup.TryGetValue(descriptor.ArchiveKey, out var top) && top != null && top.Name?.Content != null)
 				{
@@ -5049,7 +5046,7 @@ public class PatchService
 					topLevelEntrySnapshot[descriptor.ArchiveKey] = (top, locals, script2);
 				}
 			}
-			foreach (CodeArchiveEntryDescriptor descriptor2 in CodeEntryArchiveIdentity.DescribeEntries(data))
+			foreach (var descriptor2 in CodeEntryArchiveIdentity.DescribeEntries(data))
 			{
 				if (descriptor2.ParentArchiveKey != null && snapshotArchiveLookup.TryGetValue(descriptor2.ArchiveKey, out var nested2) && nested2 != null && nested2.Name?.Content != null)
 				{
@@ -5059,23 +5056,23 @@ public class PatchService
 				}
 			}
 		}
-		Dictionary<string, List<(int, uint, string)>> eventSnapshot = new Dictionary<string, List<(int, uint, string)>>();
+		Dictionary<string, List<(int, uint, string)>> eventSnapshot = [];
 		if (touchesObjectEventCode && hasQueuedGmlCompilation)
 		{
-			Dictionary<string, int> objectNameCountsForEvents = BuildObjectNameCounts(data);
-			for (int objIndex = 0; objIndex < data.GameObjects.Count; objIndex++)
+			var objectNameCountsForEvents = BuildObjectNameCounts(data);
+			for (var objIndex = 0; objIndex < data.GameObjects.Count; objIndex++)
 			{
-				GameMakerGameObject obj2 = data.GameObjects[objIndex];
+				var obj2 = data.GameObjects[objIndex];
 				if (obj2 == null || obj2.Name?.Content == null)
 				{
 					continue;
 				}
-				List<(int, uint, string)> events = new List<(int, uint, string)>();
-				for (int j = 0; j < obj2.Events.Count; j++)
+				List<(int, uint, string)> events = [];
+				for (var j = 0; j < obj2.Events.Count; j++)
 				{
-					foreach (GameMakerGameObject.Event evt in obj2.Events[j])
+					foreach (var evt in obj2.Events[j])
 					{
-						string evtCodeName = ((evt.Actions.Count > 0) ? (evt.Actions[0].CodeId?.Name?.Content ?? "") : "");
+						var evtCodeName = (evt.Actions.Count > 0) ? (evt.Actions[0].CodeId?.Name?.Content ?? "") : "";
 						events.Add((j, evt.EventSubtype, evtCodeName));
 					}
 				}
@@ -5084,7 +5081,7 @@ public class PatchService
 		}
 		if (hasQueuedGmlCompilation)
 		{
-			LogInterpolatedStringHandler handler9 = new LogInterpolatedStringHandler(46, 1, out shouldAppend);
+			var handler9 = new LogInterpolatedStringHandler(46, 1, out shouldAppend);
 			if (shouldAppend)
 			{
 				handler9.AppendLiteral("[ImportCodeEntries] Compiling ");
@@ -5093,17 +5090,17 @@ public class PatchService
 			}
 			LogService.Log(ref handler9);
 			gmlCompilationRan = true;
-			CompileResult compileResult = importGroup.Import(throwOnFailedCompile: false);
+			var compileResult = importGroup.Import(throwOnFailedCompile: false);
 			if (!compileResult.Successful)
 			{
-				LogInterpolatedStringHandler handler10 = new LogInterpolatedStringHandler(41, 1, out shouldAppend);
+				var handler10 = new LogInterpolatedStringHandler(41, 1, out shouldAppend);
 				if (shouldAppend)
 				{
 					handler10.AppendLiteral("[ImportCodeEntries] Compilation warning: ");
 					handler10.AppendFormatted(compileResult.PrintAllErrors(codeEntryNames: true));
 				}
 				LogService.Log(ref handler10);
-				int retryFailures = RetryGmlOnlyCodeEntriesIndividually(data, gmlOnlyEntries, collisionTargetsByCode);
+				var retryFailures = RetryGmlOnlyCodeEntriesIndividually(data, gmlOnlyEntries, collisionTargetsByCode);
 				if (retryFailures > 0)
 				{
 					throw new InvalidDataException($"{retryFailures} GML code entr{((retryFailures == 1) ? "y" : "ies")} could not be compiled");
@@ -5114,7 +5111,7 @@ public class PatchService
 		{
 			LogService.Log("[ImportCodeEntries] GML compilation skipped: ASM payload covers all queued entries");
 		}
-		LogInterpolatedStringHandler handler11 = new LogInterpolatedStringHandler(51, 1, out shouldAppend);
+		var handler11 = new LogInterpolatedStringHandler(51, 1, out shouldAppend);
 		if (shouldAppend)
 		{
 			handler11.AppendLiteral("[ImportCodeEntries] Compilation phase complete in ");
@@ -5126,32 +5123,32 @@ public class PatchService
 		(GameMakerCode, GameMakerCodeLocals, GameMakerScript, string) value4;
 		if (hasQueuedGmlCompilation)
 		{
-			Dictionary<string, GameMakerCode> currentArchiveLookupAfterCompile = BuildArchiveCodeLookup(data);
+			var currentArchiveLookupAfterCompile = BuildArchiveCodeLookup(data);
 
-			HashSet<string> currentEntries = new HashSet<string>(BuildArchiveCodeLookup(data).Keys, StringComparer.Ordinal);
-			HashSet<GameMakerCode> currentCodeObjects = new HashSet<GameMakerCode>(data.Code);
-			HashSet<string> currentScripts = new HashSet<string>(data.Scripts.Count);
-			foreach (GameMakerScript s2 in data.Scripts)
+			var currentEntries = new HashSet<string>(BuildArchiveCodeLookup(data).Keys, StringComparer.Ordinal);
+			HashSet<GameMakerCode> currentCodeObjects = [.. data.Code];
+			var currentScripts = new HashSet<string>(data.Scripts.Count);
+			foreach (var s2 in data.Scripts)
 			{
 				if (s2 != null && s2.Name?.Content != null)
 				{
 					currentScripts.Add(s2.Name.Content);
 				}
 			}
-			int restoredTopLevel = 0;
-			foreach (KeyValuePair<string, (GameMakerCode, GameMakerCodeLocals, GameMakerScript)> item3 in topLevelEntrySnapshot)
+			var restoredTopLevel = 0;
+			foreach (var item3 in topLevelEntrySnapshot)
 			{
 				item3.Deconstruct(out value2, out value3);
-				string entryKey5 = value2;
-				(GameMakerCode, GameMakerCodeLocals, GameMakerScript) snapshot = value3;
-				if ((targetCodeEntriesByKey.Count > 0 && !targetCodeEntriesByKey.ContainsKey(entryKey5)) || currentEntries.Contains(entryKey5))
+				var entryKey5 = value2;
+				var snapshot = value3;
+				if (targetCodeEntriesByKey.Count > 0 && !targetCodeEntriesByKey.ContainsKey(entryKey5) || currentEntries.Contains(entryKey5))
 				{
 					continue;
 				}
-				(GameMakerCode, GameMakerCodeLocals, GameMakerScript) tuple2 = snapshot;
-				GameMakerCode snapCode = tuple2.Item1;
-				GameMakerCodeLocals snapLocals = tuple2.Item2;
-				GameMakerScript snapScript = tuple2.Item3;
+				var tuple2 = snapshot;
+				var snapCode = tuple2.Item1;
+				var snapLocals = tuple2.Item2;
+				var snapScript = tuple2.Item3;
 				snapCode.ParentEntry = null;
 				if (!currentCodeObjects.Contains(snapCode))
 				{
@@ -5160,8 +5157,8 @@ public class PatchService
 				}
 				if (snapLocals != null)
 				{
-					bool localsExist = false;
-					foreach (GameMakerCodeLocals codeLocal in data.CodeLocals)
+					var localsExist = false;
+					foreach (var codeLocal in data.CodeLocals)
 					{
 						if (codeLocal.Name == snapCode.Name)
 						{
@@ -5184,7 +5181,7 @@ public class PatchService
 			}
 			if (restoredTopLevel > 0)
 			{
-				LogInterpolatedStringHandler handler12 = new LogInterpolatedStringHandler(80, 1, out shouldAppend);
+				var handler12 = new LogInterpolatedStringHandler(80, 1, out shouldAppend);
 				if (shouldAppend)
 				{
 					handler12.AppendLiteral("[ImportCodeEntries] Restored ");
@@ -5195,13 +5192,13 @@ public class PatchService
 			}
 			currentArchiveLookupAfterCompile = BuildArchiveCodeLookup(data);
 			currentEntries = new HashSet<string>(currentArchiveLookupAfterCompile.Keys, StringComparer.Ordinal);
-			int restored = 0;
-			int repairedParenting = 0;
-			foreach (KeyValuePair<string, (GameMakerCode, GameMakerCodeLocals, GameMakerScript, string)> item4 in childEntrySnapshot)
+			var restored = 0;
+			var repairedParenting = 0;
+			foreach (var item4 in childEntrySnapshot)
 			{
 				item4.Deconstruct(out value2, out value4);
-				string entryKey6 = value2;
-				(GameMakerCode, GameMakerCodeLocals, GameMakerScript, string) snapshot2 = value4;
+				var entryKey6 = value2;
+				var snapshot2 = value4;
 				if (targetCodeEntriesByKey.Count > 0 && !targetCodeEntriesByKey.ContainsKey(entryKey6))
 				{
 					continue;
@@ -5228,8 +5225,8 @@ public class PatchService
 				data.Code.Add(snapCode2);
 				if (snapLocals2 != null)
 				{
-					bool localsExist2 = false;
-					foreach (GameMakerCodeLocals codeLocal2 in data.CodeLocals)
+					var localsExist2 = false;
+					foreach (var codeLocal2 in data.CodeLocals)
 					{
 						if (codeLocal2.Name == snapCode2.Name)
 						{
@@ -5246,7 +5243,7 @@ public class PatchService
 				{
 					snapScript2.Code = snapCode2;
 					data.Scripts.Add(snapScript2);
-					LogInterpolatedStringHandler handler13 = new LogInterpolatedStringHandler(39, 2, out shouldAppend);
+					var handler13 = new LogInterpolatedStringHandler(39, 2, out shouldAppend);
 					if (shouldAppend)
 					{
 						handler13.AppendLiteral("  Restored detached child + script: ");
@@ -5259,7 +5256,7 @@ public class PatchService
 				}
 				else
 				{
-					LogInterpolatedStringHandler handler14 = new LogInterpolatedStringHandler(30, 2, out shouldAppend);
+					var handler14 = new LogInterpolatedStringHandler(30, 2, out shouldAppend);
 					if (shouldAppend)
 					{
 						handler14.AppendLiteral("  Restored detached child: ");
@@ -5274,7 +5271,7 @@ public class PatchService
 			}
 			if (repairedParenting > 0)
 			{
-				LogInterpolatedStringHandler handler15 = new LogInterpolatedStringHandler(69, 1, out shouldAppend);
+				var handler15 = new LogInterpolatedStringHandler(69, 1, out shouldAppend);
 				if (shouldAppend)
 				{
 					handler15.AppendLiteral("[ImportCodeEntries] Repaired parent linkage for ");
@@ -5285,7 +5282,7 @@ public class PatchService
 			}
 			if (restored > 0)
 			{
-				LogInterpolatedStringHandler handler16 = new LogInterpolatedStringHandler(92, 1, out shouldAppend);
+				var handler16 = new LogInterpolatedStringHandler(92, 1, out shouldAppend);
 				if (shouldAppend)
 				{
 					handler16.AppendLiteral("[ImportCodeEntries] Restored ");
@@ -5299,8 +5296,8 @@ public class PatchService
 		}
 		if (hasQueuedGmlCompilation)
 		{
-			List<GameMakerCode> spurious = new List<GameMakerCode>();
-			foreach (GameMakerCode c4 in data.Code)
+			List<GameMakerCode> spurious = [];
+			foreach (var c4 in data.Code)
 			{
 				if (c4 != null && c4.Name?.Content != null && c4.ParentEntry == null && !preCompileEntries.Contains(c4.Name.Content) && !gmlEntries.ContainsKey(c4.Name.Content))
 				{
@@ -5309,7 +5306,7 @@ public class PatchService
 			}
 			if (spurious.Count > 0)
 			{
-				LogInterpolatedStringHandler handler17 = new LogInterpolatedStringHandler(61, 1, out shouldAppend);
+				var handler17 = new LogInterpolatedStringHandler(61, 1, out shouldAppend);
 				if (shouldAppend)
 				{
 					handler17.AppendLiteral("[ImportCodeEntries] Removing ");
@@ -5317,20 +5314,20 @@ public class PatchService
 					handler17.AppendLiteral(" compiler side-effect entries...");
 				}
 				LogService.Log(ref handler17);
-				foreach (GameMakerCode code2 in spurious)
+				foreach (var code2 in spurious)
 				{
-					List<GameMakerCode> spuriousChildren = new List<GameMakerCode>();
-					foreach (GameMakerCode c5 in data.Code)
+					List<GameMakerCode> spuriousChildren = [];
+					foreach (var c5 in data.Code)
 					{
 						if (c5?.ParentEntry == code2)
 						{
 							spuriousChildren.Add(c5);
 						}
 					}
-					foreach (GameMakerCode child2 in spuriousChildren)
+					foreach (var child2 in spuriousChildren)
 					{
 						data.Code.Remove(child2);
-						for (int i6 = data.CodeLocals.Count - 1; i6 >= 0; i6--)
+						for (var i6 = data.CodeLocals.Count - 1; i6 >= 0; i6--)
 						{
 							if (data.CodeLocals[i6].Name == child2.Name)
 							{
@@ -5339,14 +5336,14 @@ public class PatchService
 							}
 						}
 					}
-					for (int i7 = data.Scripts.Count - 1; i7 >= 0; i7--)
+					for (var i7 = data.Scripts.Count - 1; i7 >= 0; i7--)
 					{
 						if (data.Scripts[i7]?.Code == code2)
 						{
 							data.Scripts.RemoveAt(i7);
 						}
 					}
-					for (int i8 = data.CodeLocals.Count - 1; i8 >= 0; i8--)
+					for (var i8 = data.CodeLocals.Count - 1; i8 >= 0; i8--)
 					{
 						if (data.CodeLocals[i8].Name == code2.Name)
 						{
@@ -5355,7 +5352,7 @@ public class PatchService
 						}
 					}
 					data.Code.Remove(code2);
-					LogInterpolatedStringHandler handler18 = new LogInterpolatedStringHandler(11, 1, out shouldAppend);
+					var handler18 = new LogInterpolatedStringHandler(11, 1, out shouldAppend);
 					if (shouldAppend)
 					{
 						handler18.AppendLiteral("  Removed: ");
@@ -5367,12 +5364,12 @@ public class PatchService
 		}
 		if (hasQueuedGmlCompilation)
 		{
-			int linkedScripts = 0;
-			foreach (GameMakerScript script4 in data.Scripts)
+			var linkedScripts = 0;
+			foreach (var script4 in data.Scripts)
 			{
 				if (script4 != null && script4.Name?.Content != null && script4.Code == null)
 				{
-					GameMakerCode code3 = ScriptCodeResolver.Resolve(data, script4.Name.Content);
+					var code3 = ScriptCodeResolver.Resolve(data, script4.Name.Content);
 					if (code3 != null)
 					{
 						script4.Code = code3;
@@ -5382,7 +5379,7 @@ public class PatchService
 			}
 			if (linkedScripts > 0)
 			{
-				LogInterpolatedStringHandler handler19 = new LogInterpolatedStringHandler(73, 1, out shouldAppend);
+				var handler19 = new LogInterpolatedStringHandler(73, 1, out shouldAppend);
 				if (shouldAppend)
 				{
 					handler19.AppendLiteral("[ImportCodeEntries] Linked ");
@@ -5392,7 +5389,7 @@ public class PatchService
 				LogService.Log(ref handler19);
 			}
 		}
-		LogInterpolatedStringHandler handler20 = new LogInterpolatedStringHandler(41, 1, out shouldAppend);
+		var handler20 = new LogInterpolatedStringHandler(41, 1, out shouldAppend);
 		if (shouldAppend)
 		{
 			handler20.AppendLiteral("[ImportCodeEntries] Compilation done in ");
@@ -5401,26 +5398,26 @@ public class PatchService
 		}
 		LogService.Log(ref handler20);
 		phaseSw.Restart();
-		int restoredEvents = 0;
+		var restoredEvents = 0;
 		if (touchesObjectEventCode && hasQueuedGmlCompilation)
 		{
-			Dictionary<string, int> objectNameCountsForEvents2 = BuildObjectNameCounts(data);
-			for (int k = 0; k < data.GameObjects.Count; k++)
+			var objectNameCountsForEvents2 = BuildObjectNameCounts(data);
+			for (var k = 0; k < data.GameObjects.Count; k++)
 			{
-				GameMakerGameObject obj3 = data.GameObjects[k];
+				var obj3 = data.GameObjects[k];
 				if (obj3 == null || obj3.Name?.Content == null || !eventSnapshot.TryGetValue(GetObjectEventKey(obj3.Name.Content, k, objectNameCountsForEvents2), out var snapshot3))
 				{
 					continue;
 				}
-				HashSet<(int, uint)> expectedPairs = new HashSet<(int, uint)>();
+				HashSet<(int, uint)> expectedPairs = [];
 				foreach (var (evtType2, subtype, _) in snapshot3)
 				{
 					expectedPairs.Add((evtType2, subtype));
 				}
-				for (int l = 0; l < obj3.Events.Count; l++)
+				for (var l = 0; l < obj3.Events.Count; l++)
 				{
-					GameMakerPointerList<GameMakerGameObject.Event> evtList2 = obj3.Events[l];
-					for (int i9 = evtList2.Count - 1; i9 >= 0; i9--)
+					var evtList2 = obj3.Events[l];
+					for (var i9 = evtList2.Count - 1; i9 >= 0; i9--)
 					{
 						if (!expectedPairs.Contains((l, evtList2[i9].EventSubtype)))
 						{
@@ -5433,7 +5430,7 @@ public class PatchService
 		}
 		if (restoredEvents > 0)
 		{
-			LogInterpolatedStringHandler handler21 = new LogInterpolatedStringHandler(69, 1, out shouldAppend);
+			var handler21 = new LogInterpolatedStringHandler(69, 1, out shouldAppend);
 			if (shouldAppend)
 			{
 				handler21.AppendLiteral("[ImportCodeEntries] Removed ");
@@ -5442,7 +5439,7 @@ public class PatchService
 			}
 			LogService.Log(ref handler21);
 		}
-		LogInterpolatedStringHandler handler22 = new LogInterpolatedStringHandler(53, 1, out shouldAppend);
+		var handler22 = new LogInterpolatedStringHandler(53, 1, out shouldAppend);
 		if (shouldAppend)
 		{
 			handler22.AppendLiteral("[ImportCodeEntries] Event restore phase complete in ");
@@ -5450,50 +5447,49 @@ public class PatchService
 			handler22.AppendLiteral("s");
 		}
 		LogService.Log(ref handler22);
-		Stopwatch eventCleanupSw = Stopwatch.StartNew();
-		string objEventsContent = objectEventsContentOverride;
-		string objEventsPath = Path.Combine(helpersDir, "object_events.json");
+		var eventCleanupSw = Stopwatch.StartNew();
+		var objEventsContent = objectEventsContentOverride;
+		var objEventsPath = Path.Combine(helpersDir, "object_events.json");
 		if (objEventsContent == null && File.Exists(objEventsPath))
 		{
 			objEventsContent = File.ReadAllText(objEventsPath, Encoding.UTF8);
 		}
 		if (touchesObjectEventCode && hasQueuedGmlCompilation && objEventsContent != null)
 		{
-			JsonElement targetEventsRoot = JsonSerializer.Deserialize<JsonElement>(objEventsContent);
-			int authRemoved = 0;
-			Dictionary<string, int> objectNameCountsForCleanup = BuildObjectNameCounts(data);
-			for (int m = 0; m < data.GameObjects.Count; m++)
+			var targetEventsRoot = JsonSerializer.Deserialize<JsonElement>(objEventsContent);
+			var authRemoved = 0;
+			var objectNameCountsForCleanup = BuildObjectNameCounts(data);
+			for (var m = 0; m < data.GameObjects.Count; m++)
 			{
-				GameMakerGameObject obj4 = data.GameObjects[m];
+				var obj4 = data.GameObjects[m];
 				if (obj4 == null || obj4.Name?.Content == null)
 				{
 					continue;
 				}
-				string eventKey = ResolveObjectEventsKey(targetEventsRoot, data, obj4.Name.Content, m, objectNameCountsForCleanup);
+				var eventKey = ResolveObjectEventsKey(targetEventsRoot, data, obj4.Name.Content, m, objectNameCountsForCleanup);
 				if (eventKey == null || !targetEventsRoot.TryGetProperty(eventKey, out var targetEvents))
 				{
 					continue;
 				}
-				HashSet<string> targetEventKeys = new HashSet<string>();
-				HashSet<string> targetCollisionNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-				foreach (JsonElement evt2 in targetEvents.EnumerateArray())
+				HashSet<string> targetEventKeys = [];
+				var targetCollisionNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+				foreach (var evt2 in targetEvents.EnumerateArray())
 				{
-					int t = evt2.GetProperty("t").GetInt32();
+					var t = evt2.GetProperty("t").GetInt32();
 					if (t == 4 && evt2.TryGetProperty("cn", out var cnElem))
 					{
-						string cn = cnElem.GetString();
+						var cn = cnElem.GetString();
 						if (!string.IsNullOrEmpty(cn))
 						{
 							targetCollisionNames.Add(cn);
 						}
 					}
-					uint subtype2 = evt2.GetProperty("s").GetUInt32();
+					var subtype2 = evt2.GetProperty("s").GetUInt32();
 					if (t == 4 && evt2.TryGetProperty("cn", out var collNameElem))
 					{
-						string collName = collNameElem.GetString();
-						JsonElement coElem;
-						int occurrence = (evt2.TryGetProperty("co", out coElem) ? coElem.GetInt32() : 0);
-						GameMakerGameObject collObj = ((!string.IsNullOrEmpty(collName)) ? ResolveGameObjectByNameOccurrence(data, collName, occurrence) : null);
+						var collName = collNameElem.GetString();
+						var occurrence = evt2.TryGetProperty("co", out var coElem) ? coElem.GetInt32() : 0;
+						var collObj = (!string.IsNullOrEmpty(collName)) ? ResolveGameObjectByNameOccurrence(data, collName, occurrence) : null;
 						if (collObj == null)
 						{
 							continue;
@@ -5504,9 +5500,9 @@ public class PatchService
 					{
 						continue;
 					}
-					string eventKeepKey = $"{t}_{subtype2}";
-					GameMakerGameObject.Event targetEvent = null;
-					foreach (GameMakerGameObject.Event existingEvt in obj4.Events[t])
+					var eventKeepKey = $"{t}_{subtype2}";
+					GameMakerGameObject.Event? targetEvent = null;
+					foreach (var existingEvt in obj4.Events[t])
 					{
 						if (existingEvt.EventSubtype == subtype2)
 						{
@@ -5522,23 +5518,22 @@ public class PatchService
 						};
 						obj4.Events[t].Add(targetEvent);
 					}
-					bool hasLiveAction = false;
-					JsonElement codeNameElem;
+					var hasLiveAction = false;
 					if (evt2.TryGetProperty("actions", out var actionsElem) && actionsElem.ValueKind == JsonValueKind.Array)
 					{
 						targetEvent.Actions.Clear();
-						foreach (JsonElement actionElm in actionsElem.EnumerateArray())
+						foreach (var actionElm in actionsElem.EnumerateArray())
 						{
 							targetEvent.Actions.Add(CreateEventActionFromJson(data, actionElm));
 						}
-						hasLiveAction = targetEvent.Actions.Any((GameMakerGameObject.EventAction action) => action?.CodeId != null);
+						hasLiveAction = targetEvent.Actions.Any(action => action?.CodeId != null);
 					}
-					else if (evt2.TryGetProperty("c", out codeNameElem))
+					else if (evt2.TryGetProperty("c", out var codeNameElem))
 					{
-						string codeName4 = codeNameElem.GetString();
+						var codeName4 = codeNameElem.GetString();
 						if (!string.IsNullOrEmpty(codeName4))
 						{
-							GameMakerCode code4 = data.Code.ByName(codeName4);
+							var code4 = data.Code.ByName(codeName4);
 							if (code4 != null)
 							{
 								if (targetEvent.Actions.Count == 0)
@@ -5565,15 +5560,15 @@ public class PatchService
 						obj4.Events[t].Remove(targetEvent);
 					}
 				}
-				for (int evtType3 = 0; evtType3 < obj4.Events.Count; evtType3++)
+				for (var evtType3 = 0; evtType3 < obj4.Events.Count; evtType3++)
 				{
-					for (int j2 = obj4.Events[evtType3].Count - 1; j2 >= 0; j2--)
+					for (var j2 = obj4.Events[evtType3].Count - 1; j2 >= 0; j2--)
 					{
 						bool shouldKeep;
 						if (evtType3 == 4)
 						{
-							int collObjIdx = (int)obj4.Events[evtType3][j2].EventSubtype;
-							string collObjName = ((collObjIdx < 0 || collObjIdx >= data.GameObjects.Count) ? null : data.GameObjects[collObjIdx]?.Name?.Content);
+							var collObjIdx = (int)obj4.Events[evtType3][j2].EventSubtype;
+							var collObjName = (collObjIdx < 0 || collObjIdx >= data.GameObjects.Count) ? null : data.GameObjects[collObjIdx]?.Name?.Content;
 							shouldKeep = !string.IsNullOrEmpty(collObjName) && targetCollisionNames.Contains(collObjName);
 						}
 						else
@@ -5590,7 +5585,7 @@ public class PatchService
 			}
 			if (authRemoved > 0)
 			{
-				LogInterpolatedStringHandler handler23 = new LogInterpolatedStringHandler(73, 1, out shouldAppend);
+				var handler23 = new LogInterpolatedStringHandler(73, 1, out shouldAppend);
 				if (shouldAppend)
 				{
 					handler23.AppendLiteral("[ImportCodeEntries] Removed ");
@@ -5601,7 +5596,7 @@ public class PatchService
 			}
 		}
 		eventCleanupSw.Stop();
-		LogInterpolatedStringHandler handler24 = new LogInterpolatedStringHandler(43, 1, out shouldAppend);
+		var handler24 = new LogInterpolatedStringHandler(43, 1, out shouldAppend);
 		if (shouldAppend)
 		{
 			handler24.AppendLiteral("[ImportCodeEntries] Event cleanup done in ");
@@ -5612,7 +5607,7 @@ public class PatchService
 		if (isAssetShiftRecompileOnly)
 		{
 			LogService.Log("[ImportCodeEntries] Function/variable reconciliation skipped for asset-shift recompile");
-			LogInterpolatedStringHandler handler25 = new LogInterpolatedStringHandler(43, 1, out shouldAppend);
+			var handler25 = new LogInterpolatedStringHandler(43, 1, out shouldAppend);
 			if (shouldAppend)
 			{
 				handler25.AppendLiteral("[ImportCodeEntries] Hybrid import done in ");
@@ -5622,7 +5617,7 @@ public class PatchService
 			LogService.Log(ref handler25);
 			return;
 		}
-		Stopwatch functionReconcileSw = Stopwatch.StartNew();
+		var functionReconcileSw = Stopwatch.StartNew();
 		if (hasFunctionVariableTables && !gmlCompilationRan)
 		{
 			ApplyTargetFunctionVariableTables(data, root, "postcompile");
@@ -5632,7 +5627,7 @@ public class PatchService
 			LogService.Log("[ImportCodeEntries] Function/variable reconciliation skipped after GML compilation");
 		}
 		functionReconcileSw.Stop();
-		LogInterpolatedStringHandler handler26 = new LogInterpolatedStringHandler(63, 1, out shouldAppend);
+		var handler26 = new LogInterpolatedStringHandler(63, 1, out shouldAppend);
 		if (shouldAppend)
 		{
 			handler26.AppendLiteral("[ImportCodeEntries] Function reconciliation phase complete in ");
@@ -5640,10 +5635,10 @@ public class PatchService
 			handler26.AppendLiteral("s");
 		}
 		LogService.Log(ref handler26);
-		Dictionary<string, GameMakerString> codeImportStringLookup = null;
-		Stopwatch variableReconcileSw = Stopwatch.StartNew();
+		Dictionary<string, GameMakerString>? codeImportStringLookup = null;
+		var variableReconcileSw = Stopwatch.StartNew();
 		variableReconcileSw.Stop();
-		LogInterpolatedStringHandler handler27 = new LogInterpolatedStringHandler(63, 1, out shouldAppend);
+		var handler27 = new LogInterpolatedStringHandler(63, 1, out shouldAppend);
 		if (shouldAppend)
 		{
 			handler27.AppendLiteral("[ImportCodeEntries] Variable reconciliation phase complete in ");
@@ -5654,7 +5649,7 @@ public class PatchService
 		if (asmEntries.Count == 0)
 		{
 			LogService.Log("[ImportCodeEntries] ASM reassembly skipped: no ASM entries supplied");
-			LogInterpolatedStringHandler handler28 = new LogInterpolatedStringHandler(43, 1, out shouldAppend);
+			var handler28 = new LogInterpolatedStringHandler(43, 1, out shouldAppend);
 			if (shouldAppend)
 			{
 				handler28.AppendLiteral("[ImportCodeEntries] Hybrid import done in ");
@@ -5666,49 +5661,46 @@ public class PatchService
 		}
 		phaseSw.Restart();
 		LogService.Log("[ImportCodeEntries] Reassembling from ASM for byte-perfect bytecode...");
-		Stopwatch localVarLookupSw = Stopwatch.StartNew();
-		Dictionary<string, int> localVarLookup = new Dictionary<string, int>();
-		for (int vi = 0; vi < data.Variables.Count; vi++)
+		var localVarLookupSw = Stopwatch.StartNew();
+		Dictionary<string, int> localVarLookup = [];
+		for (var vi = 0; vi < data.Variables.Count; vi++)
 		{
-			GameMakerVariable v = data.Variables[vi];
-			string name = v?.Name?.Content;
+			var v = data.Variables[vi];
+			var name = v?.Name?.Content;
 			if (name != null && v.InstanceType == GameMakerInstruction.InstanceType.Local)
 			{
 				localVarLookup.TryAdd(name, vi);
 			}
 		}
 		localVarLookupSw.Stop();
-		Regex stripStringIdxRegex = StripStringIdxRegex();
-		int reassembled = 0;
-		int asmFailed = 0;
-		List<(string, string, bool)> asmGmlFallbackEntries = new List<(string, string, bool)>();
-		Stopwatch archiveLookupSw = Stopwatch.StartNew();
+		var stripStringIdxRegex = StripStringIdxRegex();
+		var reassembled = 0;
+		var asmFailed = 0;
+		List<(string, string, bool)> asmGmlFallbackEntries = [];
+		var archiveLookupSw = Stopwatch.StartNew();
 		archiveCodeLookup = BuildArchiveCodeLookup(data);
 
 		archiveLookupSw.Stop();
-		Stopwatch skeletonSw = Stopwatch.StartNew();
-		if (codeImportStringLookup == null)
-		{
-			codeImportStringLookup = BuildStringLookup(data);
-		}
-		int createdAsmSkeletons = 0;
-		foreach (string entryKey7 in asmEntries.Keys)
+		var skeletonSw = Stopwatch.StartNew();
+		codeImportStringLookup ??= BuildStringLookup(data);
+		var createdAsmSkeletons = 0;
+		foreach (var entryKey7 in asmEntries.Keys)
 		{
 			if (archiveCodeLookup.ContainsKey(entryKey7))
 			{
 				continue;
 			}
-			string codeName5 = codeEntryLogicalNames?.GetValueOrDefault(entryKey7) ?? targetTopLevelNamesByKey.GetValueOrDefault(entryKey7) ?? Path.GetFileName(entryKey7);
-			GameMakerCode newCode = new GameMakerCode
+			var codeName5 = codeEntryLogicalNames?.GetValueOrDefault(entryKey7) ?? targetTopLevelNamesByKey.GetValueOrDefault(entryKey7) ?? Path.GetFileName(entryKey7);
+			var newCode = new GameMakerCode
 			{
 				Name = MakeStringCached(data, codeImportStringLookup, codeName5)
 			};
-			if (asmEntryPaths != null && asmEntryPaths.TryGetValue(entryKey7, out string asmPath))
+			if (asmEntryPaths != null && asmEntryPaths.TryGetValue(entryKey7, out var asmPath))
 			{
-				string[] parts = asmPath.Replace('\\', '/').Split('/', StringSplitOptions.RemoveEmptyEntries);
+				var parts = asmPath.Replace('\\', '/').Split('/', StringSplitOptions.RemoveEmptyEntries);
 				if (parts.Length >= 3)
 				{
-					string parentKey = parts[^2];
+					var parentKey = parts[^2];
 					if (!parentKey.Equals(entryKey7, StringComparison.OrdinalIgnoreCase) && archiveCodeLookup.TryGetValue(parentKey, out var parent))
 					{
 						newCode.ParentEntry = parent;
@@ -5725,7 +5717,7 @@ public class PatchService
 		}
 		if (createdAsmSkeletons > 0)
 		{
-			LogInterpolatedStringHandler handler29 = new LogInterpolatedStringHandler(75, 1, out shouldAppend);
+			var handler29 = new LogInterpolatedStringHandler(75, 1, out shouldAppend);
 			if (shouldAppend)
 			{
 				handler29.AppendLiteral("[ImportCodeEntries] Created ");
@@ -5735,77 +5727,77 @@ public class PatchService
 			LogService.Log(ref handler29);
 		}
 		skeletonSw.Stop();
-		Stopwatch assemblerCacheSw = Stopwatch.StartNew();
+		var assemblerCacheSw = Stopwatch.StartNew();
 		Assembler.SetLookupCaches(data);
 		assemblerCacheSw.Stop();
-		Stopwatch asmLoopSw = Stopwatch.StartNew();
-		Stopwatch childDirectiveSw = new Stopwatch();
-		Stopwatch asmPreprocessSw = new Stopwatch();
-		Stopwatch assembleOnlySw = new Stopwatch();
-		Stopwatch replaceInstructionsSw = new Stopwatch();
-		HashSet<GameMakerCode> currentCodeSet = new HashSet<GameMakerCode>(data.Code);
-		Dictionary<GameMakerCode, List<GameMakerScript>> scriptsByCode = new Dictionary<GameMakerCode, List<GameMakerScript>>();
-		foreach (GameMakerScript script5 in data.Scripts)
+		var asmLoopSw = Stopwatch.StartNew();
+		var childDirectiveSw = new Stopwatch();
+		var asmPreprocessSw = new Stopwatch();
+		var assembleOnlySw = new Stopwatch();
+		var replaceInstructionsSw = new Stopwatch();
+		HashSet<GameMakerCode> currentCodeSet = [.. data.Code];
+		Dictionary<GameMakerCode, List<GameMakerScript>> scriptsByCode = [];
+		foreach (var script5 in data.Scripts)
 		{
 			if (script5?.Code != null)
 			{
 				if (!scriptsByCode.TryGetValue(script5.Code, out var scriptList))
 				{
-					scriptList = new List<GameMakerScript>();
+					scriptList = [];
 					scriptsByCode[script5.Code] = scriptList;
 				}
 				scriptList.Add(script5);
 			}
 		}
-		int preprocessedAsmEntries = 0;
-		int childDirectiveEntries = 0;
+		var preprocessedAsmEntries = 0;
+		var childDirectiveEntries = 0;
 		try
 		{
-			foreach (KeyValuePair<string, string> asmEntry in asmEntries)
+			foreach (var asmEntry in asmEntries)
 			{
 				asmEntry.Deconstruct(out value2, out key);
-				string entryKey8 = value2;
-				string asmText = key;
+				var entryKey8 = value2;
+				var asmText = key;
 				if (!archiveCodeLookup.TryGetValue(entryKey8, out var code5))
 				{
 					continue;
 				}
-				string codeName6 = codeEntryLogicalNames?.GetValueOrDefault(entryKey8) ?? targetTopLevelNamesByKey.GetValueOrDefault(entryKey8) ?? code5.Name?.Content ?? entryKey8;
+				var codeName6 = codeEntryLogicalNames?.GetValueOrDefault(entryKey8) ?? targetTopLevelNamesByKey.GetValueOrDefault(entryKey8) ?? code5.Name?.Content ?? entryKey8;
 				try
 				{
-					List<string> targetChildNames = new List<string>();
+					List<string> targetChildNames = [];
 					if (asmText.Contains("\n> ", StringComparison.Ordinal) || asmText.StartsWith("> ", StringComparison.Ordinal))
 					{
 						childDirectiveSw.Start();
-						using StringReader sr = new StringReader(asmText);
+						using var sr = new StringReader(asmText);
 						string ln;
 						while ((ln = sr.ReadLine()) != null)
 						{
 							ln = ln.Trim();
-							if (ln.StartsWith("> "))
+							if (ln.StartsWith("> ", StringComparison.Ordinal))
 							{
-								string rest = ln.Substring(2).Trim();
-								int sp = rest.IndexOf(' ');
+								var rest = ln[2..].Trim();
+								var sp = rest.IndexOf(' ', StringComparison.Ordinal);
 								if (sp > 0)
 								{
-									targetChildNames.Add(rest.Substring(0, sp));
+									targetChildNames.Add(rest[..sp]);
 								}
 							}
 						}
 						childDirectiveSw.Stop();
 					}
-					Dictionary<string, string> nameMap = new Dictionary<string, string>();
+					Dictionary<string, string> nameMap = [];
 					if (targetChildNames.Count > 0)
 					{
 						childDirectiveEntries++;
 						childDirectiveSw.Start();
 						targetChildEntriesByParent.TryGetValue(entryKey8, out var explicitChildEntries);
-						bool hasExplicitChildEntries = false;
+						var hasExplicitChildEntries = false;
 						if (explicitChildEntries != null && explicitChildEntries.Count > 0)
 						{
-							List<(string, string)> explicitChildren = explicitChildEntries;
+							var explicitChildren = explicitChildEntries;
 							hasExplicitChildEntries = true;
-							foreach (GameMakerCode existingChild in code5.ChildEntries.ToList())
+							foreach (var existingChild in code5.ChildEntries.ToList())
 							{
 								code5.ChildEntries.Remove(existingChild);
 								if (existingChild.ParentEntry == code5)
@@ -5814,7 +5806,7 @@ public class PatchService
 								}
 								data.Code.Remove(existingChild);
 								currentCodeSet.Remove(existingChild);
-								for (int i10 = data.CodeLocals.Count - 1; i10 >= 0; i10--)
+								for (var i10 = data.CodeLocals.Count - 1; i10 >= 0; i10--)
 								{
 									if (data.CodeLocals[i10].Name == existingChild.Name)
 									{
@@ -5826,7 +5818,7 @@ public class PatchService
 								{
 									continue;
 								}
-								foreach (GameMakerScript item5 in scriptsForChild)
+								foreach (var item5 in scriptsForChild)
 								{
 									item5.Code = null;
 								}
@@ -5855,10 +5847,10 @@ public class PatchService
 								}
 							}
 						}
-						HashSet<string> targetChildSet = new HashSet<string>(targetChildNames, StringComparer.Ordinal);
-						foreach (GameMakerCode compiledChild in code5.ChildEntries.ToList())
+						var targetChildSet = new HashSet<string>(targetChildNames, StringComparer.Ordinal);
+						foreach (var compiledChild in code5.ChildEntries.ToList())
 						{
-							string compiledName = compiledChild.Name?.Content;
+							var compiledName = compiledChild.Name?.Content;
 							if (compiledName == null || targetChildSet.Contains(compiledName))
 							{
 								continue;
@@ -5870,7 +5862,7 @@ public class PatchService
 							}
 							data.Code.Remove(compiledChild);
 							currentCodeSet.Remove(compiledChild);
-							for (int i11 = data.CodeLocals.Count - 1; i11 >= 0; i11--)
+							for (var i11 = data.CodeLocals.Count - 1; i11 >= 0; i11--)
 							{
 								if (data.CodeLocals[i11].Name == compiledChild.Name)
 								{
@@ -5882,15 +5874,15 @@ public class PatchService
 							{
 								continue;
 							}
-							foreach (GameMakerScript item6 in scriptsForChild2)
+							foreach (var item6 in scriptsForChild2)
 							{
 								item6.Code = null;
 							}
 						}
-						List<GameMakerCode> oursChildren = code5.ChildEntries.OrderBy((GameMakerCode gameMakerCode) => gameMakerCode.Offset).ToList();
+						List<GameMakerCode> oursChildren = [.. code5.ChildEntries.OrderBy(gameMakerCode => gameMakerCode.Offset)];
 						if (targetChildNames.Count != oursChildren.Count)
 						{
-							LogInterpolatedStringHandler handler30 = new LogInterpolatedStringHandler(103, 3, out shouldAppend);
+							var handler30 = new LogInterpolatedStringHandler(103, 3, out shouldAppend);
 							if (shouldAppend)
 							{
 								handler30.AppendLiteral("[ImportCodeEntries] Child topology differs for ");
@@ -5903,11 +5895,11 @@ public class PatchService
 							}
 							LogService.Log(ref handler30);
 						}
-						int remapCount = ((!hasExplicitChildEntries) ? Math.Min(targetChildNames.Count, oursChildren.Count) : 0);
-						for (int ci = 0; ci < remapCount; ci++)
+						var remapCount = (!hasExplicitChildEntries) ? Math.Min(targetChildNames.Count, oursChildren.Count) : 0;
+						for (var ci = 0; ci < remapCount; ci++)
 						{
-							string tName = targetChildNames[ci];
-							string oName = oursChildren[ci].Name?.Content;
+							var tName = targetChildNames[ci];
+							var oName = oursChildren[ci].Name?.Content;
 							if (!string.IsNullOrEmpty(oName) && tName != oName)
 							{
 								nameMap[tName] = oName;
@@ -5915,29 +5907,29 @@ public class PatchService
 						}
 						childDirectiveSw.Stop();
 					}
-					bool needsLocalVarRemap = asmText.Contains(".localvar", StringComparison.Ordinal);
-					bool needsStringSuffixStrip = asmText.Contains("push.s ", StringComparison.Ordinal);
-					bool needsChildNameRemap = nameMap.Count > 0;
-					string assemblySource = asmText;
+					var needsLocalVarRemap = asmText.Contains(".localvar", StringComparison.Ordinal);
+					var needsStringSuffixStrip = asmText.Contains("push.s ", StringComparison.Ordinal);
+					var needsChildNameRemap = nameMap.Count > 0;
+					var assemblySource = asmText;
 					if (needsLocalVarRemap || needsStringSuffixStrip || needsChildNameRemap)
 					{
 						preprocessedAsmEntries++;
 						asmPreprocessSw.Start();
-						StringBuilder sb = new StringBuilder(asmText.Length);
-						using StringReader sr2 = new StringReader(asmText);
+						var sb = new StringBuilder(asmText.Length);
+						using var sr2 = new StringReader(asmText);
 						string ln2;
 						while ((ln2 = sr2.ReadLine()) != null)
 						{
-							string trimmed = ln2.Trim();
+							var trimmed = ln2.Trim();
 							if (needsLocalVarRemap && trimmed.StartsWith(".localvar", StringComparison.Ordinal))
 							{
-								string[] parts2 = trimmed.Split(' ');
+								var parts2 = trimmed.Split(' ');
 								if (parts2.Length >= 4)
 								{
-									string varName = parts2[2];
+									var varName = parts2[2];
 									if (localVarLookup.TryGetValue(varName, out var newIdx))
 									{
-										parts2[3] = newIdx.ToString();
+										parts2[3] = newIdx.ToString(CultureInfo.InvariantCulture);
 									}
 									ln2 = string.Join(" ", parts2);
 								}
@@ -5948,11 +5940,11 @@ public class PatchService
 							}
 							if (needsChildNameRemap)
 							{
-								foreach (KeyValuePair<string, string> kvp in nameMap)
+								foreach (var kvp in nameMap)
 								{
-									if (ln2.Contains(kvp.Key))
+									if (ln2.Contains(kvp.Key, StringComparison.Ordinal))
 									{
-										ln2 = ln2.Replace(kvp.Key, kvp.Value);
+										ln2 = ln2.Replace(kvp.Key, kvp.Value, StringComparison.Ordinal);
 									}
 								}
 							}
@@ -5962,19 +5954,19 @@ public class PatchService
 						asmPreprocessSw.Stop();
 					}
 					assembleOnlySw.Start();
-					List<GameMakerInstruction> newInstructions = Assembler.Assemble(assemblySource, data, delegate(Action action)
+					var newInstructions = Assembler.Assemble(assemblySource, data, delegate (Action action)
 					{
 						action();
 					}, code5);
 					assembleOnlySw.Stop();
 					replaceInstructionsSw.Start();
 					code5.Instructions.Clear();
-					foreach (GameMakerInstruction instr in newInstructions)
+					foreach (var instr in newInstructions)
 					{
 						code5.Instructions.Add(instr);
 					}
-					uint totalWords = 0u;
-					foreach (GameMakerInstruction instr2 in newInstructions)
+					var totalWords = 0u;
+					foreach (var instr2 in newInstructions)
 					{
 						totalWords += instr2.CalculateInstructionSize();
 					}
@@ -5985,13 +5977,13 @@ public class PatchService
 				catch (Exception ex3)
 				{
 					asmFailed++;
-					if (gmlEntries.TryGetValue(entryKey8, out string fallbackGml))
+					if (gmlEntries.TryGetValue(entryKey8, out var fallbackGml))
 					{
 						asmGmlFallbackEntries.Add((codeName6, fallbackGml, codeName6.Contains("_Collision_", StringComparison.Ordinal)));
 					}
 					if (asmFailed <= 5)
 					{
-						LogInterpolatedStringHandler handler31 = new LogInterpolatedStringHandler(36, 2, out shouldAppend);
+						var handler31 = new LogInterpolatedStringHandler(36, 2, out shouldAppend);
 						if (shouldAppend)
 						{
 							handler31.AppendLiteral("[ImportCodeEntries] ASM error for ");
@@ -6012,11 +6004,11 @@ public class PatchService
 		if (asmGmlFallbackEntries.Count > 0)
 		{
 			gmlCompilationRan = true;
-			int fallbackFailed = RetryGmlOnlyCodeEntriesIndividually(data, asmGmlFallbackEntries, collisionTargetsByCode);
-			int recovered = asmGmlFallbackEntries.Count - fallbackFailed;
+			var fallbackFailed = RetryGmlOnlyCodeEntriesIndividually(data, asmGmlFallbackEntries, collisionTargetsByCode);
+			var recovered = asmGmlFallbackEntries.Count - fallbackFailed;
 			asmFailed -= recovered;
 			reassembled += recovered;
-			LogInterpolatedStringHandler handler32 = new LogInterpolatedStringHandler(59, 2, out shouldAppend);
+			var handler32 = new LogInterpolatedStringHandler(59, 2, out shouldAppend);
 			if (shouldAppend)
 			{
 				handler32.AppendLiteral("[ImportCodeEntries] Recovered ");
@@ -6027,10 +6019,10 @@ public class PatchService
 			}
 			LogService.Log(ref handler32);
 		}
-		Stopwatch postAsmTopologySw = Stopwatch.StartNew();
+		var postAsmTopologySw = Stopwatch.StartNew();
 		if (pendingChildReattachments.Count > 0)
 		{
-			int reattachedChildren = 0;
+			var reattachedChildren = 0;
 			archiveCodeLookup = BuildArchiveCodeLookup(data);
 			foreach (var (child3, parentArchiveKey2) in pendingChildReattachments)
 			{
@@ -6046,7 +6038,7 @@ public class PatchService
 			}
 			if (reattachedChildren > 0)
 			{
-				LogInterpolatedStringHandler handler33 = new LogInterpolatedStringHandler(75, 1, out shouldAppend);
+				var handler33 = new LogInterpolatedStringHandler(75, 1, out shouldAppend);
 				if (shouldAppend)
 				{
 					handler33.AppendLiteral("[ImportCodeEntries] Reattached ");
@@ -6058,32 +6050,32 @@ public class PatchService
 		}
 		if (hasCompleteCodeEntryMetadata && targetCodeEntriesByKey.Count > 0)
 		{
-			int canonicalParents = 0;
-			int canonicalChildren = 0;
-			Dictionary<string, GameMakerCode> allTrackedCodes = new Dictionary<string, GameMakerCode>(StringComparer.Ordinal);
-			foreach (KeyValuePair<string, (GameMakerCode, GameMakerCodeLocals, GameMakerScript)> item7 in topLevelEntrySnapshot)
+			var canonicalParents = 0;
+			var canonicalChildren = 0;
+			var allTrackedCodes = new Dictionary<string, GameMakerCode>(StringComparer.Ordinal);
+			foreach (var item7 in topLevelEntrySnapshot)
 			{
 				item7.Deconstruct(out key, out value3);
 				(allTrackedCodes[key], _, _) = value3;
 			}
-			foreach (KeyValuePair<string, (GameMakerCode, GameMakerCodeLocals, GameMakerScript, string)> item8 in childEntrySnapshot)
+			foreach (var item8 in childEntrySnapshot)
 			{
 				item8.Deconstruct(out key, out value4);
 				(allTrackedCodes[key], _, _, _) = value4;
 			}
 			archiveCodeLookup = BuildArchiveCodeLookup(data);
-			foreach (KeyValuePair<string, GameMakerCode> item9 in archiveCodeLookup)
+			foreach (var item9 in archiveCodeLookup)
 			{
 				item9.Deconstruct(out key, out var value5);
-				string entryKey11 = key;
-				GameMakerCode code6 = value5;
+				var entryKey11 = key;
+				var code6 = value5;
 				allTrackedCodes[entryKey11] = code6;
 			}
-			foreach (KeyValuePair<string, (string, int, string)> item10 in targetCodeEntriesByKey)
+			foreach (var item10 in targetCodeEntriesByKey)
 			{
 				item10.Deconstruct(out key, out value);
-				string entryKey12 = key;
-				(string, int, string) meta2 = value;
+				var entryKey12 = key;
+				var meta2 = value;
 				if (allTrackedCodes.TryGetValue(entryKey12, out var code7))
 				{
 					if (currentCodeSet.Add(code7))
@@ -6099,11 +6091,11 @@ public class PatchService
 					}
 				}
 			}
-			foreach (KeyValuePair<string, (string, int, string)> item11 in targetCodeEntriesByKey)
+			foreach (var item11 in targetCodeEntriesByKey)
 			{
 				item11.Deconstruct(out key, out value);
-				string entryKey13 = key;
-				(string, int, string) meta3 = value;
+				var entryKey13 = key;
+				var meta3 = value;
 				if (meta3.Item3 != null && allTrackedCodes.TryGetValue(entryKey13, out var child4) && allTrackedCodes.TryGetValue(meta3.Item3, out var parent3))
 				{
 					if (currentCodeSet.Add(child4))
@@ -6126,7 +6118,7 @@ public class PatchService
 					canonicalChildren++;
 				}
 			}
-			LogInterpolatedStringHandler handler34 = new LogInterpolatedStringHandler(92, 2, out shouldAppend);
+			var handler34 = new LogInterpolatedStringHandler(92, 2, out shouldAppend);
 			if (shouldAppend)
 			{
 				handler34.AppendLiteral("[ImportCodeEntries] Canonicalized code topology from helper metadata: ");
@@ -6150,7 +6142,7 @@ public class PatchService
 		postAsmTopologySw.Stop();
 		if (asmFailed > 5)
 		{
-			LogInterpolatedStringHandler handler35 = new LogInterpolatedStringHandler(57, 1, out shouldAppend);
+			var handler35 = new LogInterpolatedStringHandler(57, 1, out shouldAppend);
 			if (shouldAppend)
 			{
 				handler35.AppendLiteral("[ImportCodeEntries] ... and ");
@@ -6159,7 +6151,7 @@ public class PatchService
 			}
 			LogService.Log(ref handler35);
 		}
-		LogInterpolatedStringHandler handler36 = new LogInterpolatedStringHandler(165, 14, out shouldAppend);
+		var handler36 = new LogInterpolatedStringHandler(165, 14, out shouldAppend);
 		if (shouldAppend)
 		{
 			handler36.AppendLiteral("[ImportCodeEntries] ASM timings: funcs=");
@@ -6193,7 +6185,7 @@ public class PatchService
 			handler36.AppendLiteral("s");
 		}
 		LogService.Log(ref handler36);
-		LogInterpolatedStringHandler handler37 = new LogInterpolatedStringHandler(46, 3, out shouldAppend);
+		var handler37 = new LogInterpolatedStringHandler(46, 3, out shouldAppend);
 		if (shouldAppend)
 		{
 			handler37.AppendLiteral("[ImportCodeEntries] Reassembled ");
@@ -6210,7 +6202,7 @@ public class PatchService
 			throw new InvalidDataException($"{asmFailed} code entr{((asmFailed == 1) ? "y" : "ies")} could not be imported from ASM or GML");
 		}
 		sw.Stop();
-		LogInterpolatedStringHandler handler38 = new LogInterpolatedStringHandler(47, 1, out shouldAppend);
+		var handler38 = new LogInterpolatedStringHandler(47, 1, out shouldAppend);
 		if (shouldAppend)
 		{
 			handler38.AppendLiteral("[ImportCodeEntries] Hybrid import complete in ");
@@ -6226,9 +6218,8 @@ public class PatchService
 		{
 			return 0;
 		}
-		Stopwatch phaseSw = Stopwatch.StartNew();
-		bool shouldAppend;
-		LogInterpolatedStringHandler handler = new LogInterpolatedStringHandler(90, 1, out shouldAppend);
+		var phaseSw = Stopwatch.StartNew();
+		var handler = new LogInterpolatedStringHandler(90, 1, out var shouldAppend);
 		if (shouldAppend)
 		{
 			handler.AppendLiteral("[ImportCodeEntries] Retrying ");
@@ -6236,18 +6227,18 @@ public class PatchService
 			handler.AppendLiteral(" GML-only entries individually after group compile failure...");
 		}
 		LogService.Log(ref handler);
-		GlobalDecompileContext ctx = new GlobalDecompileContext(data);
+		var ctx = new GlobalDecompileContext(data);
 		ctx.PrepareForCompilation();
-		int applied = 0;
-		int failed = 0;
+		var applied = 0;
+		var failed = 0;
 		foreach (var (CodeName, GmlCode, IsCollision) in gmlOnlyEntries)
 		{
 			try
 			{
-				Dictionary<string, GameMakerCode> codeLookup = new Dictionary<string, GameMakerCode>(data.Code.Count);
-				foreach (GameMakerCode item in data.Code)
+				var codeLookup = new Dictionary<string, GameMakerCode>(data.Code.Count);
+				foreach (var item in data.Code)
 				{
-					foreach (GameMakerCode nested in EnumerateCodeTreeRecursive(item))
+					foreach (var nested in EnumerateCodeTreeRecursive(item))
 					{
 						if (nested != null && nested.Name?.Content != null)
 						{
@@ -6255,16 +6246,16 @@ public class PatchService
 						}
 					}
 				}
-				Dictionary<string, (GameMakerGameObject, int)> goLookup = new Dictionary<string, (GameMakerGameObject, int)>(data.GameObjects.Count);
-				for (int i = 0; i < data.GameObjects.Count; i++)
+				var goLookup = new Dictionary<string, (GameMakerGameObject, int)>(data.GameObjects.Count);
+				for (var i = 0; i < data.GameObjects.Count; i++)
 				{
-					GameMakerGameObject go = data.GameObjects[i];
+					var go = data.GameObjects[i];
 					if (go != null && go.Name?.Content != null)
 					{
 						goLookup.TryAdd(go.Name.Content, (go, i));
 					}
 				}
-				CodeImportGroup singleGroup = new CodeImportGroup(data, ctx)
+				var singleGroup = new CodeImportGroup(data, ctx)
 				{
 					AutoCreateGlobalInitScripts = false,
 					AutoCreateAssets = true
@@ -6285,14 +6276,14 @@ public class PatchService
 						singleGroup.QueueReplace(CodeName, GmlCode);
 					}
 				}
-				CompileResult result = singleGroup.Import(throwOnFailedCompile: false);
+				var result = singleGroup.Import(throwOnFailedCompile: false);
 				if (result.Successful)
 				{
 					applied++;
 					continue;
 				}
 				failed++;
-				LogInterpolatedStringHandler handler2 = new LogInterpolatedStringHandler(48, 2, out shouldAppend);
+				var handler2 = new LogInterpolatedStringHandler(48, 2, out shouldAppend);
 				if (shouldAppend)
 				{
 					handler2.AppendLiteral("[ImportCodeEntries] GML-only retry failed for ");
@@ -6305,7 +6296,7 @@ public class PatchService
 			catch (Exception ex)
 			{
 				failed++;
-				LogInterpolatedStringHandler handler3 = new LogInterpolatedStringHandler(51, 2, out shouldAppend);
+				var handler3 = new LogInterpolatedStringHandler(51, 2, out shouldAppend);
 				if (shouldAppend)
 				{
 					handler3.AppendLiteral("[ImportCodeEntries] GML-only retry exception for ");
@@ -6316,7 +6307,7 @@ public class PatchService
 				LogService.Log(ref handler3);
 			}
 		}
-		LogInterpolatedStringHandler handler4 = new LogInterpolatedStringHandler(59, 4, out shouldAppend);
+		var handler4 = new LogInterpolatedStringHandler(59, 4, out shouldAppend);
 		if (shouldAppend)
 		{
 			handler4.AppendLiteral("[ImportCodeEntries] GML-only retry applied ");
@@ -6345,47 +6336,46 @@ public class PatchService
 		{
 			return;
 		}
-		Dictionary<string, GameMakerFunction> oldByName = new Dictionary<string, GameMakerFunction>(StringComparer.Ordinal);
-		foreach (GameMakerFunction function in data.Functions)
+		var oldByName = new Dictionary<string, GameMakerFunction>(StringComparer.Ordinal);
+		foreach (var function in data.Functions)
 		{
-			string name = function?.Name?.Content;
+			var name = function?.Name?.Content;
 			if (!string.IsNullOrEmpty(name) && function != null)
 			{
 				oldByName.TryAdd(name, function);
 			}
 		}
-		Dictionary<string, GameMakerString> stringLookup = BuildStringLookup(data);
-		List<GameMakerFunction> newList = new List<GameMakerFunction>(funcArray.GetArrayLength());
-		Dictionary<string, GameMakerFunction> newByName = new Dictionary<string, GameMakerFunction>(StringComparer.Ordinal);
-		foreach (JsonElement item in funcArray.EnumerateArray())
+		var stringLookup = BuildStringLookup(data);
+		var newList = new List<GameMakerFunction>(funcArray.GetArrayLength());
+		var newByName = new Dictionary<string, GameMakerFunction>(StringComparer.Ordinal);
+		foreach (var item in funcArray.EnumerateArray())
 		{
-			string name2 = item.GetString();
+			var name2 = item.GetString();
 			if (!string.IsNullOrEmpty(name2))
 			{
 				name2 = FunctionNameUtil.CanonicalizeFunctionName(name2);
-				GameMakerFunction existing;
-				GameMakerFunction function2 = (oldByName.TryGetValue(name2, out existing) ? existing : new GameMakerFunction
+				var function2 = oldByName.TryGetValue(name2, out var existing) ? existing : new GameMakerFunction
 				{
 					Name = MakeStringCached(data, stringLookup, name2)
-				});
+				};
 				function2.Name = MakeStringCached(data, stringLookup, name2);
 				newList.Add(function2);
 				newByName.TryAdd(name2, function2);
 			}
 		}
 		data.Functions.Clear();
-		foreach (GameMakerFunction function3 in newList)
+		foreach (var function3 in newList)
 		{
 			data.Functions.Add(function3);
 		}
-		int remapped = 0;
-		foreach (GameMakerCode item2 in data.Code)
+		var remapped = 0;
+		foreach (var item2 in data.Code)
 		{
-			foreach (GameMakerCode item3 in EnumerateCodeTreeRecursive(item2))
+			foreach (var item3 in EnumerateCodeTreeRecursive(item2))
 			{
-				foreach (GameMakerInstruction instruction in item3.Instructions ?? new List<GameMakerInstruction>())
+				foreach (var instruction in item3.Instructions ?? [])
 				{
-					string name3 = instruction.ValueFunction?.Name?.Content;
+					var name3 = instruction.ValueFunction?.Name?.Content;
 					if (!string.IsNullOrEmpty(name3) && newByName.TryGetValue(FunctionNameUtil.CanonicalizeFunctionName(name3), out var replacement) && instruction.ValueFunction != replacement)
 					{
 						instruction.ValueFunction = replacement;
@@ -6394,8 +6384,7 @@ public class PatchService
 				}
 			}
 		}
-		bool shouldAppend;
-		LogInterpolatedStringHandler handler = new LogInterpolatedStringHandler(49, 3, out shouldAppend);
+		var handler = new LogInterpolatedStringHandler(49, 3, out var shouldAppend);
 		if (shouldAppend)
 		{
 			handler.AppendLiteral("[ImportCodeEntries] Functions ");
@@ -6414,18 +6403,18 @@ public class PatchService
 		{
 			return;
 		}
-		List<GameMakerVariable> newList = new List<GameMakerVariable>(varArray.GetArrayLength());
-		Dictionary<(string, GameMakerInstruction.InstanceType, int), GameMakerVariable> newExact = new Dictionary<(string, GameMakerInstruction.InstanceType, int), GameMakerVariable>();
-		Dictionary<(string, GameMakerInstruction.InstanceType), GameMakerVariable> newByNameType = new Dictionary<(string, GameMakerInstruction.InstanceType), GameMakerVariable>();
-		foreach (JsonElement vElem in varArray.EnumerateArray())
+		var newList = new List<GameMakerVariable>(varArray.GetArrayLength());
+		Dictionary<(string, GameMakerInstruction.InstanceType, int), GameMakerVariable> newExact = [];
+		Dictionary<(string, GameMakerInstruction.InstanceType), GameMakerVariable> newByNameType = [];
+		foreach (var vElem in varArray.EnumerateArray())
 		{
-			string name = vElem.GetProperty("n").GetString() ?? "";
-			int instType = vElem.GetProperty("t").GetInt32();
-			int varId = vElem.GetProperty("id").GetInt32();
+			var name = vElem.GetProperty("n").GetString() ?? "";
+			var instType = vElem.GetProperty("t").GetInt32();
+			var varId = vElem.GetProperty("id").GetInt32();
 			if (!string.IsNullOrEmpty(name))
 			{
-				GameMakerInstruction.InstanceType instanceType = (GameMakerInstruction.InstanceType)instType;
-				GameMakerVariable variable = new GameMakerVariable
+				var instanceType = (GameMakerInstruction.InstanceType)instType;
+				var variable = new GameMakerVariable
 				{
 					Name = MakeDistinctString(data, name),
 					InstanceType = instanceType,
@@ -6437,19 +6426,19 @@ public class PatchService
 			}
 		}
 		data.Variables.Clear();
-		foreach (GameMakerVariable variable2 in newList)
+		foreach (var variable2 in newList)
 		{
 			data.Variables.Add(variable2);
 		}
-		int remapped = 0;
-		foreach (GameMakerCode item in data.Code)
+		var remapped = 0;
+		foreach (var item in data.Code)
 		{
-			foreach (GameMakerCode item2 in EnumerateCodeTreeRecursive(item))
+			foreach (var item2 in EnumerateCodeTreeRecursive(item))
 			{
-				foreach (GameMakerInstruction instruction in item2.Instructions ?? new List<GameMakerInstruction>())
+				foreach (var instruction in item2.Instructions ?? [])
 				{
-					GameMakerVariable variable3 = instruction.ValueVariable;
-					string name2 = variable3?.Name?.Content;
+					var variable3 = instruction.ValueVariable;
+					var name2 = variable3?.Name?.Content;
 					if (!string.IsNullOrEmpty(name2) && variable3 != null)
 					{
 						if (!newExact.TryGetValue((name2, variable3.InstanceType, variable3.VarID), out var replacement))
@@ -6465,8 +6454,7 @@ public class PatchService
 				}
 			}
 		}
-		bool shouldAppend;
-		LogInterpolatedStringHandler handler = new LogInterpolatedStringHandler(49, 3, out shouldAppend);
+		var handler = new LogInterpolatedStringHandler(49, 3, out var shouldAppend);
 		if (shouldAppend)
 		{
 			handler.AppendLiteral("[ImportCodeEntries] Variables ");
@@ -6481,7 +6469,7 @@ public class PatchService
 
 	private static GameMakerString MakeDistinctString(GameMakerData data, string content)
 	{
-		GameMakerString created = new GameMakerString(content);
+		var created = new GameMakerString(content);
 		if (data.Strings is GameMakerObservableList<GameMakerString> stringList)
 		{
 			stringList.InternalAdd(created);
@@ -6495,11 +6483,11 @@ public class PatchService
 
 	private static GameMakerString MakeStringCached(GameMakerData data, Dictionary<string, GameMakerString> stringLookup, string content)
 	{
-		if (stringLookup.TryGetValue(content, out GameMakerString existing))
+		if (stringLookup.TryGetValue(content, out var existing))
 		{
 			return existing;
 		}
-		GameMakerString created = new GameMakerString(content);
+		var created = new GameMakerString(content);
 		if (data.Strings is GameMakerObservableList<GameMakerString> stringList)
 		{
 			stringList.InternalAdd(created);
@@ -6514,8 +6502,8 @@ public class PatchService
 
 	private static Dictionary<string, GameMakerString> BuildStringLookup(GameMakerData data)
 	{
-		Dictionary<string, GameMakerString> stringLookup = new Dictionary<string, GameMakerString>(data.Strings.Count, StringComparer.Ordinal);
-		foreach (GameMakerString str in data.Strings)
+		var stringLookup = new Dictionary<string, GameMakerString>(data.Strings.Count, StringComparer.Ordinal);
+		foreach (var str in data.Strings)
 		{
 			if (str != null && str.Content != null)
 			{
@@ -6527,7 +6515,7 @@ public class PatchService
 
 	private static void EnsureObjectEventForCode(GameMakerData data, string codeName, Dictionary<string, GameMakerCode> codeLookup, Dictionary<string, (GameMakerGameObject obj, int idx)> goLookup)
 	{
-		if (!TryParseObjectEventCodeName(codeName, out string objectName, out int eventType, out uint eventSubtype) || !goLookup.TryGetValue(objectName, out (GameMakerGameObject, int) objEntry))
+		if (!TryParseObjectEventCodeName(codeName, out var objectName, out var eventType, out var eventSubtype) || !goLookup.TryGetValue(objectName, out (GameMakerGameObject, int) objEntry))
 		{
 			return;
 		}
@@ -6536,13 +6524,13 @@ public class PatchService
 		{
 			return;
 		}
-		if (!codeLookup.TryGetValue(codeName, out GameMakerCode codeEntry))
+		if (!codeLookup.TryGetValue(codeName, out var codeEntry))
 		{
-			codeEntry = (codeLookup[codeName] = GameMakerCode.CreateEmptyEntry(data, codeName));
+			codeEntry = codeLookup[codeName] = GameMakerCode.CreateEmptyEntry(data, codeName);
 		}
-		GameMakerPointerList<GameMakerGameObject.Event> eventList = obj.Events[eventType];
-		GameMakerGameObject.Event targetEvent = null;
-		foreach (GameMakerGameObject.Event evt in eventList)
+		var eventList = obj.Events[eventType];
+		GameMakerGameObject.Event? targetEvent = null;
+		foreach (var evt in eventList)
 		{
 			if (evt.EventSubtype == eventSubtype)
 			{
@@ -6573,10 +6561,10 @@ public class PatchService
 
 	private static Dictionary<string, int> BuildObjectNameCounts(GameMakerData data)
 	{
-		Dictionary<string, int> counts = new Dictionary<string, int>(StringComparer.Ordinal);
-		foreach (GameMakerGameObject gameObject in data.GameObjects)
+		var counts = new Dictionary<string, int>(StringComparer.Ordinal);
+		foreach (var gameObject in data.GameObjects)
 		{
-			string name = gameObject?.Name?.Content;
+			var name = gameObject?.Name?.Content;
 			if (name != null)
 			{
 				counts[name] = counts.GetValueOrDefault(name) + 1;
@@ -6598,7 +6586,7 @@ public class PatchService
 	{
 		if (objectNameCounts.GetValueOrDefault(objectName) <= 1)
 		{
-			string exactKey = GetObjectEventKey(objectName, objectIndex, objectNameCounts);
+			var exactKey = GetObjectEventKey(objectName, objectIndex, objectNameCounts);
 			if (targetEventsRoot.TryGetProperty(exactKey, out var value))
 			{
 				return exactKey;
@@ -6609,17 +6597,17 @@ public class PatchService
 			}
 			return objectName;
 		}
-		int occurrence = 0;
-		for (int i = 0; i < objectIndex; i++)
+		var occurrence = 0;
+		for (var i = 0; i < objectIndex; i++)
 		{
 			if (string.Equals(data.GameObjects[i]?.Name?.Content, objectName, StringComparison.Ordinal))
 			{
 				occurrence++;
 			}
 		}
-		List<(int, string)> duplicateKeys = new List<(int, string)>();
-		string prefix = objectName + "__idx";
-		foreach (JsonProperty prop in targetEventsRoot.EnumerateObject())
+		List<(int, string)> duplicateKeys = [];
+		var prefix = objectName + "__idx";
+		foreach (var prop in targetEventsRoot.EnumerateObject())
 		{
 			if (prop.Name.StartsWith(prefix, StringComparison.Ordinal) && int.TryParse(prop.Name.AsSpan(prefix.Length), out var idx))
 			{
@@ -6640,33 +6628,30 @@ public class PatchService
 
 	private static void ApplyAuthoritativeObjectEvents(GameMakerData data, string objectEventsJson, HashSet<string>? changedCodeNames = null)
 	{
-		using JsonDocument doc = JsonDocument.Parse(objectEventsJson);
-		JsonElement root = doc.RootElement;
-		Dictionary<string, int> objectNameCounts = BuildObjectNameCounts(data);
-		for (int objIndex = 0; objIndex < data.GameObjects.Count; objIndex++)
+		using var doc = JsonDocument.Parse(objectEventsJson);
+		var root = doc.RootElement;
+		var objectNameCounts = BuildObjectNameCounts(data);
+		for (var objIndex = 0; objIndex < data.GameObjects.Count; objIndex++)
 		{
-			GameMakerGameObject obj = data.GameObjects[objIndex];
+			var obj = data.GameObjects[objIndex];
 			if (obj == null || obj.Name?.Content == null)
 			{
 				continue;
 			}
-			string eventKey = ResolveObjectEventsKey(root, data, obj.Name.Content, objIndex, objectNameCounts);
+			var eventKey = ResolveObjectEventsKey(root, data, obj.Name.Content, objIndex, objectNameCounts);
 			if (eventKey == null || !root.TryGetProperty(eventKey, out var targetEvents))
 			{
 				continue;
 			}
-			List<(int, uint, JsonElement?, string, string)> desired = new List<(int, uint, JsonElement?, string, string)>();
-			bool objectUsesChangedCode = changedCodeNames == null;
-			foreach (JsonElement evt in targetEvents.EnumerateArray())
+			List<(int, uint, JsonElement?, string, string)> desired = [];
+			var objectUsesChangedCode = changedCodeNames == null;
+			foreach (var evt in targetEvents.EnumerateArray())
 			{
-				int type = evt.GetProperty("t").GetInt32();
-				uint subtype = evt.GetProperty("s").GetUInt32();
-				JsonElement actionsElem;
-				JsonElement? actions = ((evt.TryGetProperty("actions", out actionsElem) && actionsElem.ValueKind == JsonValueKind.Array) ? new JsonElement?(actionsElem) : ((JsonElement?)null));
-				JsonElement c;
-				string codeName = (evt.TryGetProperty("c", out c) ? (c.GetString() ?? "") : "");
-				JsonElement cn;
-				string collisionName = (evt.TryGetProperty("cn", out cn) ? cn.GetString() : null);
+				var type = evt.GetProperty("t").GetInt32();
+				var subtype = evt.GetProperty("s").GetUInt32();
+				var actions = (evt.TryGetProperty("actions", out var actionsElem) && actionsElem.ValueKind == JsonValueKind.Array) ? new JsonElement?(actionsElem) : null;
+				var codeName = evt.TryGetProperty("c", out var c) ? (c.GetString() ?? "") : "";
+				var collisionName = evt.TryGetProperty("cn", out var cn) ? cn.GetString() : null;
 				if (!objectUsesChangedCode)
 				{
 					if (!string.IsNullOrEmpty(codeName) && changedCodeNames.Contains(codeName))
@@ -6675,7 +6660,7 @@ public class PatchService
 					}
 					else if (actions.HasValue)
 					{
-						foreach (JsonElement item in actions.Value.EnumerateArray())
+						foreach (var item in actions.Value.EnumerateArray())
 						{
 							if (item.TryGetProperty("codeId", out var codeIdElm) && changedCodeNames.Contains(codeIdElm.GetString() ?? ""))
 							{
@@ -6685,11 +6670,10 @@ public class PatchService
 						}
 					}
 				}
-				JsonElement co;
-				int collisionOccurrence = (evt.TryGetProperty("co", out co) ? co.GetInt32() : 0);
+				var collisionOccurrence = evt.TryGetProperty("co", out var co) ? co.GetInt32() : 0;
 				if (type == 4 && !string.IsNullOrEmpty(collisionName))
 				{
-					GameMakerGameObject collObj = ResolveGameObjectByNameOccurrence(data, collisionName, collisionOccurrence);
+					var collObj = ResolveGameObjectByNameOccurrence(data, collisionName, collisionOccurrence);
 					if (collObj == null)
 					{
 						continue;
@@ -6702,7 +6686,7 @@ public class PatchService
 			{
 				continue;
 			}
-			for (int eventType = 0; eventType < obj.Events.Count; eventType++)
+			for (var eventType = 0; eventType < obj.Events.Count; eventType++)
 			{
 				obj.Events[eventType].Clear();
 			}
@@ -6712,20 +6696,20 @@ public class PatchService
 				{
 					continue;
 				}
-				GameMakerGameObject.Event targetEvent = new GameMakerGameObject.Event
+				var targetEvent = new GameMakerGameObject.Event
 				{
 					EventSubtype = evt2.Item2
 				};
 				if (evt2.Item3.HasValue)
 				{
-					foreach (JsonElement actionElm in evt2.Item3.Value.EnumerateArray())
+					foreach (var actionElm in evt2.Item3.Value.EnumerateArray())
 					{
 						targetEvent.Actions.Add(CreateEventActionFromJson(data, actionElm));
 					}
 				}
 				else if (!string.IsNullOrEmpty(evt2.Item4))
 				{
-					GameMakerCode code = data.Code.ByName(evt2.Item4);
+					var code = data.Code.ByName(evt2.Item4);
 					if (code != null)
 					{
 						targetEvent.Actions.Add(new GameMakerGameObject.EventAction
@@ -6734,7 +6718,7 @@ public class PatchService
 						});
 					}
 				}
-				if (targetEvent.Actions.Any((GameMakerGameObject.EventAction action) => action?.CodeId != null))
+				if (targetEvent.Actions.Any(action => action?.CodeId != null))
 				{
 					obj.Events[evt2.Item1].Add(targetEvent);
 				}
@@ -6744,9 +6728,9 @@ public class PatchService
 
 	private static GameMakerGameObject? ResolveGameObjectByNameOccurrence(GameMakerData data, string objectName, int occurrence)
 	{
-		int targetOccurrence = Math.Max(occurrence, 0);
-		int seen = 0;
-		foreach (GameMakerGameObject obj in data.GameObjects)
+		var targetOccurrence = Math.Max(occurrence, 0);
+		var seen = 0;
+		foreach (var obj in data.GameObjects)
 		{
 			if (string.Equals(obj?.Name?.Content, objectName, StringComparison.Ordinal))
 			{
@@ -6773,8 +6757,8 @@ public class PatchService
 		{
 			return false;
 		}
-		(string, int)[] array = new(string, int)[11]
-		{
+		(string, int)[] array =
+		[
 			("_Create_", 0),
 			("_Destroy_", 1),
 			("_Alarm_", 2),
@@ -6786,17 +6770,17 @@ public class PatchService
 			("_KeyRelease_", 10),
 			("_CleanUp_", 12),
 			("_PreCreate_", 14)
-		};
-		for (int i = 0; i < array.Length; i++)
+		];
+		for (var i = 0; i < array.Length; i++)
 		{
-			(string, int) tuple = array[i];
-			string suffix = tuple.Item1;
-			int type = tuple.Item2;
-			int idx = codeName.LastIndexOf(suffix, StringComparison.Ordinal);
-			if (idx > "gml_Object_".Length && uint.TryParse(codeName.Substring(idx + suffix.Length), out eventSubtype))
+			var tuple = array[i];
+			var suffix = tuple.Item1;
+			var type = tuple.Item2;
+			var idx = codeName.LastIndexOf(suffix, StringComparison.Ordinal);
+			if (idx > "gml_Object_".Length && uint.TryParse(codeName[(idx + suffix.Length)..], out eventSubtype))
 			{
-				int length = "gml_Object_".Length;
-				objectName = codeName.Substring(length, idx - length);
+				var length = "gml_Object_".Length;
+				objectName = codeName[length..idx];
 				eventType = type;
 				return true;
 			}
@@ -6804,32 +6788,30 @@ public class PatchService
 		return false;
 	}
 
-	private static Regex StripStringIdxRegex()
-	{
-		return new Regex("\"@\\d+", RegexOptions.Compiled);
-	}
+	[GeneratedRegex("\"@\\d+")]
+	private static partial Regex StripStringIdxRegex();
 
 	private static void ImportCollisionEvent(GameMakerData data, string codeName, string gmlCode, CodeImportGroup importGroup, Dictionary<string, GameMakerCode> codeLookup, Dictionary<string, (GameMakerGameObject obj, int idx)> goLookup, Dictionary<string, string> collisionTargetsByCode)
 	{
-		if (!codeName.StartsWith("gml_Object_"))
+		if (!codeName.StartsWith("gml_Object_", StringComparison.Ordinal))
 		{
 			return;
 		}
-		int collisionIdx = codeName.LastIndexOf("_Collision_");
+		var collisionIdx = codeName.LastIndexOf("_Collision_", StringComparison.Ordinal);
 		if (collisionIdx < 0)
 		{
 			return;
 		}
-		int length = "gml_Object_".Length;
-		string objectName = codeName.Substring(length, collisionIdx - length);
-		string identifier = codeName.Substring(collisionIdx + "_Collision_".Length);
+		var length = "gml_Object_".Length;
+		var objectName = codeName[length..collisionIdx];
+		var identifier = codeName[(collisionIdx + "_Collision_".Length)..];
 		if (!goLookup.TryGetValue(objectName, out (GameMakerGameObject, int) objEntry))
 		{
 			return;
 		}
 		var (obj, _) = objEntry;
 		uint collisionIndex;
-		if (collisionTargetsByCode.TryGetValue(codeName, out string collisionObjectName))
+		if (collisionTargetsByCode.TryGetValue(codeName, out var collisionObjectName))
 		{
 			if (!goLookup.TryGetValue(collisionObjectName, out (GameMakerGameObject, int) collisionEntry))
 			{
@@ -6845,9 +6827,9 @@ public class PatchService
 			}
 			collisionIndex = (uint)collisionEntry2.Item2;
 		}
-		GameMakerPointerList<GameMakerGameObject.Event> collisionEvents = obj.Events[4];
-		GameMakerCode codeEntry = null;
-		foreach (GameMakerGameObject.Event evt in collisionEvents)
+		var collisionEvents = obj.Events[4];
+		GameMakerCode? codeEntry = null;
+		foreach (var evt in collisionEvents)
 		{
 			if (evt.EventSubtype != collisionIndex)
 			{
@@ -6859,10 +6841,7 @@ public class PatchService
 				break;
 			}
 			codeLookup.TryGetValue(codeName, out codeEntry);
-			if (codeEntry == null)
-			{
-				codeEntry = GameMakerCode.CreateEmptyEntry(data, codeName);
-			}
+			codeEntry ??= GameMakerCode.CreateEmptyEntry(data, codeName);
 			if (evt.Actions.Count == 0)
 			{
 				evt.Actions.Add(new GameMakerGameObject.EventAction
@@ -6879,11 +6858,8 @@ public class PatchService
 		if (codeEntry == null)
 		{
 			codeLookup.TryGetValue(codeName, out codeEntry);
-			if (codeEntry == null)
-			{
-				codeEntry = GameMakerCode.CreateEmptyEntry(data, codeName);
-			}
-			GameMakerGameObject.Event newEvent = new GameMakerGameObject.Event
+			codeEntry ??= GameMakerCode.CreateEmptyEntry(data, codeName);
+			var newEvent = new GameMakerGameObject.Event
 			{
 				EventSubtype = collisionIndex
 			};
@@ -6898,9 +6874,9 @@ public class PatchService
 
 	private static Dictionary<string, string> LoadCollisionTargetsByCode(string helpersDir, string? objectEventsContentOverride)
 	{
-		Dictionary<string, string> result = new Dictionary<string, string>(StringComparer.Ordinal);
-		string objectEventsContent = objectEventsContentOverride;
-		string objEventsPath = Path.Combine(helpersDir, "object_events.json");
+		var result = new Dictionary<string, string>(StringComparer.Ordinal);
+		var objectEventsContent = objectEventsContentOverride;
+		var objEventsPath = Path.Combine(helpersDir, "object_events.json");
 		if (objectEventsContent == null && File.Exists(objEventsPath))
 		{
 			objectEventsContent = File.ReadAllText(objEventsPath, Encoding.UTF8);
@@ -6909,15 +6885,15 @@ public class PatchService
 		{
 			return result;
 		}
-		using JsonDocument doc = JsonDocument.Parse(objectEventsContent);
-		foreach (JsonProperty item in doc.RootElement.EnumerateObject())
+		using var doc = JsonDocument.Parse(objectEventsContent);
+		foreach (var item in doc.RootElement.EnumerateObject())
 		{
-			foreach (JsonElement evt in item.Value.EnumerateArray())
+			foreach (var evt in item.Value.EnumerateArray())
 			{
 				if (evt.TryGetProperty("t", out var typeElem) && typeElem.GetInt32() == 4 && evt.TryGetProperty("c", out var codeElem) && codeElem.ValueKind == JsonValueKind.String && evt.TryGetProperty("cn", out var collisionNameElem) && collisionNameElem.ValueKind == JsonValueKind.String)
 				{
-					string codeName = codeElem.GetString();
-					string collisionName = collisionNameElem.GetString();
+					var codeName = codeElem.GetString();
+					var collisionName = collisionNameElem.GetString();
 					if (!string.IsNullOrEmpty(codeName) && !string.IsNullOrEmpty(collisionName))
 					{
 						result[codeName] = collisionName;
@@ -6930,7 +6906,7 @@ public class PatchService
 
 	private static string FormatPatchStats(PatchStatistics s)
 	{
-		List<string> parts = new List<string>();
+		List<string> parts = [];
 		if (s.TotalChanged > 0)
 		{
 			parts.Add((s.TotalChangedFiles > 0) ? $"Changed: {s.TotalChanged} ({s.TotalChangedFiles} files)" : $"Changed: {s.TotalChanged}");
@@ -6950,8 +6926,13 @@ public class PatchService
 		return string.Join(", ", parts);
 	}
 
-	public static async Task<PatchValidateResult> ValidatePatchAsync(string patchPath, string? dataPath = null, G3MCacheOptions? cacheOptions = null)
+	public static Task<PatchValidateResult> ValidatePatchAsync(string patchPath, string? dataPath, G3MCacheOptions? cacheOptions)
+		=> ValidatePatchAsync(patchPath, dataPath, cacheOptions, CancellationToken.None);
+
+	public static async Task<PatchValidateResult> ValidatePatchAsync(string patchPath, string? dataPath = null, G3MCacheOptions? cacheOptions = null, CancellationToken cancellationToken = default)
 	{
+		using var cancellationScope = ModdingCancellation.Begin(cancellationToken);
+		cancellationToken.ThrowIfCancellationRequested();
 		if (!File.Exists(patchPath))
 		{
 			return new PatchValidateResult
@@ -6962,9 +6943,9 @@ public class PatchService
 		}
 		try
 		{
-			using FileStream zipStream = new FileStream(patchPath, FileMode.Open, FileAccess.Read);
-			using ZipArchive archive = new ZipArchive(zipStream, ZipArchiveMode.Read);
-			ZipArchiveEntry manifestEntry = archive.GetEntry("g3mpatch.json");
+			using var zipStream = new FileStream(patchPath, FileMode.Open, FileAccess.Read);
+			using var archive = new ZipArchive(zipStream, ZipArchiveMode.Read);
+			var manifestEntry = archive.GetEntry("g3mpatch.json");
 			if (manifestEntry == null)
 			{
 				return new PatchValidateResult
@@ -6973,8 +6954,8 @@ public class PatchService
 					Error = "Invalid patch: g3mpatch.json not found"
 				};
 			}
-			using StreamReader reader = new StreamReader(await manifestEntry.OpenAsync());
-			G3MPatchManifest manifest = JsonSerializer.Deserialize<G3MPatchManifest>(await reader.ReadToEndAsync());
+			using var reader = new StreamReader(await manifestEntry.OpenAsync(cancellationToken).ConfigureAwait(false));
+			var manifest = JsonSerializer.Deserialize<G3MPatchManifest>(await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false));
 			if (manifest == null)
 			{
 				return new PatchValidateResult
@@ -6983,24 +6964,27 @@ public class PatchService
 					Error = "Invalid patch: failed to parse manifest"
 				};
 			}
+			cancellationToken.ThrowIfCancellationRequested();
 			if (dataPath != null && File.Exists(dataPath))
 			{
-				string text = G3MCacheService.TryReadDataFileInfo(dataPath, cacheOptions)?.Md5;
-				if (text == null)
-				{
-					text = await HashService.ComputeFileHashAsync(dataPath);
-				}
-				string dataHash = text;
+				var text = (G3MCacheService.TryReadDataFileInfo(dataPath, cacheOptions)?.Md5) ?? await HashService.ComputeFileHashAsync(dataPath).ConfigureAwait(false);
+				var dataHash = text;
 				if (manifest.Original?.Md5 != null && manifest.Original.Md5 != dataHash)
 				{
 					LogService.Warning(" Data file hash doesn't match original - patch may not apply correctly");
 				}
 			}
+			cancellationToken.ThrowIfCancellationRequested();
 			return new PatchValidateResult
 			{
 				Success = true,
 				Manifest = manifest
 			};
+		}
+		catch (Exception ex) when (ModdingCancellation.IsCancellation(ex))
+		{
+			ModdingCancellation.Rethrow(ex, cancellationToken);
+			throw;
 		}
 		catch (Exception ex)
 		{
@@ -7014,15 +6998,15 @@ public class PatchService
 
 	public static async Task<string> EnsureG3MPatchAsync(string originalPath, string inputPath, string? tempDir = null, Dictionary<string, Dictionary<string, string>>? precomputedOriginalHashes = null, DataFileInfo? precomputedOriginalInfo = null, Dictionary<string, Dictionary<string, int>>? precomputedOriginalNameCounts = null, Dictionary<string, IReadOnlyList<string>>? precomputedOriginalOrderedNames = null, G3MCacheOptions? cacheOptions = null)
 	{
-		string ext = Path.GetExtension(inputPath).ToLowerInvariant();
+		var ext = Path.GetExtension(inputPath).ToLowerInvariant();
 		if (ext is ".g3mpatch" or ".zip") return inputPath;
 		if (ext == ".csx")
 			throw new NotSupportedException("CSX inputs require a scripting host; materialize the data file before creating a patch.");
 		if (!PatchInputService.IsXDelta(inputPath) && !DataFileExtensionUtil.IsDataFile(inputPath))
 			throw new NotSupportedException("Unsupported patch input '" + Path.GetFileName(inputPath) + "'.");
 
-		string outputZip = Path.Combine(tempDir ?? Path.GetTempPath(), $"g3mlib_conv_{Guid.NewGuid():N}.g3mpatch");
-		PatchCreateResult result = await CreatePatchAsync(originalPath, inputPath, outputZip, precomputedOriginalHashes, precomputedOriginalInfo, precomputedOriginalNameCounts, precomputedOriginalOrderedNames, null, includeXdeltaFallback: false, cacheOptions);
+		var outputZip = Path.Combine(tempDir ?? TempRoot.Path, $"g3mlib_conv_{Guid.NewGuid():N}.g3mpatch");
+		var result = await CreatePatchAsync(originalPath, inputPath, outputZip, precomputedOriginalHashes, precomputedOriginalInfo, precomputedOriginalNameCounts, precomputedOriginalOrderedNames, null, includeXdeltaFallback: false, cacheOptions).ConfigureAwait(false);
 		if (!result.Success)
 			throw new InvalidOperationException("Failed to create .g3mpatch from '" + Path.GetFileName(inputPath) + "': " + result.Error);
 		return outputZip;
@@ -7030,12 +7014,14 @@ public class PatchService
 
 	public static void LogCreateCompatibilityWarnings(DataFileInfo original, DataFileInfo modified)
 	{
+		ArgumentNullException.ThrowIfNull(modified);
+		ArgumentNullException.ThrowIfNull(original);
 		if (original.BytecodeVersion != modified.BytecodeVersion)
 		{
 			LogService.Warning($"Data file bytecode version differs ({original.BytecodeVersion} vs {modified.BytecodeVersion}). " + "The patch will still be created.");
 		}
-		GeneralInfoData originalGeneralInfo = original.GeneralInfo;
-		GeneralInfoData modifiedGeneralInfo = modified.GeneralInfo;
+		var originalGeneralInfo = original.GeneralInfo;
+		var modifiedGeneralInfo = modified.GeneralInfo;
 		if (originalGeneralInfo == null || modifiedGeneralInfo == null)
 		{
 			return;
@@ -7046,7 +7032,7 @@ public class PatchService
 		}
 		if (originalGeneralInfo.RoomOrderCount > 0 && modifiedGeneralInfo.RoomOrderCount > 0)
 		{
-			int smaller = Math.Min(originalGeneralInfo.RoomOrderCount, modifiedGeneralInfo.RoomOrderCount);
+			var smaller = Math.Min(originalGeneralInfo.RoomOrderCount, modifiedGeneralInfo.RoomOrderCount);
 			if (Math.Max(originalGeneralInfo.RoomOrderCount, modifiedGeneralInfo.RoomOrderCount) > smaller * 3)
 			{
 				LogService.Warning($"Data file room order count differs substantially ({originalGeneralInfo.RoomOrderCount} vs {modifiedGeneralInfo.RoomOrderCount}). " + "The patch will still be created.");
@@ -7061,54 +7047,54 @@ public class PatchService
 
 	private static HashSet<string> BuildRelevantAssetOrderSections(IEnumerable<string> resourceTypes, bool includeScriptsForCodeEntries)
 	{
-		HashSet<string> keep = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-		foreach (string resourceType2 in resourceTypes)
+		var keep = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+		foreach (var resourceType2 in resourceTypes)
 		{
 			switch (resourceType2)
 			{
-			case "Sounds":
-				keep.Add("sounds");
-				break;
-			case "Sprites":
-				keep.Add("sprites");
-				break;
-			case "Backgrounds":
-			case "Tilesets":
-				keep.Add("backgrounds");
-				break;
-			case "Paths":
-				keep.Add("paths");
-				break;
-			case "Scripts":
-				keep.Add("scripts");
-				break;
-			case "Fonts":
-				keep.Add("fonts");
-				break;
-			case "GameObjects":
-				keep.Add("objects");
-				break;
-			case "Timelines":
-				keep.Add("timelines");
-				break;
-			case "Rooms":
-				keep.Add("rooms");
-				break;
-			case "Shaders":
-				keep.Add("shaders");
-				break;
-			case "Extensions":
-				keep.Add("extensions");
-				break;
-			case "AudioGroups":
-				keep.Add("audiogroups");
-				break;
-			case "CodeEntries":
-				if (includeScriptsForCodeEntries)
-				{
+				case "Sounds":
+					keep.Add("sounds");
+					break;
+				case "Sprites":
+					keep.Add("sprites");
+					break;
+				case "Backgrounds":
+				case "Tilesets":
+					keep.Add("backgrounds");
+					break;
+				case "Paths":
+					keep.Add("paths");
+					break;
+				case "Scripts":
 					keep.Add("scripts");
-				}
-				break;
+					break;
+				case "Fonts":
+					keep.Add("fonts");
+					break;
+				case "GameObjects":
+					keep.Add("objects");
+					break;
+				case "Timelines":
+					keep.Add("timelines");
+					break;
+				case "Rooms":
+					keep.Add("rooms");
+					break;
+				case "Shaders":
+					keep.Add("shaders");
+					break;
+				case "Extensions":
+					keep.Add("extensions");
+					break;
+				case "AudioGroups":
+					keep.Add("audiogroups");
+					break;
+				case "CodeEntries":
+					if (includeScriptsForCodeEntries)
+					{
+						keep.Add("scripts");
+					}
+					break;
 			}
 		}
 		return keep;
@@ -7116,22 +7102,22 @@ public class PatchService
 
 	private static bool RequiresHeavyFinalize(IEnumerable<string> resourceTypesToProcess)
 	{
-		bool sawAny = false;
-		bool sawOnlyScriptMetadata = true;
-		foreach (string resourceType in resourceTypesToProcess)
+		var sawAny = false;
+		var sawOnlyScriptMetadata = true;
+		foreach (var resourceType in resourceTypesToProcess)
 		{
 			sawAny = true;
 			switch (resourceType)
 			{
-			case "Options":
-			case "Scripts":
-			case "FilterEffects":
-			case "GlobalScripts":
-			case "GeneralInfo":
-			case "Language":
-			case "FeatureFlags":
-			case "Tags":
-				continue;
+				case "Options":
+				case "Scripts":
+				case "FilterEffects":
+				case "GlobalScripts":
+				case "GeneralInfo":
+				case "Language":
+				case "FeatureFlags":
+				case "Tags":
+					continue;
 			}
 			sawOnlyScriptMetadata = false;
 			return true;
@@ -7145,7 +7131,7 @@ public class PatchService
 
 	private static bool RequiresScriptEntryEnsure(IEnumerable<string> resourceTypesToProcess)
 	{
-		foreach (string resourceType in resourceTypesToProcess)
+		foreach (var resourceType in resourceTypesToProcess)
 		{
 			if (resourceType.Equals("Scripts", StringComparison.OrdinalIgnoreCase) || resourceType.Equals("GlobalScripts", StringComparison.OrdinalIgnoreCase) || resourceType.Equals("CodeEntries", StringComparison.OrdinalIgnoreCase))
 			{
@@ -7155,13 +7141,13 @@ public class PatchService
 		return false;
 	}
 
-	private static bool RequiresObjectEventsHelper(IReadOnlyDictionary<string, HashSet<string>> changedNamesPerType)
+	private static bool RequiresObjectEventsHelper(Dictionary<string, HashSet<string>> changedNamesPerType)
 	{
-		if (!changedNamesPerType.TryGetValue("CodeEntries", out HashSet<string> codeEntries))
+		if (!changedNamesPerType.TryGetValue("CodeEntries", out var codeEntries))
 		{
 			return false;
 		}
-		foreach (string codeName in codeEntries)
+		foreach (var codeName in codeEntries)
 		{
 			if (codeName.StartsWith("gml_Object_", StringComparison.Ordinal) || codeName.Contains("_Collision_", StringComparison.Ordinal))
 			{
@@ -7173,21 +7159,21 @@ public class PatchService
 
 	private static bool ShouldApplyAuthoritativeObjectEvents(List<string> resourceTypesToProcess, G3MPatchManifest? manifest, byte[] objectEventsBytes)
 	{
-		if (resourceTypesToProcess.Contains<string>("GameObjects", StringComparer.OrdinalIgnoreCase))
+		if (resourceTypesToProcess.Contains("GameObjects", StringComparer.OrdinalIgnoreCase))
 		{
 			return true;
 		}
-		if (manifest?.Resources == null || !manifest.Resources.TryGetValue("CodeEntries", out ResourceTypeChanges codeChanges))
+		if (manifest?.Resources == null || !manifest.Resources.TryGetValue("CodeEntries", out var codeChanges))
 		{
 			return false;
 		}
-		HashSet<string> changedCodeNames = GetChangedCodeEntryNames(codeChanges);
+		var changedCodeNames = GetChangedCodeEntryNames(codeChanges);
 		if (changedCodeNames.Count == 0)
 		{
 			return true;
 		}
-		string objectEventsText = Encoding.UTF8.GetString(objectEventsBytes);
-		foreach (string codeName in changedCodeNames)
+		var objectEventsText = Encoding.UTF8.GetString(objectEventsBytes);
+		foreach (var codeName in changedCodeNames)
 		{
 			if (objectEventsText.Contains(codeName, StringComparison.Ordinal))
 			{
@@ -7199,19 +7185,19 @@ public class PatchService
 
 	private static HashSet<string> GetChangedCodeEntryNames(G3MPatchManifest? manifest)
 	{
-		if (manifest?.Resources == null || !manifest.Resources.TryGetValue("CodeEntries", out ResourceTypeChanges codeChanges))
+		if (manifest?.Resources == null || !manifest.Resources.TryGetValue("CodeEntries", out var codeChanges))
 		{
-			return new HashSet<string>();
+			return [];
 		}
 		return GetChangedCodeEntryNames(codeChanges);
 	}
 
 	private static HashSet<string> GetChangedCodeEntryNames(ResourceTypeChanges codeChanges)
 	{
-		HashSet<string> names = new HashSet<string>(StringComparer.Ordinal);
+		var names = new HashSet<string>(StringComparer.Ordinal);
 		if (codeChanges.Changed != null)
 		{
-			foreach (ResourceChange change in codeChanges.Changed)
+			foreach (var change in codeChanges.Changed)
 			{
 				if (!string.IsNullOrWhiteSpace(change?.Name))
 				{
@@ -7221,7 +7207,7 @@ public class PatchService
 		}
 		if (codeChanges.New != null)
 		{
-			foreach (ResourceChange change2 in codeChanges.New)
+			foreach (var change2 in codeChanges.New)
 			{
 				if (!string.IsNullOrWhiteSpace(change2?.Name))
 				{
@@ -7234,7 +7220,7 @@ public class PatchService
 
 	private static bool RequiresVariableFunctionsHelper(IEnumerable<string> changedResourceTypes)
 	{
-		foreach (string changedResourceType in changedResourceTypes)
+		foreach (var changedResourceType in changedResourceTypes)
 		{
 			if (changedResourceType.Equals("CodeEntries", StringComparison.OrdinalIgnoreCase))
 			{
@@ -7246,7 +7232,7 @@ public class PatchService
 
 	private static bool RequiresTextureMappingHelpers(IEnumerable<string> changedResourceTypes)
 	{
-		foreach (string resourceType in changedResourceTypes)
+		foreach (var resourceType in changedResourceTypes)
 		{
 			if (resourceType.Equals("Sprites", StringComparison.OrdinalIgnoreCase) || resourceType.Equals("Backgrounds", StringComparison.OrdinalIgnoreCase) || resourceType.Equals("Fonts", StringComparison.OrdinalIgnoreCase) || resourceType.Equals("Tilesets", StringComparison.OrdinalIgnoreCase) || resourceType.Equals("EmbeddedImages", StringComparison.OrdinalIgnoreCase))
 			{
@@ -7258,25 +7244,11 @@ public class PatchService
 
 	private static bool IsDirectApplyFriendlyResourceType(string resourceType)
 	{
-		switch (resourceType)
+		return resourceType switch
 		{
-		case "AudioGroups":
-		case "GeneralInfo":
-		case "Options":
-		case "Shaders":
-		case "EmbeddedAudio":
-		case "FilterEffects":
-		case "Language":
-		case "FeatureFlags":
-		case "Tags":
-		case "TextureGroupInfo":
-		case "EmbeddedImages":
-		case "AnimationCurves":
-		case "Extensions":
-			return true;
-		default:
-			return false;
-		}
+			"AudioGroups" or "GeneralInfo" or "Options" or "Shaders" or "EmbeddedAudio" or "FilterEffects" or "Language" or "FeatureFlags" or "Tags" or "TextureGroupInfo" or "EmbeddedImages" or "AnimationCurves" or "Extensions" => true,
+			_ => false,
+		};
 	}
 
 	private static bool CanUseMinimalStandardApply(PatchApplyPlan applyPlan, IReadOnlyCollection<string> resourceTypesToProcess)
@@ -7290,17 +7262,17 @@ public class PatchService
 
 	internal static PatchApplyPlan BuildPatchApplyPlan(IReadOnlyDictionary<string, ResourceTypeChanges> resources)
 	{
-		string[] resourceTypes = resources.Keys.ToArray();
-		bool requiresCodePipeline = resourceTypes.Contains<string>("CodeEntries", StringComparer.OrdinalIgnoreCase);
-		bool requiresTexturePipeline = RequiresTextureMappingHelpers(resourceTypes) || resourceTypes.Contains<string>("EmbeddedTextures", StringComparer.OrdinalIgnoreCase) || resourceTypes.Contains<string>("TexturePageItems", StringComparer.OrdinalIgnoreCase);
-		bool requiresAssetReorder = RequiresFinalAssetReorder(resourceTypes);
-		bool requiresHeavyFinalize = RequiresHeavyFinalize(resourceTypes);
-		List<string> simpleTypes = resourceTypes.Where(IsDirectApplyFriendlyResourceType).OrderBy<string, string>((string x) => x, StringComparer.OrdinalIgnoreCase).ToList();
-		List<string> heavyTypes = resourceTypes.Where((string x) => !IsDirectApplyFriendlyResourceType(x)).OrderBy<string, string>((string x) => x, StringComparer.OrdinalIgnoreCase).ToList();
-		bool supportsDirectResourceApply = heavyTypes.Count == 0 && resources.Values.All((ResourceTypeChanges changes) => (changes.Deleted?.Count ?? 0) == 0);
+		string[] resourceTypes = [.. resources.Keys];
+		var requiresCodePipeline = resourceTypes.Contains("CodeEntries", StringComparer.OrdinalIgnoreCase);
+		var requiresTexturePipeline = RequiresTextureMappingHelpers(resourceTypes) || resourceTypes.Contains("EmbeddedTextures", StringComparer.OrdinalIgnoreCase) || resourceTypes.Contains("TexturePageItems", StringComparer.OrdinalIgnoreCase);
+		var requiresAssetReorder = RequiresFinalAssetReorder(resourceTypes);
+		var requiresHeavyFinalize = RequiresHeavyFinalize(resourceTypes);
+		List<string> simpleTypes = [.. resourceTypes.Where(IsDirectApplyFriendlyResourceType).OrderBy(x => x, StringComparer.OrdinalIgnoreCase)];
+		List<string> heavyTypes = [.. resourceTypes.Where(x => !IsDirectApplyFriendlyResourceType(x)).OrderBy(x => x, StringComparer.OrdinalIgnoreCase)];
+		var supportsDirectResourceApply = heavyTypes.Count == 0 && resources.Values.All(changes => (changes.Deleted?.Count ?? 0) == 0);
 		return new PatchApplyPlan
 		{
-			Mode = (supportsDirectResourceApply ? "direct" : "standard"),
+			Mode = supportsDirectResourceApply ? "direct" : "standard",
 			RequiresCodePipeline = requiresCodePipeline,
 			RequiresTexturePipeline = requiresTexturePipeline,
 			RequiresAssetReorder = requiresAssetReorder,
@@ -7315,7 +7287,7 @@ public class PatchService
 	{
 		if (helperForcedResourceTypes != null)
 		{
-			foreach (string helperForcedResourceType in helperForcedResourceTypes)
+			foreach (var helperForcedResourceType in helperForcedResourceTypes)
 			{
 				if (!string.IsNullOrWhiteSpace(helperForcedResourceType))
 				{
@@ -7323,8 +7295,8 @@ public class PatchService
 				}
 			}
 		}
-		bool sawAny = false;
-		foreach (string changedResourceType in changedResourceTypes)
+		var sawAny = false;
+		foreach (var changedResourceType in changedResourceTypes)
 		{
 			sawAny = true;
 			if (!IsHelperFreeResourceType(changedResourceType))
@@ -7350,13 +7322,13 @@ public class PatchService
 
 	private static HashSet<string> GetHelperRelevantResourceTypes(Dictionary<string, Dictionary<string, string>> originalHashes, Dictionary<string, Dictionary<string, string>> modifiedHashes, Dictionary<string, HashSet<string>> changedNamesPerType)
 	{
-		HashSet<string> resourceTypes = new HashSet<string>(changedNamesPerType.Keys, StringComparer.OrdinalIgnoreCase);
-		string[] allTypes = ResourceTypeRegistry.AllTypes;
-		foreach (string resourceType in allTypes)
+		var resourceTypes = new HashSet<string>(changedNamesPerType.Keys, StringComparer.OrdinalIgnoreCase);
+		var allTypes = ResourceTypeRegistry.AllTypes;
+		foreach (var resourceType in allTypes)
 		{
-			Dictionary<string, string>? obj = originalHashes.GetValueOrDefault(resourceType) ?? new Dictionary<string, string>();
-			Dictionary<string, string> modTypeHashes = modifiedHashes.GetValueOrDefault(resourceType) ?? new Dictionary<string, string>();
-			foreach (string name in obj.Keys)
+			var obj = originalHashes.GetValueOrDefault(resourceType) ?? [];
+			var modTypeHashes = modifiedHashes.GetValueOrDefault(resourceType) ?? [];
+			foreach (var name in obj.Keys)
 			{
 				if (!modTypeHashes.ContainsKey(name))
 				{
@@ -7370,8 +7342,8 @@ public class PatchService
 
 	private static bool RequiresDuplicateGameObjectRepair(IEnumerable<string> changedResourceTypes, G3MPatchManifest? manifest)
 	{
-		bool hasGameObjects = false;
-		foreach (string changedResourceType in changedResourceTypes)
+		var hasGameObjects = false;
+		foreach (var changedResourceType in changedResourceTypes)
 		{
 			if (changedResourceType.Equals("GameObjects", StringComparison.OrdinalIgnoreCase))
 			{
@@ -7383,34 +7355,34 @@ public class PatchService
 		{
 			return false;
 		}
-		ResourceTypeChanges changes = manifest?.Resources?.GetValueOrDefault("GameObjects");
+		var changes = manifest?.Resources?.GetValueOrDefault("GameObjects");
 		if (changes == null)
 		{
 			return true;
 		}
-		List<string> names = new List<string>();
+		List<string> names = [];
 		if (changes.Changed != null)
 		{
 			names.AddRange(from c in changes.Changed
-				select c.Name into n
-				where !string.IsNullOrWhiteSpace(n)
-				select n);
+						   select c.Name into n
+						   where !string.IsNullOrWhiteSpace(n)
+						   select n);
 		}
 		if (changes.New != null)
 		{
 			names.AddRange(from c in changes.New
-				select c.Name into n
-				where !string.IsNullOrWhiteSpace(n)
-				select n);
+						   select c.Name into n
+						   where !string.IsNullOrWhiteSpace(n)
+						   select n);
 		}
 		if (names.Count == 0)
 		{
 			return true;
 		}
-		Dictionary<string, int> baseCounts = new Dictionary<string, int>(StringComparer.Ordinal);
-		foreach (string item in names)
+		var baseCounts = new Dictionary<string, int>(StringComparer.Ordinal);
+		foreach (var item in names)
 		{
-			string baseName = StripIdxSuffix(item);
+			var baseName = StripIdxSuffix(item);
 			baseCounts[baseName] = baseCounts.GetValueOrDefault(baseName) + 1;
 			if (baseCounts[baseName] > 1)
 			{
@@ -7422,23 +7394,23 @@ public class PatchService
 
 	private static bool RequiresFinalAssetReorder(IEnumerable<string> resourceTypesToProcess)
 	{
-		bool sawAny = false;
-		foreach (string resourceType in resourceTypesToProcess)
+		var sawAny = false;
+		foreach (var resourceType in resourceTypesToProcess)
 		{
 			sawAny = true;
 			switch (resourceType)
 			{
-			case "GeneralInfo":
-			case "CodeEntries":
-			case "FilterEffects":
-			case "EmbeddedAudio":
-			case "Options":
-			case "Language":
-			case "FeatureFlags":
-			case "Tags":
-			case "TextureGroupInfo":
-			case "EmbeddedImages":
-				continue;
+				case "GeneralInfo":
+				case "CodeEntries":
+				case "FilterEffects":
+				case "EmbeddedAudio":
+				case "Options":
+				case "Language":
+				case "FeatureFlags":
+				case "Tags":
+				case "TextureGroupInfo":
+				case "EmbeddedImages":
+					continue;
 			}
 			return true;
 		}
@@ -7451,21 +7423,21 @@ public class PatchService
 
 	private static bool RequiresCodeRemapPreparation(IEnumerable<string> resourceTypesToProcess)
 	{
-		foreach (string item in resourceTypesToProcess)
+		foreach (var item in resourceTypesToProcess)
 		{
 			switch (item)
 			{
-			case "Shaders":
-			case "Sprites":
-			case "Backgrounds":
-			case "GameObjects":
-			case "Fonts":
-			case "Paths":
-			case "Rooms":
-			case "Tilesets":
-			case "Sounds":
-			case "Timelines":
-				return true;
+				case "Shaders":
+				case "Sprites":
+				case "Backgrounds":
+				case "GameObjects":
+				case "Fonts":
+				case "Paths":
+				case "Rooms":
+				case "Tilesets":
+				case "Sounds":
+				case "Timelines":
+					return true;
 			}
 		}
 		return false;
@@ -7479,12 +7451,12 @@ public class PatchService
 			{
 				continue;
 			}
-			List<string> currentNames = GetCurrentAssetOrderSection(data, section);
+			var currentNames = GetCurrentAssetOrderSection(data, section);
 			if (currentNames == null || currentNames.Count != targetNames.Count)
 			{
 				return false;
 			}
-			for (int i = 0; i < targetNames.Count; i++)
+			for (var i = 0; i < targetNames.Count; i++)
 			{
 				if (!string.Equals(currentNames[i], targetNames[i], StringComparison.Ordinal))
 				{
@@ -7497,16 +7469,16 @@ public class PatchService
 
 	private static Dictionary<string, List<string>> ParseAssetOrderSections(string[] lines)
 	{
-		Dictionary<string, List<string>> sections = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
-		string currentSection = null;
-		for (int i = 0; i < lines.Length; i++)
+		var sections = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+		string? currentSection = null;
+		for (var i = 0; i < lines.Length; i++)
 		{
-			string line = lines[i].TrimEnd();
-			if (line.StartsWith("@@") && line.EndsWith("@@") && line.Length > 4)
+			var line = lines[i].TrimEnd();
+			if (line.StartsWith("@@", StringComparison.Ordinal) && line.EndsWith("@@", StringComparison.Ordinal) && line.Length > 4)
 			{
-				string text = line;
-				currentSection = text.Substring(2, text.Length - 2 - 2);
-				sections[currentSection] = new List<string>();
+				var text = line;
+				currentSection = text[2..^2];
+				sections[currentSection] = [];
 			}
 			else if (currentSection != null && !currentSection.Equals("counts", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(line))
 			{
@@ -7520,34 +7492,34 @@ public class PatchService
 	{
 		return section.ToLowerInvariant() switch
 		{
-			"sounds" => data.Sounds.Select((GameMakerSound s) => s?.Name?.Content ?? "").ToList(),
-			"sprites" => data.Sprites.Select((GameMakerSprite s) => s?.Name?.Content ?? "").ToList(),
-			"backgrounds" => data.Backgrounds.Select((GameMakerBackground b) => b?.Name?.Content ?? "").ToList(),
-			"paths" => data.Paths.Select((GameMakerPath p) => p?.Name?.Content ?? "").ToList(),
-			"scripts" => data.Scripts.Select((GameMakerScript s) => s?.Name?.Content ?? "").ToList(),
-			"fonts" => data.Fonts.Select((GameMakerFont f) => f?.Name?.Content ?? "").ToList(),
-			"objects" => data.GameObjects.Select((GameMakerGameObject o) => o?.Name?.Content ?? "").ToList(),
-			"timelines" => data.Timelines.Select((GameMakerTimeline t) => t?.Name?.Content ?? "").ToList(),
-			"rooms" => data.Rooms.Select((GameMakerRoom r) => r?.Name?.Content ?? "").ToList(),
-			"shaders" => data.Shaders.Select((GameMakerShader s) => s?.Name?.Content ?? "").ToList(),
-			"extensions" => data.Extensions.Select((GameMakerExtension e) => e?.Name?.Content ?? "").ToList(),
-			"audiogroups" => data.AudioGroups.Select((GameMakerAudioGroup a) => a?.Name?.Content ?? "").ToList(),
+			"sounds" => [.. data.Sounds.Select(s => s?.Name?.Content ?? "")],
+			"sprites" => [.. data.Sprites.Select(s => s?.Name?.Content ?? "")],
+			"backgrounds" => [.. data.Backgrounds.Select(b => b?.Name?.Content ?? "")],
+			"paths" => [.. data.Paths.Select(p => p?.Name?.Content ?? "")],
+			"scripts" => [.. data.Scripts.Select(s => s?.Name?.Content ?? "")],
+			"fonts" => [.. data.Fonts.Select(f => f?.Name?.Content ?? "")],
+			"objects" => [.. data.GameObjects.Select(o => o?.Name?.Content ?? "")],
+			"timelines" => [.. data.Timelines.Select(t => t?.Name?.Content ?? "")],
+			"rooms" => [.. data.Rooms.Select(r => r?.Name?.Content ?? "")],
+			"shaders" => [.. data.Shaders.Select(s => s?.Name?.Content ?? "")],
+			"extensions" => [.. data.Extensions.Select(e => e?.Name?.Content ?? "")],
+			"audiogroups" => [.. data.AudioGroups.Select(a => a?.Name?.Content ?? "")],
 			_ => null,
 		};
 	}
 
 	private static string[] SelectAssetOrderSections(string[] lines, HashSet<string> keepSections, params string[] skipSections)
 	{
-		HashSet<string> skip = new HashSet<string>(skipSections, StringComparer.OrdinalIgnoreCase);
-		List<string> result = new List<string>(lines.Length);
-		bool inSelected = false;
-		bool inCounts = false;
-		foreach (string line in lines)
+		var skip = new HashSet<string>(skipSections, StringComparer.OrdinalIgnoreCase);
+		var result = new List<string>(lines.Length);
+		var inSelected = false;
+		var inCounts = false;
+		foreach (var line in lines)
 		{
-			if (line.StartsWith("@@") && line.EndsWith("@@") && line.Length > 4)
+			if (line.StartsWith("@@", StringComparison.Ordinal) && line.EndsWith("@@", StringComparison.Ordinal) && line.Length > 4)
 			{
-				string text = line;
-				string sect = text.Substring(2, text.Length - 2 - 2);
+				var text = line;
+				var sect = text[2..^2];
 				inCounts = sect.Equals("counts", StringComparison.OrdinalIgnoreCase);
 				inSelected = !skip.Contains(sect) && (inCounts || keepSections.Contains(sect));
 				if (inSelected)
@@ -7563,11 +7535,11 @@ public class PatchService
 				}
 				if (inCounts)
 				{
-					int eq = line.IndexOf('=');
+					var eq = line.IndexOf('=', StringComparison.Ordinal);
 					if (eq > 0)
 					{
-						string countName = line.Substring(0, eq);
-						if (skip.Contains(countName) || (!keepSections.Contains(countName) && !countName.Equals("EmbeddedTextures", StringComparison.OrdinalIgnoreCase) && !countName.Equals("TexturePageItems", StringComparison.OrdinalIgnoreCase)))
+						var countName = line[..eq];
+						if (skip.Contains(countName) || !keepSections.Contains(countName) && !countName.Equals("EmbeddedTextures", StringComparison.OrdinalIgnoreCase) && !countName.Equals("TexturePageItems", StringComparison.OrdinalIgnoreCase))
 						{
 							continue;
 						}
@@ -7576,15 +7548,15 @@ public class PatchService
 				result.Add(line);
 			}
 		}
-		return result.ToArray();
+		return [.. result];
 	}
 
 	private static void CopyEmbeddedTexturesForAssetOrder(PatchFileSystem pfs, string assetOrderDir)
 	{
-		string embeddedDir = Path.Combine(assetOrderDir, "EmbeddedTextures");
-		foreach (string path in pfs.GetAllFilePaths())
+		var embeddedDir = Path.Combine(assetOrderDir, "EmbeddedTextures");
+		foreach (var path in pfs.GetAllFilePaths())
 		{
-			string sourcePrefix = null;
+			string? sourcePrefix = null;
 			if (path.StartsWith("EmbeddedTextures/", StringComparison.OrdinalIgnoreCase))
 			{
 				sourcePrefix = "EmbeddedTextures/";
@@ -7597,11 +7569,11 @@ public class PatchService
 			{
 				continue;
 			}
-			string relative = path.Substring(sourcePrefix.Length).Replace('/', Path.DirectorySeparatorChar);
+			var relative = path[sourcePrefix.Length..].Replace('/', Path.DirectorySeparatorChar);
 			if (!string.IsNullOrWhiteSpace(relative))
 			{
-				string path2 = Path.Combine(embeddedDir, relative);
-				string outputDir = Path.GetDirectoryName(path2);
+				var path2 = Path.Combine(embeddedDir, relative);
+				var outputDir = Path.GetDirectoryName(path2);
 				if (!string.IsNullOrEmpty(outputDir))
 				{
 					Directory.CreateDirectory(outputDir);
@@ -7613,8 +7585,8 @@ public class PatchService
 
 	private static string? StageEmbeddedTexturesForAssetOrder(GameMakerData data, PatchFileSystem pfs)
 	{
-		bool hasEmbeddedTextures = false;
-		foreach (string path in pfs.GetAllFilePaths())
+		var hasEmbeddedTextures = false;
+		foreach (var path in pfs.GetAllFilePaths())
 		{
 			if (path.StartsWith("EmbeddedTextures/", StringComparison.OrdinalIgnoreCase) || path.StartsWith(pfs.HelpersPrefix + "/EmbeddedTextures/", StringComparison.OrdinalIgnoreCase))
 			{
@@ -7626,7 +7598,7 @@ public class PatchService
 		{
 			return null;
 		}
-		string stageDir = Path.Combine(Path.GetTempPath(), $"g3mlib_embedded_stage_{Guid.NewGuid():N}");
+		var stageDir = Path.Combine(TempRoot.Path, $"g3mlib_embedded_stage_{Guid.NewGuid():N}");
 		Directory.CreateDirectory(stageDir);
 		CopyEmbeddedTexturesForAssetOrder(pfs, stageDir);
 		ExportMissingEmbeddedTexturesForAssetOrder(data, pfs, stageDir);
@@ -7635,33 +7607,33 @@ public class PatchService
 
 	private static void ExportMissingEmbeddedTexturesForAssetOrder(GameMakerData data, PatchFileSystem pfs, string stageDir)
 	{
-		string embeddedDir = Path.Combine(stageDir, "EmbeddedTextures");
+		var embeddedDir = Path.Combine(stageDir, "EmbeddedTextures");
 		Directory.CreateDirectory(embeddedDir);
-		HashSet<int> touchedIndices = GetTouchedEmbeddedTextureIndices(pfs);
-		bool gm2022_5 = data.IsVersionAtLeast(2022u, 5u);
-		for (int i = 0; i < data.EmbeddedTextures.Count; i++)
+		var touchedIndices = GetTouchedEmbeddedTextureIndices(pfs);
+		var gm2022_5 = data.IsVersionAtLeast(2022u, 5u);
+		for (var i = 0; i < data.EmbeddedTextures.Count; i++)
 		{
 			if (touchedIndices.Contains(i))
 			{
 				continue;
 			}
-			GameMakerEmbeddedTexture texture = data.EmbeddedTextures[i];
+			var texture = data.EmbeddedTextures[i];
 			if (texture == null)
 			{
 				continue;
 			}
-			GMImage image = texture.TextureData?.Image;
+			var image = texture.TextureData?.Image;
 			if (image != null)
 			{
-				string textureName = $"texture_{i:D4}";
-				string textureDir = Path.Combine(embeddedDir, textureName);
-				string jsonPath = Path.Combine(textureDir, textureName + ".json");
-				string binPath = Path.Combine(textureDir, textureName + ".bin");
+				var textureName = $"texture_{i:D4}";
+				var textureDir = Path.Combine(embeddedDir, textureName);
+				var jsonPath = Path.Combine(textureDir, textureName + ".json");
+				var binPath = Path.Combine(textureDir, textureName + ".bin");
 				if (!File.Exists(jsonPath) && !File.Exists(binPath))
 				{
 					Directory.CreateDirectory(textureDir);
 					File.WriteAllBytes(binPath, image.ToSpan(gm2022_5).ToArray());
-					Dictionary<string, object> meta = new Dictionary<string, object>
+					var meta = new Dictionary<string, object>
 					{
 						["index"] = i,
 						["name"] = texture.Name?.Content ?? "",
@@ -7677,18 +7649,18 @@ public class PatchService
 
 	private static void CopyStagedEmbeddedTexturesForAssetOrder(string stagedDir, string assetOrderDir)
 	{
-		string sourceRoot = Path.Combine(stagedDir, "EmbeddedTextures");
+		var sourceRoot = Path.Combine(stagedDir, "EmbeddedTextures");
 		if (!Directory.Exists(sourceRoot))
 		{
 			return;
 		}
-		string targetRoot = Path.Combine(assetOrderDir, "EmbeddedTextures");
-		string[] files = Directory.GetFiles(sourceRoot, "*", SearchOption.AllDirectories);
-		foreach (string file in files)
+		var targetRoot = Path.Combine(assetOrderDir, "EmbeddedTextures");
+		var files = Directory.GetFiles(sourceRoot, "*", SearchOption.AllDirectories);
+		foreach (var file in files)
 		{
-			string relative = Path.GetRelativePath(sourceRoot, file);
-			string outputPath = Path.Combine(targetRoot, relative);
-			string outputDir = Path.GetDirectoryName(outputPath);
+			var relative = Path.GetRelativePath(sourceRoot, file);
+			var outputPath = Path.Combine(targetRoot, relative);
+			var outputDir = Path.GetDirectoryName(outputPath);
 			if (!string.IsNullOrEmpty(outputDir))
 			{
 				Directory.CreateDirectory(outputDir);

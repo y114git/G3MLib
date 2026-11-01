@@ -14,15 +14,15 @@ internal interface ISubCompileContext
     /// <summary>
     /// The compile context for the overarching code entry.
     /// </summary>
-    public CompileContext CompileContext { get; }
+    CompileContext CompileContext { get; }
 
     /// <summary>
     /// Current function scope being used during parsing and bytecode generation.
     /// </summary>
-    public FunctionScope CurrentScope { get; set; }
+    FunctionScope CurrentScope { get; set; }
 
     /// <summary>
     /// Root function scope being used during parsing and bytecode generation.
     /// </summary>
-    public FunctionScope RootScope { get; set; }
+    FunctionScope RootScope { get; set; }
 }

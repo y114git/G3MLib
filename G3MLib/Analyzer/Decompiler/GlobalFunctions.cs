@@ -4,9 +4,7 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Threading.Tasks;
 using G3MLib.Analyzer.Decompiler.ControlFlow;
 using static G3MLib.Analyzer.IGMInstruction;
 
@@ -22,14 +20,14 @@ public interface IGlobalFunctions
     /// </summary>
     /// <param name="name">Name to look up.</param>
     /// <returns><see langword="true"/> if the global function name exists; <see langword="false"/> otherwise.</returns>
-    public bool FunctionNameExists(string name);
+    bool FunctionNameExists(string name);
 
     /// <summary>
     /// Returns whether a global function exists.
     /// </summary>
     /// <param name="function">Function to look up.</param>
     /// <returns><see langword="true"/> if the global function exists; <see langword="false"/> otherwise.</returns>
-    public bool FunctionExists(IGMFunction function);
+    bool FunctionExists(IGMFunction function);
 
     /// <summary>
     /// Attempts to look up a global function by name.
@@ -37,7 +35,7 @@ public interface IGlobalFunctions
     /// <param name="name">Name to look up.</param>
     /// <param name="function">Output function, if found.</param>
     /// <returns><see langword="true"/> if the global function was successfully looked up; <see langword="false"/> otherwise.</returns>
-    public bool TryGetFunction(string name, [NotNullWhen(true)] out IGMFunction? function);
+    bool TryGetFunction(string name, [NotNullWhen(true)] out IGMFunction? function);
 
     /// <summary>
     /// Attempts to look up a global function name by function.
@@ -45,7 +43,7 @@ public interface IGlobalFunctions
     /// <param name="function">Function to look up.</param>
     /// <param name="name">Output name, if found.</param>
     /// <returns><see langword="true"/> if the name was successfully looked up; <see langword="false"/> otherwise.</returns>
-    public bool TryGetFunctionName(IGMFunction function, [NotNullWhen(true)] out string? name);
+    bool TryGetFunctionName(IGMFunction function, [NotNullWhen(true)] out string? name);
 }
 
 /// <summary>
@@ -88,13 +86,13 @@ public class GlobalFunctions : IGlobalFunctions
         Parallel.ForEach(globalScripts, parallelOptions ?? new(), script =>
         {
             // Find all fragments in the code entry
-            List<Block> blocks = Block.FindBlocks(script, out _);
-            List<Fragment> fragments = Fragment.FindFragments(script, blocks);
+            var blocks = Block.FindBlocks(script, out _);
+            var fragments = Fragment.FindFragments(script, blocks);
 
             // Find names of functions after each fragment
-            for (int i = 1; i < fragments.Count; i++)
+            for (var i = 1; i < fragments.Count; i++)
             {
-                Fragment fragment = fragments[i];
+                var fragment = fragments[i];
                 if (!fragment.RootScope)
                 {
                     // If the fragment isn't at the root scope, it can't be a global function
@@ -111,7 +109,7 @@ public class GlobalFunctions : IGlobalFunctions
                     continue;
                 }
 
-                if (GetFunctionNameAfterFragment(after, out string? name, out IGMFunction? function))
+                if (GetFunctionNameAfterFragment(after, out var name, out var function))
                 {
                     lock (_lock)
                     {
@@ -226,9 +224,9 @@ public class GlobalFunctions : IGlobalFunctions
                     if (block.Instructions is not
                         [
                             _, _,
-                            { ValueShort: -1 or -16 },
-                            { Kind: Opcode.Convert, Type1: DataType.Int32, Type2: DataType.Variable },
-                            { Kind: Opcode.Call, ResolvedFunction.Name.Content: VMConstants.MethodFunction },
+                        { ValueShort: -1 or -16 },
+                        { Kind: Opcode.Convert, Type1: DataType.Int32, Type2: DataType.Variable },
+                        { Kind: Opcode.Call, ResolvedFunction.Name.Content: VMConstants.MethodFunction },
                             ..
                         ])
                     {
@@ -240,9 +238,9 @@ public class GlobalFunctions : IGlobalFunctions
                     if (block.Instructions is
                         [
                             _, _, _, _, _,
-                            { Kind: Opcode.Duplicate, DuplicationSize2: 0 },
-                            { Kind: Opcode.PushImmediate },
-                            { Kind: Opcode.Pop, ResolvedVariable.Name.Content: string funcName },
+                        { Kind: Opcode.Duplicate, DuplicationSize2: 0 },
+                        { Kind: Opcode.PushImmediate },
+                        { Kind: Opcode.Pop, ResolvedVariable.Name.Content: string funcName },
                             ..
                         ])
                     {
@@ -253,8 +251,8 @@ public class GlobalFunctions : IGlobalFunctions
                     if (block.Instructions is
                         [
                             _, _, _, _, _,
-                            { Kind: Opcode.Duplicate, DuplicationSize2: 0 },
-                            { Kind: Opcode.Pop, ResolvedVariable.Name.Content: string funcNameOptimized },
+                        { Kind: Opcode.Duplicate, DuplicationSize2: 0 },
+                        { Kind: Opcode.Pop, ResolvedVariable.Name.Content: string funcNameOptimized },
                             ..
                         ])
                     {
@@ -270,8 +268,8 @@ public class GlobalFunctions : IGlobalFunctions
                     if (block.Instructions is not
                         [
                             _, _,
-                            { Kind: Opcode.Call, ResolvedFunction.Name.Content: VMConstants.NullObjectFunction },
-                            { Kind: Opcode.Call, ResolvedFunction.Name.Content: VMConstants.MethodFunction },
+                        { Kind: Opcode.Call, ResolvedFunction.Name.Content: VMConstants.NullObjectFunction },
+                        { Kind: Opcode.Call, ResolvedFunction.Name.Content: VMConstants.MethodFunction },
                             ..
                         ])
                     {
@@ -283,9 +281,9 @@ public class GlobalFunctions : IGlobalFunctions
                     if (block.Instructions is
                         [
                             _, _, _, _,
-                            { Kind: Opcode.Duplicate, DuplicationSize2: 0 },
-                            { Kind: Opcode.PushImmediate, ValueShort: short pushVal },
-                            { Kind: Opcode.Pop, ResolvedVariable.Name.Content: string funcName },
+                        { Kind: Opcode.Duplicate, DuplicationSize2: 0 },
+                        { Kind: Opcode.PushImmediate, ValueShort: short pushVal },
+                        { Kind: Opcode.Pop, ResolvedVariable.Name.Content: string funcName },
                             ..
                         ] && pushVal != -16 && pushVal != -5)
                     {
@@ -294,16 +292,15 @@ public class GlobalFunctions : IGlobalFunctions
                         name = funcName;
                         return true;
                     }
-                    if (block.Instructions is
-                        [
+                    if (block.Instructions is ([
                             _, _, _, _,
-                            { Kind: Opcode.Duplicate, DuplicationSize2: 0 },
-                            { Kind: Opcode.Pop, ResolvedVariable.Name.Content: string funcNameOptimized },
+                        { Kind: Opcode.Duplicate, DuplicationSize2: 0 },
+                        { Kind: Opcode.Pop, ResolvedVariable.Name.Content: string funcNameOptimized },
                             ..
-                        ] && block.Instructions is not
+                        ]) and not
                         [
                             _, _, _, _, _, _,
-                            { Kind: Opcode.Call, ResolvedFunction.Name.Content: VMConstants.NewObjectFunction, ArgumentCount: >= 1 },
+                        { Kind: Opcode.Call, ResolvedFunction.Name.Content: VMConstants.NewObjectFunction, ArgumentCount: >= 1 },
                             ..
                         ])
                     {

@@ -15,5 +15,5 @@ public interface IBlockCleanupNode
     /// Cleans the current node within the context of a block, at the specified index.
     /// Returns the new index to continue cleaning from within the block.
     /// </summary>
-    public int BlockClean(ASTCleaner cleaner, BlockNode block, int i);
+    int BlockClean(ASTCleaner cleaner, BlockNode block, int i);
 }

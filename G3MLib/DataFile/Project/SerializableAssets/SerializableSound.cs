@@ -3,8 +3,6 @@ using System.Text.Json.Serialization;
 using System.Text.Json;
 using G3MLib.DataFile.Models;
 using static G3MLib.DataFile.Models.GameMakerSound;
-using System;
-using System.Collections.Generic;
 using G3MLib.DataFile.Util;
 
 namespace G3MLib.DataFile.Project.SerializableAssets;
@@ -67,12 +65,12 @@ internal sealed class SerializableSound : ISerializableProjectAsset
     public float AudioLength { get; set; }
 
     // Data asset that was located during pre-import, or during export.
-    private GameMakerSound _dataAsset = null;
+    private GameMakerSound? _dataAsset;
 
     /// <summary>
     /// Populates this serializable sound with data from an actual sound.
     /// </summary>
-    internal void PopulateFromData(ProjectContext projectContext, GameMakerSound sound)
+    internal void PopulateFromData(GameMakerSound sound)
     {
         // Update all main properties
         DataName = sound.Name.Content;
@@ -85,11 +83,11 @@ internal sealed class SerializableSound : ISerializableProjectAsset
         AudioLength = sound.AudioLength;
 
         // Streamed sounds *only* set the Regular flag
-        Streamed = (sound.Flags == AudioEntryFlags.Regular);
+        Streamed = sound.Flags == AudioEntryFlags.Regular;
 
         // Decompress-on-load sounds set *every* flag
-        DecompressOnLoad = (sound.Flags == (AudioEntryFlags.IsEmbedded | AudioEntryFlags.IsCompressed |
-                                            AudioEntryFlags.IsDecompressedOnLoad | AudioEntryFlags.Regular));
+        DecompressOnLoad = sound.Flags == (AudioEntryFlags.IsEmbedded | AudioEntryFlags.IsCompressed |
+                                            AudioEntryFlags.IsDecompressedOnLoad | AudioEntryFlags.Regular);
 
         _dataAsset = sound;
     }
@@ -102,57 +100,57 @@ internal sealed class SerializableSound : ISerializableProjectAsset
         JsonSerializer.Serialize<ISerializableProjectAsset>(fs, this, ProjectContext.JsonOptions);
 
         // Export sound data/file itself
-        string directory = Path.GetDirectoryName(destinationFile);
-        string friendlyName = Path.GetFileNameWithoutExtension(destinationFile);
+        var directory = Path.GetDirectoryName(destinationFile);
+        var friendlyName = Path.GetFileNameWithoutExtension(destinationFile);
         if (Streamed)
         {
             // Get path for external sound being exported. Note that Filename can include subdirectories as well.
-            string externalFilename = Filename;
-            if (!externalFilename.Contains('.'))
+            var externalFilename = Filename;
+            if (!externalFilename.Contains('.', StringComparison.Ordinal))
             {
                 // Add file extension if none already exists (assume OGG)
                 externalFilename += ".ogg";
             }
-            string externalPath = Paths.JoinVerifyWithinDirectory(projectContext.LoadDirectory, externalFilename);
+            var externalPath = Paths.JoinVerifyWithinDirectory(projectContext.LoadDirectory, externalFilename);
 
             // Try to copy that sound to the project
             if (!File.Exists(externalPath))
             {
                 throw new ProjectException($"Failed to find external sound to export with name \"{externalFilename}\"");
             }
-            string destFileName = Paths.JoinVerifyWithinDirectory(directory, Path.GetFileName(externalFilename));
+            var destFileName = Paths.JoinVerifyWithinDirectory(directory, Path.GetFileName(externalFilename));
             File.Copy(externalPath, destFileName, true);
         }
         else if (_dataAsset.AudioFile is not null && (_dataAsset.AudioGroup is null || _dataAsset.GroupID == projectContext.Data.GetBuiltinSoundGroupID()))
         {
             // Determine file extension based on audio flags
-            AudioEntryFlags wavFlags = AudioEntryFlags.IsEmbedded | AudioEntryFlags.Regular;
-            string extension =
+            var wavFlags = AudioEntryFlags.IsEmbedded | AudioEntryFlags.Regular;
+            var extension =
                 ((_dataAsset.Flags & wavFlags) == wavFlags && (_dataAsset.Flags & AudioEntryFlags.IsCompressed) == 0)
                 ? ".wav" : ".ogg";
 
             // Save data to disk
-            string destFilePath = Paths.JoinVerifyWithinDirectory(directory, $"{friendlyName}{extension}");
+            var destFilePath = Paths.JoinVerifyWithinDirectory(directory, $"{friendlyName}{extension}");
             File.WriteAllBytes(destFilePath, _dataAsset.AudioFile.Data);
         }
         else if (_dataAsset.AudioID != -1)
         {
             // Export embedded sound from external audio group file
-            GameMakerData groupData = projectContext.RequestAudiogroup(_dataAsset.GroupID, false, this);
-            int audioId = _dataAsset.AudioID;
+            var groupData = projectContext.RequestAudiogroup(_dataAsset.GroupID, false, this);
+            var audioId = _dataAsset.AudioID;
             if (audioId >= (groupData.EmbeddedAudio?.Count ?? 0))
             {
                 throw new ProjectException($"Failed to find embedded audio at index {audioId} in group {_dataAsset.GroupID} for \"{DataName}\"");
             }
 
             // Determine file extension based on audio flags
-            AudioEntryFlags wavFlags = AudioEntryFlags.IsEmbedded | AudioEntryFlags.Regular;
-            string extension =
+            var wavFlags = AudioEntryFlags.IsEmbedded | AudioEntryFlags.Regular;
+            var extension =
                 ((_dataAsset.Flags & wavFlags) == wavFlags && (_dataAsset.Flags & AudioEntryFlags.IsCompressed) == 0)
                 ? ".wav" : ".ogg";
 
             // Save data to disk
-            string destFilePath = Paths.JoinVerifyWithinDirectory(directory, $"{friendlyName}{extension}");
+            var destFilePath = Paths.JoinVerifyWithinDirectory(directory, $"{friendlyName}{extension}");
             File.WriteAllBytes(destFilePath, groupData.EmbeddedAudio[audioId].Data);
         }
     }
@@ -182,7 +180,7 @@ internal sealed class SerializableSound : ISerializableProjectAsset
     /// <inheritdoc/>
     public IProjectAsset Import(ProjectContext projectContext)
     {
-        GameMakerSound sound = _dataAsset;
+        var sound = _dataAsset;
 
         // Update all main properties
         sound.File = projectContext.MakeString(Filename);
@@ -193,15 +191,15 @@ internal sealed class SerializableSound : ISerializableProjectAsset
         sound.AudioLength = AudioLength;
 
         // Find file for sound
-        if (!projectContext.AssetDataNamesToPaths.TryGetValue(new(DataName, AssetType), out string jsonFilename))
+        if (!projectContext.AssetDataNamesToPaths.TryGetValue(new(DataName, AssetType), out var jsonFilename))
         {
             throw new ProjectException("Failed to get sound asset path");
         }
-        string baseFilename = Path.Join(Path.GetDirectoryName(jsonFilename), Path.GetFileNameWithoutExtension(jsonFilename));
-        string filename = null;
-        foreach (string extension in _extensionSearchOrder)
+        var baseFilename = Path.Join(Path.GetDirectoryName(jsonFilename), Path.GetFileNameWithoutExtension(jsonFilename));
+        string? filename = null;
+        foreach (var extension in _extensionSearchOrder)
         {
-            string attemptFilename = $"{baseFilename}.{extension}";
+            var attemptFilename = $"{baseFilename}.{extension}";
             if (File.Exists(attemptFilename))
             {
                 filename = attemptFilename;
@@ -212,7 +210,7 @@ internal sealed class SerializableSound : ISerializableProjectAsset
         {
             throw new ProjectException($"Failed to find audio file for sound \"{DataName}\"");
         }
-        bool isLossless = filename.EndsWith(".wav", StringComparison.OrdinalIgnoreCase);
+        var isLossless = filename.EndsWith(".wav", StringComparison.OrdinalIgnoreCase);
 
         // Reconstruct flags and import sound data
         if (Streamed)
@@ -270,13 +268,13 @@ internal sealed class SerializableSound : ISerializableProjectAsset
                 if (GroupID != projectContext.Data.GetBuiltinSoundGroupID())
                 {
                     // If sound is in an audio group, request it
-                    GameMakerData groupData = projectContext.RequestAudiogroup(_dataAsset.GroupID, true, this);
+                    var groupData = projectContext.RequestAudiogroup(_dataAsset.GroupID, true, this);
 
                     // If the existing sound has the same group ID and an audio ID, reuse it
                     if (sound.GroupID == GroupID && sound.AudioID != -1)
                     {
                         // Ensure audio ID is valid before reusing it
-                        int audioId = sound.AudioID;
+                        var audioId = sound.AudioID;
                         if (audioId >= (groupData.EmbeddedAudio?.Count ?? 0))
                         {
                             throw new ProjectException($"Failed to find embedded audio at index {audioId} in group {_dataAsset.GroupID} for \"{DataName}\"");

@@ -1,6 +1,5 @@
 using G3MLib.Analyzer.Mock;
 using G3MLib.Analyzer.Decompiler;
-using Xunit;
 
 namespace G3MLib.Tests;
 
@@ -31,10 +30,10 @@ public class DataStructureAccessorTests
             variable_struct_set(data_struct, "key", 2);
             value2 = variable_struct_get(data_struct, "key");
             """, decompileSettings: new DecompileSettings
-            {
-                CleanupDataStructureAccessors = false,
-                CleanupStructVariableAccessors = false
-            });
+        {
+            CleanupDataStructureAccessors = false,
+            CleanupStructVariableAccessors = false
+        });
     }
 
     [Fact]

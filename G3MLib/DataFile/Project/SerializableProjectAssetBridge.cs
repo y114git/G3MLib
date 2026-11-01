@@ -1,7 +1,5 @@
-using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
-using G3MLib.DataFile.Models;
 
 namespace G3MLib.DataFile.Project;
 
@@ -13,13 +11,15 @@ public static class SerializableProjectAssetBridge
 {
     public static void Export(ProjectContext projectContext, IProjectAsset asset, string destinationFile)
     {
-        ISerializableProjectAsset serializable = asset.GenerateSerializableProjectAsset(projectContext);
+        ArgumentNullException.ThrowIfNull(asset);
+        var serializable = asset.GenerateSerializableProjectAsset(projectContext);
         serializable.Serialize(projectContext, destinationFile);
     }
 
     public static IProjectAsset Import(ProjectContext projectContext, string sourceFile)
     {
-        ISerializableProjectAsset serializable = Load(sourceFile);
+        ArgumentNullException.ThrowIfNull(projectContext);
+        var serializable = Load(sourceFile);
         projectContext.RegisterAssetPath(serializable, sourceFile);
         serializable.PreImport(projectContext);
         return serializable.Import(projectContext);
@@ -27,19 +27,21 @@ public static class SerializableProjectAssetBridge
 
     public static IReadOnlyList<IProjectAsset> ImportMany(ProjectContext projectContext, IEnumerable<string> sourceFiles)
     {
+        ArgumentNullException.ThrowIfNull(sourceFiles);
+        ArgumentNullException.ThrowIfNull(projectContext);
         List<ISerializableProjectAsset> serializableAssets = [];
-        foreach (string sourceFile in sourceFiles)
+        foreach (var sourceFile in sourceFiles)
         {
-            ISerializableProjectAsset asset = Load(sourceFile);
+            var asset = Load(sourceFile);
             projectContext.RegisterAssetPath(asset, sourceFile);
             serializableAssets.Add(asset);
         }
 
-        foreach (ISerializableProjectAsset asset in serializableAssets)
+        foreach (var asset in serializableAssets)
             asset.PreImport(projectContext);
 
         List<IProjectAsset> imported = new(serializableAssets.Count);
-        foreach (ISerializableProjectAsset asset in serializableAssets)
+        foreach (var asset in serializableAssets)
             imported.Add(asset.Import(projectContext));
 
         return imported;

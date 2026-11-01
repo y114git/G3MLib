@@ -10,7 +10,7 @@ the MPL-2.0 text is in `licenses/MPL-2.0.txt`.
 
 ### Magick.NET-Q8-AnyCPU
 
-- Version: `14.17.1`
+- Version: `14.17.2`
 - License: Apache-2.0
 
 ### SharpZipLib

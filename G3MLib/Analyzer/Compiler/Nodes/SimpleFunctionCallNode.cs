@@ -4,8 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System;
-using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 using G3MLib.Analyzer.Compiler.Bytecode;
@@ -36,7 +34,7 @@ internal sealed class SimpleFunctionCallNode : IMaybeStatementASTNode
     public List<IASTNode> Arguments { get; }
 
     /// <inheritdoc/>
-    public bool IsStatement { get; set; } = false;
+    public bool IsStatement { get; set; }
 
     /// <inheritdoc/>
     public IToken? NearbyToken { get; }
@@ -104,7 +102,7 @@ internal sealed class SimpleFunctionCallNode : IMaybeStatementASTNode
             if (!context.IsCurrentToken(SeparatorKind.ArrayClose))
             {
                 // Failed to find group end, so give error and stop parsing
-                IToken currentToken = context.Tokens[context.Position];
+                var currentToken = context.Tokens[context.Position];
                 context.CompileContext.PushError(
                     $"Expected '{TokenSeparator.KindToString(SeparatorKind.Comma)}' or " +
                     $"'{TokenSeparator.KindToString(SeparatorKind.ArrayClose)}', " +
@@ -131,7 +129,7 @@ internal sealed class SimpleFunctionCallNode : IMaybeStatementASTNode
         };
 
         // For newer GameMaker versions, use modern template string function; otherwise, use regular string function
-        string templateStringFunction = context.CompileContext.GameContext.UsingModernTemplateStrings ?
+        var templateStringFunction = context.CompileContext.GameContext.UsingModernTemplateStrings ?
             VMConstants.ModernTemplateStringFunction : VMConstants.TemplateStringFunction;
         SimpleFunctionCallNode result = new(
             templateStringFunction,
@@ -140,7 +138,7 @@ internal sealed class SimpleFunctionCallNode : IMaybeStatementASTNode
         );
 
         // Build out the format string, segment by segment
-        int fieldIndex = 0;
+        var fieldIndex = 0;
         StringBuilder formatSb = new(64);
         while (!context.EndOfCode && context.CurrentToken is not TokenTemplateStringEnd)
         {
@@ -161,7 +159,7 @@ internal sealed class SimpleFunctionCallNode : IMaybeStatementASTNode
                 if (Expressions.ParseExpression(context) is IASTNode expr)
                 {
                     arguments.Add(expr);
-                    formatSb.Append($"{{{fieldIndex}}}"); // e.g. {0}
+                    formatSb.Append(CultureInfo.InvariantCulture, $"{{{fieldIndex}}}"); // e.g. {0}
                     fieldIndex++;
                 }
                 else
@@ -382,12 +380,12 @@ internal sealed class SimpleFunctionCallNode : IMaybeStatementASTNode
                 }
 
                 // Remove underscores and trim string
-                str = str.Replace("_", "").Trim();
+                str = str.Replace("_", "", StringComparison.Ordinal).Trim();
 
                 // Attempt hex literal parse
                 if (str.StartsWith("0x", StringComparison.InvariantCultureIgnoreCase))
                 {
-                    if (long.TryParse(str[2..], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out long hex))
+                    if (long.TryParse(str[2..], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var hex))
                     {
                         // Value successfully parsed
                         value = hex;
@@ -404,7 +402,7 @@ internal sealed class SimpleFunctionCallNode : IMaybeStatementASTNode
                 {
                     // Build number one binary digit at a time
                     long binary = 0;
-                    for (int i = 2; i < str.Length; i++)
+                    for (var i = 2; i < str.Length; i++)
                     {
                         if (str[i] == '0')
                         {
@@ -490,7 +488,7 @@ internal sealed class SimpleFunctionCallNode : IMaybeStatementASTNode
     /// </summary>
     public void PostProcessChildrenOnly(ParseContext context)
     {
-        for (int i = 0; i < Arguments.Count; i++)
+        for (var i = 0; i < Arguments.Count; i++)
         {
             Arguments[i] = Arguments[i].PostProcess(context);
         }
@@ -502,7 +500,7 @@ internal sealed class SimpleFunctionCallNode : IMaybeStatementASTNode
     private void GenerateArguments(BytecodeContext context)
     {
         // Push arguments in reverse order (so they get popped in normal order)
-        for (int i = Arguments.Count - 1; i >= 0; i--)
+        for (var i = Arguments.Count - 1; i >= 0; i--)
         {
             Arguments[i].GenerateCode(context);
             context.ConvertDataType(DataType.Variable);
@@ -525,7 +523,7 @@ internal sealed class SimpleFunctionCallNode : IMaybeStatementASTNode
 
         // If currently generating a function declaration header (arguments, inheritance calls),
         // use the outer scope for function resolution. Otherwise, use current scope.
-        FunctionScope scope = context.CurrentScope.GeneratingFunctionDeclHeader ? context.CurrentScope.Parent! : context.CurrentScope;
+        var scope = context.CurrentScope.GeneratingFunctionDeclHeader ? context.CurrentScope.Parent : context.CurrentScope;
 
         // Emit actual call instruction
         FunctionPatch funcPatch = new(scope, FunctionName, BuiltinFunction);
@@ -542,10 +540,10 @@ internal sealed class SimpleFunctionCallNode : IMaybeStatementASTNode
     /// <inheritdoc/>
     public void GenerateCode(BytecodeContext context)
     {
-        IGameContext gameContext = context.CompileContext.GameContext;
-        bool isGlobalFunction =
+        var gameContext = context.CompileContext.GameContext;
+        var isGlobalFunction =
             context.IsGlobalFunctionName(FunctionName) ||
-            (context.CompileContext.ScriptKind == CompileScriptKind.GlobalScript && context.RootScope.IsFunctionDeclaredImmediately(FunctionName));
+            context.CompileContext.ScriptKind == CompileScriptKind.GlobalScript && context.RootScope.IsFunctionDeclaredImmediately(FunctionName);
         if (isGlobalFunction || context.IsFunctionDeclaredInCurrentScope(FunctionName))
         {
             // Function is in scope to be called directly, so do that
@@ -587,7 +585,7 @@ internal sealed class SimpleFunctionCallNode : IMaybeStatementASTNode
 
             // This is a single variable function call - convert to a variable
             SimpleVariableNode varNode = new(FunctionName, gameContext.Builtins.LookupBuiltinVariable(FunctionName));
-            IAssignableASTNode assignable = varNode.ResolveStandaloneType(context);
+            var assignable = varNode.ResolveStandaloneType(context);
 
             // If still actually a simple variable node, compile it here, otherwise defer to general function call
             if (assignable is SimpleVariableNode finalVarNode)
@@ -596,11 +594,11 @@ internal sealed class SimpleFunctionCallNode : IMaybeStatementASTNode
                 GenerateArguments(context);
 
                 // Push instance to stack
-                string functionToCall = finalVarNode.ExplicitInstanceType switch
+                var functionToCall = finalVarNode.ExplicitInstanceType switch
                 {
-                    InstanceType.Other =>   VMConstants.OtherFunction,
-                    InstanceType.Global =>  VMConstants.GlobalFunction,
-                    _ =>                    VMConstants.SelfFunction
+                    InstanceType.Other => VMConstants.OtherFunction,
+                    InstanceType.Global => VMConstants.GlobalFunction,
+                    _ => VMConstants.SelfFunction
                 };
                 context.EmitCall(FunctionPatch.FromBuiltin(context, functionToCall), 0);
 
@@ -634,7 +632,7 @@ internal sealed class SimpleFunctionCallNode : IMaybeStatementASTNode
     /// <inheritdoc/>
     public IEnumerable<IASTNode> EnumerateChildren()
     {
-        foreach (IASTNode argument in Arguments)
+        foreach (var argument in Arguments)
         {
             yield return argument;
         }

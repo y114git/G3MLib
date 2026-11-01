@@ -1,9 +1,6 @@
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
-using System.Linq;
 using System.Text;
 using System.Text.Json;
 
@@ -18,18 +15,18 @@ public sealed class PatchFileSystem
 
 	private readonly Dictionary<string, string[]> _childFiles;
 
-	private static readonly JsonSerializerOptions s_jsonOptions = new JsonSerializerOptions
+	private static readonly JsonSerializerOptions s_jsonOptions = new()
 	{
 		WriteIndented = true
 	};
 
-	public Dictionary<string, string> GmlEntries { get; } = new Dictionary<string, string>();
+	public Dictionary<string, string> GmlEntries { get; } = [];
 
-	public Dictionary<string, string> AsmEntries { get; } = new Dictionary<string, string>();
+	public Dictionary<string, string> AsmEntries { get; } = [];
 
-	public Dictionary<string, string> AsmEntryPaths { get; } = new Dictionary<string, string>();
+	public Dictionary<string, string> AsmEntryPaths { get; } = [];
 
-	public Dictionary<string, string> CodeEntryLogicalNames { get; } = new Dictionary<string, string>();
+	public Dictionary<string, string> CodeEntryLogicalNames { get; } = [];
 
 	public G3MPatchManifest? Manifest { get; private set; }
 
@@ -66,36 +63,36 @@ public sealed class PatchFileSystem
 
 	public static PatchFileSystem LoadFromZip(string zipPath, bool loadExactPayloads = true, bool skipAsmBackedGml = false)
 	{
-		Stopwatch sw = Stopwatch.StartNew();
-		long zipLength = new FileInfo(zipPath).Length;
-		using FileStream zipStream = new FileStream(zipPath, FileMode.Open, FileAccess.Read, FileShare.Read, 1048576, FileOptions.SequentialScan);
-		using ZipArchive archive = new ZipArchive(zipStream, ZipArchiveMode.Read);
-		PatchFileSystem pfs = new PatchFileSystem(archive.Entries.Count);
-		HashSet<string> asmBackedCodeKeys = null;
+		var sw = Stopwatch.StartNew();
+		var zipLength = new FileInfo(zipPath).Length;
+		using var zipStream = new FileStream(zipPath, FileMode.Open, FileAccess.Read, FileShare.Read, 1048576, FileOptions.SequentialScan);
+		using var archive = new ZipArchive(zipStream, ZipArchiveMode.Read);
+		var pfs = new PatchFileSystem(archive.Entries.Count);
+		HashSet<string>? asmBackedCodeKeys = null;
 		if (skipAsmBackedGml)
 		{
 			asmBackedCodeKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-			foreach (ZipArchiveEntry entry in archive.Entries)
+			foreach (var entry in archive.Entries)
 			{
-				if (!string.IsNullOrEmpty(entry.Name) && TryGetCodeEntryInfo(Norm(entry.FullName), entry.Name, out string codeKey, out string extension) && extension.Equals(".asm", StringComparison.OrdinalIgnoreCase))
+				if (!string.IsNullOrEmpty(entry.Name) && TryGetCodeEntryInfo(Norm(entry.FullName), entry.Name, out var codeKey, out var extension) && extension.Equals(".asm", StringComparison.OrdinalIgnoreCase))
 				{
 					asmBackedCodeKeys.Add(codeKey);
 				}
 			}
 		}
-		foreach (ZipArchiveEntry entry2 in archive.Entries)
+		foreach (var entry2 in archive.Entries)
 		{
 			if (string.IsNullOrEmpty(entry2.Name))
 			{
 				continue;
 			}
-			string fullName = Norm(entry2.FullName);
-			if ((!loadExactPayloads && (fullName.StartsWith("Xdelta/", StringComparison.OrdinalIgnoreCase) || fullName.StartsWith("Exact/", StringComparison.OrdinalIgnoreCase))) || (asmBackedCodeKeys != null && TryGetCodeEntryInfo(fullName, entry2.Name, out string earlyCodeKey, out string earlyExtension) && earlyExtension.Equals(".gml", StringComparison.OrdinalIgnoreCase) && asmBackedCodeKeys.Contains(earlyCodeKey)))
+			var fullName = Norm(entry2.FullName);
+			if (!loadExactPayloads && (fullName.StartsWith("Xdelta/", StringComparison.OrdinalIgnoreCase) || fullName.StartsWith("Exact/", StringComparison.OrdinalIgnoreCase)) || asmBackedCodeKeys != null && TryGetCodeEntryInfo(fullName, entry2.Name, out var earlyCodeKey, out var earlyExtension) && earlyExtension.Equals(".gml", StringComparison.OrdinalIgnoreCase) && asmBackedCodeKeys.Contains(earlyCodeKey))
 			{
 				continue;
 			}
 			byte[] bytes;
-			using (Stream stream = entry2.Open())
+			using (var stream = entry2.Open())
 			{
 				if (entry2.Length > 0)
 				{
@@ -104,7 +101,7 @@ public sealed class PatchFileSystem
 				}
 				else
 				{
-					using MemoryStream buf = new MemoryStream();
+					using var buf = new MemoryStream();
 					stream.CopyTo(buf);
 					bytes = buf.ToArray();
 				}
@@ -122,10 +119,10 @@ public sealed class PatchFileSystem
 			}
 			else if (fullName.StartsWith("CodeEntries/", StringComparison.OrdinalIgnoreCase))
 			{
-				if (TryGetCodeEntryInfo(fullName, entry2.Name, out string codeKey2, out string extension2))
+				if (TryGetCodeEntryInfo(fullName, entry2.Name, out var codeKey2, out var extension2))
 				{
-					string logicalName = Path.GetFileNameWithoutExtension(entry2.Name);
-					string content = DecodeUtf8(bytes);
+					var logicalName = Path.GetFileNameWithoutExtension(entry2.Name);
+					var content = DecodeUtf8(bytes);
 					if (extension2.Equals(".gml", StringComparison.OrdinalIgnoreCase))
 					{
 						pfs.GmlEntries[codeKey2] = content;
@@ -155,9 +152,9 @@ public sealed class PatchFileSystem
 				pfs._files[fullName] = bytes;
 			}
 		}
-		bool hasHelpers = false;
-		bool hasAssetOrder = false;
-		foreach (string key in pfs._files.Keys)
+		var hasHelpers = false;
+		var hasAssetOrder = false;
+		foreach (var key in pfs._files.Keys)
 		{
 			if (!hasHelpers && key.StartsWith("Helpers/", StringComparison.OrdinalIgnoreCase))
 			{
@@ -172,12 +169,11 @@ public sealed class PatchFileSystem
 				break;
 			}
 		}
-		pfs.HelpersPrefix = (hasHelpers ? "Helpers" : (hasAssetOrder ? "AssetOrder" : "Helpers"));
+		pfs.HelpersPrefix = hasHelpers ? "Helpers" : (hasAssetOrder ? "AssetOrder" : "Helpers");
 		pfs.HydrateCodeEntryLogicalNamesFromHelpers();
 		pfs.BuildDirectoryIndex();
-		long totalBytes = ((IEnumerable<byte[]>)pfs._files.Values).Sum((Func<byte[], long>)((byte[] b) => b.Length));
-		bool shouldAppend;
-		LogInterpolatedStringHandler handler = new LogInterpolatedStringHandler(74, 6, out shouldAppend);
+		var totalBytes = pfs._files.Values.Sum((Func<byte[], long>)(b => b.Length));
+		var handler = new LogInterpolatedStringHandler(74, 6, out var shouldAppend);
 		if (shouldAppend)
 		{
 			handler.AppendLiteral("[PatchFileSystem] Loaded ");
@@ -206,42 +202,42 @@ public sealed class PatchFileSystem
 		{
 			return false;
 		}
-		string relativePath = fullName.Substring("CodeEntries/".Length);
-		int extIndex = relativePath.LastIndexOf('.');
+		var relativePath = fullName["CodeEntries/".Length..];
+		var extIndex = relativePath.LastIndexOf('.');
 		if (extIndex <= 0)
 		{
 			return false;
 		}
-		string[] pathParts = relativePath.Substring(0, extIndex).Split('/', StringSplitOptions.RemoveEmptyEntries);
+		var pathParts = relativePath[..extIndex].Split('/', StringSplitOptions.RemoveEmptyEntries);
 		if (pathParts.Length < 2)
 		{
 			return false;
 		}
-		codeKey = (pathParts[^2].Equals(pathParts[^1], StringComparison.OrdinalIgnoreCase) ? pathParts[^2] : (pathParts[^2] + "/" + pathParts[^1]));
+		codeKey = pathParts[^2].Equals(pathParts[^1], StringComparison.OrdinalIgnoreCase) ? pathParts[^2] : (pathParts[^2] + "/" + pathParts[^1]);
 		return true;
 	}
 
 	private void BuildDirectoryIndex()
 	{
-		Dictionary<string, HashSet<string>> dirSets = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
-		Dictionary<string, HashSet<string>> fileSets = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
-		foreach (string path in _files.Keys)
+		var dirSets = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+		var fileSets = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+		foreach (var path in _files.Keys)
 		{
-			int lastSlash = path.LastIndexOf('/');
-			string fileParent = ((lastSlash < 0) ? "" : path.Substring(0, lastSlash));
+			var lastSlash = path.LastIndexOf('/');
+			var fileParent = (lastSlash < 0) ? "" : path[..lastSlash];
 			if (!fileSets.TryGetValue(fileParent, out var fileSet))
 			{
-				fileSet = (fileSets[fileParent] = new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+				fileSet = fileSets[fileParent] = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 			}
 			fileSet.Add(path);
-			int previousSlash = -1;
-			for (int slash = path.IndexOf('/'); slash >= 0; slash = path.IndexOf('/', slash + 1))
+			var previousSlash = -1;
+			for (var slash = path.IndexOf('/', StringComparison.Ordinal); slash >= 0; slash = path.IndexOf('/', slash + 1))
 			{
-				string parent = ((previousSlash < 0) ? "" : path.Substring(0, previousSlash));
-				string child = path.Substring(0, slash);
+				var parent = (previousSlash < 0) ? "" : path[..previousSlash];
+				var child = path[..slash];
 				if (!dirSets.TryGetValue(parent, out var dirSet))
 				{
-					dirSet = (dirSets[parent] = new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+					dirSet = dirSets[parent] = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 				}
 				dirSet.Add(child);
 				previousSlash = slash;
@@ -249,42 +245,42 @@ public sealed class PatchFileSystem
 		}
 		string key;
 		HashSet<string> value;
-		foreach (KeyValuePair<string, HashSet<string>> item in dirSets)
+		foreach (var item in dirSets)
 		{
 			item.Deconstruct(out key, out value);
-			string parent2 = key;
-			HashSet<string> children = value;
-			_childDirs[parent2] = children.OrderBy<string, string>((string x) => x, StringComparer.OrdinalIgnoreCase).ToArray();
+			var parent2 = key;
+			var children = value;
+			_childDirs[parent2] = [.. children.OrderBy(x => x, StringComparer.OrdinalIgnoreCase)];
 		}
-		foreach (KeyValuePair<string, HashSet<string>> item2 in fileSets)
+		foreach (var item2 in fileSets)
 		{
 			item2.Deconstruct(out key, out value);
-			string parent3 = key;
-			HashSet<string> files = value;
-			_childFiles[parent3] = files.OrderBy<string, string>((string x) => x, StringComparer.OrdinalIgnoreCase).ToArray();
+			var parent3 = key;
+			var files = value;
+			_childFiles[parent3] = [.. files.OrderBy(x => x, StringComparer.OrdinalIgnoreCase)];
 		}
 	}
 
 	private void HydrateCodeEntryLogicalNamesFromHelpers()
 	{
-		string helperPath = HelpersPrefix + "/variables_functions.json";
-		if (!_files.TryGetValue(helperPath, out byte[] helperBytes) && !_files.TryGetValue(HelpersPrefix + "/code_patch_metadata.json", out helperBytes))
+		var helperPath = HelpersPrefix + "/variables_functions.json";
+		if (!_files.TryGetValue(helperPath, out var helperBytes) && !_files.TryGetValue(HelpersPrefix + "/code_patch_metadata.json", out helperBytes))
 		{
 			return;
 		}
 		try
 		{
-			using JsonDocument doc = JsonDocument.Parse(helperBytes);
+			using var doc = JsonDocument.Parse(helperBytes);
 			if (!doc.RootElement.TryGetProperty("codeEntries", out var codeEntries) || codeEntries.ValueKind != JsonValueKind.Array)
 			{
 				return;
 			}
-			foreach (JsonElement entry in codeEntries.EnumerateArray())
+			foreach (var entry in codeEntries.EnumerateArray())
 			{
 				if (entry.ValueKind == JsonValueKind.Object && entry.TryGetProperty("key", out var keyElem) && entry.TryGetProperty("name", out var nameElem))
 				{
-					string key = keyElem.GetString();
-					string name = nameElem.GetString();
+					var key = keyElem.GetString();
+					var name = nameElem.GetString();
 					if (!string.IsNullOrWhiteSpace(key) && !string.IsNullOrWhiteSpace(name))
 					{
 						CodeEntryLogicalNames[key] = name;
@@ -299,8 +295,9 @@ public sealed class PatchFileSystem
 
 	public byte[] ReadAllBytes(string path)
 	{
-		string n = Norm(path);
-		if (!_files.TryGetValue(n, out byte[] bytes))
+		ArgumentNullException.ThrowIfNull(path);
+		var n = Norm(path);
+		if (!_files.TryGetValue(n, out var bytes))
 		{
 			throw new FileNotFoundException("PatchFileSystem: file not found: " + path, path);
 		}
@@ -314,8 +311,8 @@ public sealed class PatchFileSystem
 
 	public string[] ReadAllLines(string path)
 	{
-		string[] lines = ReadAllText(path).Split('\n');
-		for (int i = 0; i < lines.Length; i++)
+		var lines = ReadAllText(path).Split('\n');
+		for (var i = 0; i < lines.Length; i++)
 		{
 			lines[i] = lines[i].TrimEnd('\r');
 		}
@@ -324,41 +321,46 @@ public sealed class PatchFileSystem
 
 	public bool FileExists(string path)
 	{
+		ArgumentNullException.ThrowIfNull(path);
 		return _files.ContainsKey(Norm(path));
 	}
 
 	public string[] GetDirectories(string dirPath)
 	{
-		string n = Norm(dirPath);
-		if (!_childDirs.TryGetValue(n, out string[] dirs))
+		ArgumentNullException.ThrowIfNull(dirPath);
+		var n = Norm(dirPath);
+		if (!_childDirs.TryGetValue(n, out var dirs))
 		{
-			return Array.Empty<string>();
+			return [];
 		}
 		return dirs;
 	}
 
 	public string[] GetFiles(string dirPath, string pattern = "*")
 	{
-		string n = Norm(dirPath);
-		if (!_childFiles.TryGetValue(n, out string[] files))
+		ArgumentNullException.ThrowIfNull(pattern);
+		ArgumentNullException.ThrowIfNull(dirPath);
+		var n = Norm(dirPath);
+		if (!_childFiles.TryGetValue(n, out var files))
 		{
-			return Array.Empty<string>();
+			return [];
 		}
-		if ((pattern == "*" || pattern == "*.*") ? true : false)
+		if (pattern is "*" or "*.*")
 		{
 			return files;
 		}
-		if (pattern.StartsWith("*."))
+		if (pattern.StartsWith("*.", StringComparison.Ordinal))
 		{
-			string ext = pattern.Substring(1);
-			return files.Where((string f) => f.EndsWith(ext, StringComparison.OrdinalIgnoreCase)).ToArray();
+			var ext = pattern[1..];
+			return [.. files.Where(f => f.EndsWith(ext, StringComparison.OrdinalIgnoreCase))];
 		}
 		return files;
 	}
 
 	public bool DirectoryExists(string dirPath)
 	{
-		string n = Norm(dirPath);
+		ArgumentNullException.ThrowIfNull(dirPath);
+		var n = Norm(dirPath);
 		if (!_childDirs.ContainsKey(n))
 		{
 			return _childFiles.ContainsKey(n);
@@ -368,7 +370,8 @@ public sealed class PatchFileSystem
 
 	public void AddFile(string path, byte[] data)
 	{
-		string n = Norm(path);
+		ArgumentNullException.ThrowIfNull(path);
+		var n = Norm(path);
 		_files[n] = data;
 	}
 
@@ -379,6 +382,7 @@ public sealed class PatchFileSystem
 
 	public bool RemoveFile(string path)
 	{
+		ArgumentNullException.ThrowIfNull(path);
 		return _files.Remove(Norm(path));
 	}
 
@@ -394,6 +398,7 @@ public sealed class PatchFileSystem
 
 	public bool TryGetFile(string path, out byte[] data)
 	{
+		ArgumentNullException.ThrowIfNull(path);
 		return _files.TryGetValue(Norm(path), out data);
 	}
 
@@ -407,14 +412,14 @@ public sealed class PatchFileSystem
 	public void AddAsmEntry(string entryKey, string asmContent, string? archivePath = null, string? logicalName = null)
 	{
 		AsmEntries[entryKey] = asmContent;
-		AsmEntryPaths[entryKey] = (string.IsNullOrWhiteSpace(archivePath) ? $"CodeEntries/{entryKey}/{entryKey}.asm" : Norm(archivePath));
+		AsmEntryPaths[entryKey] = string.IsNullOrWhiteSpace(archivePath) ? $"CodeEntries/{entryKey}/{entryKey}.asm" : Norm(archivePath);
 		CodeEntryLogicalNames[entryKey] = logicalName ?? CodeEntryLogicalNames.GetValueOrDefault(entryKey) ?? Path.GetFileName(entryKey);
 		RemoveFile($"CodeEntries/{entryKey}/{entryKey}.asm");
 	}
 
 	public bool RemoveGmlEntry(string entryKey)
 	{
-		bool result = GmlEntries.Remove(entryKey);
+		var result = GmlEntries.Remove(entryKey);
 		if (!AsmEntries.ContainsKey(entryKey))
 		{
 			CodeEntryLogicalNames.Remove(entryKey);
@@ -425,7 +430,7 @@ public sealed class PatchFileSystem
 	public bool RemoveAsmEntry(string entryKey)
 	{
 		AsmEntryPaths.Remove(entryKey);
-		bool result = AsmEntries.Remove(entryKey);
+		var result = AsmEntries.Remove(entryKey);
 		if (!GmlEntries.ContainsKey(entryKey))
 		{
 			CodeEntryLogicalNames.Remove(entryKey);
@@ -442,47 +447,47 @@ public sealed class PatchFileSystem
 
 	public void SaveToZip(string outputPath, G3MPatchManifest? manifest = null)
 	{
-		string outputDir = Path.GetDirectoryName(outputPath);
+		var outputDir = Path.GetDirectoryName(outputPath);
 		if (!string.IsNullOrEmpty(outputDir) && !Directory.Exists(outputDir))
 		{
 			Directory.CreateDirectory(outputDir);
 		}
-		using FileStream zipStream = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.None, 1048576, FileOptions.SequentialScan);
-		using ZipArchive archive = new ZipArchive(zipStream, ZipArchiveMode.Create);
+		using var zipStream = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.None, 1048576, FileOptions.SequentialScan);
+		using var archive = new ZipArchive(zipStream, ZipArchiveMode.Create);
 		if (manifest != null)
 		{
-			using Stream stream = archive.CreateEntry("g3mpatch.json", ArchiveCompressionUtil.GetLevel("g3mpatch.json")).Open();
+			using var stream = archive.CreateEntry("g3mpatch.json", ArchiveCompressionUtil.GetLevel("g3mpatch.json")).Open();
 			JsonSerializer.Serialize(stream, manifest, s_jsonOptions);
 		}
 		string key;
-		foreach (KeyValuePair<string, byte[]> file in _files)
+		foreach (var file in _files)
 		{
 			file.Deconstruct(out key, out var value);
-			string path = key;
-			byte[] data = value;
+			var path = key;
+			var data = value;
 			if ((!path.Equals("g3mpatch.json", StringComparison.OrdinalIgnoreCase) || manifest == null) && !path.StartsWith("CodeEntries/", StringComparison.OrdinalIgnoreCase))
 			{
-				using Stream stream2 = archive.CreateEntry(path, ArchiveCompressionUtil.GetLevel(path)).Open();
+				using var stream2 = archive.CreateEntry(path, ArchiveCompressionUtil.GetLevel(path)).Open();
 				stream2.Write(data, 0, data.Length);
 			}
 		}
 		string value2;
-		foreach (KeyValuePair<string, string> gmlEntry in GmlEntries)
+		foreach (var gmlEntry in GmlEntries)
 		{
 			gmlEntry.Deconstruct(out key, out value2);
-			string entryKey = key;
-			string gml = value2;
-			string entryPath = $"CodeEntries/{entryKey}/{entryKey}.gml";
-			using StreamWriter writer = new StreamWriter(archive.CreateEntry(entryPath, ArchiveCompressionUtil.GetLevel(entryPath)).Open(), Encoding.UTF8);
+			var entryKey = key;
+			var gml = value2;
+			var entryPath = $"CodeEntries/{entryKey}/{entryKey}.gml";
+			using var writer = new StreamWriter(archive.CreateEntry(entryPath, ArchiveCompressionUtil.GetLevel(entryPath)).Open(), Encoding.UTF8);
 			writer.Write(gml);
 		}
-		foreach (KeyValuePair<string, string> asmEntry in AsmEntries)
+		foreach (var asmEntry in AsmEntries)
 		{
 			asmEntry.Deconstruct(out value2, out key);
-			string entryKey2 = value2;
-			string asm = key;
-			string entryPath2 = AsmEntryPaths.GetValueOrDefault(entryKey2) ?? $"CodeEntries/{entryKey2}/{entryKey2}.asm";
-			using StreamWriter writer2 = new StreamWriter(archive.CreateEntry(entryPath2, ArchiveCompressionUtil.GetLevel(entryPath2)).Open(), Encoding.UTF8);
+			var entryKey2 = value2;
+			var asm = key;
+			var entryPath2 = AsmEntryPaths.GetValueOrDefault(entryKey2) ?? $"CodeEntries/{entryKey2}/{entryKey2}.asm";
+			using var writer2 = new StreamWriter(archive.CreateEntry(entryPath2, ArchiveCompressionUtil.GetLevel(entryPath2)).Open(), Encoding.UTF8);
 			writer2.Write(asm);
 		}
 	}
@@ -518,11 +523,11 @@ public sealed class PatchFileSystem
 
 	public HashSet<string> GetResourceTypes()
 	{
-		HashSet<string> types = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-		if (_childDirs.TryGetValue("", out string[] rootDirs))
+		var types = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+		if (_childDirs.TryGetValue("", out var rootDirs))
 		{
-			string[] array = rootDirs;
-			foreach (string dir in array)
+			var array = rootDirs;
+			foreach (var dir in array)
 			{
 				types.Add(dir);
 			}

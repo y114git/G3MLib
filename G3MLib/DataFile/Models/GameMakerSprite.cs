@@ -1,9 +1,6 @@
-using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
-using System.Linq;
 using System.Text;
 using G3MLib.DataFile.Util;
 using G3MLib.DataFile.Project;
@@ -132,19 +129,19 @@ public class GameMakerSprite : GameMakerNamedResource, IProjectAsset, PrePaddedO
     /// <summary>
     /// The frames of the sprite.
     /// </summary>
-    public GameMakerSimpleList<TextureEntry> Textures { get; set; } = new GameMakerSimpleList<TextureEntry>();
+    public GameMakerSimpleList<TextureEntry> Textures { get; set; } = [];
 
     /// <summary>
     /// The collision masks of the sprite.
     /// </summary>
-    public ObservableCollection<MaskEntry> CollisionMasks { get; set; } = new ObservableCollection<MaskEntry>();
+    public ObservableCollection<MaskEntry> CollisionMasks { get; set; } = [];
 
     // Special sprite types (always used in GMS2)
     public uint SVersion { get; set; } = 1;
     public SpriteType SSpriteType { get; set; }
     public float GMS2PlaybackSpeed { get; set; } = 15.0f;
-    public AnimSpeedType GMS2PlaybackSpeedType { get; set; } = 0;
-    public bool IsSpecialType { get; set; } = false;
+    public AnimSpeedType GMS2PlaybackSpeedType { get; set; }
+    public bool IsSpecialType { get; set; }
 
     public int SpineVersion { get; set; }
     public int SpineCacheVersion { get; set; }
@@ -152,14 +149,13 @@ public class GameMakerSprite : GameMakerNamedResource, IProjectAsset, PrePaddedO
     public string SpineAtlas { get; set; }
     public GameMakerSimpleList<GameMakerSpineTextureEntry> SpineTextures { get; set; }
 
-    public bool IsSpineSprite { get => SpineJSON != null && SpineAtlas != null && SpineTextures != null; }
+    public bool IsSpineSprite => SpineJSON != null && SpineAtlas != null && SpineTextures != null;
     public bool SpineHasTextureData { get; set; } = true;
-    public bool IsYYSWFSprite { get => YYSWF != null; }
+    public bool IsYYSWFSprite => YYSWF != null;
 
-    private int _SWFVersion;
     private GameMakerYYSWF _YYSWF;
 
-    public int SWFVersion { get => _SWFVersion; set { _SWFVersion = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SWFVersion))); } }
+    public int SWFVersion { get; set { field = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SWFVersion))); } }
     public GameMakerYYSWF YYSWF { get => _YYSWF; set { _YYSWF = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(YYSWF))); } }
 
     public int VectorVersion { get; set; }
@@ -187,9 +183,9 @@ public class GameMakerSprite : GameMakerNamedResource, IProjectAsset, PrePaddedO
     {
         GC.SuppressFinalize(this);
 
-        foreach (TextureEntry entry in Textures)
+        foreach (var entry in Textures)
             entry?.Dispose();
-        foreach (MaskEntry entry in CollisionMasks)
+        foreach (var entry in CollisionMasks)
             entry?.Dispose();
         if (SpineTextures is not null)
         {
@@ -197,7 +193,7 @@ public class GameMakerSprite : GameMakerNamedResource, IProjectAsset, PrePaddedO
                 spineEntry?.Dispose();
         }
 
-        Textures = new();
+        Textures = [];
         CollisionMasks.Clear();
         SpineTextures = null;
         _YYSWF = null;
@@ -256,7 +252,7 @@ public class GameMakerSprite : GameMakerNamedResource, IProjectAsset, PrePaddedO
     /// </summary>
     /// <param name="data">Data that this sprite is part of, for checking the GameMaker version.</param>
     /// <returns>The new mask entry.</returns>
-    public MaskEntry NewMaskEntry(GameMakerData data = null)
+    public MaskEntry NewMaskEntry(GameMakerData? data = null)
     {
         int width, height;
         if (data is not null)
@@ -273,7 +269,7 @@ public class GameMakerSprite : GameMakerNamedResource, IProjectAsset, PrePaddedO
         if (width < 0 || height < 0)
             throw new InvalidOperationException("Negative collision mask dimension.");
 
-        int len = checked((int)((((long)width + 7) / 8) * height));
+        var len = checked((int)(((long)width + 7) / 8 * height));
         return new MaskEntry(new byte[len], width, height);
     }
 
@@ -321,12 +317,14 @@ public class GameMakerSprite : GameMakerNamedResource, IProjectAsset, PrePaddedO
         /// <inheritdoc />
         public void Serialize(GameMakerWriter writer)
         {
+            ArgumentNullException.ThrowIfNull(writer);
             writer.WriteGameMakerObjectPointer(Texture);
         }
 
         /// <inheritdoc />
         public void Unserialize(GameMakerReader reader)
         {
+            ArgumentNullException.ThrowIfNull(reader);
             Texture = reader.ReadGameMakerObjectPointer<GameMakerTexturePageItem>();
         }
 
@@ -359,9 +357,9 @@ public class GameMakerSprite : GameMakerNamedResource, IProjectAsset, PrePaddedO
 
         public MaskEntry(byte[] data, int width, int height)
         {
-            this.Data = data;
-            this.Width = width;
-            this.Height = height;
+            Data = data;
+            Width = width;
+            Height = height;
         }
 
         /// <inheritdoc/>
@@ -376,6 +374,7 @@ public class GameMakerSprite : GameMakerNamedResource, IProjectAsset, PrePaddedO
     /// <inheritdoc />
     public void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         writer.WriteGameMakerString(Name);
         writer.Write(Width);
         writer.Write(Height);
@@ -428,8 +427,8 @@ public class GameMakerSprite : GameMakerNamedResource, IProjectAsset, PrePaddedO
                 case SpriteType.Spine:
                     writer.Align(4);
 
-                    byte[] encodedJson = EncodeSpineBlob(Encoding.UTF8.GetBytes(SpineJSON));
-                    byte[] encodedAtlas = EncodeSpineBlob(Encoding.UTF8.GetBytes(SpineAtlas));
+                    var encodedJson = EncodeSpineBlob(Encoding.UTF8.GetBytes(SpineJSON));
+                    var encodedAtlas = EncodeSpineBlob(Encoding.UTF8.GetBytes(SpineAtlas));
 
                     if (writer.gameMakerData.IsNonLTSVersionAtLeast(2023, 1))
                         writer.WriteGameMakerObject(Textures);
@@ -443,38 +442,38 @@ public class GameMakerSprite : GameMakerNamedResource, IProjectAsset, PrePaddedO
                     switch (SpineVersion)
                     {
                         case 1:
-                        {
-                            GameMakerSpineTextureEntry atlas = SpineTextures[0]; // will throw an exception if the list is null, what I want!
-                            writer.Write(atlas.TexBlob.Length);
-                            writer.Write(atlas.PageWidth);
-                            writer.Write(atlas.PageHeight);
+                            {
+                                var atlas = SpineTextures[0]; // will throw an exception if the list is null, what I want!
+                                writer.Write(atlas.TexBlob.Length);
+                                writer.Write(atlas.PageWidth);
+                                writer.Write(atlas.PageHeight);
 
-                            // the data.
-                            writer.Write(encodedJson);
-                            writer.Write(encodedAtlas);
+                                // the data.
+                                writer.Write(encodedJson);
+                                writer.Write(encodedAtlas);
 
-                            // the one and only atlas.
-                            writer.Write(atlas.TexBlob);
+                                // the one and only atlas.
+                                writer.Write(atlas.TexBlob);
 
-                            break;
-                        }
+                                break;
+                            }
                         case 2:
                         case 3:
-                        {
-                            writer.Write(SpineTextures.Count);
-
-                            // the data.
-                            writer.Write(encodedJson);
-                            writer.Write(encodedAtlas);
-
-                            // the length is stored in the header, so we can't use the list's method.
-                            foreach (var tex in SpineTextures)
                             {
-                                writer.WriteGameMakerObject(tex);
-                            }
+                                writer.Write(SpineTextures.Count);
 
-                            break;
-                        }
+                                // the data.
+                                writer.Write(encodedJson);
+                                writer.Write(encodedAtlas);
+
+                                // the length is stored in the header, so we can't use the list's method.
+                                foreach (var tex in SpineTextures)
+                                {
+                                    writer.WriteGameMakerObject(tex);
+                                }
+
+                                break;
+                            }
                     }
 
                     break;
@@ -525,7 +524,7 @@ public class GameMakerSprite : GameMakerNamedResource, IProjectAsset, PrePaddedO
             // Sequence + nine slice
             if (sequencePatchPos != 0 && V2Sequence != null) // Normal compiler also checks for sprite type to be normal, but whatever!
             {
-                uint returnTo = writer.Position;
+                var returnTo = writer.Position;
                 writer.Position = sequencePatchPos;
                 writer.Write(returnTo);
                 writer.Position = returnTo;
@@ -534,7 +533,7 @@ public class GameMakerSprite : GameMakerNamedResource, IProjectAsset, PrePaddedO
             }
             if (nineSlicePatchPos != 0 && V3NineSlice != null)
             {
-                uint returnTo = writer.Position;
+                var returnTo = writer.Position;
                 writer.Position = nineSlicePatchPos;
                 writer.Write(returnTo);
                 writer.Position = returnTo;
@@ -564,15 +563,15 @@ public class GameMakerSprite : GameMakerNamedResource, IProjectAsset, PrePaddedO
             total++;
         }
 
-        (int width, int height) = CalculateMaskDimensions(writer.gameMakerData);
-        Util.DebugUtil.Assert(total == CalculateMaskDataSize(width, height, (uint)CollisionMasks.Count), "Invalid mask data for sprite");
+        (var width, var height) = CalculateMaskDimensions(writer.gameMakerData);
+        DebugUtil.Assert(total == CalculateMaskDataSize(width, height, (uint)CollisionMasks.Count), "Invalid mask data for sprite");
     }
 
     private static byte[] DecodeSpineBlob(byte[] blob)
     {
         // don't ask.
         uint k = 42;
-        for (int i = 0; i < blob.Length; i++)
+        for (var i = 0; i < blob.Length; i++)
         {
             blob[i] -= (byte)k;
             k *= k + 1;
@@ -584,7 +583,7 @@ public class GameMakerSprite : GameMakerNamedResource, IProjectAsset, PrePaddedO
     {
         // don't ask.
         uint k = 42;
-        for (int i = 0; i < blob.Length; i++)
+        for (var i = 0; i < blob.Length; i++)
         {
             blob[i] += (byte)k;
             k *= k + 1;
@@ -595,11 +594,12 @@ public class GameMakerSprite : GameMakerNamedResource, IProjectAsset, PrePaddedO
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         Name = reader.ReadGameMakerString();
         Width = reader.ReadUInt32();
         Height = reader.ReadUInt32();
-        Textures = new();
-        CollisionMasks = new();
+        Textures = [];
+        CollisionMasks = [];
         MarginLeft = reader.ReadInt32();
         MarginRight = reader.ReadInt32();
         MarginBottom = reader.ReadInt32();
@@ -634,8 +634,8 @@ public class GameMakerSprite : GameMakerNamedResource, IProjectAsset, PrePaddedO
         V3NineSlice = null;
         if (reader.ReadInt32() == -1) // technically this seems to be able to occur on older versions, for special sprite types
         {
-            int sequenceOffset = 0;
-            int nineSliceOffset = 0;
+            var sequenceOffset = 0;
+            var nineSliceOffset = 0;
 
             IsSpecialType = true;
             SVersion = reader.ReadUInt32();
@@ -663,145 +663,145 @@ public class GameMakerSprite : GameMakerNamedResource, IProjectAsset, PrePaddedO
                     ReadMaskData(reader);
                     break;
                 case SpriteType.SWF:
-                {
-                    SWFVersion = reader.ReadInt32();
-                    Util.DebugUtil.Assert(SWFVersion == 8 || SWFVersion == 7, "Invalid SWF sprite format, expected 7 or 8, got " + SWFVersion);
-
-                    if (SWFVersion == 8)
                     {
-                        Textures = reader.ReadGameMakerObject<GameMakerSimpleList<TextureEntry>>();
-                    }
+                        SWFVersion = reader.ReadInt32();
+                        DebugUtil.Assert(SWFVersion is 8 or 7, "Invalid SWF sprite format, expected 7 or 8, got " + SWFVersion);
 
-                    YYSWF = reader.ReadGameMakerObjectNoPool<GameMakerYYSWF>();
-                }
+                        if (SWFVersion == 8)
+                        {
+                            Textures = reader.ReadGameMakerObject<GameMakerSimpleList<TextureEntry>>();
+                        }
+
+                        YYSWF = reader.ReadGameMakerObjectNoPool<GameMakerYYSWF>();
+                    }
                     break;
                 case SpriteType.Spine:
-                {
-                    reader.Align(4);
-
-                    if (reader.gameMakerData.IsNonLTSVersionAtLeast(2023, 1))
                     {
-                        Textures = reader.ReadGameMakerObject<GameMakerSimpleList<TextureEntry>>();
-                        SpineHasTextureData = false;
-                    }
+                        reader.Align(4);
 
-                    SpineVersion = reader.ReadInt32();
-                    if (SpineVersion >= 3)
-                    {
-                        SpineCacheVersion = reader.ReadInt32();
-                        Util.DebugUtil.Assert(SpineCacheVersion == 1, "Invalid Spine cache format version number, expected 1, got " + SpineCacheVersion);
-                    }
-                    Util.DebugUtil.Assert(SpineVersion <= 3 && SpineVersion >= 1,
-                                          "Invalid Spine format version number, expected 3, 2 or 1, got " + SpineVersion);
-                    int jsonLength = reader.ReadInt32();
-                    int atlasLength = reader.ReadInt32();
-                    int textures = reader.ReadInt32(); // count in v2(and newer) and size in bytes in v1.
-                    if (jsonLength < 0 || atlasLength < 0 || textures < 0)
-                        throw new IOException("Negative Spine sprite data length.");
-                    long minimumSize = (long)jsonLength + atlasLength + (SpineVersion == 1 ? 8L + textures : (long)textures * 12);
-                    if (minimumSize > reader.Length - reader.Position)
-                        throw new IOException("Spine sprite data exceeds the available input.");
-                    SpineTextures = new GameMakerSimpleList<GameMakerSpineTextureEntry>();
-
-                    switch (SpineVersion)
-                    {
-                        // Version 1 - only one single PNG atlas.
-                        // Version 2 - can be multiple atlases.
-                        // Version 3 - an atlas can be a QOI blob.
-                        case 1:
+                        if (reader.gameMakerData.IsNonLTSVersionAtLeast(2023, 1))
                         {
-                            GameMakerSpineTextureEntry atlas = new GameMakerSpineTextureEntry();
-                            int atlasWidth = reader.ReadInt32();
-                            int atlasHeight = reader.ReadInt32();
-                            SpineJSON = Encoding.UTF8.GetString(DecodeSpineBlob(reader.ReadBytes(jsonLength)));
-                            SpineAtlas = Encoding.UTF8.GetString(DecodeSpineBlob(reader.ReadBytes(atlasLength)));
-
-                            atlas.PageWidth = atlasWidth;
-                            atlas.PageHeight = atlasHeight;
-                            atlas.TexBlob = reader.ReadBytes(textures);
-                            SpineTextures.InternalAdd(atlas);
-                            break;
+                            Textures = reader.ReadGameMakerObject<GameMakerSimpleList<TextureEntry>>();
+                            SpineHasTextureData = false;
                         }
-                        case 2:
-                        case 3:
+
+                        SpineVersion = reader.ReadInt32();
+                        if (SpineVersion >= 3)
                         {
-                            SpineJSON = Encoding.UTF8.GetString(DecodeSpineBlob(reader.ReadBytes(jsonLength)));
-                            SpineAtlas = Encoding.UTF8.GetString(DecodeSpineBlob(reader.ReadBytes(atlasLength)));
+                            SpineCacheVersion = reader.ReadInt32();
+                            DebugUtil.Assert(SpineCacheVersion == 1, "Invalid Spine cache format version number, expected 1, got " + SpineCacheVersion);
+                        }
+                        DebugUtil.Assert(SpineVersion is <= 3 and >= 1,
+                                              "Invalid Spine format version number, expected 3, 2 or 1, got " + SpineVersion);
+                        var jsonLength = reader.ReadInt32();
+                        var atlasLength = reader.ReadInt32();
+                        var textures = reader.ReadInt32(); // count in v2(and newer) and size in bytes in v1.
+                        if (jsonLength < 0 || atlasLength < 0 || textures < 0)
+                            throw new IOException("Negative Spine sprite data length.");
+                        var minimumSize = (long)jsonLength + atlasLength + (SpineVersion == 1 ? 8L + textures : (long)textures * 12);
+                        if (minimumSize > reader.Length - reader.Position)
+                            throw new IOException("Spine sprite data exceeds the available input.");
+                        SpineTextures = [];
 
-                            SpineTextures.SetCapacity(textures);
+                        switch (SpineVersion)
+                        {
+                            // Version 1 - only one single PNG atlas.
+                            // Version 2 - can be multiple atlases.
+                            // Version 3 - an atlas can be a QOI blob.
+                            case 1:
+                                {
+                                    var atlas = new GameMakerSpineTextureEntry();
+                                    var atlasWidth = reader.ReadInt32();
+                                    var atlasHeight = reader.ReadInt32();
+                                    SpineJSON = Encoding.UTF8.GetString(DecodeSpineBlob(reader.ReadBytes(jsonLength)));
+                                    SpineAtlas = Encoding.UTF8.GetString(DecodeSpineBlob(reader.ReadBytes(atlasLength)));
 
-                            // the length is stored before json and atlases so we can't use ReadGameMakerObjectList
-                            // same goes for serialization.
-                            for (int t = 0; t < textures; t++)
-                            {
-                                SpineTextures.InternalAdd(reader.ReadGameMakerObject<GameMakerSpineTextureEntry>());
-                            }
+                                    atlas.PageWidth = atlasWidth;
+                                    atlas.PageHeight = atlasHeight;
+                                    atlas.TexBlob = reader.ReadBytes(textures);
+                                    SpineTextures.InternalAdd(atlas);
+                                    break;
+                                }
+                            case 2:
+                            case 3:
+                                {
+                                    SpineJSON = Encoding.UTF8.GetString(DecodeSpineBlob(reader.ReadBytes(jsonLength)));
+                                    SpineAtlas = Encoding.UTF8.GetString(DecodeSpineBlob(reader.ReadBytes(atlasLength)));
 
-                            break;
+                                    SpineTextures.SetCapacity(textures);
+
+                                    // the length is stored before json and atlases so we can't use ReadGameMakerObjectList
+                                    // same goes for serialization.
+                                    for (var t = 0; t < textures; t++)
+                                    {
+                                        SpineTextures.InternalAdd(reader.ReadGameMakerObject<GameMakerSpineTextureEntry>());
+                                    }
+
+                                    break;
+                                }
                         }
                     }
-                }
                     break;
                 case SpriteType.Vector:
-                {
-                    VectorVersion = reader.ReadInt32();
-                    DebugUtil.Assert(VectorVersion == 3 || VectorVersion == 4, "Invalid vector format version number, expected 3 or 4, got " + VectorVersion);
-                    if (VectorVersion >= 4 && !reader.gameMakerData.IsVersionAtLeast(2024, 14))
-                        reader.gameMakerData.SetGMS2Version(2024, 14);
-
-                    Textures = reader.ReadGameMakerObject<GameMakerSimpleList<TextureEntry>>();
-
-                    if (VectorVersion >= 4)
                     {
-                        int mapCount = reader.ReadInt32();
-                        if (mapCount < 0 || (long)mapCount * sizeof(int) > reader.Length - reader.Position)
-                            throw new IOException("Invalid vector frame-to-shape map count.");
-                        VectorFrameToShapeMap = new(mapCount);
-                        for (int i = 0; i < mapCount; i++)
+                        VectorVersion = reader.ReadInt32();
+                        DebugUtil.Assert(VectorVersion is 3 or 4, "Invalid vector format version number, expected 3 or 4, got " + VectorVersion);
+                        if (VectorVersion >= 4 && !reader.gameMakerData.IsVersionAtLeast(2024, 14))
+                            reader.gameMakerData.SetGMS2Version(2024, 14);
+
+                        Textures = reader.ReadGameMakerObject<GameMakerSimpleList<TextureEntry>>();
+
+                        if (VectorVersion >= 4)
                         {
-                            VectorFrameToShapeMap.InternalAdd(reader.ReadInt32());
+                            var mapCount = reader.ReadInt32();
+                            if (mapCount < 0 || (long)mapCount * sizeof(int) > reader.Length - reader.Position)
+                                throw new IOException("Invalid vector frame-to-shape map count.");
+                            VectorFrameToShapeMap = new(mapCount);
+                            for (var i = 0; i < mapCount; i++)
+                            {
+                                VectorFrameToShapeMap.InternalAdd(reader.ReadInt32());
+                            }
+
+                            var shapeCount = reader.ReadInt32();
+                            if (shapeCount < 0 || (long)shapeCount * 24 > reader.Length - reader.Position)
+                                throw new IOException("Invalid vector shape count.");
+                            VectorShapes = new(shapeCount);
+                            for (var i = 0; i < shapeCount; i++)
+                            {
+                                VectorShapes.InternalAdd(reader.ReadGameMakerObjectNoPool<GameMakerVectorShapeData>());
+                            }
+                        }
+                        else
+                        {
+                            VectorFrameToShapeMap = [0];
+                            VectorShapes = [reader.ReadGameMakerObjectNoPool<GameMakerVectorShapeData>()];
                         }
 
-                        int shapeCount = reader.ReadInt32();
-                        if (shapeCount < 0 || (long)shapeCount * 24 > reader.Length - reader.Position)
-                            throw new IOException("Invalid vector shape count.");
-                        VectorShapes = new(shapeCount);
-                        for (int i = 0; i < shapeCount; i++)
+                        int collisionMaskCount;
+                        if (VectorVersion >= 4)
                         {
-                            VectorShapes.InternalAdd(reader.ReadGameMakerObjectNoPool<GameMakerVectorShapeData>());
+                            collisionMaskCount = reader.ReadInt32();
                         }
-                    }
-                    else
-                    {
-                        VectorFrameToShapeMap = new(){ 0 };
-                        VectorShapes = new() { reader.ReadGameMakerObjectNoPool<GameMakerVectorShapeData>() };
-                    }
+                        else
+                        {
+                            collisionMaskCount = reader.ReadBoolean() ? 1 : 0;
+                        }
+                        VectorCollisionMaskWidth = reader.ReadInt32();
+                        VectorCollisionMaskHeight = reader.ReadInt32();
+                        if (collisionMaskCount < 0 || (long)collisionMaskCount * sizeof(int) > reader.Length - reader.Position)
+                            throw new IOException("Invalid vector collision mask count.");
+                        VectorCollisionMaskRLEData = new(collisionMaskCount);
+                        for (var i = 0; i < collisionMaskCount; i++)
+                        {
+                            var dataLength = reader.ReadInt32();
+                            if (dataLength < 0)
+                                throw new IOException("Negative vector collision mask length.");
+                            VectorCollisionMaskRLEData.InternalAdd(reader.ReadBytes(dataLength));
+                            reader.Align(4);
+                        }
 
-                    int collisionMaskCount;
-                    if (VectorVersion >= 4)
-                    {
-                        collisionMaskCount = reader.ReadInt32();
+                        break;
                     }
-                    else
-                    {
-                        collisionMaskCount = reader.ReadBoolean() ? 1 : 0;
-                    }
-                    VectorCollisionMaskWidth = reader.ReadInt32();
-                    VectorCollisionMaskHeight = reader.ReadInt32();
-                    if (collisionMaskCount < 0 || (long)collisionMaskCount * sizeof(int) > reader.Length - reader.Position)
-                        throw new IOException("Invalid vector collision mask count.");
-                    VectorCollisionMaskRLEData = new(collisionMaskCount);
-                    for (int i = 0; i < collisionMaskCount; i++)
-                    {
-                        int dataLength = reader.ReadInt32();
-                        if (dataLength < 0)
-                            throw new IOException("Negative vector collision mask length.");
-                        VectorCollisionMaskRLEData.InternalAdd(reader.ReadBytes(dataLength));
-                        reader.Align(4);
-                    }
-
-                    break;
-                }
             }
 
             if (sequenceOffset != 0)
@@ -827,27 +827,28 @@ public class GameMakerSprite : GameMakerNamedResource, IProjectAsset, PrePaddedO
     /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
     public static uint UnserializeChildObjectCount(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         reader.Align(4);
 
         uint count = 0;
 
         reader.Position += 4; // "Name"
-        uint width = reader.ReadUInt32();
-        uint height = reader.ReadUInt32();
-        int marginLeft = reader.ReadInt32();
-        int marginRight = reader.ReadInt32();
-        int marginBottom = reader.ReadInt32();
-        int marginTop = reader.ReadInt32();
+        var width = reader.ReadUInt32();
+        var height = reader.ReadUInt32();
+        var marginLeft = reader.ReadInt32();
+        var marginRight = reader.ReadInt32();
+        var marginBottom = reader.ReadInt32();
+        var marginTop = reader.ReadInt32();
 
         reader.Position += 28;
 
         if (reader.ReadInt32() == -1)
         {
-            int sequenceOffset = 0;
-            int nineSliceOffset = 0;
+            var sequenceOffset = 0;
+            var nineSliceOffset = 0;
 
-            uint sVersion = reader.ReadUInt32();
-            SpriteType sSpriteType = (SpriteType)reader.ReadUInt32();
+            var sVersion = reader.ReadUInt32();
+            var sSpriteType = (SpriteType)reader.ReadUInt32();
             if (reader.gameMakerData.IsGameMaker2())
             {
                 reader.Position += 8; // playback speed values
@@ -872,7 +873,7 @@ public class GameMakerSprite : GameMakerNamedResource, IProjectAsset, PrePaddedO
                     break;
 
                 case SpriteType.SWF:
-                    int swfVersion = reader.ReadInt32();
+                    var swfVersion = reader.ReadInt32();
                     if (swfVersion == 8)
                         count += 1 + GameMakerSimpleList<TextureEntry>.UnserializeChildObjectCount(reader);
 
@@ -884,41 +885,41 @@ public class GameMakerSprite : GameMakerNamedResource, IProjectAsset, PrePaddedO
                     break;
 
                 case SpriteType.Spine:
-                {
-                    reader.Align(4);
-
-                    if (reader.gameMakerData.IsNonLTSVersionAtLeast(2023, 1))
-                        count += 1 + GameMakerSimpleList<TextureEntry>.UnserializeChildObjectCount(reader);
-
-                    int spineVersion = reader.ReadInt32();
-                    if (spineVersion >= 3)
-                        reader.Position += 4; // "SpineCacheVersion"
-                    Util.DebugUtil.Assert(spineVersion <= 3 && spineVersion >= 1,
-                                          "Invalid Spine format version number, expected 3, 2 or 1, got " + spineVersion);
-
-                    int jsonLength = reader.ReadInt32();
-                    int atlasLength = reader.ReadInt32();
-                    int textures = reader.ReadInt32();
-
-                    switch (spineVersion)
                     {
-                        case 1:
-                            reader.Position += 8 + (uint)jsonLength + (uint)atlasLength + (uint)textures;
-                            break;
+                        reader.Align(4);
 
-                        case 2:
-                        case 3:
+                        if (reader.gameMakerData.IsNonLTSVersionAtLeast(2023, 1))
+                            count += 1 + GameMakerSimpleList<TextureEntry>.UnserializeChildObjectCount(reader);
+
+                        var spineVersion = reader.ReadInt32();
+                        if (spineVersion >= 3)
+                            reader.Position += 4; // "SpineCacheVersion"
+                        DebugUtil.Assert(spineVersion is <= 3 and >= 1,
+                                              "Invalid Spine format version number, expected 3, 2 or 1, got " + spineVersion);
+
+                        var jsonLength = reader.ReadInt32();
+                        var atlasLength = reader.ReadInt32();
+                        var textures = reader.ReadInt32();
+
+                        switch (spineVersion)
                         {
-                            reader.Position += (uint)jsonLength + (uint)atlasLength;
+                            case 1:
+                                reader.Position += 8 + (uint)jsonLength + (uint)atlasLength + (uint)textures;
+                                break;
 
-                            for (int i = 0; i < textures; i++)
-                                GameMakerSpineTextureEntry.UnserializeChildObjectCount(reader);
+                            case 2:
+                            case 3:
+                                {
+                                    reader.Position += (uint)jsonLength + (uint)atlasLength;
 
-                            count += (uint)textures;
+                                    for (var i = 0; i < textures; i++)
+                                        GameMakerSpineTextureEntry.UnserializeChildObjectCount(reader);
+
+                                    count += (uint)textures;
+                                }
+                                break;
                         }
-                            break;
                     }
-                }
                     break;
 
                 case SpriteType.Vector:
@@ -961,7 +962,8 @@ public class GameMakerSprite : GameMakerNamedResource, IProjectAsset, PrePaddedO
     /// </summary>
     public (int Width, int Height) CalculateMaskDimensions(GameMakerData data)
     {
-        if (data.IsNonLTSVersionAtLeast(2024, 6))
+        ArgumentNullException.ThrowIfNull(data);
+        if (data.IsVersionAtLeast(2024, 6))
         {
             return CalculateBboxMaskDimensions(MarginRight, MarginLeft, MarginBottom, MarginTop);
         }
@@ -992,19 +994,19 @@ public class GameMakerSprite : GameMakerNamedResource, IProjectAsset, PrePaddedO
     private void ReadMaskData(GameMakerReader reader)
     {
         // Initialize mask list
-        uint maskCount = reader.ReadUInt32();
+        var maskCount = reader.ReadUInt32();
         List<MaskEntry> newMasks = [];
 
         // Read in mask data
-        (int width, int height) = CalculateMaskDimensions(reader.gameMakerData);
+        (var width, var height) = CalculateMaskDimensions(reader.gameMakerData);
         if (width < 0 || height < 0)
             throw new IOException("Negative collision mask dimension.");
         if (maskCount > int.MaxValue)
             throw new IOException("Collision mask count is too large.");
-        long maskDataSize = CalculateMaskDataSize(width, height, maskCount);
+        var maskDataSize = CalculateMaskDataSize(width, height, maskCount);
         if (maskDataSize > reader.Length - reader.Position)
             throw new IOException("Collision mask data exceeds the available input.");
-        int len = checked((int)((((long)width + 7) / 8) * height));
+        var len = checked((int)(((long)width + 7) / 8 * height));
         long total = 0;
         for (uint i = 0; i < maskCount; i++)
         {
@@ -1012,7 +1014,7 @@ public class GameMakerSprite : GameMakerNamedResource, IProjectAsset, PrePaddedO
             total += len;
         }
 
-        while ((total % 4) != 0)
+        while (total % 4 != 0)
         {
             if (reader.ReadByte() != 0)
             {
@@ -1031,8 +1033,8 @@ public class GameMakerSprite : GameMakerNamedResource, IProjectAsset, PrePaddedO
 
     private static void SkipMaskData(GameMakerReader reader, int width, int height, int marginRight, int marginLeft, int marginBottom, int marginTop)
     {
-        uint maskCount = reader.ReadUInt32();
-        if (reader.gameMakerData.IsNonLTSVersionAtLeast(2024, 6))
+        var maskCount = reader.ReadUInt32();
+        if (reader.gameMakerData.IsVersionAtLeast(2024, 6))
         {
             (width, height) = CalculateBboxMaskDimensions(marginRight, marginLeft, marginBottom, marginTop);
         }
@@ -1042,7 +1044,7 @@ public class GameMakerSprite : GameMakerNamedResource, IProjectAsset, PrePaddedO
         }
         if (width < 0 || height < 0)
             throw new IOException("Negative collision mask dimension.");
-        int len = checked((int)((((long)width + 7) / 8) * height));
+        var len = checked((int)(((long)width + 7) / 8 * height));
 
         long total = 0;
         for (uint i = 0; i < maskCount; i++)
@@ -1052,7 +1054,7 @@ public class GameMakerSprite : GameMakerNamedResource, IProjectAsset, PrePaddedO
         }
 
         // Skip padding
-        int skipSize = 0;
+        var skipSize = 0;
         while (total % 4 != 0)
         {
             skipSize++;
@@ -1063,20 +1065,22 @@ public class GameMakerSprite : GameMakerNamedResource, IProjectAsset, PrePaddedO
 
     private static long CalculateMaskDataSize(int width, int height, uint maskCount)
     {
-        long roundedWidth = checked((((long)width + 7) / 8) * 8); // round to multiple of 8
-        long dataBits = checked(roundedWidth * height * maskCount);
-        return checked(((dataBits + 31) / 32 * 32) / 8); // round to multiple of 4 bytes
+        var roundedWidth = checked(((long)width + 7) / 8 * 8); // round to multiple of 8
+        var dataBits = checked(roundedWidth * height * maskCount);
+        return checked((dataBits + 31) / 32 * 32 / 8); // round to multiple of 4 bytes
     }
 
     /// <inheritdoc />
     public void SerializePrePadding(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         writer.Align(4);
     }
 
     /// <inheritdoc />
     public void UnserializePrePadding(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         // If you are modifying this, you must also modify "UnserializeChildObjectCount()"
         reader.Align(4);
     }
@@ -1106,24 +1110,26 @@ public class GameMakerSprite : GameMakerNamedResource, IProjectAsset, PrePaddedO
         /// <inheritdoc />
         public void Serialize(GameMakerWriter writer)
         {
+            ArgumentNullException.ThrowIfNull(writer);
             writer.Write(Left);
             writer.Write(Top);
             writer.Write(Right);
             writer.Write(Bottom);
             writer.Write(Enabled);
-            for (int i = 0; i < 5; i++)
+            for (var i = 0; i < 5; i++)
                 writer.Write((int)TileModes[i]);
         }
 
         /// <inheritdoc />
         public void Unserialize(GameMakerReader reader)
         {
+            ArgumentNullException.ThrowIfNull(reader);
             Left = reader.ReadInt32();
             Top = reader.ReadInt32();
             Right = reader.ReadInt32();
             Bottom = reader.ReadInt32();
             Enabled = reader.ReadBoolean();
-            for (int i = 0; i < 5; i++)
+            for (var i = 0; i < 5; i++)
                 TileModes[i] = (TileMode)reader.ReadInt32();
         }
     }
@@ -1160,6 +1166,7 @@ public class GameMakerSpineTextureEntry : GameMakerObject, IDisposable
     /// <inheritdoc />
     public void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         writer.Write(PageWidth);
         writer.Write(PageHeight);
         if (writer.gameMakerData.IsNonLTSVersionAtLeast(2023, 1))
@@ -1176,6 +1183,7 @@ public class GameMakerSpineTextureEntry : GameMakerObject, IDisposable
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         PageWidth = reader.ReadInt32();
         PageHeight = reader.ReadInt32();
         if (reader.gameMakerData.IsNonLTSVersionAtLeast(2023, 1))
@@ -1185,7 +1193,7 @@ public class GameMakerSpineTextureEntry : GameMakerObject, IDisposable
         }
         else
         {
-            int textureBlobLength = reader.ReadInt32();
+            var textureBlobLength = reader.ReadInt32();
             if (textureBlobLength < 0)
                 throw new IOException("Negative Spine texture blob length.");
             TexBlob = reader.ReadBytes(textureBlobLength);
@@ -1196,6 +1204,7 @@ public class GameMakerSpineTextureEntry : GameMakerObject, IDisposable
     /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
     public static uint UnserializeChildObjectCount(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         reader.Position += 8;                        // Size
         if (reader.gameMakerData.IsNonLTSVersionAtLeast(2023, 1))
         {
@@ -1203,7 +1212,7 @@ public class GameMakerSpineTextureEntry : GameMakerObject, IDisposable
         }
         else
         {
-            uint texBlobLength = reader.ReadUInt32(); // "TexBlob"
+            var texBlobLength = reader.ReadUInt32(); // "TexBlob"
             reader.Position += texBlobLength;
         }
         return 0;
@@ -1235,20 +1244,22 @@ public class GameMakerYYSWFMatrixColor : GameMakerObject
     /// <inheritdoc />
     public void Serialize(GameMakerWriter writer)
     {
-        foreach (int v in Additive)
+        ArgumentNullException.ThrowIfNull(writer);
+        foreach (var v in Additive)
             writer.Write(v);
-        foreach (int v in Multiply)
+        foreach (var v in Multiply)
             writer.Write(v);
     }
 
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         Additive = new int[MATRIX_SIZE];
         Multiply = new int[MATRIX_SIZE];
-        for (int i = 0; i < Additive.Length; i++)
+        for (var i = 0; i < Additive.Length; i++)
             Additive[i] = reader.ReadInt32();
-        for (int i = 0; i < Multiply.Length; i++)
+        for (var i = 0; i < Multiply.Length; i++)
             Multiply[i] = reader.ReadInt32();
     }
 }
@@ -1262,15 +1273,17 @@ public class GameMakerVectorMatrix33 : GameMakerObject
     /// <inheritdoc />
     public void Serialize(GameMakerWriter writer)
     {
-        foreach (float v in Values)
+        ArgumentNullException.ThrowIfNull(writer);
+        foreach (var v in Values)
             writer.Write(v);
     }
 
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         Values = new float[MATRIX_SIZE];
-        for (int i = 0; i < Values.Length; i++)
+        for (var i = 0; i < Values.Length; i++)
             Values[i] = reader.ReadSingle();
     }
 }
@@ -1292,6 +1305,7 @@ public class GameMakerYYSWFTimelineObject : GameMakerObject
     /// <inheritdoc />
     public void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         writer.Write(CharID);
         writer.Write(CharIndex);
         writer.Write(Depth);
@@ -1307,6 +1321,7 @@ public class GameMakerYYSWFTimelineObject : GameMakerObject
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         CharID = reader.ReadInt32();
         CharIndex = reader.ReadInt32();
         Depth = reader.ReadInt32();
@@ -1332,6 +1347,7 @@ public class GameMakerYYSWFTimelineFrame : GameMakerObject
     /// <inheritdoc />
     public void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         writer.Write(FrameObjects.Count);
         writer.Write(MinX);
         writer.Write(MaxX);
@@ -1346,7 +1362,8 @@ public class GameMakerYYSWFTimelineFrame : GameMakerObject
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
-        int ii = reader.ReadInt32();
+        ArgumentNullException.ThrowIfNull(reader);
+        var ii = reader.ReadInt32();
         if (ii < 0 || (long)ii * 76 > reader.Length - reader.Position)
             throw new IOException("Invalid SWF timeline frame object count.");
         MinX = reader.ReadSingle();
@@ -1354,7 +1371,7 @@ public class GameMakerYYSWFTimelineFrame : GameMakerObject
         MinY = reader.ReadSingle();
         MaxY = reader.ReadSingle();
         FrameObjects = new GameMakerObservableList<GameMakerYYSWFTimelineObject>(ii);
-        for (int i = 0; i < ii; i++)
+        for (var i = 0; i < ii; i++)
         {
             FrameObjects.InternalAdd(reader.ReadGameMakerObjectNoPool<GameMakerYYSWFTimelineObject>());
         }
@@ -1369,6 +1386,7 @@ public class GameMakerYYSWFCollisionMask : GameMakerObject
     /// <inheritdoc />
     public void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         /*
          * uhhh, it'd make sense if it wrote zero if the RLE table is empty?????
          * but I guess padding bytes work as zeroes too?!?!?
@@ -1389,7 +1407,8 @@ public class GameMakerYYSWFCollisionMask : GameMakerObject
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
-        int rlelen = reader.ReadInt32();
+        ArgumentNullException.ThrowIfNull(reader);
+        var rlelen = reader.ReadInt32();
         if (rlelen < 0)
             throw new IOException("Negative SWF collision mask length.");
         RLEData = rlelen > 0 ? reader.ReadBytes(rlelen) : null;
@@ -1442,6 +1461,7 @@ public class GameMakerVectorColor : GameMakerObject
     /// <inheritdoc />
     public void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         writer.Write(Red);
         writer.Write(Green);
         writer.Write(Blue);
@@ -1451,6 +1471,7 @@ public class GameMakerVectorColor : GameMakerObject
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         Red = reader.ReadByte();
         Green = reader.ReadByte();
         Blue = reader.ReadByte();
@@ -1475,6 +1496,7 @@ public class GameMakerVectorGradientRecord : GameMakerObject
     /// <inheritdoc />
     public void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         writer.Write(Ratio);
         writer.Write(Red);
         writer.Write(Green);
@@ -1485,6 +1507,7 @@ public class GameMakerVectorGradientRecord : GameMakerObject
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         Ratio = reader.ReadInt32();
         Red = reader.ReadByte();
         Green = reader.ReadByte();
@@ -1511,6 +1534,7 @@ public class GameMakerVectorGradientFillData : GameMakerObject
     /// <inheritdoc />
     public void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         writer.Write((int)GradientFillType);
         if (writer.gameMakerData.IsVersionAtLeast(2022, 1))
         {
@@ -1523,6 +1547,7 @@ public class GameMakerVectorGradientFillData : GameMakerObject
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         GradientFillType = (GameMakerVectorGradientFillType)reader.ReadInt32();
         if (reader.gameMakerData.IsVersionAtLeast(2022, 1))
         {
@@ -1534,14 +1559,14 @@ public class GameMakerVectorGradientFillData : GameMakerObject
         }
         TransformationMatrix = reader.ReadGameMakerObjectNoPool<GameMakerVectorMatrix33>();
 
-        int count = reader.ReadInt32();
+        var count = reader.ReadInt32();
         if (count < 0)
             throw new IOException("Negative vector gradient record count.");
         if ((long)count * 8 > reader.Length - reader.Position)
             throw new IOException("Vector gradient record data exceeds the available input.");
-        Records = new GameMakerSimpleList<GameMakerVectorGradientRecord>();
+        Records = [];
         Records.SetCapacity(count);
-        for (int i = 0; i < count; i++)
+        for (var i = 0; i < count; i++)
         {
             Records.InternalAdd(reader.ReadGameMakerObjectNoPool<GameMakerVectorGradientRecord>());
         }
@@ -1558,6 +1583,7 @@ public class GameMakerVectorBitmapFillData : GameMakerObject
     /// <inheritdoc />
     public void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         writer.Write((int)BitmapFillType);
         writer.Write(CharID);
         writer.WriteGameMakerObject(TransformationMatrix);
@@ -1566,6 +1592,7 @@ public class GameMakerVectorBitmapFillData : GameMakerObject
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         BitmapFillType = (GameMakerVectorBitmapFillType)reader.ReadInt32();
         CharID = reader.ReadInt32();
         TransformationMatrix = reader.ReadGameMakerObjectNoPool<GameMakerVectorMatrix33>();
@@ -1583,73 +1610,75 @@ public class GameMakerVectorFillData : GameMakerObject
     /// <inheritdoc />
     public void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         writer.Write((int)Type);
         switch (Type)
         {
             case GameMakerVectorFillType.FillBitmap:
-            {
-                writer.WriteGameMakerObject(BitmapFillData);
-                break;
-            }
+                {
+                    writer.WriteGameMakerObject(BitmapFillData);
+                    break;
+                }
 
             case GameMakerVectorFillType.FillGradient:
-            {
-                writer.WriteGameMakerObject(GradientFillData);
-                break;
-            }
+                {
+                    writer.WriteGameMakerObject(GradientFillData);
+                    break;
+                }
 
             case GameMakerVectorFillType.FillSolid:
-            {
-                writer.WriteGameMakerObject(SolidFillData);
-                break;
-            }
+                {
+                    writer.WriteGameMakerObject(SolidFillData);
+                    break;
+                }
 
             case GameMakerVectorFillType.FillInvalid:
-            {
-                break;
-            }
+                {
+                    break;
+                }
         }
     }
 
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         Type = (GameMakerVectorFillType)reader.ReadInt32();
         switch (Type)
         {
             case GameMakerVectorFillType.FillBitmap:
-            {
-                BitmapFillData = reader.ReadGameMakerObjectNoPool<GameMakerVectorBitmapFillData>();
-                GradientFillData = null;
-                SolidFillData = null;
-                break;
-            }
+                {
+                    BitmapFillData = reader.ReadGameMakerObjectNoPool<GameMakerVectorBitmapFillData>();
+                    GradientFillData = null;
+                    SolidFillData = null;
+                    break;
+                }
 
             case GameMakerVectorFillType.FillGradient:
-            {
-                GradientFillData = reader.ReadGameMakerObjectNoPool<GameMakerVectorGradientFillData>();
-                BitmapFillData = null;
-                SolidFillData = null;
-                break;
-            }
+                {
+                    GradientFillData = reader.ReadGameMakerObjectNoPool<GameMakerVectorGradientFillData>();
+                    BitmapFillData = null;
+                    SolidFillData = null;
+                    break;
+                }
 
             case GameMakerVectorFillType.FillSolid:
-            {
-                SolidFillData = reader.ReadGameMakerObjectNoPool<GameMakerVectorSolidFillData>();
-                BitmapFillData = null;
-                GradientFillData = null;
-                break;
-            }
+                {
+                    SolidFillData = reader.ReadGameMakerObjectNoPool<GameMakerVectorSolidFillData>();
+                    BitmapFillData = null;
+                    GradientFillData = null;
+                    break;
+                }
 
             case GameMakerVectorFillType.FillInvalid:
             default:
-            {
-                BitmapFillData = null;
-                GradientFillData = null;
-                SolidFillData = null;
-                reader.SubmitWarning("Tried to read invalid fill data.");
-                break;
-            }
+                {
+                    BitmapFillData = null;
+                    GradientFillData = null;
+                    SolidFillData = null;
+                    reader.SubmitWarning("Tried to read invalid fill data.");
+                    break;
+                }
         }
     }
 }
@@ -1673,6 +1702,7 @@ public class GameMakerVector2 : GameMakerObject
     /// <inheritdoc />
     public void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         writer.Write(X);
         writer.Write(Y);
     }
@@ -1680,6 +1710,7 @@ public class GameMakerVector2 : GameMakerObject
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         X = reader.ReadInt32();
         Y = reader.ReadInt32();
     }
@@ -1700,6 +1731,7 @@ public class GameMakerVector2F : GameMakerObject
     /// <inheritdoc />
     public void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         writer.Write(X);
         writer.Write(Y);
     }
@@ -1707,6 +1739,7 @@ public class GameMakerVector2F : GameMakerObject
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         X = reader.ReadSingle();
         Y = reader.ReadSingle();
     }
@@ -1741,6 +1774,7 @@ public class GameMakerYYSWFSubShapeData : GameMakerObject
     /// <inheritdoc />
     public void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         writer.Write(FillStyleOne);
         writer.Write(FillStyleTwo);
         writer.Write(LineStyle);
@@ -1803,80 +1837,81 @@ public class GameMakerYYSWFSubShapeData : GameMakerObject
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         FillStyleOne = reader.ReadInt32();
         FillStyleTwo = reader.ReadInt32();
         LineStyle = reader.ReadInt32();
 
-        int points = reader.ReadInt32();
-        int lines = reader.ReadInt32();
-        int triangleGroups = reader.ReadInt32();
-        int linepoints = reader.ReadInt32();
-        int lineTriangleGroups = reader.ReadInt32();
-        int aalines = reader.ReadInt32();
-        int aavectors = reader.ReadInt32();
-        int lineaalines = reader.ReadInt32();
-        int lineaavectors = reader.ReadInt32();
+        var points = reader.ReadInt32();
+        var lines = reader.ReadInt32();
+        var triangleGroups = reader.ReadInt32();
+        var linepoints = reader.ReadInt32();
+        var lineTriangleGroups = reader.ReadInt32();
+        var aalines = reader.ReadInt32();
+        var aavectors = reader.ReadInt32();
+        var lineaalines = reader.ReadInt32();
+        var lineaavectors = reader.ReadInt32();
         if (points < 0 || lines < 0 || triangleGroups < 0 || linepoints < 0 || lineTriangleGroups < 0 ||
             aalines < 0 || aavectors < 0 || lineaalines < 0 || lineaavectors < 0)
             throw new IOException("Negative SWF subshape count.");
-        long minimumSize = (long)points * 8 + (long)lines * 8 + (long)triangleGroups * 12 +
+        var minimumSize = (long)points * 8 + (long)lines * 8 + (long)triangleGroups * 12 +
                            (long)linepoints * 8 + (long)lineTriangleGroups * 12 + (long)aalines * 8 +
                            (long)aavectors * 8 + (long)lineaalines * 8 + (long)lineaavectors * 8;
         if (minimumSize > reader.Length - reader.Position)
             throw new IOException("SWF subshape data exceeds the available input.");
-        int triangles = checked(triangleGroups * 3);
-        int linetriangles = checked(lineTriangleGroups * 3);
+        var triangles = checked(triangleGroups * 3);
+        var linetriangles = checked(lineTriangleGroups * 3);
 
         Points = new GameMakerObservableList<GameMakerVector2F>(points);
-        for (int i = 0; i < points; i++)
+        for (var i = 0; i < points; i++)
         {
             Points.InternalAdd(reader.ReadGameMakerObjectNoPool<GameMakerVector2F>());
         }
 
         Lines = new GameMakerObservableList<GameMakerVector2>(lines);
-        for (int i = 0; i < lines; i++)
+        for (var i = 0; i < lines; i++)
         {
             Lines.InternalAdd(reader.ReadGameMakerObjectNoPool<GameMakerVector2>());
         }
 
         Triangles = new GameMakerObservableList<int>(triangles);
-        for (int i = 0; i < triangles; i++)
+        for (var i = 0; i < triangles; i++)
         {
             Triangles.InternalAdd(reader.ReadInt32());
         }
 
         LinePoints = new GameMakerObservableList<GameMakerVector2F>(linepoints);
-        for (int i = 0; i < linepoints; i++)
+        for (var i = 0; i < linepoints; i++)
         {
             LinePoints.InternalAdd(reader.ReadGameMakerObjectNoPool<GameMakerVector2F>());
         }
 
         LineTriangles = new GameMakerObservableList<int>(linetriangles);
-        for (int i = 0; i < linetriangles; i++)
+        for (var i = 0; i < linetriangles; i++)
         {
             LineTriangles.InternalAdd(reader.ReadInt32());
         }
 
         AALines = new GameMakerObservableList<GameMakerVector2>(aalines);
-        for (int i = 0; i < aalines; i++)
+        for (var i = 0; i < aalines; i++)
         {
             AALines.InternalAdd(reader.ReadGameMakerObjectNoPool<GameMakerVector2>());
         }
 
         AAVectors = new GameMakerObservableList<GameMakerVector2F>(aavectors);
-        for (int i = 0; i < aavectors; i++)
+        for (var i = 0; i < aavectors; i++)
         {
             AAVectors.InternalAdd(reader.ReadGameMakerObjectNoPool<GameMakerVector2F>());
         }
 
         LineAALines = new GameMakerObservableList<GameMakerVector2>(lineaalines);
-        for (int i = 0; i < lineaalines; i++)
+        for (var i = 0; i < lineaalines; i++)
         {
             LineAALines.InternalAdd(reader.ReadGameMakerObjectNoPool<GameMakerVector2>());
         }
 
         LineAAVectors = new GameMakerObservableList<GameMakerVector2F>(lineaavectors);
-        for (int i = 0; i < lineaavectors; i++)
+        for (var i = 0; i < lineaavectors; i++)
         {
             LineAAVectors.InternalAdd(reader.ReadGameMakerObjectNoPool<GameMakerVector2F>());
         }
@@ -1900,6 +1935,7 @@ public class GameMakerVectorSubShapeData : GameMakerObject
     /// <inheritdoc />
     public void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         writer.Write(FillStyleOne);
         writer.Write(FillStyleTwo);
         writer.Write(LineStyle);
@@ -1919,12 +1955,12 @@ public class GameMakerVectorSubShapeData : GameMakerObject
             writer.WriteGameMakerObject(vec);
         }
 
-        foreach (uint color in PointColors)
+        foreach (var color in PointColors)
         {
             writer.Write(color);
         }
 
-        foreach (int tri in Triangles)
+        foreach (var tri in Triangles)
         {
             writer.Write(tri);
         }
@@ -1943,54 +1979,55 @@ public class GameMakerVectorSubShapeData : GameMakerObject
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         FillStyleOne = reader.ReadInt32();
         FillStyleTwo = reader.ReadInt32();
         LineStyle = reader.ReadInt32();
 
-        int points = reader.ReadInt32();
-        int pointcolors = reader.ReadInt32();
+        var points = reader.ReadInt32();
+        var pointcolors = reader.ReadInt32();
         reader.ReadInt32();
-        int triangleGroups = reader.ReadInt32();
+        var triangleGroups = reader.ReadInt32();
         reader.ReadInt32();
         reader.ReadInt32();
-        int aalines = reader.ReadInt32();
-        int aavectors = reader.ReadInt32();
+        var aalines = reader.ReadInt32();
+        var aavectors = reader.ReadInt32();
         reader.ReadInt32();
         reader.ReadInt32();
         if (points < 0 || pointcolors < 0 || triangleGroups < 0 || aalines < 0 || aavectors < 0)
             throw new IOException("Negative vector subshape count.");
-        long minimumSize = (long)points * 8 + (long)pointcolors * 4 + (long)triangleGroups * 12 +
+        var minimumSize = (long)points * 8 + (long)pointcolors * 4 + (long)triangleGroups * 12 +
                            (long)aalines * 8 + (long)aavectors * 8;
         if (minimumSize > reader.Length - reader.Position)
             throw new IOException("Vector subshape data exceeds the available input.");
-        int triangles = checked(triangleGroups * 3);
+        var triangles = checked(triangleGroups * 3);
 
         Points = new GameMakerObservableList<GameMakerVector2F>(points);
-        for (int i = 0; i < points; i++)
+        for (var i = 0; i < points; i++)
         {
             Points.InternalAdd(reader.ReadGameMakerObjectNoPool<GameMakerVector2F>());
         }
 
         PointColors = new GameMakerObservableList<uint>(pointcolors);
-        for (int i = 0; i < pointcolors; i++)
+        for (var i = 0; i < pointcolors; i++)
         {
             PointColors.InternalAdd(reader.ReadUInt32());
         }
 
         Triangles = new GameMakerObservableList<int>(triangles);
-        for (int i = 0; i < triangles; i++)
+        for (var i = 0; i < triangles; i++)
         {
             Triangles.InternalAdd(reader.ReadInt32());
         }
 
         AALines = new GameMakerObservableList<GameMakerVector2>(aalines);
-        for (int i = 0; i < aalines; i++)
+        for (var i = 0; i < aalines; i++)
         {
             AALines.InternalAdd(reader.ReadGameMakerObjectNoPool<GameMakerVector2>());
         }
 
         AAVectors = new GameMakerObservableList<GameMakerVector2F>(aavectors);
-        for (int i = 0; i < aavectors; i++)
+        for (var i = 0; i < aavectors; i++)
         {
             AAVectors.InternalAdd(reader.ReadGameMakerObjectNoPool<GameMakerVector2F>());
         }
@@ -2010,6 +2047,7 @@ public class GameMakerShapeData<T> : GameMakerObject where T : GameMakerObject, 
     /// <inheritdoc />
     public virtual void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         writer.Write(MinX);
         writer.Write(MaxX);
         writer.Write(MinY);
@@ -2020,15 +2058,16 @@ public class GameMakerShapeData<T> : GameMakerObject where T : GameMakerObject, 
     /// <inheritdoc />
     public virtual void Unserialize(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         MinX = reader.ReadSingle();
         MaxX = reader.ReadSingle();
         MinY = reader.ReadSingle();
         MaxY = reader.ReadSingle();
-        StyleGroups = new GameMakerSimpleList<GameMakerStyleGroup<T>>();
-        int s = reader.ReadInt32();
+        StyleGroups = [];
+        var s = reader.ReadInt32();
         if (s < 0 || (long)s * 12 > reader.Length - reader.Position)
             throw new IOException("Invalid shape style group count.");
-        for (int i = 0; i < s; i++)
+        for (var i = 0; i < s; i++)
         {
             StyleGroups.InternalAdd(reader.ReadGameMakerObjectNoPool<GameMakerStyleGroup<T>>());
         }
@@ -2042,6 +2081,7 @@ public class GameMakerVectorShapeData : GameMakerShapeData<GameMakerVectorSubSha
 
     public override void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         writer.Align(4);
         writer.Write(Version);
         base.Serialize(writer);
@@ -2049,9 +2089,10 @@ public class GameMakerVectorShapeData : GameMakerShapeData<GameMakerVectorSubSha
 
     public override void Unserialize(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         reader.Align(4);
         Version = reader.ReadInt32();
-        Util.DebugUtil.Assert(Version == 3 || Version == 4, "Invalid shape format version number, expected 3 or 4, got " + Version);
+        DebugUtil.Assert(Version is 3 or 4, "Invalid shape format version number, expected 3 or 4, got " + Version);
         base.Unserialize(reader);
     }
 }
@@ -2066,6 +2107,7 @@ public class GameMakerStyleGroup<T> : GameMakerObject where T : GameMakerObject,
     /// <inheritdoc />
     public void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         writer.Write(FillStyles.Count);
         writer.Write(LineStyles.Count);
         writer.Write(Subshapes.Count);
@@ -2089,9 +2131,10 @@ public class GameMakerStyleGroup<T> : GameMakerObject where T : GameMakerObject,
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
-        int f = reader.ReadInt32();
-        int l = reader.ReadInt32();
-        int s = reader.ReadInt32();
+        ArgumentNullException.ThrowIfNull(reader);
+        var f = reader.ReadInt32();
+        var l = reader.ReadInt32();
+        var s = reader.ReadInt32();
         if (f < 0 || l < 0 || s < 0 || ((long)f + l + s) * 4 > reader.Length - reader.Position)
             throw new IOException("Invalid vector style group count.");
 
@@ -2099,17 +2142,17 @@ public class GameMakerStyleGroup<T> : GameMakerObject where T : GameMakerObject,
         LineStyles = new GameMakerObservableList<GameMakerVectorLineStyleData>(l);
         Subshapes = new GameMakerObservableList<T>(s);
 
-        for (int i = 0; i < f; i++)
+        for (var i = 0; i < f; i++)
         {
             FillStyles.InternalAdd(reader.ReadGameMakerObjectNoPool<GameMakerVectorFillData>());
         }
 
-        for (int i = 0; i < l; i++)
+        for (var i = 0; i < l; i++)
         {
             LineStyles.InternalAdd(reader.ReadGameMakerObjectNoPool<GameMakerVectorLineStyleData>());
         }
 
-        for (int i = 0; i < s; i++)
+        for (var i = 0; i < s; i++)
         {
             Subshapes.InternalAdd(reader.ReadGameMakerObjectNoPool<T>());
         }
@@ -2151,6 +2194,7 @@ public class GameMakerYYSWFBitmapData : GameMakerObject
     /// <inheritdoc />
     public void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         writer.Write((int)Type);
         writer.Write(Width);
         writer.Write(Height);
@@ -2179,6 +2223,7 @@ public class GameMakerYYSWFBitmapData : GameMakerObject
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         Type = (GameMakerYYSWFBitmapType)reader.ReadInt32();
         Width = reader.ReadInt32();
         Height = reader.ReadInt32();
@@ -2193,9 +2238,9 @@ public class GameMakerYYSWFBitmapData : GameMakerObject
         else
         {
             TPEIndex = null;
-            int iL = reader.ReadInt32();
-            int aL = reader.ReadInt32();
-            int cL = reader.ReadInt32();
+            var iL = reader.ReadInt32();
+            var aL = reader.ReadInt32();
+            var cL = reader.ReadInt32();
             if (iL < 0 || aL < 0 || cL < 0)
                 throw new IOException("Negative SWF bitmap data length.");
 
@@ -2225,28 +2270,30 @@ public class GameMakerYYSWFItem : GameMakerObject
     /// <inheritdoc />
     public void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         writer.Write((int)ItemType);
         writer.Write(ID);
 
         switch (ItemType)
         {
             case GameMakerYYSWFItemType.ItemShape:
-            {
-                writer.WriteGameMakerObject(ShapeData);
-                break;
-            }
+                {
+                    writer.WriteGameMakerObject(ShapeData);
+                    break;
+                }
 
             case GameMakerYYSWFItemType.ItemBitmap:
-            {
-                writer.WriteGameMakerObject(BitmapData);
-                break;
-            }
+                {
+                    writer.WriteGameMakerObject(BitmapData);
+                    break;
+                }
         }
     }
 
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         ItemType = (GameMakerYYSWFItemType)reader.ReadInt32();
         ID = reader.ReadInt32();
 
@@ -2254,30 +2301,30 @@ public class GameMakerYYSWFItem : GameMakerObject
         switch (ItemType)
         {
             case GameMakerYYSWFItemType.ItemShape:
-            {
-                ShapeData = reader.ReadGameMakerObjectNoPool<GameMakerShapeData<GameMakerYYSWFSubShapeData>>();
-                BitmapData = null;
-                break;
-            }
+                {
+                    ShapeData = reader.ReadGameMakerObjectNoPool<GameMakerShapeData<GameMakerYYSWFSubShapeData>>();
+                    BitmapData = null;
+                    break;
+                }
 
             case GameMakerYYSWFItemType.ItemBitmap:
-            {
-                BitmapData = reader.ReadGameMakerObjectNoPool<GameMakerYYSWFBitmapData>();
-                ShapeData = null;
-                break;
-            }
+                {
+                    BitmapData = reader.ReadGameMakerObjectNoPool<GameMakerYYSWFBitmapData>();
+                    ShapeData = null;
+                    break;
+                }
 
             case GameMakerYYSWFItemType.ItemFont:
             case GameMakerYYSWFItemType.ItemInvalid:
             case GameMakerYYSWFItemType.ItemTextField:
             case GameMakerYYSWFItemType.ItemSprite:
             default:
-            {
-                ShapeData = null;
-                BitmapData = null;
-                reader.SubmitWarning("Tried to read unknown YYSWFItem, " + ItemType);
-                break;
-            }
+                {
+                    ShapeData = null;
+                    BitmapData = null;
+                    reader.SubmitWarning("Tried to read unknown YYSWFItem, " + ItemType);
+                    break;
+                }
         }
     }
 
@@ -2305,6 +2352,7 @@ public class GameMakerYYSWFTimeline : GameMakerObject
     /// <inheritdoc />
     public void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         writer.WriteGameMakerObject(UsedItems);
         writer.Write(Framerate);
         writer.Write(Frames.Count);
@@ -2330,36 +2378,37 @@ public class GameMakerYYSWFTimeline : GameMakerObject
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
-        int uc = reader.ReadInt32();
+        ArgumentNullException.ThrowIfNull(reader);
+        var uc = reader.ReadInt32();
         if (uc < 0 || (long)uc * 8 > reader.Length - reader.Position)
             throw new IOException("Invalid SWF used item count.");
-        UsedItems = new GameMakerSimpleList<GameMakerYYSWFItem>();
+        UsedItems = [];
         UsedItems.SetCapacity(uc);
-        for (int i = 0; i < uc; i++)
+        for (var i = 0; i < uc; i++)
         {
             UsedItems.InternalAdd(reader.ReadGameMakerObjectNoPool<GameMakerYYSWFItem>());
         }
 
         Framerate = reader.ReadInt32();
-        int fc = reader.ReadInt32();
+        var fc = reader.ReadInt32();
         MinX = reader.ReadSingle();
         MaxX = reader.ReadSingle();
         MinY = reader.ReadSingle();
         MaxY = reader.ReadSingle();
-        int mc = reader.ReadInt32();
+        var mc = reader.ReadInt32();
         MaskWidth = reader.ReadInt32();
         MaskHeight = reader.ReadInt32();
         if (fc < 0 || mc < 0 || (long)fc * 20 + (long)mc * 4 > reader.Length - reader.Position)
             throw new IOException("Invalid SWF timeline or collision mask count.");
 
         Frames = new GameMakerObservableList<GameMakerYYSWFTimelineFrame>(fc);
-        for (int f = 0; f < fc; f++)
+        for (var f = 0; f < fc; f++)
         {
             Frames.InternalAdd(reader.ReadGameMakerObjectNoPool<GameMakerYYSWFTimelineFrame>());
         }
 
         CollisionMasks = new GameMakerObservableList<GameMakerYYSWFCollisionMask>(mc);
-        for (int m = 0; m < mc; m++)
+        for (var m = 0; m < mc; m++)
         {
             CollisionMasks.InternalAdd(reader.ReadGameMakerObjectNoPool<GameMakerYYSWFCollisionMask>());
         }
@@ -2376,8 +2425,9 @@ public class GameMakerYYSWF : GameMakerObject
     /// <inheritdoc />
     public void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         writer.Align(4);
-        int len = (JPEGTable?.Length ?? 0) | Int32.MinValue;
+        var len = (JPEGTable?.Length ?? 0) | int.MinValue;
 
         writer.Write(len);
         writer.Write(Version);
@@ -2393,10 +2443,11 @@ public class GameMakerYYSWF : GameMakerObject
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         reader.Align(4);
-        int jpeglen = reader.ReadInt32() & (~Int32.MinValue); // the length is ORed with int.MinValue.
+        var jpeglen = reader.ReadInt32() & (~int.MinValue); // the length is ORed with int.MinValue.
         Version = reader.ReadInt32();
-        Util.DebugUtil.Assert(Version == 8 || Version == 7, "Invalid YYSWF version data! Expected 7 or 8, got " + Version);
+        DebugUtil.Assert(Version is 8 or 7, "Invalid YYSWF version data! Expected 7 or 8, got " + Version);
 
         JPEGTable = jpeglen > 0 ? reader.ReadBytes(jpeglen) : null;
 

@@ -1,4 +1,3 @@
-using System;
 using G3MLib.Analyzer;
 
 namespace G3MLib.DataFile.Models;
@@ -40,6 +39,7 @@ public class GameMakerVariable : GameMakerNamedResource, ISearchable, GameMakerI
     /// <inheritdoc />
     public void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         writer.WriteGameMakerString(Name);
         if (writer.gameMakerData.GeneralInfo?.BytecodeVersion >= 15)
         {
@@ -56,6 +56,7 @@ public class GameMakerVariable : GameMakerNamedResource, ISearchable, GameMakerI
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         Name = reader.ReadGameMakerString();
         if (reader.gameMakerData.GeneralInfo?.BytecodeVersion >= 15)
         {

@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Decompiler.AST;
 
 namespace G3MLib.Analyzer.Decompiler.ControlFlow;
@@ -23,11 +22,11 @@ internal sealed class TryCatch : IControlFlowNode
 
     public List<IControlFlowNode> Successors { get; } = [];
 
-    public IControlFlowNode? Parent { get; set; } = null;
+    public IControlFlowNode? Parent { get; set; }
 
     public List<IControlFlowNode?> Children { get; } = [null, null];
 
-    public bool Unreachable { get; set; } = false;
+    public bool Unreachable { get; set; }
 
     /// <summary>
     /// The "try" block of the try statement.
@@ -36,7 +35,7 @@ internal sealed class TryCatch : IControlFlowNode
     /// Upon being processed, this has its predecessors disconnected.
     /// All paths exiting from it are also isolated from the external graph.
     /// </remarks>
-    public IControlFlowNode Try { get => Children[0]!; private set => Children[0] = value; }
+    public IControlFlowNode Try { get => Children[0]; private set => Children[0] = value; }
 
     /// <summary>
     /// The "catch" block of the try statement, or <see langword="null"/> if none exists.
@@ -60,7 +59,7 @@ internal sealed class TryCatch : IControlFlowNode
     /// </summary>
     public static List<TryCatch> FindTryCatch(DecompileContext ctx)
     {
-        List<Block> blocks = ctx.Blocks!;
+        var blocks = ctx.Blocks;
 
         List<TryCatch> res = [];
 
@@ -70,14 +69,14 @@ internal sealed class TryCatch : IControlFlowNode
             // Check for start block
             if (block.Instructions.Count == 6)
             {
-                IGMInstruction call = block.Instructions[^2];
+                var call = block.Instructions[^2];
                 if (call.Kind == IGMInstruction.Opcode.Call &&
                     call.TryFindFunction(ctx.GameContext)?.Name?.Content == VMConstants.TryHookFunction)
                 {
                     // Get components of our try..catch statement
-                    IControlFlowNode tryNode = block.Successors[0];
-                    IControlFlowNode? catchNode = block.Successors.Count >= 3 ? block.Successors[2] : null;
-                    Block endBlock = block.Successors[1] as Block ?? throw new DecompilerException("Expected second successor to be block");
+                    var tryNode = block.Successors[0];
+                    var catchNode = block.Successors.Count >= 3 ? block.Successors[2] : null;
+                    var endBlock = block.Successors[1] as Block ?? throw new DecompilerException("Expected second successor to be block");
 
                     TryCatch tc = new(block.StartAddress, endBlock.StartAddress, tryNode, catchNode);
                     res.Add(tc);
@@ -92,7 +91,7 @@ internal sealed class TryCatch : IControlFlowNode
 
                         // Remove branch instruction from end node's second predecessor, i.e.
                         // the end of the try block
-                        Block tryEndBlock = endBlock.Predecessors[1] as Block ?? throw new DecompilerException("Expected second predecessor to be block");
+                        var tryEndBlock = endBlock.Predecessors[1] as Block ?? throw new DecompilerException("Expected second predecessor to be block");
                         if (tryEndBlock == block || tryEndBlock.StartAddress >= catchNode.StartAddress)
                         {
                             throw new DecompilerException("Failed to find end of try block");
@@ -105,7 +104,7 @@ internal sealed class TryCatch : IControlFlowNode
                         tryEndBlock.Instructions.RemoveAt(tryEndBlock.Instructions.Count - 1);
 
                         // Remove instructions from the end of the catch block
-                        Block catchEndBlock = blocks[endBlock.BlockIndex - 1];
+                        var catchEndBlock = blocks[endBlock.BlockIndex - 1];
                         if (catchEndBlock.Instructions is not
                             [.., { Kind: IGMInstruction.Opcode.Call }, { Kind: IGMInstruction.Opcode.PopDelete },
                             { Kind: IGMInstruction.Opcode.Branch }])
@@ -122,7 +121,7 @@ internal sealed class TryCatch : IControlFlowNode
 
                     // Disconnect start node from end node.
                     // Try to search for the start node as a predecessor (as a safe fix for with loops inside of a try statement)
-                    int startNodePredecessorIndex = endBlock.Predecessors.IndexOf(block);
+                    var startNodePredecessorIndex = endBlock.Predecessors.IndexOf(block);
                     IControlFlowNode.DisconnectPredecessor(endBlock, startNodePredecessorIndex >= 0 ? startNodePredecessorIndex : 0);
 
                     // Add new empty node to act as a meet point for both try and catch blocks
@@ -165,7 +164,7 @@ internal sealed class TryCatch : IControlFlowNode
             // Check for finally block
             if (block.Instructions.Count >= 3)
             {
-                IGMInstruction call = block.Instructions[^3];
+                var call = block.Instructions[^3];
                 if (call.Kind == IGMInstruction.Opcode.Call &&
                     call.TryFindFunction(ctx.GameContext)?.Name?.Content == VMConstants.FinishFinallyFunction)
                 {
@@ -191,7 +190,7 @@ internal sealed class TryCatch : IControlFlowNode
     /// </summary>
     public static void CleanTryEndBranches(DecompileContext ctx)
     {
-        foreach (TryCatch tc in ctx.TryCatchNodes!)
+        foreach (var tc in ctx.TryCatchNodes)
         {
             ctx.ThrowIfCancellationRequested();
             // Only process if we have 1 successor (and more than 1 is an error at this point)
@@ -205,8 +204,8 @@ internal sealed class TryCatch : IControlFlowNode
             }
 
             // Remove predecessors from the successor that are not this node
-            IControlFlowNode succ = tc.Successors[0];
-            for (int i = succ.Predecessors.Count - 1; i >= 0; i--)
+            var succ = tc.Successors[0];
+            for (var i = succ.Predecessors.Count - 1; i >= 0; i--)
             {
                 if (succ.Predecessors[i] != tc)
                 {
@@ -219,13 +218,13 @@ internal sealed class TryCatch : IControlFlowNode
     public void BuildAST(ASTBuilder builder, List<IStatementNode> output)
     {
         // Build try block - but first follow all parents (e.g., in case a binary branch shows up at the start)
-        IControlFlowNode tryNode = Try;
+        var tryNode = Try;
         while (tryNode.Parent is not null)
         {
             builder.Context.ThrowIfCancellationRequested();
             tryNode = tryNode.Parent;
         }
-        BlockNode tryBlock = builder.BuildBlock(tryNode);
+        var tryBlock = builder.BuildBlock(tryNode);
 
         // Handle catch block, if it exists
         BlockNode? catchBlock = null;
@@ -233,8 +232,8 @@ internal sealed class TryCatch : IControlFlowNode
         if (Catch is not null)
         {
             // Get variable from start of catch's initial block
-            Block catchInstrBlock = builder.Context.BlocksByAddress![Catch.StartAddress];
-            if (catchInstrBlock.Instructions is not [{ Kind: IGMInstruction.Opcode.Pop} popInstr, ..] ||
+            var catchInstrBlock = builder.Context.BlocksByAddress[Catch.StartAddress];
+            if (catchInstrBlock.Instructions is not [{ Kind: IGMInstruction.Opcode.Pop } popInstr, ..] ||
                 popInstr.TryFindVariable(builder.Context.GameContext) is not IGMVariable { Name.Content: string variableName } variable)
             {
                 throw new DecompilerException("Expected first instruction of catch block to store to variable");
@@ -246,7 +245,7 @@ internal sealed class TryCatch : IControlFlowNode
             builder.LocalVariableNames.Add(variableName);
 
             // Build actual catch body - also follow any parents, as needed
-            IControlFlowNode catchNode = Catch;
+            var catchNode = Catch;
             while (catchNode.Parent is not null)
             {
                 builder.Context.ThrowIfCancellationRequested();

@@ -1,8 +1,5 @@
-using System;
 using System.Diagnostics;
 using System.IO;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace G3MLib.Modding.XDelta;
 
@@ -12,7 +9,8 @@ public class XDeltaService
 	private readonly string? _xdeltaPath;
 	private readonly TimeSpan _processTimeout;
 
-	public static string? DefaultExecutablePath { get; set; }
+	public static string? DefaultExecutablePath { get => _defaultExecutablePath; set => _defaultExecutablePath = value; }
+	private static volatile string? _defaultExecutablePath;
 	private static readonly AsyncLocal<ExecutableScope?> CurrentExecutable = new();
 
 	/// <summary>Overrides the xdelta executable for the current async operation without changing the process default.</summary>
@@ -56,7 +54,7 @@ public class XDeltaService
 
 		if (TryEnsureOutputDirectory(outputPath) is { } failure)
 			return failure;
-		return await ExecuteXDeltaAsync(["-e", "-s", originalPath, modifiedPath, outputPath]);
+		return await ExecuteXDeltaAsync(["-e", "-s", originalPath, modifiedPath, outputPath]).ConfigureAwait(false);
 	}
 
 	public async Task<XDeltaResult> ApplyPatchAsync(string originalPath, string patchPath, string outputPath)
@@ -70,10 +68,14 @@ public class XDeltaService
 
 		if (TryEnsureOutputDirectory(outputPath) is { } failure)
 			return failure;
-		return await ExecuteXDeltaAsync(["-d", "-s", originalPath, patchPath, outputPath]);
+		return await ExecuteXDeltaAsync(["-d", "-s", originalPath, patchPath, outputPath]).ConfigureAwait(false);
 	}
 
-	public Task<XDeltaResult> ExecuteRawAsync(string[] args) => _xdeltaPath == null ? Task.FromResult(FailedExecutableResult()) : ExecuteXDeltaAsync(args);
+	public Task<XDeltaResult> ExecuteRawAsync(string[] args)
+	{
+		ArgumentNullException.ThrowIfNull(args);
+		return _xdeltaPath == null ? Task.FromResult(FailedExecutableResult()) : ExecuteXDeltaAsync(args);
+	}
 
 	private async Task<XDeltaResult> ExecuteXDeltaAsync(string[] args)
 	{
@@ -87,26 +89,26 @@ public class XDeltaService
 				RedirectStandardError = true,
 				CreateNoWindow = true
 			};
-			foreach (string arg in args)
+			foreach (var arg in args)
 				startInfo.ArgumentList.Add(arg);
 
-			using Process? process = Process.Start(startInfo);
+			using var process = Process.Start(startInfo);
 			if (process == null)
 				return new XDeltaResult { Success = false, Error = "Failed to start xdelta process" };
 
-			Task<string> outputTask = process.StandardOutput.ReadToEndAsync();
-			Task<string> errorTask = process.StandardError.ReadToEndAsync();
+			var outputTask = process.StandardOutput.ReadToEndAsync();
+			var errorTask = process.StandardError.ReadToEndAsync();
 			using CancellationTokenSource timeoutCts = new(_processTimeout);
 			try
 			{
-				await process.WaitForExitAsync(timeoutCts.Token);
+				await process.WaitForExitAsync(timeoutCts.Token).ConfigureAwait(false);
 			}
 			catch (OperationCanceledException)
 			{
 				try
 				{
 					process.Kill(entireProcessTree: true);
-					await process.WaitForExitAsync();
+					await process.WaitForExitAsync().ConfigureAwait(false);
 				}
 				catch
 				{
@@ -115,16 +117,16 @@ public class XDeltaService
 				{
 					Success = false,
 					Error = $"xdelta timed out after {_processTimeout.TotalSeconds:F0}s and was terminated",
-					Output = await outputTask.WaitAsync(TimeSpan.FromSeconds(2L)) + await errorTask.WaitAsync(TimeSpan.FromSeconds(2L))
+					Output = await outputTask.WaitAsync(TimeSpan.FromSeconds(2L)).ConfigureAwait(false) + await errorTask.WaitAsync(TimeSpan.FromSeconds(2L)).ConfigureAwait(false)
 				};
 			}
 
-			string output = await outputTask;
-			string error = await errorTask;
+			var output = await outputTask.ConfigureAwait(false);
+			var error = await errorTask.ConfigureAwait(false);
 			if (process.ExitCode == 0)
 				return new XDeltaResult { Success = true, Output = output + error };
 
-			string exitMessage = $"xdelta exited with code {process.ExitCode}";
+			var exitMessage = $"xdelta exited with code {process.ExitCode}";
 			return new XDeltaResult
 			{
 				Success = false,
@@ -146,7 +148,7 @@ public class XDeltaService
 
 	private static void EnsureOutputDirectory(string outputPath)
 	{
-		string? outputDirectory = Path.GetDirectoryName(outputPath);
+		var outputDirectory = Path.GetDirectoryName(outputPath);
 		if (!string.IsNullOrEmpty(outputDirectory))
 			Directory.CreateDirectory(outputDirectory);
 	}

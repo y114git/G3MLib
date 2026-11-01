@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using System.Text;
 using G3MLib.Analyzer.Compiler;
 using G3MLib.Analyzer.Compiler.Errors;
@@ -13,10 +11,10 @@ namespace G3MLib.DataFile.Compiler;
 public readonly struct CompileError
 {
     // Original error produced by compiler (if present, otherwise null)
-    private readonly ICompileError _sourceError = null;
+    private readonly ICompileError? _sourceError = null;
 
     // Original exception produced by compiler (if present, otherwise null)
-    private readonly Exception _exception = null;
+    private readonly Exception? _exception = null;
 
     /// <summary>
     /// Code entry the error occurred in.
@@ -27,6 +25,12 @@ public readonly struct CompileError
     /// Base, but possibly uninformative, error message.
     /// </summary>
     public string BaseMessage => _sourceError?.BaseMessage ?? _exception.Message;
+
+    /// <summary>
+    /// The error as structured data with code and source range. For exceptions the range is empty at the start of the code.
+    /// </summary>
+    public GmlDiagnostic Diagnostic => _sourceError?.Diagnostic
+        ?? new GmlDiagnostic(DiagnosticSeverity.Error, GmlDiagnostic.InternalErrorCode, _exception.Message, new SourceSpan(0, 0, 1, 1, 1, 1));
 
     /// <summary>
     /// Generates a more detailed error message than <see cref="BaseMessage"/> (e.g., with more context).
@@ -92,7 +96,7 @@ public readonly struct CompileResult
     public static readonly CompileResult UnsuccessfulResult = new(false, null);
 
     // List of errors generated during compilation, or null.
-    private readonly List<CompileError> _errors = null;
+    private readonly List<CompileError>? _errors = null;
 
     /// <summary>
     /// Creates a compile result struct with the given information.
@@ -141,7 +145,7 @@ public readonly struct CompileResult
         }
 
         StringBuilder sb = new(128);
-        foreach (CompileError error in Errors)
+        foreach (var error in Errors)
         {
             if (codeEntryNames)
             {

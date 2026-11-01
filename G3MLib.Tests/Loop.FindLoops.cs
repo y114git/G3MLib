@@ -7,7 +7,6 @@
 using G3MLib.Analyzer;
 using G3MLib.Analyzer.Decompiler;
 using G3MLib.Analyzer.Decompiler.ControlFlow;
-using G3MLib.Analyzer.Mock;
 
 namespace G3MLib.Tests;
 
@@ -16,15 +15,15 @@ public class Loop_FindLoops
     [Fact]
     public void TestNone()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             pushi.e 123
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
 
         Assert.Empty(loops);
 
@@ -36,7 +35,7 @@ public class Loop_FindLoops
     [Fact]
     public void TestSingleWhile()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             push.v self.i
@@ -55,13 +54,13 @@ public class Loop_FindLoops
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
 
-        Assert.Single(loops);
-        Assert.IsType<WhileLoop>(loops[0]);
-        WhileLoop loop0 = (WhileLoop)loops[0];
+        var item = Assert.Single(loops);
+        Assert.IsType<WhileLoop>(item);
+        var loop0 = (WhileLoop)loops[0];
         Assert.Equal(loop0, fragments[0].Children[0]);
         Assert.Equal(blocks[0], loop0.Head);
         Assert.Equal(blocks[1], loop0.Tail);
@@ -80,7 +79,7 @@ public class Loop_FindLoops
     [Fact]
     public void TestSingleBreakContinueWhile()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             push.v self.i
@@ -115,13 +114,13 @@ public class Loop_FindLoops
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
 
-        Assert.Single(loops);
-        Assert.IsType<WhileLoop>(loops[0]);
-        WhileLoop loop0 = (WhileLoop)loops[0];
+        var item = Assert.Single(loops);
+        Assert.IsType<WhileLoop>(item);
+        var loop0 = (WhileLoop)loops[0];
         Assert.Equal(loop0, fragments[0].Children[0]);
         Assert.Equal(blocks[0], loop0.Head);
         Assert.Equal(blocks[5], loop0.Tail);
@@ -142,7 +141,7 @@ public class Loop_FindLoops
     [Fact]
     public void TestNestedWhile()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             pushi.e 0
@@ -178,16 +177,16 @@ public class Loop_FindLoops
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
 
         Assert.Equal(2, loops.Count);
-        Assert.IsType<WhileLoop>(loops[0]);
-        Assert.IsType<WhileLoop>(loops[1]);
-        WhileLoop loop0 = (WhileLoop)loops[0];
-        WhileLoop loop1 = (WhileLoop)loops[1];
-        Assert.Equal(loop0, fragments[0].Children[0]!.Successors[0]);
+        var typed = Assert.IsType<WhileLoop>(loops[0]);
+        var typed_2 = Assert.IsType<WhileLoop>(loops[1]);
+        var loop0 = typed;
+        var loop1 = typed_2;
+        Assert.Equal(loop0, fragments[0].Children[0].Successors[0]);
         Assert.Equal(loop1, loop0.Body);
         Assert.Equal(loop0, loop1.Parent);
         Assert.Equal(blocks[3], loop1.Body);
@@ -205,7 +204,7 @@ public class Loop_FindLoops
     [Fact]
     public void TestSequentialWhile()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             pushi.e 0
@@ -241,15 +240,15 @@ public class Loop_FindLoops
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
 
         Assert.Equal(2, loops.Count);
-        Assert.IsType<WhileLoop>(loops[0]);
-        Assert.IsType<WhileLoop>(loops[1]);
-        WhileLoop loop0 = (WhileLoop)loops[0];
-        WhileLoop loop1 = (WhileLoop)loops[1];
+        var typed = Assert.IsType<WhileLoop>(loops[0]);
+        var typed_2 = Assert.IsType<WhileLoop>(loops[1]);
+        var loop0 = typed;
+        var loop1 = typed_2;
         Assert.Equal(loop0, blocks[0].Successors[0]);
         Assert.Equal(blocks[1], loop0.Head);
         Assert.Equal(blocks[3], loop1.Head);
@@ -275,7 +274,7 @@ public class Loop_FindLoops
     [Fact]
     public void TestSingleDoUntil()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             push.v self.a
@@ -289,13 +288,13 @@ public class Loop_FindLoops
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
 
-        Assert.Single(loops);
-        Assert.IsType<DoUntilLoop>(loops[0]);
-        DoUntilLoop loop0 = (DoUntilLoop)loops[0];
+        var item = Assert.Single(loops);
+        Assert.IsType<DoUntilLoop>(item);
+        var loop0 = (DoUntilLoop)loops[0];
         Assert.Equal(fragments[0], loop0.Parent);
         Assert.Equal(loop0, fragments[0].Children[0]);
         Assert.Equal(blocks[0], loop0.Head);
@@ -315,7 +314,7 @@ public class Loop_FindLoops
     [Fact]
     public void TestSingleBreakContinueDoUntil()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             push.v self.a
@@ -343,13 +342,13 @@ public class Loop_FindLoops
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
 
-        Assert.Single(loops);
-        Assert.IsType<DoUntilLoop>(loops[0]);
-        DoUntilLoop loop0 = (DoUntilLoop)loops[0];
+        var item = Assert.Single(loops);
+        Assert.IsType<DoUntilLoop>(item);
+        var loop0 = (DoUntilLoop)loops[0];
         Assert.Equal(fragments[0], loop0.Parent);
         Assert.Equal(loop0, fragments[0].Children[0]);
         Assert.Equal(blocks[0], loop0.Head);
@@ -371,7 +370,7 @@ public class Loop_FindLoops
     [Fact]
     public void TestNestedDoUntil()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             push.v self.b
@@ -391,15 +390,15 @@ public class Loop_FindLoops
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
 
         Assert.Equal(2, loops.Count);
-        Assert.IsType<DoUntilLoop>(loops[0]);
-        Assert.IsType<DoUntilLoop>(loops[1]);
-        DoUntilLoop loop0 = (DoUntilLoop)loops[0];
-        DoUntilLoop loop1 = (DoUntilLoop)loops[1];
+        var typed = Assert.IsType<DoUntilLoop>(loops[0]);
+        var typed_2 = Assert.IsType<DoUntilLoop>(loops[1]);
+        var loop0 = typed;
+        var loop1 = typed_2;
         Assert.Equal(fragments[0], loop0.Parent);
         Assert.Equal(loop0, loop1.Parent);
         Assert.Equal(blocks[0], loop1.Head);
@@ -424,7 +423,7 @@ public class Loop_FindLoops
     [Fact]
     public void TestNestedDoUntil2()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             push.v self.a
@@ -450,15 +449,15 @@ public class Loop_FindLoops
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
 
         Assert.Equal(2, loops.Count);
-        Assert.IsType<DoUntilLoop>(loops[0]);
-        Assert.IsType<DoUntilLoop>(loops[1]);
-        DoUntilLoop loop0 = (DoUntilLoop)loops[0];
-        DoUntilLoop loop1 = (DoUntilLoop)loops[1];
+        var typed = Assert.IsType<DoUntilLoop>(loops[0]);
+        var typed_2 = Assert.IsType<DoUntilLoop>(loops[1]);
+        var loop0 = typed;
+        var loop1 = typed_2;
         Assert.Equal(fragments[0], loop0.Parent);
         Assert.Equal(loop1, blocks[1].Parent);
         Assert.Equal(blocks[1], loop1.Head);
@@ -484,7 +483,7 @@ public class Loop_FindLoops
     [Fact]
     public void TestSequentialDoUntil()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             push.v self.a
@@ -500,15 +499,15 @@ public class Loop_FindLoops
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
 
         Assert.Equal(2, loops.Count);
-        Assert.IsType<DoUntilLoop>(loops[0]);
-        Assert.IsType<DoUntilLoop>(loops[1]);
-        DoUntilLoop loop0 = (DoUntilLoop)loops[0];
-        DoUntilLoop loop1 = (DoUntilLoop)loops[1];
+        var typed = Assert.IsType<DoUntilLoop>(loops[0]);
+        var typed_2 = Assert.IsType<DoUntilLoop>(loops[1]);
+        var loop0 = typed;
+        var loop1 = typed_2;
         Assert.Empty(loop0.Predecessors);
         Assert.Equal([loop1], loop0.Successors);
         Assert.Equal([blocks[2]], loop1.Successors);
@@ -533,7 +532,7 @@ public class Loop_FindLoops
     [Fact]
     public void TestWhileDoUntil()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             push.v self.a
@@ -554,15 +553,15 @@ public class Loop_FindLoops
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
 
         Assert.Equal(2, loops.Count);
-        Assert.IsType<WhileLoop>(loops[0]);
-        Assert.IsType<DoUntilLoop>(loops[1]);
-        WhileLoop loop0 = (WhileLoop)loops[0];
-        DoUntilLoop loop1 = (DoUntilLoop)loops[1];
+        var typed = Assert.IsType<WhileLoop>(loops[0]);
+        var typed_2 = Assert.IsType<DoUntilLoop>(loops[1]);
+        var loop0 = typed;
+        var loop1 = typed_2;
         Assert.Equal(fragments[0], loop0.Parent);
         Assert.Equal(loop0, loop1.Parent);
         Assert.Empty(loop1.Predecessors);
@@ -582,7 +581,7 @@ public class Loop_FindLoops
         Assert.Empty(loop1.Tail.Successors);
         Assert.Empty(loop0.Head.Predecessors);
         Assert.Empty(loop0.Tail.Successors);
-        Assert.Empty(loop0.Body!.Predecessors);
+        Assert.Empty(loop0.Body.Predecessors);
 
         TestUtil.VerifyFlowDirections(blocks);
         TestUtil.VerifyFlowDirections(fragments);
@@ -592,7 +591,7 @@ public class Loop_FindLoops
     [Fact]
     public void TestDoUntilWhile()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             push.v self.b
@@ -611,15 +610,15 @@ public class Loop_FindLoops
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
 
         Assert.Equal(2, loops.Count);
-        Assert.IsType<DoUntilLoop>(loops[0]);
-        Assert.IsType<WhileLoop>(loops[1]);
-        DoUntilLoop loop0 = (DoUntilLoop)loops[0];
-        WhileLoop loop1 = (WhileLoop)loops[1];
+        var typed = Assert.IsType<DoUntilLoop>(loops[0]);
+        var typed_2 = Assert.IsType<WhileLoop>(loops[1]);
+        var loop0 = typed;
+        var loop1 = typed_2;
         Assert.Equal(loop0, loop1.Parent);
         Assert.Equal(fragments[0], loop0.Parent);
         Assert.Empty(loop1.Predecessors);
@@ -636,7 +635,7 @@ public class Loop_FindLoops
         Assert.IsType<EmptyNode>(loop1.After);
         Assert.Empty(loop1.After.Successors);
         Assert.Empty(loop1.Head.Predecessors);
-        Assert.Empty(loop1.Body!.Predecessors);
+        Assert.Empty(loop1.Body.Predecessors);
         Assert.Empty(loop1.Tail.Successors);
         Assert.Empty(loop0.Head.Predecessors);
         Assert.Empty(loop0.Tail.Successors);
@@ -649,7 +648,7 @@ public class Loop_FindLoops
     [Fact]
     public void TestSingleRepeat()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             pushi.e 100
@@ -670,21 +669,21 @@ public class Loop_FindLoops
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
 
-        Assert.Single(loops);
-        Assert.IsType<RepeatLoop>(loops[0]);
-        RepeatLoop loop0 = (RepeatLoop)loops[0];
+        var item = Assert.Single(loops);
+        Assert.IsType<RepeatLoop>(item);
+        var loop0 = (RepeatLoop)loops[0];
         Assert.Equal([loop0], blocks[0].Successors);
         Assert.Equal([blocks[2]], loop0.Successors);
         Assert.Equal(blocks[1], loop0.Head);
         Assert.Equal(blocks[1], loop0.Tail);
         Assert.IsType<EmptyNode>(loop0.After);
         Assert.Empty(loop0.After.Successors);
-        Assert.Single(blocks[0].Instructions);
-        Assert.Equal(IGMInstruction.Opcode.PushImmediate, blocks[0].Instructions[0].Kind);
+        var item_2 = Assert.Single(blocks[0].Instructions);
+        Assert.Equal(IGMInstruction.Opcode.PushImmediate, item_2.Kind);
         Assert.Empty(blocks[1].Instructions);
         Assert.Empty(blocks[2].Instructions);
         Assert.Empty(loop0.Head.Predecessors);
@@ -698,7 +697,7 @@ public class Loop_FindLoops
     [Fact]
     public void TestSingleBreakContinueRepeat()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             pushi.e 100
@@ -735,21 +734,21 @@ public class Loop_FindLoops
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
 
-        Assert.Single(loops);
-        Assert.IsType<RepeatLoop>(loops[0]);
-        RepeatLoop loop0 = (RepeatLoop)loops[0];
+        var item = Assert.Single(loops);
+        Assert.IsType<RepeatLoop>(item);
+        var loop0 = (RepeatLoop)loops[0];
         Assert.Equal([loop0], blocks[0].Successors);
         Assert.Equal([blocks[6]], loop0.Successors);
         Assert.Equal(blocks[1], loop0.Head);
         Assert.Equal(blocks[5], loop0.Tail);
         Assert.IsType<EmptyNode>(loop0.After);
         Assert.Empty(loop0.After.Successors);
-        Assert.Single(blocks[0].Instructions);
-        Assert.Equal(IGMInstruction.Opcode.PushImmediate, blocks[0].Instructions[0].Kind);
+        var item_2 = Assert.Single(blocks[0].Instructions);
+        Assert.Equal(IGMInstruction.Opcode.PushImmediate, item_2.Kind);
         Assert.Empty(blocks[5].Instructions);
         Assert.Empty(blocks[6].Instructions);
         Assert.Empty(loop0.Head.Predecessors);
@@ -765,7 +764,7 @@ public class Loop_FindLoops
     [Fact]
     public void TestNestedRepeat()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             pushi.e 100
@@ -801,15 +800,15 @@ public class Loop_FindLoops
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
 
         Assert.Equal(2, loops.Count);
-        Assert.IsType<RepeatLoop>(loops[0]);
-        Assert.IsType<RepeatLoop>(loops[1]);
-        RepeatLoop loop0 = (RepeatLoop)loops[0];
-        RepeatLoop loop1 = (RepeatLoop)loops[1];
+        var typed = Assert.IsType<RepeatLoop>(loops[0]);
+        var typed_2 = Assert.IsType<RepeatLoop>(loops[1]);
+        var loop0 = typed;
+        var loop1 = typed_2;
         Assert.Equal([loop1], loop0.Head.Successors);
         Assert.Empty(loop0.Tail.Successors);
         Assert.Equal(blocks[1], loop0.Head);
@@ -824,10 +823,10 @@ public class Loop_FindLoops
         Assert.Equal([blocks[3]], loop1.Successors);
         Assert.Equal([blocks[0]], loop0.Predecessors);
         Assert.Equal([blocks[4]], loop0.Successors);
-        Assert.Single(blocks[0].Instructions);
-        Assert.Equal(IGMInstruction.Opcode.PushImmediate, blocks[0].Instructions[0].Kind);
-        Assert.Single(blocks[1].Instructions);
-        Assert.Equal(IGMInstruction.Opcode.PushImmediate, blocks[1].Instructions[0].Kind);
+        var item = Assert.Single(blocks[0].Instructions);
+        Assert.Equal(IGMInstruction.Opcode.PushImmediate, item.Kind);
+        var item_2 = Assert.Single(blocks[1].Instructions);
+        Assert.Equal(IGMInstruction.Opcode.PushImmediate, item_2.Kind);
         Assert.Empty(blocks[2].Instructions);
         Assert.Empty(blocks[3].Instructions);
         Assert.Empty(blocks[4].Instructions);
@@ -840,7 +839,7 @@ public class Loop_FindLoops
     [Fact]
     public void TestSingleEmptyWith()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             pushi.e 123
@@ -851,13 +850,13 @@ public class Loop_FindLoops
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
 
-        Assert.Single(loops);
-        Assert.IsType<WithLoop>(loops[0]);
-        WithLoop loop0 = (WithLoop)loops[0];
+        var item = Assert.Single(loops);
+        Assert.IsType<WithLoop>(item);
+        var loop0 = (WithLoop)loops[0];
         Assert.Equal(blocks[0], loop0.Predecessors[0]);
         Assert.Equal(blocks[1], loop0.Head);
         Assert.Equal(blocks[1], loop0.Tail);
@@ -876,7 +875,7 @@ public class Loop_FindLoops
     [Fact]
     public void TestSingleWith()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             pushi.e 123
@@ -891,13 +890,13 @@ public class Loop_FindLoops
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
 
-        Assert.Single(loops);
-        Assert.IsType<WithLoop>(loops[0]);
-        WithLoop loop0 = (WithLoop)loops[0];
+        var item = Assert.Single(loops);
+        Assert.IsType<WithLoop>(item);
+        var loop0 = (WithLoop)loops[0];
         Assert.Equal(blocks[0], loop0.Predecessors[0]);
         Assert.Equal(blocks[1], loop0.Head);
         Assert.Equal(blocks[2], loop0.Tail);
@@ -916,7 +915,7 @@ public class Loop_FindLoops
     [Fact]
     public void TestSingleBreakWith()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             pushi.e 123
@@ -943,13 +942,13 @@ public class Loop_FindLoops
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
 
-        Assert.Single(loops);
-        Assert.IsType<WithLoop>(loops[0]);
-        WithLoop loop0 = (WithLoop)loops[0];
+        var item = Assert.Single(loops);
+        Assert.IsType<WithLoop>(item);
+        var loop0 = (WithLoop)loops[0];
         Assert.Equal(blocks[0], loop0.Predecessors[0]);
         Assert.Equal(blocks[1], loop0.Head);
         Assert.Equal(blocks[3], loop0.Tail);
@@ -959,7 +958,7 @@ public class Loop_FindLoops
         Assert.Equal(blocks[6], loop0.Successors[0]);
         Assert.Empty(loop0.Head.Predecessors);
         Assert.Empty(loop0.Tail.Successors);
-        Assert.Empty(loop0.BreakBlock!.Predecessors);
+        Assert.Empty(loop0.BreakBlock.Predecessors);
         Assert.Empty(loop0.BreakBlock.Successors);
         Assert.Equal([loop0.After], blocks[2].Successors);
 
@@ -971,7 +970,7 @@ public class Loop_FindLoops
     [Fact]
     public void TestSingleBreakContinueWith()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             pushi.e 123
@@ -1006,13 +1005,13 @@ public class Loop_FindLoops
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
 
-        Assert.Single(loops);
-        Assert.IsType<WithLoop>(loops[0]);
-        WithLoop loop0 = (WithLoop)loops[0];
+        var item = Assert.Single(loops);
+        Assert.IsType<WithLoop>(item);
+        var loop0 = (WithLoop)loops[0];
         Assert.Equal(blocks[0], loop0.Predecessors[0]);
         Assert.Equal(blocks[1], loop0.Head);
         Assert.Equal(blocks[5], loop0.Tail);
@@ -1022,7 +1021,7 @@ public class Loop_FindLoops
         Assert.Equal(blocks[8], loop0.Successors[0]);
         Assert.Empty(loop0.Head.Predecessors);
         Assert.Empty(loop0.Tail.Successors);
-        Assert.Empty(loop0.BreakBlock!.Predecessors);
+        Assert.Empty(loop0.BreakBlock.Predecessors);
         Assert.Empty(loop0.BreakBlock.Successors);
         Assert.Equal([loop0.After], blocks[2].Successors);
         Assert.Equal([loop0.Tail], blocks[4].Successors);
@@ -1035,7 +1034,7 @@ public class Loop_FindLoops
     [Fact]
     public void TestNestedWith()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             pushi.e 123
@@ -1059,15 +1058,15 @@ public class Loop_FindLoops
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
 
         Assert.Equal(2, loops.Count);
-        Assert.IsType<WithLoop>(loops[0]);
-        Assert.IsType<WithLoop>(loops[1]);
-        WithLoop loop0 = (WithLoop)loops[0];
-        WithLoop loop1 = (WithLoop)loops[1];
+        var typed = Assert.IsType<WithLoop>(loops[0]);
+        var typed_2 = Assert.IsType<WithLoop>(loops[1]);
+        var loop0 = typed;
+        var loop1 = typed_2;
         Assert.Equal([blocks[0]], loop0.Predecessors);
         Assert.Equal([blocks[5]], loop0.Successors);
         Assert.Equal([blocks[1]], loop1.Predecessors);
@@ -1090,7 +1089,7 @@ public class Loop_FindLoops
     [Fact]
     public void TestNestedBreakWith()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             pushi.e 123
@@ -1130,15 +1129,15 @@ public class Loop_FindLoops
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
 
         Assert.Equal(2, loops.Count);
-        Assert.IsType<WithLoop>(loops[0]);
-        Assert.IsType<WithLoop>(loops[1]);
-        WithLoop loop0 = (WithLoop)loops[0];
-        WithLoop loop1 = (WithLoop)loops[1];
+        var typed = Assert.IsType<WithLoop>(loops[0]);
+        var typed_2 = Assert.IsType<WithLoop>(loops[1]);
+        var loop0 = typed;
+        var loop1 = typed_2;
         Assert.Equal([blocks[0]], loop0.Predecessors);
         Assert.Equal([blocks[10]], loop0.Successors);
         Assert.Equal([blocks[1]], loop1.Predecessors);
@@ -1147,14 +1146,14 @@ public class Loop_FindLoops
         Assert.IsType<EmptyNode>(loop0.After);
         Assert.Empty(loop0.After.Successors);
         Assert.Equal(blocks[9], loop0.BreakBlock);
-        Assert.Empty(loop0.BreakBlock!.Predecessors);
+        Assert.Empty(loop0.BreakBlock.Predecessors);
         Assert.Empty(loop0.BreakBlock.Successors);
         Assert.Equal(blocks[2], loop1.Head);
         Assert.Equal(blocks[3], loop1.Tail);
         Assert.IsType<EmptyNode>(loop1.After);
         Assert.Empty(loop1.After.Successors);
         Assert.Equal(blocks[5], loop1.BreakBlock);
-        Assert.Empty(loop1.BreakBlock!.Predecessors);
+        Assert.Empty(loop1.BreakBlock.Predecessors);
         Assert.Empty(loop1.BreakBlock.Successors);
         Assert.Equal([loop1.After], blocks[2].Successors);
         Assert.Equal([loop0.After], blocks[6].Successors);
@@ -1167,7 +1166,7 @@ public class Loop_FindLoops
     [Fact]
     public void TestMultiWithBreak()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             push.v self.a
@@ -1220,15 +1219,15 @@ public class Loop_FindLoops
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
 
         Assert.Equal(3, loops.Count);
         Assert.IsType<WithLoop>(loops[0]);
         Assert.IsType<WithLoop>(loops[1]);
-        Assert.IsType<WithLoop>(loops[2]);
-        WithLoop loop2 = (WithLoop)loops[2];
+        var typed = Assert.IsType<WithLoop>(loops[2]);
+        var loop2 = typed;
 
         Assert.Equal([loop2], blocks[10].Successors);
 

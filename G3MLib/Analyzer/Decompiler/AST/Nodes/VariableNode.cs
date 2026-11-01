@@ -4,9 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using G3MLib.Analyzer.Decompiler.GameSpecific;
 using static G3MLib.Analyzer.IGMInstruction;
 
@@ -49,13 +46,13 @@ public class VariableNode(IGMVariable variable, VariableType referenceType, IExp
     /// Whether this variable node should be forced to print "self." if it is able to.
     /// Meant for tracking obscure compiler quirks.
     /// </summary>
-    public bool ForceSelf { get; set; } = false;
+    public bool ForceSelf { get; set; }
 
     /// <inheritdoc/>
-    public bool Duplicated { get; set; } = false;
+    public bool Duplicated { get; set; }
 
     /// <inheritdoc/>
-    public bool Group { get; set; } = false;
+    public bool Group { get; set; }
 
     /// <inheritdoc/>
     public DataType StackType { get; set; } = DataType.Variable;
@@ -71,6 +68,7 @@ public class VariableNode(IGMVariable variable, VariableType referenceType, IExp
     /// </summary>
     public bool IdenticalToInExpression(VariableNode other)
     {
+        ArgumentNullException.ThrowIfNull(other);
         if (!HasSameTarget(other))
         {
             return false;
@@ -87,7 +85,7 @@ public class VariableNode(IGMVariable variable, VariableType referenceType, IExp
             {
                 return false;
             }
-            for (int i = 0; i < ArrayIndices.Count; i++)
+            for (var i = 0; i < ArrayIndices.Count; i++)
             {
                 // Compare index references directly, as these should be duplicated if in the same expression
                 if (ArrayIndices[i] != other.ArrayIndices[i])
@@ -129,6 +127,7 @@ public class VariableNode(IGMVariable variable, VariableType referenceType, IExp
     /// </summary>
     public bool SimilarToInForIncrementor(VariableNode other)
     {
+        ArgumentNullException.ThrowIfNull(other);
         if (!HasSameTarget(other))
         {
             return false;
@@ -146,13 +145,14 @@ public class VariableNode(IGMVariable variable, VariableType referenceType, IExp
     /// <inheritdoc/>
     public IExpressionNode Clean(ASTCleaner cleaner)
     {
+        ArgumentNullException.ThrowIfNull(cleaner);
         // Clean up left side of variable, and get basic instance type, or 0 if none
         Left = Left.Clean(cleaner);
-        int instType = (Left as Int16Node)?.Value ?? (int?)((Left as InstanceTypeNode)?.InstanceType) ?? 0;
+        var instType = (Left as Int16Node)?.Value ?? (int?)((Left as InstanceTypeNode)?.InstanceType) ?? 0;
 
         // Check if we're a builtin array variable, and if so, rewrite with no array accessor if
         // a 64-bit zero value is supplied as an index. This is a GML compiler quirk.
-        if (instType == (int)InstanceType.Self || instType == (int)InstanceType.Builtin)
+        if (instType is ((int)InstanceType.Self) or ((int)InstanceType.Builtin))
         {
             if (ArrayIndices is [Int64Node { Value: 0 }] &&
                 VMConstants.BuiltinArrayVariables.Contains(Variable.Name.Content))
@@ -168,7 +168,7 @@ public class VariableNode(IGMVariable variable, VariableType referenceType, IExp
         // Clean up array indices
         if (ArrayIndices is not null)
         {
-            for (int i = 0; i < ArrayIndices.Count; i++)
+            for (var i = 0; i < ArrayIndices.Count; i++)
             {
                 ArrayIndices[i] = ArrayIndices[i].Clean(cleaner);
             }
@@ -191,8 +191,8 @@ public class VariableNode(IGMVariable variable, VariableType referenceType, IExp
                 if (arrayIndex.Value >= 0 && arrayIndex.Value < cleaner.StructArguments.Count)
                 {
                     // We found an argument from the outer context! Clean it (in the outer context) and return it.
-                    IExpressionNode arg = cleaner.StructArguments[arrayIndex.Value];
-                    ASTFragmentContext context = cleaner.PopFragmentContext();
+                    var arg = cleaner.StructArguments[arrayIndex.Value];
+                    var context = cleaner.PopFragmentContext();
                     arg = arg.Clean(cleaner);
                     cleaner.PushFragmentContext(context);
                     return arg;
@@ -203,10 +203,10 @@ public class VariableNode(IGMVariable variable, VariableType referenceType, IExp
         // Check if we're a regular argument, and set maximum referenced argument variable if so
         if (instType == (int)InstanceType.Argument)
         {
-            int num = GetArgumentIndex(cleaner.TopFragmentContext!.MaxReferencedArgument);
+            var num = GetArgumentIndex(cleaner.TopFragmentContext.MaxReferencedArgument);
             if (num != -1)
             {
-                if (num > cleaner.TopFragmentContext!.MaxReferencedArgument)
+                if (num > cleaner.TopFragmentContext.MaxReferencedArgument)
                 {
                     // We have a new maximum!
                     cleaner.TopFragmentContext.MaxReferencedArgument = num;
@@ -226,10 +226,11 @@ public class VariableNode(IGMVariable variable, VariableType referenceType, IExp
     /// <inheritdoc/>
     public IExpressionNode PostClean(ASTCleaner cleaner)
     {
+        ArgumentNullException.ThrowIfNull(cleaner);
         Left = Left.PostClean(cleaner);
         if (ArrayIndices is not null)
         {
-            for (int i = 0; i < ArrayIndices.Count; i++)
+            for (var i = 0; i < ArrayIndices.Count; i++)
             {
                 ArrayIndices[i] = ArrayIndices[i].PostClean(cleaner);
             }
@@ -239,8 +240,8 @@ public class VariableNode(IGMVariable variable, VariableType referenceType, IExp
             Left is Int16Node { Value: (int)InstanceType.Local } or InstanceTypeNode { InstanceType: InstanceType.Local })
         {
             // Check if not declared already. If not, check to see if we can hoist an existing declaration.
-            string localName = Variable.Name.Content;
-            LocalScope currentLocalScope = cleaner.TopFragmentContext!.CurrentLocalScope!;
+            var localName = Variable.Name.Content;
+            var currentLocalScope = cleaner.TopFragmentContext.CurrentLocalScope;
             if (!currentLocalScope.LocalDeclaredInAnyParentOrSelf(localName))
             {
                 // Attempt hoist of declaration (if we can find an existing declaration to hoist)
@@ -261,13 +262,14 @@ public class VariableNode(IGMVariable variable, VariableType referenceType, IExp
     /// <inheritdoc/>
     public void Print(ASTPrinter printer)
     {
+        ArgumentNullException.ThrowIfNull(printer);
         // Print out left side, if necessary
-        Int16Node? leftI16 = Left as Int16Node;
-        InstanceTypeNode? leftInstType = Left as InstanceTypeNode;
+        var leftI16 = Left as Int16Node;
+        var leftInstType = Left as InstanceTypeNode;
         if (leftI16 is not null || leftInstType is not null)
         {
             // Basic numerical instance type
-            int value = leftI16?.Value ?? (int)leftInstType!.InstanceType;
+            var value = leftI16?.Value ?? (int)leftInstType.InstanceType;
             if (ReferenceType == VariableType.Instance)
             {
                 // Room instance ID
@@ -288,10 +290,10 @@ public class VariableNode(IGMVariable variable, VariableType referenceType, IExp
                     case (int)InstanceType.Self:
                     case (int)InstanceType.Builtin:
                         if (ForceSelf ||
-                            (value == (int)InstanceType.Self && ArrayIndices is null && printer.Context.GameContext.UsingSelfToBuiltin) ||
+                            value == (int)InstanceType.Self && ArrayIndices is null && printer.Context.GameContext.UsingSelfToBuiltin ||
                             leftInstType is { FromBuiltinFunction: true } ||
                             printer.LocalVariableNames.Contains(Variable.Name.Content) ||
-                            printer.TopFragmentContext!.NamedArguments.Contains(Variable.Name.Content))
+                            printer.TopFragmentContext.NamedArguments.Contains(Variable.Name.Content))
                         {
                             // Need an explicit self in order to not conflict with local,
                             // or a specific compiler quirk involving "self." was found.
@@ -312,7 +314,7 @@ public class VariableNode(IGMVariable variable, VariableType referenceType, IExp
             else
             {
                 // Check if we have an object asset name to use
-                string? objectName = printer.Context.GameContext.GetAssetName(AssetType.Object, value);
+                var objectName = printer.Context.GameContext.GetAssetName(AssetType.Object, value);
                 if (objectName is not null)
                 {
                     // Object asset
@@ -335,19 +337,19 @@ public class VariableNode(IGMVariable variable, VariableType referenceType, IExp
             {
                 // Room instance IDs, in certain cases on some versions
                 printer.Write('(');
-                int32.Print(printer);
+                printer.PrintNode(int32);
                 printer.Write(").");
             }
             else
             {
                 // General expression
-                Left.Print(printer);
+                printer.PrintNode(Left);
                 printer.Write('.');
             }
         }
 
-        int argIndex = GetArgumentIndex(printer.TopFragmentContext!.MaxReferencedArgument);
-        bool namedArgumentArray = false;
+        var argIndex = GetArgumentIndex(printer.TopFragmentContext.MaxReferencedArgument);
+        var namedArgumentArray = false;
         if (argIndex == -1 || printer.TopFragmentContext.IsRootFragment)
         {
             // Variable name
@@ -356,7 +358,7 @@ public class VariableNode(IGMVariable variable, VariableType referenceType, IExp
         else
         {
             // Argument name
-            string? namedArg = printer.TopFragmentContext!.GetNamedArgumentName(printer.Context, argIndex);
+            var namedArg = printer.TopFragmentContext.GetNamedArgumentName(printer.Context, argIndex);
             if (namedArg is not null)
             {
                 printer.Write(namedArg);
@@ -379,21 +381,21 @@ public class VariableNode(IGMVariable variable, VariableType referenceType, IExp
                 if (namedArgumentArray)
                 {
                     // Named argument array access; skip first index
-                    for (int i = 1; i < ArrayIndices.Count; i++)
+                    for (var i = 1; i < ArrayIndices.Count; i++)
                     {
-                        IExpressionNode index = ArrayIndices[i];
+                        var index = ArrayIndices[i];
                         printer.Write('[');
-                        index.Print(printer);
+                        printer.PrintNode(index);
                         printer.Write(']');
                     }
                 }
                 else
                 {
                     // Normal variable; print all of its indices
-                    foreach (IExpressionNode index in ArrayIndices)
+                    foreach (var index in ArrayIndices)
                     {
                         printer.Write('[');
-                        index.Print(printer);
+                        printer.PrintNode(index);
                         printer.Write(']');
                     }
                 }
@@ -402,11 +404,11 @@ public class VariableNode(IGMVariable variable, VariableType referenceType, IExp
             {
                 // For GMLv1, only two array indices are supported
                 printer.Write('[');
-                ArrayIndices[0].Print(printer);
+                printer.PrintNode(ArrayIndices[0]);
                 if (ArrayIndices.Count == 2)
                 {
                     printer.Write(", ");
-                    ArrayIndices[1].Print(printer);
+                    printer.PrintNode(ArrayIndices[1]);
                 }
                 printer.Write(']');
             }
@@ -416,15 +418,16 @@ public class VariableNode(IGMVariable variable, VariableType referenceType, IExp
     /// <inheritdoc/>
     public bool RequiresMultipleLines(ASTPrinter printer, bool isStatementLHS)
     {
+        ArgumentNullException.ThrowIfNull(printer);
         if (isStatementLHS)
         {
             // Check if left side has parentheses...
-            Int16Node? leftI16 = Left as Int16Node;
-            InstanceTypeNode? leftInstType = Left as InstanceTypeNode;
+            var leftI16 = Left as Int16Node;
+            var leftInstType = Left as InstanceTypeNode;
             if (leftI16 is not null || leftInstType is not null)
             {
                 // Basic numerical instance type
-                int value = leftI16?.Value ?? (int)leftInstType!.InstanceType;
+                var value = leftI16?.Value ?? (int)leftInstType.InstanceType;
                 if (ReferenceType == VariableType.Instance)
                 {
                     return true;
@@ -432,7 +435,7 @@ public class VariableNode(IGMVariable variable, VariableType referenceType, IExp
                 else if (value >= 0)
                 {
                     // Check if we have an object asset name to use
-                    string? objectName = printer.Context.GameContext.GetAssetName(AssetType.Object, value);
+                    var objectName = printer.Context.GameContext.GetAssetName(AssetType.Object, value);
                     if (objectName is null)
                     {
                         return true;
@@ -463,6 +466,7 @@ public class VariableNode(IGMVariable variable, VariableType referenceType, IExp
     /// <inheritdoc/>
     public IMacroType? GetExpressionMacroType(ASTCleaner cleaner)
     {
+        ArgumentNullException.ThrowIfNull(cleaner);
         return cleaner.GlobalMacroResolver.ResolveVariableType(cleaner, Variable.Name.Content);
     }
 
@@ -495,14 +499,14 @@ public class VariableNode(IGMVariable variable, VariableType referenceType, IExp
         }
 
         // Check variable name and array accessor
-        string variableName = Variable.Name.Content;
+        var variableName = Variable.Name.Content;
         if (variableName.StartsWith("argument", StringComparison.Ordinal))
         {
             if (variableName.Length >= "argument".Length + 1 &&
                 variableName.Length <= "argument".Length + 2)
             {
                 // Normal argument variable
-                if (int.TryParse(variableName["argument".Length..], out int num) && num >= 0 && num <= 15)
+                if (int.TryParse(variableName["argument".Length..], out var num) && num >= 0 && num <= 15)
                 {
                     return num;
                 }
@@ -543,7 +547,7 @@ public class VariableNode(IGMVariable variable, VariableType referenceType, IExp
         yield return Left;
         if (ArrayIndices is not null)
         {
-            foreach (IExpressionNode node in ArrayIndices)
+            foreach (var node in ArrayIndices)
             {
                 yield return node;
             }

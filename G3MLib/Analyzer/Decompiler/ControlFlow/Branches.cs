@@ -4,8 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
-
 namespace G3MLib.Analyzer.Decompiler.ControlFlow;
 
 internal static class Branches
@@ -19,11 +17,11 @@ internal static class Branches
         // Assign blocks to loops.
         // We iterate over loops so that inner loops are processed after outer loops.
         Dictionary<Block, Loop> surroundingLoops = [];
-        foreach (Loop l in loops)
+        foreach (var l in loops)
         {
-            Block startBlock = blockByAddress[l.StartAddress];
-            Block endBlock = blockByAddress[l.EndAddress];
-            for (int blockIndex = startBlock.BlockIndex; blockIndex < endBlock.BlockIndex; blockIndex++)
+            var startBlock = blockByAddress[l.StartAddress];
+            var endBlock = blockByAddress[l.EndAddress];
+            for (var blockIndex = startBlock.BlockIndex; blockIndex < endBlock.BlockIndex; blockIndex++)
             {
                 surroundingLoops[blocks[blockIndex]] = l;
             }
@@ -48,7 +46,7 @@ internal static class Branches
 
         List<LimitEntry> limitStack = [new(blocks[^1].EndAddress, false)];
 
-        foreach (Block b in blocks)
+        foreach (var b in blocks)
         {
             // If we've passed the address of our smallest limit, remove it.
             while (b.StartAddress >= limitStack[^1].Limit)
@@ -82,8 +80,8 @@ internal static class Branches
             else
             {
                 // If we're not Branch, nor BranchFalse/True, we don't really care about determining the limit
-                if (b.Instructions is not [.., { Kind: IGMInstruction.Opcode.BranchFalse }] &&
-                    b.Instructions is not [.., { Kind: IGMInstruction.Opcode.BranchTrue }]) // Required to leave switch branches to switch analysis.
+                if (b.Instructions is not [.., { Kind: IGMInstruction.Opcode.BranchFalse }] and
+                    not [.., { Kind: IGMInstruction.Opcode.BranchTrue }]) // Required to leave switch branches to switch analysis.
                 {
                     continue;
                 }
@@ -92,7 +90,7 @@ internal static class Branches
             }
 
             // If we have a loop surrounding this block, we can also use that
-            if (surroundingLoops.TryGetValue(b, out Loop? loop) && loop.EndAddress < thisLimit)
+            if (surroundingLoops.TryGetValue(b, out var loop) && loop.EndAddress < thisLimit)
             {
                 thisLimit = loop.EndAddress;
             }
@@ -105,7 +103,7 @@ internal static class Branches
             {
                 // We're in a Branch block.
                 // If we have a smaller limit based on our jump destination address, push that to the stack.
-                int newLimit = b.Successors[0].StartAddress;
+                var newLimit = b.Successors[0].StartAddress;
                 if (newLimit <= limitStack[^1].Limit)
                 {
                     limitStack.Add(new(newLimit, false));
@@ -115,7 +113,7 @@ internal static class Branches
                     // If our limit is larger, but we have an identical limit already on the stack,
                     // from a BranchTrue/False, we mark it as no longer from a binary block.
                     // If there's a slot between two other limits available, use that as well.
-                    for (int i = limitStack.Count - 2; i >= 0; i--)
+                    for (var i = limitStack.Count - 2; i >= 0; i--)
                     {
                         if (limitStack[i].Limit == newLimit)
                         {
@@ -134,7 +132,7 @@ internal static class Branches
             {
                 // We're in a BranchFalse/BranchTrue block.
                 // If we have a smaller limit based on our jump destination address, push that to the stack.
-                int newLimit = b.Successors[1].StartAddress;
+                var newLimit = b.Successors[1].StartAddress;
                 if (newLimit <= limitStack[^1].Limit)
                 {
                     limitStack.Add(new(newLimit, true));
@@ -195,22 +193,22 @@ internal static class Branches
     /// </summary>
     public static void ResolveExternalJumps(DecompileContext ctx)
     {
-        Dictionary<Block, Loop> surroundingLoops = ctx.BlockSurroundingLoops!;
-        Dictionary<Block, int> blockAfterLimits = ctx.BlockAfterLimits!;
-        foreach (Block block in ctx.Blocks!)
+        var surroundingLoops = ctx.BlockSurroundingLoops;
+        var blockAfterLimits = ctx.BlockAfterLimits;
+        foreach (var block in ctx.Blocks)
         {
             if (block.Instructions is [.., { Kind: IGMInstruction.Opcode.Branch }] && block.Successors.Count >= 1)
             {
                 IControlFlowNode? node = null;
 
                 // Check that we're not supposed to be ignored
-                if (ctx.SwitchIgnoreJumpBlocks!.Contains(block))
+                if (ctx.SwitchIgnoreJumpBlocks.Contains(block))
                 {
                     continue;
                 }
 
                 // Look for a trivial branch to top or end of surrounding loop
-                if (surroundingLoops.TryGetValue(block, out Loop? loop))
+                if (surroundingLoops.TryGetValue(block, out var loop))
                 {
                     if (block.Successors[0] == loop)
                     {
@@ -252,14 +250,14 @@ internal static class Branches
                 if (node is null)
                 {
                     // Check if we're breaking/continuing from inside of a switch statement.
-                    IControlFlowNode succNode = block.Successors[0];
-                    Block? succBlock = succNode as Block;
-                    if (ctx.SwitchEndNodes!.Contains(succNode))
+                    var succNode = block.Successors[0];
+                    var succBlock = succNode as Block;
+                    if (ctx.SwitchEndNodes.Contains(succNode))
                     {
                         // This is a break from inside of a switch
                         node = new BreakNode(block.EndAddress - 4);
                     }
-                    else if (succBlock is not null && ctx.SwitchContinueBlocks!.Contains(succBlock))
+                    else if (succBlock is not null && ctx.SwitchContinueBlocks.Contains(succBlock))
                     {
                         // This is a continue from inside of a switch
                         node = new ContinueNode(block.EndAddress - 4);
@@ -269,7 +267,7 @@ internal static class Branches
                 if (node is null && loop is not null)
                 {
                     // Look at after limits and see if we can deduce anything there.
-                    int afterLimit = blockAfterLimits[block];
+                    var afterLimit = blockAfterLimits[block];
                     if (block.Successors[0].StartAddress > afterLimit)
                     {
                         // Detected continue
@@ -358,11 +356,11 @@ internal static class Branches
     /// </summary>
     public static void ResolveRemainingExternalJumps(DecompileContext ctx)
     {
-        foreach (Block block in ctx.Blocks!)
+        foreach (var block in ctx.Blocks)
         {
             if (block.Instructions is [.., { Kind: IGMInstruction.Opcode.Branch, BranchOffset: int branchOffset }])
             {
-                if (!ctx.BlockSurroundingLoops!.TryGetValue(block, out Loop? loop))
+                if (!ctx.BlockSurroundingLoops.TryGetValue(block, out var loop))
                 {
                     throw new DecompilerException("Expected loop to be around unresolved branch");
                 }
@@ -374,7 +372,7 @@ internal static class Branches
                     {
                         // This is probably a for loop now.
                         // We need to find the original successor, and set that as the incrementor.
-                        IControlFlowNode succ = ctx.BlocksByAddress![(block.EndAddress - 4) + branchOffset];
+                        IControlFlowNode succ = ctx.BlocksByAddress[block.EndAddress - 4 + branchOffset];
                         while (succ.Parent is not null)
                         {
                             succ = succ.Parent;

@@ -4,8 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System;
-using System.Collections.Generic;
 using System.Globalization;
 using G3MLib.Analyzer.Decompiler.GameSpecific;
 
@@ -20,10 +18,10 @@ public class DoubleNode(double value) : IConstantNode<double>, IConditionalValue
     public double Value { get; } = value;
 
     /// <inheritdoc/>
-    public bool Duplicated { get; set; } = false;
+    public bool Duplicated { get; set; }
 
     /// <inheritdoc/>
-    public bool Group { get; set; } = false;
+    public bool Group { get; set; }
 
     /// <inheritdoc/>
     public IGMInstruction.DataType StackType { get; set; } = IGMInstruction.DataType.Double;
@@ -37,7 +35,8 @@ public class DoubleNode(double value) : IConstantNode<double>, IConditionalValue
     /// <inheritdoc/>
     public IExpressionNode Clean(ASTCleaner cleaner)
     {
-        if (cleaner.Context.Settings.TryGetPredefinedDouble(Value, out string? predefined, out bool isMultiPart))
+        ArgumentNullException.ThrowIfNull(cleaner);
+        if (cleaner.Context.Settings.TryGetPredefinedDouble(Value, out var predefined, out var isMultiPart))
         {
             if (isMultiPart)
             {
@@ -60,10 +59,11 @@ public class DoubleNode(double value) : IConstantNode<double>, IConditionalValue
     /// <inheritdoc/>
     public void Print(ASTPrinter printer)
     {
+        ArgumentNullException.ThrowIfNull(printer);
         ReadOnlySpan<char> str = Value.ToString("R", CultureInfo.InvariantCulture);
 
         // Check if there's an exponent in the result
-        int exponentIndex = str.IndexOf('E');
+        var exponentIndex = str.IndexOf('E');
         if (exponentIndex == -1)
         {
             // No exponent
@@ -73,13 +73,13 @@ public class DoubleNode(double value) : IConstantNode<double>, IConditionalValue
 
         // We need to get rid of exponent notation manually...
         // Exponent to fixed point conversion inspired by https://stackoverflow.com/a/49663470
-        int exponentValue = int.Parse(str[(exponentIndex + 1)..]);
+        var exponentValue = int.Parse(str[(exponentIndex + 1)..], CultureInfo.InvariantCulture);
 
         string resultStr;
-        int numDecimals = 0;
+        var numDecimals = 0;
         if (Value < 0)
         {
-            int len = exponentIndex - 3;
+            var len = exponentIndex - 3;
             if (exponentValue >= 0)
             {
                 if (len > 0)
@@ -107,7 +107,7 @@ public class DoubleNode(double value) : IConstantNode<double>, IConditionalValue
         }
         else
         {
-            int len = exponentIndex - 2;
+            var len = exponentIndex - 2;
             if (len > 0)
             {
                 resultStr = str[0] + str[2..(2 + len)].ToString();
@@ -124,7 +124,7 @@ public class DoubleNode(double value) : IConstantNode<double>, IConditionalValue
         }
         else
         {
-            exponentValue = (-exponentValue - 1);
+            exponentValue = -exponentValue - 1;
             if (Value < 0)
                 resultStr = "-0." + new string('0', exponentValue) + resultStr;
             else

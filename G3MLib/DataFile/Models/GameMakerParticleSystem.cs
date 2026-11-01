@@ -1,4 +1,3 @@
-using System;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using G3MLib.DataFile.Project;
@@ -46,11 +45,12 @@ public class GameMakerParticleSystem : GameMakerNamedResource, IProjectAsset, ID
     /// <summary>
     /// The emitters of the particle system.
     /// </summary>
-    public GameMakerSimpleResourcesList<GameMakerParticleSystemEmitter, GameMakerChunkPSEM> Emitters { get; set; } = new();
+    public GameMakerSimpleResourcesList<GameMakerParticleSystemEmitter, GameMakerChunkPSEM> Emitters { get; set; } = [];
 
     /// <inheritdoc />
     public void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         writer.WriteGameMakerString(Name);
         writer.Write(OriginX);
         writer.Write(OriginY);
@@ -63,6 +63,7 @@ public class GameMakerParticleSystem : GameMakerNamedResource, IProjectAsset, ID
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         Name = reader.ReadGameMakerString();
         OriginX = reader.ReadInt32();
         OriginY = reader.ReadInt32();
@@ -77,6 +78,7 @@ public class GameMakerParticleSystem : GameMakerNamedResource, IProjectAsset, ID
     /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
     public static uint UnserializeChildObjectCount(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         reader.Position += 16;
 
         if (reader.gameMakerData.IsVersionAtLeast(2023, 8))
@@ -126,7 +128,7 @@ public class GameMakerParticleSystemEmitter : GameMakerNamedResource, INotifyPro
     private GameMakerResourceById<GameMakerParticleSystemEmitter, GameMakerChunkPSEM> _spawnOnUpdate = new();
 
     public event PropertyChangedEventHandler PropertyChanged;
-    protected void OnPropertyChanged([CallerMemberName] string name = null)
+    protected void OnPropertyChanged([CallerMemberName] string? name = null)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
     }
@@ -431,6 +433,7 @@ public class GameMakerParticleSystemEmitter : GameMakerNamedResource, INotifyPro
     /// <inheritdoc />
     public void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         writer.WriteGameMakerString(Name);
         if (writer.gameMakerData.IsVersionAtLeast(2023, 6))
             writer.Write(Enabled);
@@ -515,6 +518,7 @@ public class GameMakerParticleSystemEmitter : GameMakerNamedResource, INotifyPro
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         Name = reader.ReadGameMakerString();
         if (reader.gameMakerData.IsVersionAtLeast(2023, 6))
             Enabled = reader.ReadBoolean();

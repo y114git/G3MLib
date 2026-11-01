@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using G3MLib.DataFile.Project.SerializableAssets;
@@ -20,12 +18,10 @@ public class GameMakerBackground : GameMakerNamedResource, IProjectAsset, INotif
     /// </summary>
     public class TileID : GameMakerObject, INotifyPropertyChanged
     {
-        private uint _id;
-
         /// <summary>
         /// The id of a specific tile.
         /// </summary>
-        public uint ID { get => _id; set { _id = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ID))); } }
+        public uint ID { get; set { field = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ID))); } }
 
         /// <inheritdoc />
         public event PropertyChangedEventHandler PropertyChanged;
@@ -33,12 +29,14 @@ public class GameMakerBackground : GameMakerNamedResource, IProjectAsset, INotif
         /// <inheritdoc />
         public void Serialize(GameMakerWriter writer)
         {
+            ArgumentNullException.ThrowIfNull(writer);
             writer.Write(ID);
         }
 
         /// <inheritdoc />
         public void Unserialize(GameMakerReader reader)
         {
+            ArgumentNullException.ThrowIfNull(reader);
             ID = reader.ReadUInt32();
         }
     }
@@ -142,7 +140,7 @@ public class GameMakerBackground : GameMakerNamedResource, IProjectAsset, INotif
     /// </remarks>
     public uint GMS2TileCount { get; set; } = 1024;
 
-    private GameMakerResourceById<GameMakerSprite, GameMakerChunkSPRT> _gms2ExportedSprite = null;
+    private GameMakerResourceById<GameMakerSprite, GameMakerChunkSPRT>? _gms2ExportedSprite;
 
     /// <summary>
     /// Index of the exported sprite, if one was exported.
@@ -195,16 +193,17 @@ public class GameMakerBackground : GameMakerNamedResource, IProjectAsset, INotif
     /// <remarks>
     /// Added in GameMaker 2024.14.1.
     /// </remarks>
-    public uint GMS2TileSeparationX { get; set; } = 0;
+    public uint GMS2TileSeparationX { get; set; }
 
     /// <remarks>
     /// Added in GameMaker 2024.14.1.
     /// </remarks>
-    public uint GMS2TileSeparationY { get; set; } = 0;
+    public uint GMS2TileSeparationY { get; set; }
 
     /// <inheritdoc />
     public void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         writer.WriteGameMakerString(Name);
         writer.Write(Transparent);
         writer.Write(Smooth);
@@ -234,10 +233,10 @@ public class GameMakerBackground : GameMakerNamedResource, IProjectAsset, INotif
                 writer.Write(0);
             }
             writer.Write(GMS2FrameLength);
-            int tileIdCount = checked((int)((ulong)GMS2TileCount * GMS2ItemsPerTileCount));
+            var tileIdCount = checked((int)((ulong)GMS2TileCount * GMS2ItemsPerTileCount));
             if (GMS2TileIds.Count != tileIdCount)
                 throw new GameMakerSerializationException("Bad tile list length, should be tile count * frame count");
-            for (int i = 0; i < tileIdCount; i++)
+            for (var i = 0; i < tileIdCount; i++)
                 GMS2TileIds[i].Serialize(writer);
         }
     }
@@ -245,6 +244,7 @@ public class GameMakerBackground : GameMakerNamedResource, IProjectAsset, INotif
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         Name = reader.ReadGameMakerString();
         Transparent = reader.ReadBoolean();
         Smooth = reader.ReadBoolean();
@@ -277,7 +277,7 @@ public class GameMakerBackground : GameMakerNamedResource, IProjectAsset, INotif
             }
             else
             {
-                int id = reader.ReadInt32();
+                var id = reader.ReadInt32();
                 _gms2ExportedSprite = null;
                 if (id != 0)
                 {
@@ -287,11 +287,11 @@ public class GameMakerBackground : GameMakerNamedResource, IProjectAsset, INotif
                 }
             }
             GMS2FrameLength = reader.ReadInt64();
-            int tileIdCount = checked((int)((ulong)GMS2TileCount * GMS2ItemsPerTileCount));
+            var tileIdCount = checked((int)((ulong)GMS2TileCount * GMS2ItemsPerTileCount));
             if ((long)tileIdCount * sizeof(uint) > reader.Length - reader.Position)
                 throw new IOException("Tileset tile IDs exceed the available input.");
             GMS2TileIds = new(tileIdCount);
-            for (int i = 0; i < tileIdCount; i++)
+            for (var i = 0; i < tileIdCount; i++)
             {
                 TileID id = new();
                 id.Unserialize(reader);
@@ -327,7 +327,7 @@ public class GameMakerBackground : GameMakerNamedResource, IProjectAsset, INotif
     {
         GC.SuppressFinalize(this);
 
-        GMS2TileIds = new();
+        GMS2TileIds = [];
         Name = null;
         Texture = null;
     }

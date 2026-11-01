@@ -1,7 +1,5 @@
-using System.IO;
 using G3MLib.DataFile;
 using G3MLib.DataFile.Models;
-using Xunit;
 
 namespace G3MLib.Tests;
 
@@ -10,7 +8,7 @@ public sealed class SpriteSerializationTests
     [Fact("SpriteSerializationTests.cs", 10)]
     public void ModernNormalSpriteRoundTripsTextureAndCollisionMask()
     {
-        using GameMakerData data = GameMakerData.CreateNew2026LTS();
+        using var data = GameMakerData.CreateNew2026LTS();
         GameMakerTexturePageItem pageItem = new()
         {
             Name = data.Strings.MakeString("page_item"),
@@ -37,7 +35,7 @@ public sealed class SpriteSerializationTests
             SepMasks = GameMakerSprite.SepMaskType.Precise
         };
         sprite.Textures.Add(new GameMakerSprite.TextureEntry { Texture = pageItem });
-        GameMakerSprite.MaskEntry mask = sprite.NewMaskEntry(data);
+        var mask = sprite.NewMaskEntry(data);
         mask.Data[0] = 0x03;
         mask.Data[1] = 0x02;
         sprite.CollisionMasks.Add(mask);
@@ -46,11 +44,11 @@ public sealed class SpriteSerializationTests
         using MemoryStream stream = new();
         GameMakerIO.Write(stream, data);
         stream.Position = 0;
-        using GameMakerData output = GameMakerIO.Read(stream);
-        GameMakerSprite roundTripped = output.Sprites.ByName("spr_probe");
+        using var output = GameMakerIO.Read(stream);
+        var roundTripped = output.Sprites.ByName("spr_probe");
 
         Assert.Same(Assert.Single(output.TexturePageItems), Assert.Single(roundTripped.Textures).Texture);
-        GameMakerSprite.MaskEntry roundTrippedMask = Assert.Single(roundTripped.CollisionMasks);
+        var roundTrippedMask = Assert.Single(roundTripped.CollisionMasks);
         Assert.Equal(new byte[] { 0x03, 0x02 }, roundTrippedMask.Data);
         Assert.Equal((1, 1), (roundTripped.OriginX, roundTripped.OriginY));
         Assert.Equal(GameMakerSprite.SepMaskType.Precise, roundTripped.SepMasks);
@@ -59,7 +57,7 @@ public sealed class SpriteSerializationTests
     [Fact("SpriteSerializationTests.cs", 61)]
     public void CollisionMaskDimensionsFollowTheDataVersion()
     {
-        using GameMakerData data = GameMakerData.CreateNew2026LTS();
+        using var data = GameMakerData.CreateNew2026LTS();
         GameMakerSprite sprite = new()
         {
             Width = 16,
@@ -108,7 +106,7 @@ public sealed class SpriteSerializationTests
     [InlineData(3)]
     public void ModernSpineSpriteRoundTripsMetadata(int spineVersion)
     {
-        using GameMakerData data = GameMakerData.CreateNew2026LTS();
+        using var data = GameMakerData.CreateNew2026LTS();
         data.SetLTS(isLTS: false);
         GameMakerSprite sprite = new()
         {
@@ -118,7 +116,7 @@ public sealed class SpriteSerializationTests
             SVersion = 3,
             SpineVersion = spineVersion,
             SpineCacheVersion = spineVersion == 3 ? 1 : 0,
-            SpineJSON = "{\"skeleton\":{}}",
+            SpineJSON = /*lang=json*/ "{\"skeleton\":{}}",
             SpineAtlas = "atlas",
             SpineTextures = [],
             Textures = []
@@ -128,8 +126,8 @@ public sealed class SpriteSerializationTests
         using MemoryStream stream = new();
         GameMakerIO.Write(stream, data);
         stream.Position = 0;
-        using GameMakerData output = GameMakerIO.Read(stream);
-        GameMakerSprite roundTripped = output.Sprites.ByName("spr_spine");
+        using var output = GameMakerIO.Read(stream);
+        var roundTripped = output.Sprites.ByName("spr_spine");
 
         Assert.True(roundTripped.IsSpecialType);
         Assert.Equal(GameMakerSprite.SpriteType.Spine, roundTripped.SSpriteType);
@@ -143,7 +141,7 @@ public sealed class SpriteSerializationTests
     [Fact("SpriteSerializationTests.cs", 142)]
     public void SwfSpriteRoundTrips()
     {
-        using GameMakerData data = GameMakerData.CreateNew2026LTS();
+        using var data = GameMakerData.CreateNew2026LTS();
         data.SetLTS(isLTS: false);
         data.Sprites.Add(new GameMakerSprite
         {
@@ -194,15 +192,15 @@ public sealed class SpriteSerializationTests
         using MemoryStream stream = new();
         GameMakerIO.Write(stream, data);
         stream.Position = 0;
-        using GameMakerData output = GameMakerIO.Read(stream);
-        GameMakerSprite sprite = output.Sprites.ByName("spr_swf");
+        using var output = GameMakerIO.Read(stream);
+        var sprite = output.Sprites.ByName("spr_swf");
 
         Assert.Equal(GameMakerSprite.SpriteType.SWF, sprite.SSpriteType);
         Assert.Equal(8, sprite.SWFVersion);
         Assert.Equal([1, 2, 3], sprite.YYSWF.JPEGTable);
         Assert.Equal(30, sprite.YYSWF.Timeline.Framerate);
         Assert.Equal(16, sprite.YYSWF.Timeline.MaskWidth);
-        GameMakerYYSWFItem bitmap = Assert.Single(sprite.YYSWF.Timeline.UsedItems);
+        var bitmap = Assert.Single(sprite.YYSWF.Timeline.UsedItems);
         Assert.Equal(42, bitmap.ID);
         Assert.Equal(7, bitmap.BitmapData.TPEIndex);
         Assert.Single(sprite.YYSWF.Timeline.Frames);
@@ -212,7 +210,7 @@ public sealed class SpriteSerializationTests
     [Fact("SpriteSerializationTests.cs", 196)]
     public void LegacySwfSpriteRoundTripsEmbeddedBitmap()
     {
-        using GameMakerData data = GameMakerData.CreateNew();
+        using var data = GameMakerData.CreateNew();
         data.Sprites.Add(new GameMakerSprite
         {
             Name = data.Strings.MakeString("spr_legacy_swf"),
@@ -278,15 +276,15 @@ public sealed class SpriteSerializationTests
         using MemoryStream stream = new();
         GameMakerIO.Write(stream, data);
         stream.Position = 0;
-        using GameMakerData output = GameMakerIO.Read(stream);
-        GameMakerYYSWFBitmapData bitmap = output.Sprites.ByName("spr_legacy_swf").YYSWF.Timeline.UsedItems
+        using var output = GameMakerIO.Read(stream);
+        var bitmap = output.Sprites.ByName("spr_legacy_swf").YYSWF.Timeline.UsedItems
             .Single(item => item.ItemType == GameMakerYYSWFItemType.ItemBitmap).BitmapData;
 
         Assert.Null(bitmap.TPEIndex);
         Assert.Equal([1, 2], bitmap.ImageData);
         Assert.Equal([3], bitmap.AlphaData);
         Assert.Equal([4], bitmap.ColorPaletteData);
-        GameMakerYYSWFSubShapeData subshape = output.Sprites.ByName("spr_legacy_swf").YYSWF.Timeline.UsedItems
+        var subshape = output.Sprites.ByName("spr_legacy_swf").YYSWF.Timeline.UsedItems
             .Single(item => item.ItemType == GameMakerYYSWFItemType.ItemShape).ShapeData.StyleGroups.Single().Subshapes.Single();
         Assert.Equal((1f, 2f), (subshape.Points.Single().X, subshape.Points.Single().Y));
         Assert.Equal([0, 1, 2], subshape.Triangles);
@@ -299,7 +297,7 @@ public sealed class SpriteSerializationTests
     [InlineData(4)]
     public void VectorSpriteRoundTripsCollisionMask(int vectorVersion)
     {
-        using GameMakerData data = GameMakerData.CreateNew2026LTS();
+        using var data = GameMakerData.CreateNew2026LTS();
         data.SetLTS(isLTS: false);
         GameMakerVectorShapeData shape = new()
         {
@@ -340,14 +338,14 @@ public sealed class SpriteSerializationTests
         using MemoryStream stream = new();
         GameMakerIO.Write(stream, data);
         stream.Position = 0;
-        using GameMakerData output = GameMakerIO.Read(stream);
-        GameMakerSprite sprite = output.Sprites.ByName("spr_vector");
+        using var output = GameMakerIO.Read(stream);
+        var sprite = output.Sprites.ByName("spr_vector");
 
         Assert.Equal(vectorVersion, sprite.VectorVersion);
         Assert.Equal(8, sprite.VectorCollisionMaskWidth);
         Assert.Equal(1, sprite.VectorCollisionMaskHeight);
         Assert.Equal([0x3F], sprite.VectorCollisionMaskRLEData.Single());
-        GameMakerVectorSubShapeData subshape = sprite.VectorShapes.Single().StyleGroups.Single().Subshapes.Single();
+        var subshape = sprite.VectorShapes.Single().StyleGroups.Single().Subshapes.Single();
         Assert.Equal(0xFF00FFFFu, subshape.PointColors.Single());
         Assert.Equal([0, 1, 2], subshape.Triangles);
         Assert.Equal((5f, 6f), (subshape.AAVectors.Single().X, subshape.AAVectors.Single().Y));

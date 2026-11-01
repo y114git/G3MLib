@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Decompiler.AST;
 
 namespace G3MLib.Analyzer.Decompiler.GameSpecific;
@@ -76,13 +75,13 @@ public class VirtualKeyMacroType : IMacroTypeInt32
     public IExpressionNode? Resolve(ASTCleaner cleaner, IMacroResolvableNode node, int data)
     {
         // Check if in constant list
-        if (Constants.TryGetValue(data, out string? name))
+        if (Constants.TryGetValue(data, out var name))
         {
             return new MacroValueNode(name);
         }
 
         // Check if in A-Z or 0-9
-        if ((data >= 'A' && data <= 'Z') || (data >= '0' && data <= '9'))
+        if (data is >= 'A' and <= 'Z' or >= '0' and <= '9')
         {
             return new MacroValueNode($"ord(\"{(char)data}\")");
         }

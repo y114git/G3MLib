@@ -14,10 +14,10 @@ public interface IConditionalValueNode : IMacroResolvableNode
     /// <summary>
     /// Type name, as used in conditional comparison operations.
     /// </summary>
-    public string ConditionalTypeName { get; }
+    string ConditionalTypeName { get; }
 
     /// <summary>
     /// String representation of the value of the node, if applicable, or an empty string.
     /// </summary>
-    public string ConditionalValue { get; }
+    string ConditionalValue { get; }
 }

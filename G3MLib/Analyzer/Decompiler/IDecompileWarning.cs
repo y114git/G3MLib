@@ -14,10 +14,10 @@ public interface IDecompileWarning
     /// <summary>
     /// Human-readable message describing the warning.
     /// </summary>
-    public string Message { get; }
+    string Message { get; }
 
     /// <summary>
     /// Code entry name where the warning was emitted.
     /// </summary>
-    public string CodeEntryName { get; }
+    string CodeEntryName { get; }
 }

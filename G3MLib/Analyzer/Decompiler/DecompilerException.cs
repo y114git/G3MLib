@@ -4,8 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System;
-
 namespace G3MLib.Analyzer.Decompiler;
 
 /// <summary>Represents errors that occur during decompilation.</summary>

@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.Globalization;
 using System.IO;
@@ -313,11 +311,10 @@ public class GameMakerInstruction : GameMakerObject, IGMInstruction
             // Presumably, a positive number.
             return (int)(_firstWord & 0xFFFFFF);
         }
-        set
-        {
+
+        set =>
             // Remove sign-extended bits, but keep sign bit.
             _firstWord = (_firstWord & 0xFF000000) | ((uint)value & 0x00FFFFFF);
-        }
     }
     public bool JumpOffsetPopenvExitMagic
     {
@@ -371,11 +368,11 @@ public class GameMakerInstruction : GameMakerObject, IGMInstruction
         }
 
         // Get address of first instruction in the reference chain
-        uint addr = reader.GetAddressForGameMakerObject(obj.FirstAddress);
+        var addr = reader.GetAddressForGameMakerObject(obj.FirstAddress);
 
         // Loop over all occurrences in the chain, assigning the variable/function references
-        GameMakerInstruction instr = null;
-        for (int i = 0; i < obj.Occurrences; i++)
+        GameMakerInstruction? instr = null;
+        for (var i = 0; i < obj.Occurrences; i++)
         {
             instr = reader.GetGameMakerObjectAtAddress<GameMakerInstruction>(addr) ?? throw new IOException($"Failed to find instruction at {addr}");
             if (typeof(T) == typeof(GameMakerVariable))
@@ -400,10 +397,10 @@ public class GameMakerInstruction : GameMakerObject, IGMInstruction
     internal static void SerializeReferenceChain<T>(GameMakerWriter writer, IList<GameMakerCode> codeList, IList<T> objList) where T : class, GameMakerObject, IReferencedObject
     {
         // Store initial position to return to later
-        uint initialPos = writer.Position;
+        var initialPos = writer.Position;
 
         // Initialize all objects with no occurrences, and no first address
-        foreach (T obj in objList)
+        foreach (var obj in objList)
         {
             if (obj is null)
                 continue;
@@ -414,7 +411,7 @@ public class GameMakerInstruction : GameMakerObject, IGMInstruction
 
         // Scan over all code entries for references
         Dictionary<T, long> lastReferencedAddressesAndTypes = new(objList.Count);
-        foreach (GameMakerCode code in codeList)
+        foreach (var code in codeList)
         {
             // Skip non-root code entries
             if (code is null || code.ParentEntry is not null)
@@ -423,9 +420,9 @@ public class GameMakerInstruction : GameMakerObject, IGMInstruction
             }
 
             // Scan for references
-            foreach (GameMakerInstruction instr in code.Instructions)
+            foreach (var instr in code.Instructions)
             {
-                T obj = null;
+                T? obj = null;
                 if (typeof(T) == typeof(GameMakerVariable))
                 {
                     obj = instr.ValueVariable as T;
@@ -437,14 +434,14 @@ public class GameMakerInstruction : GameMakerObject, IGMInstruction
                 if (obj is not null)
                 {
                     // Get address of this instruction's reference
-                    uint thisAddress = writer.GetAddressForGameMakerObject(instr) + 4;
+                    var thisAddress = writer.GetAddressForGameMakerObject(instr) + 4;
 
                     // Check to see if we have a previous occurrence to update
-                    if (lastReferencedAddressesAndTypes.TryGetValue(obj, out long lastAddressAndType))
+                    if (lastReferencedAddressesAndTypes.TryGetValue(obj, out var lastAddressAndType))
                     {
                         // Not the first occurrence - update previous occurrence
-                        uint lastAddress = (uint)(lastAddressAndType & 0xFFFFFFFF);
-                        int lastType = (int)(lastAddressAndType >> 32);
+                        var lastAddress = (uint)(lastAddressAndType & 0xFFFFFFFF);
+                        var lastType = (int)(lastAddressAndType >> 32);
                         writer.Position = lastAddress;
                         writer.Write(((int)(thisAddress - lastAddress) & 0x07FFFFFF) | ((lastType & 0xF8) << 24));
                         obj.Occurrences++;
@@ -470,178 +467,179 @@ public class GameMakerInstruction : GameMakerObject, IGMInstruction
     /// <inheritdoc />
     public void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         // Flag tracking whether we're writing bytecode 14 (old) instructions
-        bool bytecode14 = writer.Bytecode14OrLower;
+        var bytecode14 = writer.Bytecode14OrLower;
 
         // Switch on the basic format of instruction to encode
         switch (GetInstructionType(Kind))
         {
             case InstructionType.SingleTypeInstruction:
             case InstructionType.DoubleTypeInstruction:
-            {
-                // Write word, transforming opcode as needed for bytecode 14
-                uint firstWord = _firstWord;
-                if (bytecode14)
                 {
-                    firstWord = (firstWord & 0xFFFFFF) | ((uint)ConvertNewKindToOldKind((byte)(firstWord >> 24)) << 24);
+                    // Write word, transforming opcode as needed for bytecode 14
+                    var firstWord = _firstWord;
+                    if (bytecode14)
+                    {
+                        firstWord = (firstWord & 0xFFFFFF) | ((uint)ConvertNewKindToOldKind((byte)(firstWord >> 24)) << 24);
+                    }
+                    writer.Write(firstWord);
+                    break;
                 }
-                writer.Write(firstWord);
-                break;
-            }
 
             case InstructionType.ComparisonInstruction:
-            {
-                // Write word
-                uint firstWord = _firstWord;
-                if (bytecode14)
                 {
-                    // Transform opcode for bytecode 14
-                    firstWord = (firstWord & 0xFFFFFF) |
-                                 ((uint)ConvertNewKindToOldKind((byte)(firstWord >> 24),
-                                                                (ComparisonType)((firstWord & 0x0000FF00) >> 8)) << 24);
+                    // Write word
+                    var firstWord = _firstWord;
+                    if (bytecode14)
+                    {
+                        // Transform opcode for bytecode 14
+                        firstWord = (firstWord & 0xFFFFFF) |
+                                     ((uint)ConvertNewKindToOldKind((byte)(firstWord >> 24),
+                                                                    (ComparisonType)((firstWord & 0x0000FF00) >> 8)) << 24);
 
-                    // Get rid of comparison type as well
-                    firstWord &= ~0x0000FF00u;
+                        // Get rid of comparison type as well
+                        firstWord &= ~0x0000FF00u;
+                    }
+                    writer.Write(firstWord);
+                    break;
                 }
-                writer.Write(firstWord);
-                break;
-            }
 
             case InstructionType.GotoInstruction:
-            {
-                // Write word
-                uint firstWord = _firstWord;
-                if (bytecode14)
                 {
-                    // Transform opcode as needed for bytecode 14
-                    firstWord = (firstWord & 0xFFFFFF) | ((uint)ConvertNewKindToOldKind((byte)(firstWord >> 24)) << 24);
-                }
-                else if ((firstWord & 0xFFFFFF) != 0xF00000 && (firstWord & 0x800000) != 0)
-                {
-                    // Additionally, after bytecode 14, transform 24-bit negative branch into a 23-bit negative branch
+                    // Write word
+                    var firstWord = _firstWord;
+                    if (bytecode14)
+                    {
+                        // Transform opcode as needed for bytecode 14
+                        firstWord = (firstWord & 0xFFFFFF) | ((uint)ConvertNewKindToOldKind((byte)(firstWord >> 24)) << 24);
+                    }
+                    else if ((firstWord & 0xFFFFFF) != 0xF00000 && (firstWord & 0x800000) != 0)
+                    {
+                        // Additionally, after bytecode 14, transform 24-bit negative branch into a 23-bit negative branch
 
-                    // Unset 24-bit sign bit
-                    firstWord &= ~0x800000u;
+                        // Unset 24-bit sign bit
+                        firstWord &= ~0x800000u;
 
-                    // Set 23-bit sign bit
-                    firstWord |= 0x400000;
+                        // Set 23-bit sign bit
+                        firstWord |= 0x400000;
+                    }
+                    writer.Write(firstWord);
+                    break;
                 }
-                writer.Write(firstWord);
-                break;
-            }
 
             case InstructionType.PopInstruction:
-            {
-                // Write first word, transforming opcode as needed for bytecode 14
-                uint firstWord = _firstWord;
-                if (bytecode14)
                 {
-                    firstWord = (firstWord & 0xFFFFFF) | ((uint)ConvertNewKindToOldKind((byte)(firstWord >> 24)) << 24);
-                }
-                writer.Write(firstWord);
+                    // Write first word, transforming opcode as needed for bytecode 14
+                    var firstWord = _firstWord;
+                    if (bytecode14)
+                    {
+                        firstWord = (firstWord & 0xFFFFFF) | ((uint)ConvertNewKindToOldKind((byte)(firstWord >> 24)) << 24);
+                    }
+                    writer.Write(firstWord);
 
-                if (Type1 != DataType.Int16)
-                {
-                    // Write actual variable being stored to (reset next occurrence to string ID for now)
-                    ReferenceNextOccurrenceOffset = (uint)(ValueVariable?.NameStringID ?? 0xDEAD);
-                    writer.Write(_primitiveValue.AsInt);
-                }
-                break;
-            }
-
-            case InstructionType.PushInstruction:
-            {
-                // Write first word, transforming opcode as needed for bytecode 14
-                uint firstWord = _firstWord;
-                if (bytecode14)
-                {
-                    firstWord = (firstWord & 0xFFFFFF) | ((uint)ConvertNewKindToOldKind((byte)(firstWord >> 24)) << 24);
-                }
-                writer.Write(firstWord);
-
-                // Write value being pushed
-                switch (Type1)
-                {
-                    case DataType.Double:
-                        writer.Write(ValueDouble);
-                        break;
-                    case DataType.Int32:
-                        // For functions/variables, reset next occurrence to string ID for now
-                        if (ValueFunction is GameMakerFunction function)
-                        {
-                            ReferenceNextOccurrenceOffset = (uint)function.NameStringID;
-                            writer.Write(_primitiveValue.AsInt);
-                            break;
-                        }
-                        if (ValueVariable is GameMakerVariable variable)
-                        {
-                            ReferenceNextOccurrenceOffset = (uint)variable.NameStringID;
-                            writer.Write(_primitiveValue.AsInt);
-                            break;
-                        }
-
-                        writer.Write(ValueInt);
-                        break;
-                    case DataType.Int64:
-                        writer.Write(ValueLong);
-                        break;
-                    case DataType.Variable:
-                        // Write variable (reset next occurrence to string ID for now)
+                    if (Type1 != DataType.Int16)
+                    {
+                        // Write actual variable being stored to (reset next occurrence to string ID for now)
                         ReferenceNextOccurrenceOffset = (uint)(ValueVariable?.NameStringID ?? 0xDEAD);
                         writer.Write(_primitiveValue.AsInt);
-                        break;
-                    case DataType.String:
-                        writer.WriteGameMakerObject(ValueString);
-                        break;
-                    case DataType.Int16:
-                        // Data is encoded in the first two bytes of the instruction (was already written above)
-                        break;
+                    }
+                    break;
                 }
 
-                break;
-            }
+            case InstructionType.PushInstruction:
+                {
+                    // Write first word, transforming opcode as needed for bytecode 14
+                    var firstWord = _firstWord;
+                    if (bytecode14)
+                    {
+                        firstWord = (firstWord & 0xFFFFFF) | ((uint)ConvertNewKindToOldKind((byte)(firstWord >> 24)) << 24);
+                    }
+                    writer.Write(firstWord);
+
+                    // Write value being pushed
+                    switch (Type1)
+                    {
+                        case DataType.Double:
+                            writer.Write(ValueDouble);
+                            break;
+                        case DataType.Int32:
+                            // For functions/variables, reset next occurrence to string ID for now
+                            if (ValueFunction is GameMakerFunction function)
+                            {
+                                ReferenceNextOccurrenceOffset = (uint)function.NameStringID;
+                                writer.Write(_primitiveValue.AsInt);
+                                break;
+                            }
+                            if (ValueVariable is GameMakerVariable variable)
+                            {
+                                ReferenceNextOccurrenceOffset = (uint)variable.NameStringID;
+                                writer.Write(_primitiveValue.AsInt);
+                                break;
+                            }
+
+                            writer.Write(ValueInt);
+                            break;
+                        case DataType.Int64:
+                            writer.Write(ValueLong);
+                            break;
+                        case DataType.Variable:
+                            // Write variable (reset next occurrence to string ID for now)
+                            ReferenceNextOccurrenceOffset = (uint)(ValueVariable?.NameStringID ?? 0xDEAD);
+                            writer.Write(_primitiveValue.AsInt);
+                            break;
+                        case DataType.String:
+                            writer.WriteGameMakerObject(ValueString);
+                            break;
+                        case DataType.Int16:
+                            // Data is encoded in the first two bytes of the instruction (was already written above)
+                            break;
+                    }
+
+                    break;
+                }
 
             case InstructionType.CallInstruction:
-            {
-                // Write first word, transforming opcode as needed for bytecode 14
-                uint firstWord = _firstWord;
-                if (bytecode14)
                 {
-                    firstWord = (firstWord & 0xFFFFFF) | ((uint)ConvertNewKindToOldKind((byte)(firstWord >> 24)) << 24);
-                }
-                writer.Write(firstWord);
+                    // Write first word, transforming opcode as needed for bytecode 14
+                    var firstWord = _firstWord;
+                    if (bytecode14)
+                    {
+                        firstWord = (firstWord & 0xFFFFFF) | ((uint)ConvertNewKindToOldKind((byte)(firstWord >> 24)) << 24);
+                    }
+                    writer.Write(firstWord);
 
-                // Write reference to the function being called (reset next occurrence to string ID for now)
-                if (ValueFunction is GameMakerFunction function)
-                {
-                    ReferenceNextOccurrenceOffset = (uint)function.NameStringID;
-                }
-                writer.Write(_primitiveValue.AsInt);
-                break;
-            }
-
-            case InstructionType.BreakInstruction:
-            {
-                // Write first word
-                writer.Write(_firstWord);
-
-                // Write integer argument, or function, if either is present
-                if (Type1 == DataType.Int32)
-                {
+                    // Write reference to the function being called (reset next occurrence to string ID for now)
                     if (ValueFunction is GameMakerFunction function)
                     {
-                        // Write function (reset next occurrence to string ID for now).
-                        // We additionally encode the script asset type, which can appear in files if this reference is the final one.
                         ReferenceNextOccurrenceOffset = (uint)function.NameStringID;
-                        writer.Write(_primitiveValue.AsInt | (AdaptAssetTypeId(writer.gameMakerData, AssetType.Script) << 24));
                     }
-                    else
-                    {
-                        writer.Write(IntArgument);
-                    }
+                    writer.Write(_primitiveValue.AsInt);
+                    break;
                 }
-                break;
-            }
+
+            case InstructionType.BreakInstruction:
+                {
+                    // Write first word
+                    writer.Write(_firstWord);
+
+                    // Write integer argument, or function, if either is present
+                    if (Type1 == DataType.Int32)
+                    {
+                        if (ValueFunction is GameMakerFunction function)
+                        {
+                            // Write function (reset next occurrence to string ID for now).
+                            // We additionally encode the script asset type, which can appear in files if this reference is the final one.
+                            ReferenceNextOccurrenceOffset = (uint)function.NameStringID;
+                            writer.Write(_primitiveValue.AsInt | (AdaptAssetTypeId(writer.gameMakerData, AssetType.Script) << 24));
+                        }
+                        else
+                        {
+                            writer.Write(IntArgument);
+                        }
+                    }
+                    break;
+                }
 
             default:
                 throw new IOException($"Unknown opcode {Kind.ToString().ToUpper(CultureInfo.InvariantCulture)}");
@@ -651,18 +649,19 @@ public class GameMakerInstruction : GameMakerObject, IGMInstruction
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         // Flag tracking whether we're parsing bytecode 14 (old) instructions
-        bool bytecode14 = reader.Bytecode14OrLower;
+        var bytecode14 = reader.Bytecode14OrLower;
 
         // Read first word from instruction
-        uint firstWord = reader.ReadUInt32();
+        var firstWord = reader.ReadUInt32();
         _firstWord = firstWord;
         _primitiveValue = default;
         _objectValue = null;
 
         // Read opcode from most significant byte
-        byte kindByte = (byte)((firstWord & 0xFF000000) >> 24);
-        Opcode kind = (Opcode)kindByte;
+        var kindByte = (byte)((firstWord & 0xFF000000) >> 24);
+        var kind = (Opcode)kindByte;
         if (bytecode14)
         {
             // Convert opcode from old format to new format
@@ -670,152 +669,152 @@ public class GameMakerInstruction : GameMakerObject, IGMInstruction
         }
 
         // Extract first three bytes from first word
-        byte b0 = (byte)(firstWord & 0x000000FF);
-        byte b1 = (byte)((firstWord & 0x0000FF00) >> 8);
-        byte b2 = (byte)((firstWord & 0x00FF0000) >> 16);
+        var b0 = (byte)(firstWord & 0x000000FF);
+        var b1 = (byte)((firstWord & 0x0000FF00) >> 8);
+        var b2 = (byte)((firstWord & 0x00FF0000) >> 16);
 
         // Parse instruction contents
-        InstructionType instructionType = GetInstructionType(kind);
+        var instructionType = GetInstructionType(kind);
         switch (instructionType)
         {
             case InstructionType.SingleTypeInstruction:
             case InstructionType.DoubleTypeInstruction:
             case InstructionType.ComparisonInstruction:
-            {
-                // Parse instruction components from bytes
-                DataType type1 = (DataType)(b2 & 0xf);
-                DataType type2 = (DataType)(b2 >> 4);
+                {
+                    // Parse instruction components from bytes
+                    var type1 = (DataType)(b2 & 0xf);
+                    var type2 = (DataType)(b2 >> 4);
 
 #if DEBUG
-                // Ensure basic conditions hold, at least when in debug
-                if (b0 != 0 && kind is not (Opcode.Dup or Opcode.CallV))
-                {
-                    throw new IOException($"Invalid padding in {kind.ToString().ToUpper(CultureInfo.InvariantCulture)}");
-                }
-                if (instructionType == InstructionType.SingleTypeInstruction && type2 != 0)
-                {
-                    throw new IOException($"Second type should be 0 in {kind.ToString().ToUpper(CultureInfo.InvariantCulture)}");
-                }
+                    // Ensure basic conditions hold, at least when in debug
+                    if (b0 != 0 && kind is not (Opcode.Dup or Opcode.CallV))
+                    {
+                        throw new IOException($"Invalid padding in {kind.ToString().ToUpper(CultureInfo.InvariantCulture)}");
+                    }
+                    if (instructionType == InstructionType.SingleTypeInstruction && type2 != 0)
+                    {
+                        throw new IOException($"Second type should be 0 in {kind.ToString().ToUpper(CultureInfo.InvariantCulture)}");
+                    }
 #endif
 
-                // In bytecode 14, the comparison kind is encoded in the opcode itself
-                if (bytecode14 && kind == Opcode.Cmp)
-                {
-                    ComparisonKind = (ComparisonType)(kindByte - 0x10);
-                }
+                    // In bytecode 14, the comparison kind is encoded in the opcode itself
+                    if (bytecode14 && kind == Opcode.Cmp)
+                    {
+                        ComparisonKind = (ComparisonType)(kindByte - 0x10);
+                    }
 
-                // Check for "and.b.b" or "or.b.b", which imply the code was compiled without short-circuiting
-                if ((kind is Opcode.And or Opcode.Or) && type1 == DataType.Boolean && type2 == DataType.Boolean)
-                {
-                    reader.gameMakerData.ShortCircuit = false;
-                }
+                    // Check for "and.b.b" or "or.b.b", which imply the code was compiled without short-circuiting
+                    if (kind is Opcode.And or Opcode.Or && type1 == DataType.Boolean && type2 == DataType.Boolean)
+                    {
+                        reader.gameMakerData.ShortCircuit = false;
+                    }
 
-                // Check for "dup.e", which implies new code generation introduced in GM 2024.14.4
-                if (kind == Opcode.Dup && type1 == DataType.Int16 && !reader.gameMakerData.IsVersionAtLeast(2024, 14, 4))
-                {
-                    reader.gameMakerData.SetGMS2Version(2024, 14, 4);
+                    // Check for "dup.e", which implies new code generation introduced in GM 2024.14.4
+                    if (kind == Opcode.Dup && type1 == DataType.Int16 && !reader.gameMakerData.IsVersionAtLeast(2024, 14, 4))
+                    {
+                        reader.gameMakerData.SetGMS2Version(2024, 14, 4);
+                    }
+                    break;
                 }
-                break;
-            }
 
             case InstructionType.GotoInstruction:
-            {
-                // If after bytecode 14, make sure that negative 23-bit integers are sign extended to 24-bit.
-                if (!bytecode14 && (firstWord & 0xFFFFFF) != 0xF00000 && (firstWord & 0x400000) != 0)
                 {
-                    _firstWord |= 0x800000;
+                    // If after bytecode 14, make sure that negative 23-bit integers are sign extended to 24-bit.
+                    if (!bytecode14 && (firstWord & 0xFFFFFF) != 0xF00000 && (firstWord & 0x400000) != 0)
+                    {
+                        _firstWord |= 0x800000;
+                    }
+                    break;
                 }
-                break;
-            }
 
             case InstructionType.PopInstruction:
-            {
-                // Parse instruction components from bytes
-                DataType type1 = (DataType)(b2 & 0xf);
-                if (type1 != DataType.Int16)
                 {
-                    // Destination is an actual variable
-                    _primitiveValue = new(reader.ReadInt32());
+                    // Parse instruction components from bytes
+                    var type1 = (DataType)(b2 & 0xf);
+                    if (type1 != DataType.Int16)
+                    {
+                        // Destination is an actual variable
+                        _primitiveValue = new(reader.ReadInt32());
+                    }
+                    break;
                 }
-                break;
-            }
 
             case InstructionType.PushInstruction:
-            {
-                // Parse instruction components from bytes
-                DataType type1 = (DataType)b2;
-
-                // Parse data being pushed
-                switch (type1)
                 {
-                    case DataType.Double:
-                        ValueDouble = reader.ReadDouble();
-                        break;
-                    case DataType.Int32:
-                        ValueInt = reader.ReadInt32();
-                        break;
-                    case DataType.Int64:
-                        ValueLong = reader.ReadInt64();
-                        break;
-                    case DataType.Variable:
-                        _primitiveValue = new(reader.ReadInt32());
-                        break;
-                    case DataType.String:
-                        ValueString = reader.ReadGameMakerObject<GameMakerResourceById<GameMakerString, GameMakerChunkSTRG>>();
-                        break;
-                    case DataType.Int16:
-                        // Data is encoded in the first two bytes of the instruction (was already read above)
-                        break;
-                }
+                    // Parse instruction components from bytes
+                    var type1 = (DataType)b2;
 
-                break;
-            }
+                    // Parse data being pushed
+                    switch (type1)
+                    {
+                        case DataType.Double:
+                            ValueDouble = reader.ReadDouble();
+                            break;
+                        case DataType.Int32:
+                            ValueInt = reader.ReadInt32();
+                            break;
+                        case DataType.Int64:
+                            ValueLong = reader.ReadInt64();
+                            break;
+                        case DataType.Variable:
+                            _primitiveValue = new(reader.ReadInt32());
+                            break;
+                        case DataType.String:
+                            ValueString = reader.ReadGameMakerObject<GameMakerResourceById<GameMakerString, GameMakerChunkSTRG>>();
+                            break;
+                        case DataType.Int16:
+                            // Data is encoded in the first two bytes of the instruction (was already read above)
+                            break;
+                    }
+
+                    break;
+                }
 
             case InstructionType.CallInstruction:
-            {
-                // Parse function being called
-                _primitiveValue = new(reader.ReadInt32());
-                break;
-            }
+                {
+                    // Parse function being called
+                    _primitiveValue = new(reader.ReadInt32());
+                    break;
+                }
 
             case InstructionType.BreakInstruction:
-            {
-                // Parse instruction components from bytes
-                short value = (short)(b0 | (b1 << 8));
-                DataType type1 = (DataType)b2;
-
-                // Parse integer argument, if provided
-                if (type1 == DataType.Int32)
                 {
-                    IntArgument = reader.ReadInt32();
+                    // Parse instruction components from bytes
+                    var value = (short)(b0 | (b1 << 8));
+                    var type1 = (DataType)b2;
 
-                    // Existence of this argument implies GameMaker 2023.8 or above
-                    if (!reader.gameMakerData.IsVersionAtLeast(2023, 8))
+                    // Parse integer argument, if provided
+                    if (type1 == DataType.Int32)
                     {
-                        reader.gameMakerData.SetGMS2Version(2023, 8);
+                        IntArgument = reader.ReadInt32();
+
+                        // Existence of this argument implies GameMaker 2023.8 or above
+                        if (!reader.gameMakerData.IsVersionAtLeast(2023, 8))
+                        {
+                            reader.gameMakerData.SetGMS2Version(2023, 8);
+                        }
+
+                        // If this is an asset type found in GameMaker 2024.4 or above, track that as well
+                        if (!reader.gameMakerData.IsVersionAtLeast(2024, 4) &&
+                            CheckIfAssetTypeIs2024_4(reader.gameMakerData, IntArgument & 0xffffff, IntArgument >> 24))
+                        {
+                            reader.gameMakerData.SetGMS2Version(2024, 4);
+                        }
                     }
 
-                    // If this is an asset type found in GameMaker 2024.4 or above, track that as well
-                    if (!reader.gameMakerData.IsVersionAtLeast(2024, 4) &&
-                        CheckIfAssetTypeIs2024_4(reader.gameMakerData, IntArgument & 0xffffff, IntArgument >> 24))
+                    // If this is a setowner instruction, array copy-on-write is enabled
+                    if (value == -5)
                     {
-                        reader.gameMakerData.SetGMS2Version(2024, 4);
+                        reader.gameMakerData.ArrayCopyOnWrite = true;
                     }
-                }
 
-                // If this is a setowner instruction, array copy-on-write is enabled
-                if (value == -5)
-                {
-                    reader.gameMakerData.ArrayCopyOnWrite = true;
+                    // If this is a chknullish instruction (ID -10), then this implies GameMaker 2.3.7 or above
+                    if (value == -10 && !reader.gameMakerData.IsVersionAtLeast(2, 3, 7))
+                    {
+                        reader.gameMakerData.SetGMS2Version(2, 3, 7);
+                    }
+                    break;
                 }
-
-                // If this is a chknullish instruction (ID -10), then this implies GameMaker 2.3.7 or above
-                if (value == -10 && !reader.gameMakerData.IsVersionAtLeast(2, 3, 7))
-                {
-                    reader.gameMakerData.SetGMS2Version(2, 3, 7);
-                }
-                break;
-            }
 
             default:
                 throw new IOException($"Unknown opcode {Kind.ToString().ToUpper(CultureInfo.InvariantCulture)}");
@@ -825,14 +824,15 @@ public class GameMakerInstruction : GameMakerObject, IGMInstruction
     /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
     public static uint UnserializeChildObjectCount(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         // Flag tracking whether we're parsing bytecode 14 (old) instructions
-        bool bytecode14 = reader.Bytecode14OrLower;
+        var bytecode14 = reader.Bytecode14OrLower;
 
         // Read first word from instruction
-        uint firstWord = reader.ReadUInt32();
+        var firstWord = reader.ReadUInt32();
 
         // Read opcode from most significant byte
-        Opcode kind = (Opcode)((firstWord & 0xFF000000) >> 24);
+        var kind = (Opcode)((firstWord & 0xFF000000) >> 24);
         if (bytecode14)
         {
             // Convert opcode from old format to new format
@@ -840,10 +840,10 @@ public class GameMakerInstruction : GameMakerObject, IGMInstruction
         }
 
         // Extract third byte from first word
-        byte b2 = (byte)((firstWord & 0x00FF0000) >> 16);
+        var b2 = (byte)((firstWord & 0x00FF0000) >> 16);
 
         // Parse instruction contents
-        InstructionType instructionType = GetInstructionType(kind);
+        var instructionType = GetInstructionType(kind);
         switch (instructionType)
         {
             case InstructionType.SingleTypeInstruction:
@@ -854,62 +854,62 @@ public class GameMakerInstruction : GameMakerObject, IGMInstruction
                 break;
 
             case InstructionType.PopInstruction:
-            {
-                // Skip destination of pop instruction, if present
-                DataType type1 = (DataType)(b2 & 0xf);
-                if (type1 != DataType.Int16)
                 {
-                    reader.Position += 4;
+                    // Skip destination of pop instruction, if present
+                    var type1 = (DataType)(b2 & 0xf);
+                    if (type1 != DataType.Int16)
+                    {
+                        reader.Position += 4;
+                    }
+                    break;
                 }
-                break;
-            }
 
             case InstructionType.PushInstruction:
-            {
-                // Skip value being pushed, if present
-                DataType type1 = (DataType)(b2 & 0xf);
-                switch (type1)
                 {
-                    case DataType.Double:
-                    case DataType.Int64:
-                        reader.Position += 8;
-                        break;
+                    // Skip value being pushed, if present
+                    var type1 = (DataType)(b2 & 0xf);
+                    switch (type1)
+                    {
+                        case DataType.Double:
+                        case DataType.Int64:
+                            reader.Position += 8;
+                            break;
 
-                    case DataType.Int32:
-                        reader.Position += 4;
-                        break;
+                        case DataType.Int32:
+                            reader.Position += 4;
+                            break;
 
-                    case DataType.Variable:
-                        reader.Position += 4;
-                        break;
+                        case DataType.Variable:
+                            reader.Position += 4;
+                            break;
 
-                    case DataType.String:
-                        reader.Position += 4;
-                        return 1;
+                        case DataType.String:
+                            reader.Position += 4;
+                            return 1;
+                    }
+                    break;
                 }
-                break;
-            }
 
             case InstructionType.CallInstruction:
                 reader.Position += 4;
                 break;
 
             case InstructionType.BreakInstruction:
-            {
-                // Skip past integer argument, if present
-                DataType type1 = (DataType)(b2 & 0xf);
-                if (type1 == DataType.Int32)
                 {
-                    reader.Position += 4;
-
-                    // Existence of this argument implies GameMaker 2023.8 or above
-                    if (!reader.gameMakerData.IsVersionAtLeast(2023, 8))
+                    // Skip past integer argument, if present
+                    var type1 = (DataType)(b2 & 0xf);
+                    if (type1 == DataType.Int32)
                     {
-                        reader.gameMakerData.SetGMS2Version(2023, 8);
+                        reader.Position += 4;
+
+                        // Existence of this argument implies GameMaker 2023.8 or above
+                        if (!reader.gameMakerData.IsVersionAtLeast(2023, 8))
+                        {
+                            reader.gameMakerData.SetGMS2Version(2023, 8);
+                        }
                     }
+                    break;
                 }
-                break;
-            }
 
             default:
                 throw new IOException($"Unknown opcode {kind.ToString().ToUpper(CultureInfo.InvariantCulture)}");
@@ -949,7 +949,7 @@ public class GameMakerInstruction : GameMakerObject, IGMInstruction
     /// <param name="address">Address of the instruction within its code entry.</param>
     /// <param name="blocks">A lookup of block addresses to block indices for the code entry for which the instruction belongs.</param>
     /// <returns></returns>
-    public string ToString(GameMakerCode code, uint address, Dictionary<uint, uint> blocks = null)
+    public string ToString(GameMakerCode code, uint address, Dictionary<uint, uint>? blocks = null)
     {
         StringBuilder sb = new();
         ToString(sb, code, address, blocks);
@@ -967,17 +967,18 @@ public class GameMakerInstruction : GameMakerObject, IGMInstruction
     /// it will use <paramref name="stringBuilder.Length"/> as the index instead.</param>
     /// <remarks>Note that performance of this function can be drastically different, depending on <paramref name="index"/>.
     /// For best results, it's recommended to leave it at -1.</remarks>
-    public void ToString(StringBuilder stringBuilder, GameMakerCode code, uint address, Dictionary<uint, uint> blocks = null, int index = -1)
+    public void ToString(StringBuilder stringBuilder, GameMakerCode code, uint address, Dictionary<uint, uint>? blocks = null, int index = -1)
     {
+        ArgumentNullException.ThrowIfNull(stringBuilder);
         if (index < 0)
         {
             index = stringBuilder.Length;
         }
         StringBuilderHelper sbh = new(index);
 
-        string kind = Kind.ToString();
+        var kind = Kind.ToString();
         var type = GetInstructionType(Kind);
-        bool unknownBreak = false;
+        var unknownBreak = false;
         if (type == InstructionType.BreakInstruction)
         {
             if (!Assembler.ExtendedIDToName.TryGetValue(ExtendedKind, out kind))
@@ -1000,11 +1001,11 @@ public class GameMakerInstruction : GameMakerObject, IGMInstruction
                 sbh.Append(stringBuilder, '.');
                 sbh.Append(stringBuilder, type1.ToOpcodeParam());
 
-                if (Kind == Opcode.Dup || Kind == Opcode.CallV)
+                if (Kind is Opcode.Dup or Opcode.CallV)
                 {
                     sbh.Append(stringBuilder, ' ');
                     sbh.Append(stringBuilder, Extra);
-                    if (Kind == Opcode.Dup && (byte)ComparisonKind != 0)
+                    if (Kind == Opcode.Dup && ComparisonKind != 0)
                     {
                         // Special dup instruction with extra parameters
                         sbh.Append(stringBuilder, ' ');
@@ -1036,10 +1037,10 @@ public class GameMakerInstruction : GameMakerObject, IGMInstruction
                     targetGoto = "[end]";
                 else if (JumpOffsetPopenvExitMagic)
                     targetGoto = "<drop>";
-                else if (blocks is not null && blocks.TryGetValue((uint)(address + JumpOffset), out uint blockIndex))
+                else if (blocks is not null && blocks.TryGetValue((uint)(address + JumpOffset), out var blockIndex))
                     targetGoto = $"[{blockIndex}]";
                 else
-                    targetGoto = (address + JumpOffset).ToString("D5");
+                    targetGoto = (address + JumpOffset).ToString("D5", CultureInfo.InvariantCulture);
                 sbh.Append(stringBuilder, targetGoto);
                 break;
 
@@ -1221,7 +1222,7 @@ public class GameMakerInstruction : GameMakerObject, IGMInstruction
         {
             return null;
         }
-        int stringId = (int)ReferenceNextOccurrenceOffset;
+        var stringId = (int)ReferenceNextOccurrenceOffset;
         if (stringId < 0 || stringId >= data.Strings.Count)
         {
             return null;
@@ -1256,7 +1257,7 @@ public class GameMakerInstruction : GameMakerObject, IGMInstruction
         }
 
         // Search for function with the encoded string ID, as a last resort
-        int stringId = (int)ReferenceNextOccurrenceOffset;
+        var stringId = (int)ReferenceNextOccurrenceOffset;
         if (stringId < 0 || stringId >= data.Strings.Count)
         {
             return null;
@@ -1269,9 +1270,9 @@ public class GameMakerInstruction : GameMakerObject, IGMInstruction
     }
 
     /// <summary>
-    /// Adapts asset type IDs to the <see cref="G3MLib.Analyzer.AssetType"/> enum, across versions.
+    /// Adapts asset type IDs to the <see cref="AssetType"/> enum, across versions.
     /// </summary>
-    private static AssetType AdaptAssetType(GameMakerData data, int type)
+    internal static AssetType AdaptAssetType(GameMakerData data, int type)
     {
         if (data.IsVersionAtLeast(2024, 4))
         {
@@ -1316,7 +1317,7 @@ public class GameMakerInstruction : GameMakerObject, IGMInstruction
     }
 
     /// <summary>
-    /// Adapts the <see cref="G3MLib.Analyzer.AssetType"/> enum to asset type IDs, across versions.
+    /// Adapts the <see cref="AssetType"/> enum to asset type IDs, across versions.
     /// </summary>
     private static int AdaptAssetTypeId(GameMakerData data, AssetType type)
     {
@@ -1327,6 +1328,7 @@ public class GameMakerInstruction : GameMakerObject, IGMInstruction
                 AssetType.Object => 0,
                 AssetType.Sprite => 1,
                 AssetType.Sound => 2,
+                AssetType.AudioGroup => 2,
                 AssetType.Room => 3,
                 AssetType.Path => 4,
                 AssetType.Script => 5,
@@ -1347,6 +1349,7 @@ public class GameMakerInstruction : GameMakerObject, IGMInstruction
             AssetType.Object => 0,
             AssetType.Sprite => 1,
             AssetType.Sound => 2,
+            AssetType.AudioGroup => 2,
             AssetType.Room => 3,
             AssetType.Background => 4,
             AssetType.Path => 5,
@@ -1368,34 +1371,21 @@ public class GameMakerInstruction : GameMakerObject, IGMInstruction
     /// </summary>
     private static bool CheckIfAssetTypeIs2024_4(GameMakerData data, int resourceId, int resourceType)
     {
-        switch (resourceType)
+        return resourceType switch
         {
             // cases 0-3 are unnecessary
-
-            case 4:
-                return resourceId >= data.Backgrounds.Count;
-            case 5:
-                return resourceId >= data.Paths.Count;
-            case 6:
-                return resourceId >= data.Scripts.Count;
-            case 7:
-                return resourceId >= data.Fonts.Count;
-            case 8:
-                return resourceId >= data.Timelines.Count;
-            case 9:
-                return true; // used to be unused, now are sequences
-            case 10:
-                return resourceId >= data.Shaders.Count;
-            case 11:
-                return resourceId >= data.Sequences.Count;
-
+            4 => resourceId >= data.Backgrounds.Count,
+            5 => resourceId >= data.Paths.Count,
+            6 => resourceId >= data.Scripts.Count,
+            7 => resourceId >= data.Fonts.Count,
+            8 => resourceId >= data.Timelines.Count,
+            9 => true,// used to be unused, now are sequences
+            10 => resourceId >= data.Shaders.Count,
+            11 => resourceId >= data.Sequences.Count,
             // case 12 used to be animcurves, but now is unused (so would actually mean earlier than 2024.4)
-
-            case 13:
-                return resourceId >= data.ParticleSystems.Count;
-        }
-
-        return false;
+            13 => resourceId >= data.ParticleSystems.Count,
+            _ => false,
+        };
     }
 }
 
@@ -1487,7 +1477,7 @@ public class GameMakerCode : GameMakerNamedResource, GameMakerObjectWithBlobs, I
     /// <summary>
     /// A list of bytecode instructions this code entry has.
     /// </summary>
-    public List<GameMakerInstruction> Instructions { get; } = new List<GameMakerInstruction>();
+    public List<GameMakerInstruction> Instructions { get; } = [];
 
     /// <summary>
     /// A flag set on certain code entries, which usually don't have locals attached to them.
@@ -1502,7 +1492,7 @@ public class GameMakerCode : GameMakerNamedResource, GameMakerObjectWithBlobs, I
     /// <summary>
     /// Child entries of this code entry, if a root-level (parent) entry; empty if a child entry.
     /// </summary>
-    public List<GameMakerCode> ChildEntries { get; set; } = new List<GameMakerCode>();
+    public List<GameMakerCode> ChildEntries { get; set; } = [];
 
     /// <inheritdoc />
 #pragma warning disable CS0067 // Implemented by Fody at build time.
@@ -1526,6 +1516,7 @@ public class GameMakerCode : GameMakerNamedResource, GameMakerObjectWithBlobs, I
     /// <returns>The new code entry.</returns>
     public static GameMakerCode CreateEmptyEntry(GameMakerData data, string name)
     {
+        ArgumentNullException.ThrowIfNull(data);
         return CreateEmptyEntry(data, data.Strings.MakeString(name));
     }
 
@@ -1537,6 +1528,7 @@ public class GameMakerCode : GameMakerNamedResource, GameMakerObjectWithBlobs, I
     /// <returns>The new code entry.</returns>
     public static GameMakerCode CreateEmptyEntry(GameMakerData data, GameMakerString name)
     {
+        ArgumentNullException.ThrowIfNull(data);
         // Create entry
         GameMakerCode newEntry = new()
         {
@@ -1561,6 +1553,7 @@ public class GameMakerCode : GameMakerNamedResource, GameMakerObjectWithBlobs, I
     /// <inheritdoc />
     public void SerializeBlobBefore(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         // If in bytecode 14 or lower (or an unsupported version), we don't have a separate instruction blob
         if (writer.gameMakerData.UnsupportedBytecodeVersion || writer.Bytecode14OrLower)
         {
@@ -1579,8 +1572,8 @@ public class GameMakerCode : GameMakerNamedResource, GameMakerObjectWithBlobs, I
             // then update address and length of bytecode
             writer.LastBytecodeAddress = writer.Position;
             _bytecodeAbsoluteAddress = writer.Position;
-            uint start = writer.Position;
-            foreach (GameMakerInstruction instr in Instructions)
+            var start = writer.Position;
+            foreach (var instr in Instructions)
                 writer.WriteGameMakerObject(instr);
             Length = writer.Position - start;
         }
@@ -1589,6 +1582,7 @@ public class GameMakerCode : GameMakerNamedResource, GameMakerObjectWithBlobs, I
     /// <inheritdoc />
     public void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         // Write name only (length isn't necessarily known yet)
         writer.WriteGameMakerString(Name);
 
@@ -1605,13 +1599,13 @@ public class GameMakerCode : GameMakerNamedResource, GameMakerObjectWithBlobs, I
         else if (writer.Bytecode14OrLower)
         {
             // Bytecode 14 or lower: write instructions immediately, and patch in the length
-            uint patch = writer.Position;
+            var patch = writer.Position;
             writer.Write(0xDEADC0DE);
-            uint start = writer.Position;
-            foreach (GameMakerInstruction instr in Instructions)
+            var start = writer.Position;
+            foreach (var instr in Instructions)
                 writer.WriteGameMakerObject(instr);
             Length = writer.Position - start;
-            uint jumpBack = writer.Position;
+            var jumpBack = writer.Position;
             writer.Position = patch;
             writer.Write(Length);
             writer.Position = jumpBack;
@@ -1622,8 +1616,8 @@ public class GameMakerCode : GameMakerNamedResource, GameMakerObjectWithBlobs, I
             // (no instructions get written here; they're in a separate blob)
             writer.Write(Length);
             writer.Write((ushort)LocalsCount);
-            writer.Write((ushort)(ArgumentsCount | (WeirdLocalFlag ? (ushort)0x8000 : 0)));
-            int bytecodeRelativeAddress = (int)_bytecodeAbsoluteAddress - (int)writer.Position;
+            writer.Write((ushort)(ArgumentsCount | (WeirdLocalFlag ? 0x8000 : 0)));
+            var bytecodeRelativeAddress = (int)_bytecodeAbsoluteAddress - (int)writer.Position;
             writer.Write(bytecodeRelativeAddress);
             writer.Write(Offset);
         }
@@ -1632,12 +1626,10 @@ public class GameMakerCode : GameMakerNamedResource, GameMakerObjectWithBlobs, I
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
-        if (ParentEntry is not null)
-        {
-            ParentEntry.ChildEntries.Remove(this);
-            ParentEntry = null;
-        }
-        foreach (GameMakerCode child in ChildEntries)
+        ArgumentNullException.ThrowIfNull(reader);
+        ParentEntry?.ChildEntries.Remove(this);
+        ParentEntry = null;
+        foreach (var child in ChildEntries)
         {
             if (child.ParentEntry == this)
                 child.ParentEntry = null;
@@ -1666,8 +1658,8 @@ public class GameMakerCode : GameMakerNamedResource, GameMakerObjectWithBlobs, I
         else if (reader.Bytecode14OrLower)
         {
             // Bytecode 14 or lower: parse instructions immediately.
-            long instructionStartPos = reader.AbsPosition;
-            long instructionEndPos = instructionStartPos + Length;
+            var instructionStartPos = reader.AbsPosition;
+            var instructionEndPos = instructionStartPos + Length;
             Instructions.Clear();
             Instructions.Capacity = checked((int)reader.BytecodeAddresses[(uint)instructionStartPos].InstructionCount);
             while (reader.AbsPosition < instructionEndPos)
@@ -1689,12 +1681,12 @@ public class GameMakerCode : GameMakerNamedResource, GameMakerObjectWithBlobs, I
                 ArgumentsCount &= 0x7FFF;
                 WeirdLocalFlag = true;
             }
-            int bytecodeRelativeAddress = reader.ReadInt32();
+            var bytecodeRelativeAddress = reader.ReadInt32();
             _bytecodeAbsoluteAddress = (uint)((int)reader.AbsPosition - 4 + bytecodeRelativeAddress);
 
             // Check if this is a child code entry (which shares the same bytecode address as its parent).
             // Note that we use TryGetValue here to account for 0-length code entries at the very end of the code list.
-            reader.BytecodeAddresses.TryGetValue(_bytecodeAbsoluteAddress, out GameMakerReader.BytecodeInformation info);
+            reader.BytecodeAddresses.TryGetValue(_bytecodeAbsoluteAddress, out var info);
             if (Length > 0 && info.RootEntry is GameMakerCode parentEntry)
             {
                 // This is a child code entry; attach to parent. No need to parse any instructions.
@@ -1710,12 +1702,12 @@ public class GameMakerCode : GameMakerNamedResource, GameMakerObjectWithBlobs, I
                 }
 
                 // Jump to instruction blob, storing position to return to for later
-                long returnTo = reader.AbsPosition;
+                var returnTo = reader.AbsPosition;
                 reader.AbsPosition = _bytecodeAbsoluteAddress;
 
                 // Parse instructions
                 long instructionStartPos = _bytecodeAbsoluteAddress;
-                long instructionEndPos = instructionStartPos + Length;
+                var instructionEndPos = instructionStartPos + Length;
                 Instructions.Clear();
                 Instructions.Capacity = checked((int)info.InstructionCount);
                 while (reader.AbsPosition < instructionEndPos)
@@ -1735,15 +1727,16 @@ public class GameMakerCode : GameMakerNamedResource, GameMakerObjectWithBlobs, I
     /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
     public static uint UnserializeChildObjectCount(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         uint count = 0;
 
         reader.Position += 4; // "Name"
-        uint length = reader.ReadUInt32();
+        var length = reader.ReadUInt32();
 
         if (reader.Bytecode14OrLower)
         {
-            long instructionStart = reader.AbsPosition;
-            long instructionStop = instructionStart + length;
+            var instructionStart = reader.AbsPosition;
+            var instructionStop = instructionStart + length;
 
             // Get instructions count
             uint instrCount = 0;
@@ -1762,8 +1755,8 @@ public class GameMakerCode : GameMakerNamedResource, GameMakerObjectWithBlobs, I
         {
             reader.Position += 4;
 
-            int bytecodeRelativeAddress = reader.ReadInt32();
-            uint bytecodeAbsoluteAddress = (uint)((int)reader.AbsPosition - 4 + bytecodeRelativeAddress);
+            var bytecodeRelativeAddress = reader.ReadInt32();
+            var bytecodeAbsoluteAddress = (uint)((int)reader.AbsPosition - 4 + bytecodeRelativeAddress);
 
             if (length == 0 || reader.BytecodeAddresses.ContainsKey(bytecodeAbsoluteAddress))
             {
@@ -1771,7 +1764,7 @@ public class GameMakerCode : GameMakerNamedResource, GameMakerObjectWithBlobs, I
                 return count;
             }
 
-            long here = reader.AbsPosition;
+            var here = reader.AbsPosition;
             reader.AbsPosition = bytecodeAbsoluteAddress;
 
             // Get instructions counts
@@ -1800,7 +1793,7 @@ public class GameMakerCode : GameMakerNamedResource, GameMakerObjectWithBlobs, I
     public void UpdateLength()
     {
         uint addr = 0;
-        foreach (GameMakerInstruction instr in Instructions)
+        foreach (var instr in Instructions)
         {
             addr += instr.CalculateInstructionSize();
         }
@@ -1813,8 +1806,8 @@ public class GameMakerCode : GameMakerNamedResource, GameMakerObjectWithBlobs, I
     /// <returns>A set of all variables this code entry references.</returns>
     public ISet<GameMakerVariable> FindReferencedVars()
     {
-        HashSet<GameMakerVariable> vars = new();
-        foreach (GameMakerInstruction instr in Instructions)
+        HashSet<GameMakerVariable> vars = [];
+        foreach (var instr in Instructions)
         {
             if (instr.ValueVariable is GameMakerVariable v)
             {
@@ -1830,8 +1823,8 @@ public class GameMakerCode : GameMakerNamedResource, GameMakerObjectWithBlobs, I
     /// <returns>A set of all local variables this code entry references.</returns>
     public ISet<GameMakerVariable> FindReferencedLocalVars()
     {
-        HashSet<GameMakerVariable> vars = new();
-        foreach (GameMakerInstruction instr in Instructions)
+        HashSet<GameMakerVariable> vars = [];
+        foreach (var instr in Instructions)
         {
             if (instr.ValueVariable is GameMakerVariable v &&
                 v.InstanceType == GameMakerInstruction.InstanceType.Local)
@@ -1848,13 +1841,13 @@ public class GameMakerCode : GameMakerNamedResource, GameMakerObjectWithBlobs, I
     public int FindFirstTryLocalIndex()
     {
         const string variablePrefix = "__yy_breakEx";
-        foreach (GameMakerInstruction instr in Instructions)
+        foreach (var instr in Instructions)
         {
             if (instr.ValueVariable is GameMakerVariable v &&
                 v.InstanceType == GameMakerInstruction.InstanceType.Local &&
                 v.Name?.Content is string name &&
                 name.StartsWith(variablePrefix, StringComparison.Ordinal) &&
-                int.TryParse(name[variablePrefix.Length..], out int index))
+                int.TryParse(name[variablePrefix.Length..], out var index))
             {
                 return index;
             }
@@ -1900,7 +1893,7 @@ public class GameMakerCode : GameMakerNamedResource, GameMakerObjectWithBlobs, I
         GC.SuppressFinalize(this);
 
         Instructions?.Clear();
-        ChildEntries = new();
+        ChildEntries = [];
         Name = null;
         _unsupportedBuffer = null;
     }
@@ -1909,7 +1902,7 @@ public class GameMakerCode : GameMakerNamedResource, GameMakerObjectWithBlobs, I
     ISerializableProjectAsset IProjectAsset.GenerateSerializableProjectAsset(ProjectContext projectContext)
     {
         SerializableCode serializable = new();
-        serializable.PopulateFromData(projectContext, this);
+        serializable.PopulateFromData(this);
         return serializable;
     }
 

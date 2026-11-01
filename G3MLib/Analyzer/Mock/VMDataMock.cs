@@ -4,9 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System;
-using System.Collections.Generic;
-
 namespace G3MLib.Analyzer.Mock;
 
 /// <summary>
@@ -22,7 +19,7 @@ public class GMCode(string name, List<GMInstruction> instructions) : IGMCode
     public GMString Name { get; set; } = new(name);
 
     /// <inheritdoc/>
-    public int Length { get; set; } = 0;
+    public int Length { get; set; }
 
     /// <summary>
     /// A list of instructions this entry has.
@@ -32,7 +29,7 @@ public class GMCode(string name, List<GMInstruction> instructions) : IGMCode
     /// <summary>
     /// The parent code entry.
     /// </summary>
-    public GMCode? Parent { get; set; } = null;
+    public GMCode? Parent { get; set; }
 
     /// <summary>
     /// A list of child code entries.
@@ -40,13 +37,13 @@ public class GMCode(string name, List<GMInstruction> instructions) : IGMCode
     public List<GMCode> Children { get; set; } = [];
 
     /// <inheritdoc/>
-    public int StartOffset { get; set; } = 0;
+    public int StartOffset { get; set; }
 
     /// <inheritdoc/>
     public int ArgumentCount { get; set; } = 1;
 
     /// <inheritdoc/>
-    public int LocalCount { get; set; } = 0;
+    public int LocalCount { get; set; }
 
     // Interface implementation
 
@@ -222,6 +219,7 @@ public class GMVariableComparer : IEqualityComparer<GMVariable>
     /// <inheritdoc/>
     public int GetHashCode(GMVariable obj)
     {
+        ArgumentNullException.ThrowIfNull(obj);
         return (obj.Name.Content, obj.InstanceType, obj.VariableID).GetHashCode();
     }
 }
@@ -252,7 +250,7 @@ public class GMFunction(string name) : IGMFunction
 
     public override int GetHashCode()
     {
-        return Name.Content.GetHashCode();
+        return Name.Content.GetHashCode(StringComparison.Ordinal);
     }
 }
 
@@ -272,6 +270,7 @@ public class GMFunctionComparer : IEqualityComparer<GMFunction>
     /// <inheritdoc/>
     public int GetHashCode(GMFunction obj)
     {
-        return obj.Name.Content.GetHashCode();
+        ArgumentNullException.ThrowIfNull(obj);
+        return obj.Name.Content.GetHashCode(StringComparison.Ordinal);
     }
 }

@@ -5,7 +5,6 @@
 */
 
 using G3MLib.Analyzer.Compiler;
-using System.Collections.Generic;
 
 namespace G3MLib.Analyzer.Mock;
 

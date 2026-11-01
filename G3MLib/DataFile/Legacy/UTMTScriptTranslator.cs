@@ -1,7 +1,5 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
-using System;
-using System.Linq;
 using System.Text;
 
 namespace G3MLib.DataFile.Legacy;
@@ -25,18 +23,18 @@ public static class UTMTScriptTranslator
             return source;
         }
 
-        SyntaxNode root = CSharpSyntaxTree.ParseText(source).GetRoot();
+        var root = CSharpSyntaxTree.ParseText(source).GetRoot();
         var replacements = root.DescendantTokens()
             .Where(token => token.IsKind(SyntaxKind.IdentifierToken) && TryTranslate(token.ValueText, out _))
             .Select(token =>
             {
-                TryTranslate(token.ValueText, out string replacement);
+                TryTranslate(token.ValueText, out var replacement);
                 return (token.SpanStart, token.Span.Length, replacement);
             })
             .OrderByDescending(replacement => replacement.SpanStart);
 
         var translated = new StringBuilder(source);
-        foreach ((int start, int length, string replacement) in replacements)
+        foreach ((var start, var length, var replacement) in replacements)
             translated.Remove(start, length).Insert(start, replacement);
 
         return translated.ToString();

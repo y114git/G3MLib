@@ -1,8 +1,5 @@
-using System;
-using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
-using System.Linq;
 using System.Text.RegularExpressions;
 using G3MLib.DataFile.Models;
 
@@ -79,20 +76,20 @@ public static partial class Assembler
         ArgumentNullException.ThrowIfNull(data);
 
         _cacheData = data;
-        _funcCache = new Dictionary<string, GameMakerFunction>();
+        _funcCache = [];
         foreach (var f in data.Functions)
             if (f?.Name?.Content != null)
                 _funcCache.TryAdd(f.Name.Content, f);
 
-        _varCache = new Dictionary<(string, GameMakerInstruction.InstanceType), GameMakerVariable>();
+        _varCache = [];
         foreach (var v in data.Variables)
             if (v?.Name?.Content != null)
                 _varCache.TryAdd((v.Name.Content, v.InstanceType), v);
 
-        _resourceNameCache = new Dictionary<string, int>();
-        void CacheList<T>(IList<T> list) where T : GameMakerNamedResource
+        _resourceNameCache = [];
+        static void CacheList<T>(IList<T> list) where T : GameMakerNamedResource
         {
-            for (int i = 0; i < list.Count; i++)
+            for (var i = 0; i < list.Count; i++)
             {
                 if (list[i] is T item && item.Name?.Content != null)
                     _resourceNameCache.TryAdd(item.Name.Content, i);
@@ -118,7 +115,7 @@ public static partial class Assembler
         if (data.TextureGroupInfo is not null) CacheList(data.TextureGroupInfo);
 
         _stringCache = new Dictionary<string, (GameMakerString Str, int Id)>(data.Strings.Count);
-        for (int i = 0; i < data.Strings.Count; i++)
+        for (var i = 0; i < data.Strings.Count; i++)
         {
             var s = data.Strings[i];
             if (s?.Content != null)
@@ -194,9 +191,9 @@ public static partial class Assembler
     /// <param name="data"><see cref="GameMakerData"/> instance to use for finding information, and updating code.</param>
     /// <param name="localvars">Lookup map of local variables to use when assembling the instruction.</param>
     /// <param name="mainThreadAction">Main thread action to be called when updating data, if necessary. Must execute the supplied callback synchronously.</param>
-    public static GameMakerInstruction AssembleOne(string source, GameMakerData data, Dictionary<string, GameMakerVariable> localvars = null, Action<Action> mainThreadAction = null)
+    public static GameMakerInstruction AssembleOne(string source, GameMakerData data, Dictionary<string, GameMakerVariable>? localvars = null, Action<Action>? mainThreadAction = null)
     {
-        GameMakerInstruction instr = AssembleOne(source, data, localvars, out string label, mainThreadAction);
+        var instr = AssembleOne(source, data, localvars, out var label, mainThreadAction);
         if (label is not null)
         {
             throw new FormatException("Cannot use labels in this context");
@@ -212,7 +209,7 @@ public static partial class Assembler
     /// <param name="mainThreadAction">Main thread action to be called when updating data, if necessary. Must execute the supplied callback synchronously.</param>
     public static GameMakerInstruction AssembleOne(string source, GameMakerData data, Action<Action> mainThreadAction)
     {
-        GameMakerInstruction instr = AssembleOne(source, data, null, out string label, mainThreadAction);
+        var instr = AssembleOne(source, data, null, out var label, mainThreadAction);
         if (label is not null)
         {
             throw new FormatException("Cannot use labels in this context");
@@ -228,19 +225,21 @@ public static partial class Assembler
     /// <param name="localvars">Lookup map of local variables to use when assembling the instruction.</param>
     /// <param name="label">Output label name, if one was found while parsing the instruction, or <see langword="null"/> if not.</param>
     /// <param name="mainThreadAction">Main thread action to be called when updating data, if necessary. Must execute the supplied callback synchronously.</param>
-    public static GameMakerInstruction AssembleOne(string source, GameMakerData data, Dictionary<string, GameMakerVariable> localvars, out string label, Action<Action> mainThreadAction = null)
+    public static GameMakerInstruction AssembleOne(string source, GameMakerData data, Dictionary<string, GameMakerVariable> localvars, out string label, Action<Action>? mainThreadAction = null)
     {
+        ArgumentNullException.ThrowIfNull(data);
+        ArgumentNullException.ThrowIfNull(source);
         EnsureCachesMatch(data);
 
         // Default label output to null
         label = null;
 
         // Remove comments from end of line
-        string line = source.Split(" ;;; ", 2)[0];
+        var line = source.Split(" ;;; ", 2)[0];
 
         // Split apart opcode and data types
-        string opcode = line;
-        int space = opcode.IndexOf(' ', StringComparison.InvariantCulture);
+        var opcode = line;
+        var space = opcode.IndexOf(' ', StringComparison.InvariantCulture);
         if (space >= 0)
         {
             opcode = line[..space];
@@ -250,16 +249,16 @@ public static partial class Assembler
         {
             line = "";
         }
-        string[] types = opcode.Split('.');
+        var types = opcode.Split('.');
         if (types.Length > 3)
         {
             throw new FormatException("Too many type parameters");
         }
 
         // Start creating instruction with opcode and types
-        string kind = types[0];
+        var kind = types[0];
         GameMakerInstruction instr = new();
-        if (NameToExtendedID.TryGetValue(kind.ToLower(CultureInfo.InvariantCulture), out short extendedId))
+        if (NameToExtendedID.TryGetValue(kind.ToLower(CultureInfo.InvariantCulture), out var extendedId))
         {
             // Extended opcode, which uses Break under the hood
             instr.Kind = GameMakerInstruction.Opcode.Break;
@@ -293,14 +292,14 @@ public static partial class Assembler
                         space = line.IndexOf(' ', StringComparison.InvariantCulture);
                         if (space >= 0)
                         {
-                            byte spec = byte.Parse(line[(space + 1)..].Trim());
+                            var spec = byte.Parse(line[(space + 1)..].Trim(), CultureInfo.InvariantCulture);
                             instr.ComparisonKind = (GameMakerInstruction.ComparisonType)(spec | 0x80);
                             line = line[..space];
                         }
                     }
 
                     // Parse regular (first) parameter
-                    instr.Extra = byte.Parse(line);
+                    instr.Extra = byte.Parse(line, CultureInfo.InvariantCulture);
                     line = "";
                 }
                 break;
@@ -320,7 +319,7 @@ public static partial class Assembler
                 if (line[0] == '$')
                 {
                     // Old-style formatting, using a direct offset
-                    instr.JumpOffset = int.Parse(line[1..]);
+                    instr.JumpOffset = int.Parse(line[1..], CultureInfo.InvariantCulture);
                 }
                 else if (line == "<drop>")
                 {
@@ -347,12 +346,12 @@ public static partial class Assembler
                 if (instr.Type1 == GameMakerInstruction.DataType.Int16)
                 {
                     // Pop swap instruction (see #129)
-                    instr.SwapExtra = byte.Parse(line);
+                    instr.SwapExtra = byte.Parse(line, CultureInfo.InvariantCulture);
                 }
                 else
                 {
                     // Regular variable pop; parse reference
-                    GameMakerInstruction.InstanceType inst = instr.TypeInst;
+                    var inst = instr.TypeInst;
                     (instr.ValueVariable, instr.ReferenceType) = ParseVariableReference(line, data, localvars, ref inst);
                     instr.TypeInst = inst;
                 }
@@ -370,7 +369,7 @@ public static partial class Assembler
                         break;
                     case GameMakerInstruction.DataType.Int32:
                         // Either a simple 32-bit integer, or a reference to something...
-                        if (int.TryParse(line, out int ival))
+                        if (int.TryParse(line, out var ival))
                         {
                             // Simple integer
                             instr.ValueInt = ival;
@@ -380,7 +379,7 @@ public static partial class Assembler
                             // Variable reference
                             line = line["[variable]".Length..];
                             instr.ValueVariable = data.Variables.EnsureDefined(
-                                data.Strings.MakeString(line, out int nameStringId), nameStringId,
+                                data.Strings.MakeString(line, out var nameStringId), nameStringId,
                                 GameMakerInstruction.InstanceType.Self, false, data);
                         }
                         else if (line.StartsWith("[function]", StringComparison.Ordinal))
@@ -402,7 +401,7 @@ public static partial class Assembler
                         break;
                     case GameMakerInstruction.DataType.Int64:
                         // Either a simple 64-bit integer, or a resource name for convenience
-                        if (long.TryParse(line, out long lval))
+                        if (long.TryParse(line, out var lval))
                         {
                             instr.ValueLong = lval;
                         }
@@ -413,7 +412,7 @@ public static partial class Assembler
                         break;
                     case GameMakerInstruction.DataType.Variable:
                         // Simple variable reference
-                        GameMakerInstruction.InstanceType inst2 = instr.TypeInst;
+                        var inst2 = instr.TypeInst;
                         (instr.ValueVariable, instr.ReferenceType) = ParseVariableReference(line, data, localvars, ref inst2);
                         instr.TypeInst = inst2;
                         break;
@@ -423,7 +422,7 @@ public static partial class Assembler
                         break;
                     case GameMakerInstruction.DataType.Int16:
                         // Simple 16-bit integer, or a resource name for convenience
-                        if (short.TryParse(line, out short sval))
+                        if (short.TryParse(line, out var sval))
                         {
                             instr.ValueShort = sval;
                         }
@@ -442,20 +441,20 @@ public static partial class Assembler
 
             case GameMakerInstruction.InstructionType.CallInstruction:
                 // Call instructions - match function name and argument count using a regular expression
-                Match match = callInstrRegex().Match(line);
+                var match = callInstrRegex().Match(line);
                 if (!match.Success)
                 {
                     throw new FormatException("Call instruction format error; should be formatted like my_func_name(argc=3)");
                 }
 
                 // Find function being referenced
-                string funcName = match.Groups[1].Value;
-                GameMakerFunction func = FindFunction(funcName, data.Functions) ??
+                var funcName = match.Groups[1].Value;
+                var func = FindFunction(funcName, data.Functions) ??
                     throw new KeyNotFoundException($"Could not find function with name \"{funcName}\"");
                 instr.ValueFunction = func;
 
                 // Parse argument count
-                instr.ArgumentsCount = ushort.Parse(match.Groups[2].Value);
+                instr.ArgumentsCount = ushort.Parse(match.Groups[2].Value, CultureInfo.InvariantCulture);
 
                 line = "";
                 break;
@@ -471,14 +470,14 @@ public static partial class Assembler
                     if (extendedId == -11)
                     {
                         // Parse additional int argument
-                        if (int.TryParse(line, out int intArgument))
+                        if (int.TryParse(line, out var intArgument))
                         {
                             instr.IntArgument = intArgument;
                         }
                         else
                         {
                             // Or alternatively parse function!
-                            GameMakerFunction extFunc = FindFunction(line, data.Functions) ??
+                            var extFunc = FindFunction(line, data.Functions) ??
                                 throw new KeyNotFoundException($"Could not find function specified by extended pushref instruction: \"{line}\"");
                             instr.ValueFunction = extFunc;
                         }
@@ -487,7 +486,7 @@ public static partial class Assembler
                 else
                 {
                     // Old-style break syntax (not recommended to be used, especially for pushref)
-                    instr.ExtendedKind = short.Parse(line);
+                    instr.ExtendedKind = short.Parse(line, CultureInfo.InvariantCulture);
                 }
 
                 line = "";
@@ -495,7 +494,7 @@ public static partial class Assembler
         }
 
         // Make sure there's no remaining line
-        if (line != "")
+        if (line.Length != 0)
         {
             throw new FormatException($"Expected end of line; found remaining string: \"{line}\"");
         }
@@ -510,12 +509,12 @@ public static partial class Assembler
     {
         if (_resourceNameCache != null)
         {
-            if (_resourceNameCache.TryGetValue(line, out int cachedId))
+            if (_resourceNameCache.TryGetValue(line, out var cachedId))
             {
                 return cachedId;
             }
 
-            int fallbackId = data.IndexOfByName(line);
+            var fallbackId = data.IndexOfByName(line);
             if (fallbackId >= 0)
             {
                 _resourceNameCache[line] = fallbackId;
@@ -525,7 +524,7 @@ public static partial class Assembler
             throw new FormatException($"Unable to parse \"{line}\" as a number or resource name");
         }
 
-        int id = data.IndexOfByName(line);
+        var id = data.IndexOfByName(line);
         if (id < 0)
         {
             throw new FormatException($"Unable to parse \"{line}\" as a number or resource name");
@@ -539,24 +538,25 @@ public static partial class Assembler
     /// <param name="source">Assembly source to assemble.</param>
     /// <param name="data"><see cref="GameMakerData"/> instance to use for finding information, and updating code.</param>
     /// <param name="mainThreadAction">Main thread action to be called when updating data, if necessary. Must execute the supplied callback synchronously.</param>
-    public static List<GameMakerInstruction> Assemble(string source, GameMakerData data, Action<Action> mainThreadAction = null)
+    public static List<GameMakerInstruction> Assemble(string source, GameMakerData data, Action<Action>? mainThreadAction = null)
     {
         return Assemble(source, data, mainThreadAction, null);
     }
 
     public static List<GameMakerInstruction> Assemble(string source, GameMakerData data, Action<Action> mainThreadAction, GameMakerCode ownerCode)
     {
+        ArgumentNullException.ThrowIfNull(data);
         EnsureCachesMatch(data);
 
         // Use a passthrough main thread action if none was supplied
         mainThreadAction ??= passthroughMainThreadAction;
 
         // Initialize structures
-        Dictionary<string, uint> labels = new();
-        List<(GameMakerInstruction Instruction, uint InstructionAddress, string Label)> labelTargets = new();
+        Dictionary<string, uint> labels = [];
+        List<(GameMakerInstruction Instruction, uint InstructionAddress, string Label)> labelTargets = [];
         List<GameMakerInstruction> instructions = new(16);
-        Dictionary<string, GameMakerVariable> localvars = new();
-        List<GameMakerCodeLocals.LocalVar> codeLocalDefinitions = new();
+        Dictionary<string, GameMakerVariable> localvars = [];
+        List<GameMakerCodeLocals.LocalVar> codeLocalDefinitions = [];
 
         // Start reading instructions
         uint address = 0;
@@ -565,7 +565,7 @@ public static partial class Assembler
         while ((fullLine = strReader.ReadLine()) is not null)
         {
             // Trim line, and skip if it's empty or a comment
-            string line = fullLine.Trim();
+            var line = fullLine.Trim();
             if (line.Length == 0 || line[0] == ';')
             {
                 continue;
@@ -576,9 +576,9 @@ public static partial class Assembler
             {
                 // Parse sub-code entry name, and make sure it exists
                 line = line[2..].Trim();
-                int space = line.IndexOf(' ', StringComparison.InvariantCulture);
-                string codeName = line[..space];
-                GameMakerCode code = null;
+                var space = line.IndexOf(' ', StringComparison.InvariantCulture);
+                var codeName = line[..space];
+                GameMakerCode? code = null;
                 if (ownerCode?.ChildEntries != null)
                 {
                     foreach (var child in ownerCode.ChildEntries)
@@ -602,17 +602,14 @@ public static partial class Assembler
                         }
                     }
                 }
-                else if (code == null)
-                {
-                    code = data.Code.ByName(codeName);
-                }
+                else code ??= data.Code.ByName(codeName);
 
                 if (code is null)
                     throw new KeyNotFoundException($"Failed to find code entry with name \"{codeName}\"");
 
                 // Parse additional info (local/argument count), using a regular expression
-                string info = line[(space + 1)..];
-                Match match = codeEntryRegex().Match(info);
+                var info = line[(space + 1)..];
+                var match = codeEntryRegex().Match(info);
                 if (!match.Success)
                 {
                     throw new FormatException("Sub-code entry format error; should be formatted like \"> gml_Script_some_script (locals=6, argc=7)\"");
@@ -621,8 +618,8 @@ public static partial class Assembler
                 // Update info on the code entry
                 mainThreadAction(() =>
                 {
-                    code.LocalsCount = ushort.Parse(match.Groups[1].Value);
-                    code.ArgumentsCount = ushort.Parse(match.Groups[2].Value);
+                    code.LocalsCount = ushort.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture);
+                    code.ArgumentsCount = ushort.Parse(match.Groups[2].Value, CultureInfo.InvariantCulture);
                     code.Offset = address * 4;
                 });
                 continue;
@@ -632,7 +629,7 @@ public static partial class Assembler
             if (line[0] == ':' && line.Length >= 3 && line[1] == '[')
             {
                 // Extract label name
-                string label = line[2..line.IndexOf(']', StringComparison.InvariantCulture)];
+                var label = line[2..line.IndexOf(']', StringComparison.InvariantCulture)];
 
                 // Make sure label name isn't invalid or a duplicate
                 if (string.IsNullOrEmpty(label))
@@ -652,19 +649,19 @@ public static partial class Assembler
             // Handle assembler directives
             if (line[0] == '.')
             {
-                string[] parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
                 if (parts[0] == ".localvar")
                 {
                     if (parts.Length is < 3 or > 4)
                     {
-                    throw new FormatException("Local variable definition format error; should be formatted like \".localvar index name [variable-id]\"");
+                        throw new FormatException("Local variable definition format error; should be formatted like \".localvar index name [variable-id]\"");
                     }
 
                     GameMakerString localName;
                     if (parts.Length == 4)
                     {
                         // Find variable using its ID, verify it's a local variable, and add it to structure
-                        if (!int.TryParse(parts[3], CultureInfo.InvariantCulture, out int variableIndex) ||
+                        if (!int.TryParse(parts[3], CultureInfo.InvariantCulture, out var variableIndex) ||
                             variableIndex < 0 || variableIndex >= data.Variables.Count ||
                             data.Variables[variableIndex] is not GameMakerVariable variable)
                         {
@@ -700,7 +697,7 @@ public static partial class Assembler
             }
 
             // Assemble individual instruction
-            GameMakerInstruction instr = AssembleOne(line, data, localvars, out string labelTarget);
+            var instr = AssembleOne(line, data, localvars, out var labelTarget);
             if (labelTarget is not null)
             {
                 // Instruction references a label. Track it for later resolving
@@ -713,7 +710,7 @@ public static partial class Assembler
         }
 
         // Resolve jump offsets for instructions that reference labels
-        foreach ((GameMakerInstruction instr, uint instrAddress, string label) in labelTargets)
+        foreach ((var instr, var instrAddress, var label) in labelTargets)
         {
             instr.JumpOffset = (int)labels[label] - (int)instrAddress;
         }
@@ -722,10 +719,10 @@ public static partial class Assembler
         {
             mainThreadAction(() =>
             {
-                GameMakerCodeLocals locals = data.CodeLocals.For(ownerCode)
+                var locals = data.CodeLocals.For(ownerCode)
                     ?? GameMakerCodeLocals.CreateEmptyEntry(data, ownerCode.Name);
                 locals.Locals.Clear();
-                foreach (GameMakerCodeLocals.LocalVar local in codeLocalDefinitions)
+                foreach (var local in codeLocalDefinitions)
                 {
                     locals.Locals.Add(local);
                 }
@@ -741,13 +738,13 @@ public static partial class Assembler
     private static GameMakerResourceById<GameMakerString, GameMakerChunkSTRG> ParseStringReference(string line, IList<GameMakerString> strg)
     {
         // Parse ID at the end of the string, if given
-        string str = line;
-        int at = str.LastIndexOf('@');
-        int id = -1;
-        if (at >= 0 && (at - 1) == str.LastIndexOf('"'))
+        var str = line;
+        var at = str.LastIndexOf('@');
+        var id = -1;
+        if (at >= 0 && at - 1 == str.LastIndexOf('"'))
         {
             // First make certain that this is actually an ID, not part of the string content
-            id = int.Parse(str[(at + 1)..]);
+            id = int.Parse(str[(at + 1)..], CultureInfo.InvariantCulture);
             str = str[..at];
         }
 
@@ -766,7 +763,7 @@ public static partial class Assembler
         }
 
         // Get existing string object using ID
-        GameMakerString strobj = (id >= 0) ? strg[id] : null;
+        var strobj = (id >= 0) ? strg[id] : null;
         if (strobj is not null)
         {
             // Update string contents, or retain original value if empty string passed (e.g. "push.s @300")
@@ -783,7 +780,7 @@ public static partial class Assembler
         else
         {
             // New string needs to be created
-            strobj = strg.MakeString(str, out int newId);
+            strobj = strg.MakeString(str, out var newId);
             id = newId;
             if (_stringCache != null && str is not null)
             {
@@ -797,22 +794,22 @@ public static partial class Assembler
     private static (GameMakerVariable Variable, GameMakerInstruction.VariableType ReferenceType) ParseVariableReference(
         string line, GameMakerData data, Dictionary<string, GameMakerVariable> localvars, ref GameMakerInstruction.InstanceType instance)
     {
-        ReadOnlySpan<char> str = line.AsSpan();
-        int strPosition = 0;
+        var str = line.AsSpan();
+        var strPosition = 0;
 
         // Variable type, and instance type as stored in VARI chunk, adjusted based on context
-        GameMakerInstruction.VariableType type = GameMakerInstruction.VariableType.Normal;
-        GameMakerInstruction.InstanceType variInstanceType = instance;
+        var type = GameMakerInstruction.VariableType.Normal;
+        var variInstanceType = instance;
 
         // Parse instance type, if at the beginning
         if (str[strPosition] != '[')
         {
             // Read up until first dot character
-            int instanceTypeDot = str.IndexOf('.');
+            var instanceTypeDot = str.IndexOf('.');
             if (instanceTypeDot >= 0)
             {
-                ReadOnlySpan<char> instanceTypeStr = str[..instanceTypeDot];
-                if (short.TryParse(instanceTypeStr, out short instNum))
+                var instanceTypeStr = str[..instanceTypeDot];
+                if (short.TryParse(instanceTypeStr, out var instNum))
                 {
                     // This is a valid 16-bit integer, probably an object or room instance ID
                     instance = (GameMakerInstruction.InstanceType)instNum;
@@ -832,12 +829,12 @@ public static partial class Assembler
             // Adjust VARI instance type based on existing type
             variInstanceType = instance switch
             {
-                >= 0                                        => GameMakerInstruction.InstanceType.Self,
-                GameMakerInstruction.InstanceType.Other     => GameMakerInstruction.InstanceType.Self,
-                GameMakerInstruction.InstanceType.Arg       => GameMakerInstruction.InstanceType.Builtin,
-                GameMakerInstruction.InstanceType.Builtin   => GameMakerInstruction.InstanceType.Self,      // used with @@This@@
-                GameMakerInstruction.InstanceType.Stacktop  => GameMakerInstruction.InstanceType.Self,      // used with @@GetInstance@@
-                _                                           => instance
+                >= 0 => GameMakerInstruction.InstanceType.Self,
+                GameMakerInstruction.InstanceType.Other => GameMakerInstruction.InstanceType.Self,
+                GameMakerInstruction.InstanceType.Arg => GameMakerInstruction.InstanceType.Builtin,
+                GameMakerInstruction.InstanceType.Builtin => GameMakerInstruction.InstanceType.Self,      // used with @@This@@
+                GameMakerInstruction.InstanceType.Stacktop => GameMakerInstruction.InstanceType.Self,      // used with @@GetInstance@@
+                _ => instance
             };
 
             // Set up for parsing after the dot
@@ -848,23 +845,23 @@ public static partial class Assembler
         if (strPosition < str.Length && str[strPosition] == '[')
         {
             // Read up until closing bracket character
-            int variableTypeEnd = str[(strPosition + 1)..].IndexOf(']') + (strPosition + 1);
-            if (variableTypeEnd < (strPosition + 1))
+            var variableTypeEnd = str[(strPosition + 1)..].IndexOf(']') + strPosition + 1;
+            if (variableTypeEnd < strPosition + 1)
             {
                 // Invalid formatting, objectively
                 throw new FormatException("Missing ']' character in variable reference");
             }
 
             // Variable type should always be one of the enum values
-            ReadOnlySpan<char> variableTypeStr = str[(strPosition + 1)..variableTypeEnd];
+            var variableTypeStr = str[(strPosition + 1)..variableTypeEnd];
             type = Enum.Parse<GameMakerInstruction.VariableType>(variableTypeStr, true);
 
             // Parse instance type, if present
-            int instanceTypeDot = str[(variableTypeEnd + 1)..].IndexOf('.') + (variableTypeEnd + 1);
-            if (instanceTypeDot >= (variableTypeEnd + 1))
+            var instanceTypeDot = str[(variableTypeEnd + 1)..].IndexOf('.') + variableTypeEnd + 1;
+            if (instanceTypeDot >= variableTypeEnd + 1)
             {
                 // This instance type should always be one of the enum values
-                ReadOnlySpan<char> instanceTypeStr = str[(variableTypeEnd + 1)..instanceTypeDot];
+                var instanceTypeStr = str[(variableTypeEnd + 1)..instanceTypeDot];
                 variInstanceType = Enum.Parse<GameMakerInstruction.InstanceType>(instanceTypeStr, true);
 
                 // Set up parsing after the dot
@@ -873,14 +870,14 @@ public static partial class Assembler
             else
             {
                 // Older versions of the assembly syntax did not print out instance types for array/stacktop references, which loses info in GMS 2.3+
-                if (type == GameMakerInstruction.VariableType.Array ||
-                    type == GameMakerInstruction.VariableType.StackTop)
+                if (type is GameMakerInstruction.VariableType.Array or
+                    GameMakerInstruction.VariableType.StackTop)
                 {
-                throw new NotSupportedException("Old instruction format is incompatible (missing instance type in array or stacktop)");
+                    throw new NotSupportedException("Old instruction format is incompatible (missing instance type in array or stacktop)");
                 }
 
                 // Adjust VARI instance type based on existing type
-                if (variInstanceType >= 0 || variInstanceType == GameMakerInstruction.InstanceType.Other)
+                if (variInstanceType is >= 0 or GameMakerInstruction.InstanceType.Other)
                 {
                     variInstanceType = GameMakerInstruction.InstanceType.Self;
                 }
@@ -898,7 +895,7 @@ public static partial class Assembler
 
         // Locate variable from either local variables, or VARI chunk
         GameMakerVariable locatedVariable;
-        string variableName = str[strPosition..].ToString();
+        var variableName = str[strPosition..].ToString();
         if (variInstanceType == GameMakerInstruction.InstanceType.Local && data.CodeLocals is not null)
         {
             locatedVariable = localvars.GetValueOrDefault(variableName);

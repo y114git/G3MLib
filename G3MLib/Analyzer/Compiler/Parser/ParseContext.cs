@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Compiler.Lexer;
 using G3MLib.Analyzer.Compiler.Nodes;
 
@@ -32,7 +31,7 @@ internal sealed class ParseContext : ISubCompileContext
     /// <summary>
     /// Root node as parsed by this context.
     /// </summary>
-    public IASTNode? Root { get; private set; } = null;
+    public IASTNode? Root { get; private set; }
 
     /// <summary>
     /// Enum declarations parsed by this context.
@@ -42,12 +41,12 @@ internal sealed class ParseContext : ISubCompileContext
     /// <summary>
     /// Set of function declaration names parsed by this context, if in a global script.
     /// </summary>
-    public HashSet<string>? ParseGlobalFunctions { get; } = null;
+    public HashSet<string>? ParseGlobalFunctions { get; }
 
     /// <summary>
     /// The position of the current token being parsed by this context.
     /// /// </summary>
-    public int Position { get; set; } = 0;
+    public int Position { get; set; }
 
     /// <summary>
     /// The current token being parsed by this context.
@@ -62,17 +61,17 @@ internal sealed class ParseContext : ISubCompileContext
     /// <summary>
     /// Number of return/exit/break/continue statements encountered during parsing.
     /// </summary>
-    public int ExitReturnBreakContinueCount { get; set; } = 0;
+    public int ExitReturnBreakContinueCount { get; set; }
 
     /// <summary>
     /// Number of throw statements encountered during parsing.
     /// </summary>
-    public int ThrowCount { get; set; } = 0;
+    public int ThrowCount { get; set; }
 
     /// <summary>
     /// Index of next try statement to be post-processed.
     /// </summary>
-    public int TryStatementProcessIndex { get; set; } = 0;
+    public int TryStatementProcessIndex { get; set; }
 
     /// <summary>
     /// Current try statement context during post-processing.
@@ -80,7 +79,7 @@ internal sealed class ParseContext : ISubCompileContext
     /// <remarks>
     /// This is buggy by not being attached to function scopes, but mimics official compiler behavior.
     /// </remarks>
-    public TryStatementContext? TryStatementContext { get; set; } = null;
+    public TryStatementContext? TryStatementContext { get; set; }
 
     /// <summary>
     /// Whether currently processing a finally block of a try statement.
@@ -88,7 +87,7 @@ internal sealed class ParseContext : ISubCompileContext
     /// <remarks>
     /// This is buggy by not being attached to function scopes, but mimics official compiler behavior.
     /// </remarks>
-    public bool ProcessingFinally { get; set; } = false;
+    public bool ProcessingFinally { get; set; }
 
     /// <summary>
     /// Whether currently post-processing a switch statement. Gets reset by loop control flow.
@@ -96,7 +95,7 @@ internal sealed class ParseContext : ISubCompileContext
     /// <remarks>
     /// This is buggy by not being attached to function scopes, but mimics official compiler behavior.
     /// </remarks>
-    public bool ProcessingSwitch { get; set; } = false;
+    public bool ProcessingSwitch { get; set; }
 
     public ParseContext(CompileContext context, List<IToken> tokens)
     {
@@ -158,7 +157,7 @@ internal sealed class ParseContext : ISubCompileContext
             return null;
         }
 
-        IToken token = Tokens[Position++];
+        var token = Tokens[Position++];
         if (token is not TokenSeparator separator || separator.Kind != kind)
         {
             CompileContext.PushError($"Expected '{TokenSeparator.KindToString(kind)}', got '{token}'", token);
@@ -181,7 +180,7 @@ internal sealed class ParseContext : ISubCompileContext
             return null;
         }
 
-        IToken token = Tokens[Position++];
+        var token = Tokens[Position++];
         if ((token is not TokenSeparator separator || separator.Kind != separatorKind) &&
             (token is not TokenKeyword keyword || keyword.Kind != keywordKind))
         {
@@ -205,7 +204,7 @@ internal sealed class ParseContext : ISubCompileContext
             return null;
         }
 
-        IToken token = Tokens[Position++];
+        var token = Tokens[Position++];
         if (token is not TokenKeyword separator || separator.Kind != kind)
         {
             CompileContext.PushError($"Expected '{TokenKeyword.KindToString(kind)}', got '{token}'", token);

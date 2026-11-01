@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Compiler.Bytecode;
 using G3MLib.Analyzer.Compiler.Lexer;
 using G3MLib.Analyzer.Compiler.Parser;
@@ -28,7 +27,7 @@ internal sealed class NewObjectNode : IMaybeStatementASTNode
     public List<IASTNode> Arguments { get; private set; }
 
     /// <inheritdoc/>
-    public bool IsStatement { get; set; } = false;
+    public bool IsStatement { get; set; }
 
     /// <inheritdoc/>
     public IToken? NearbyToken { get; }
@@ -103,7 +102,7 @@ internal sealed class NewObjectNode : IMaybeStatementASTNode
     public void GenerateCode(BytecodeContext context)
     {
         // Push arguments in reverse order (so they get popped in normal order)
-        for (int i = Arguments.Count - 1; i >= 0; i--)
+        for (var i = Arguments.Count - 1; i >= 0; i--)
         {
             Arguments[i].GenerateCode(context);
             context.ConvertDataType(DataType.Variable);
@@ -114,20 +113,20 @@ internal sealed class NewObjectNode : IMaybeStatementASTNode
         {
             // If currently generating a function declaration header (arguments, inheritance calls),
             // use the outer scope for function resolution. Otherwise, use current scope.
-            FunctionScope resolveScope = context.CurrentScope.GeneratingFunctionDeclHeader ? context.CurrentScope.Parent! : context.CurrentScope;
+            var resolveScope = context.CurrentScope.GeneratingFunctionDeclHeader ? context.CurrentScope.Parent : context.CurrentScope;
 
-            string functionName = simpleVariable.VariableName;
-            bool isGlobalFunction =
+            var functionName = simpleVariable.VariableName;
+            var isGlobalFunction =
                 context.IsGlobalFunctionName(functionName) ||
-                (context.CompileContext.ScriptKind == CompileScriptKind.GlobalScript && context.RootScope.IsFunctionDeclaredImmediately(functionName));
+                context.CompileContext.ScriptKind == CompileScriptKind.GlobalScript && context.RootScope.IsFunctionDeclaredImmediately(functionName);
             if (isGlobalFunction || context.IsFunctionDeclaredInCurrentScope(functionName))
             {
                 // We can statically resolve the function at compile time, so do that
-                IGameContext gameContext = context.CompileContext.GameContext;
+                var gameContext = context.CompileContext.GameContext;
                 if (gameContext.UsingFunctionScriptReferences && !context.CurrentScope.GeneratingDotVariableCall &&
                     (
-                        (gameContext.GetScriptId(functionName, out int _) && !gameContext.GetScriptIdByFunctionName(functionName, out int _)) ||
-                        (gameContext.UsingNewFunctionResolution && !isGlobalFunction && !resolveScope.IsFunctionDeclaredImmediately(functionName))
+                        gameContext.GetScriptId(functionName, out var _) && !gameContext.GetScriptIdByFunctionName(functionName, out var _) ||
+                        gameContext.UsingNewFunctionResolution && !isGlobalFunction && !resolveScope.IsFunctionDeclaredImmediately(functionName)
                     ))
                 {
                     // If calling a script that doesn't actually have its own function, push a reference to
@@ -179,7 +178,7 @@ internal sealed class NewObjectNode : IMaybeStatementASTNode
     public IEnumerable<IASTNode> EnumerateChildren()
     {
         yield return Expression;
-        foreach (IASTNode argument in Arguments)
+        foreach (var argument in Arguments)
         {
             yield return argument;
         }

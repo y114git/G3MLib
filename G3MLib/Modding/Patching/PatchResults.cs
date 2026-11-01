@@ -1,5 +1,3 @@
-using G3MLib.Modding.Patching;
-
 namespace G3MLib.Modding.Patching;
 
 public sealed class PatchApplyResult

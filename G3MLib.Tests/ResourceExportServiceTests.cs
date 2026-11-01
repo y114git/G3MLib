@@ -1,10 +1,7 @@
-using System;
-using System.IO;
 using System.Text.Json;
 using G3MLib.DataFile;
 using G3MLib.DataFile.Models;
 using G3MLib.Modding.Resources;
-using Xunit;
 
 namespace G3MLib.Tests;
 
@@ -13,11 +10,11 @@ public class ResourceExportServiceTests
     [Fact("ResourceExportServiceTests.cs", 10)]
     public void ExportPreservesReferenceIndexes()
     {
-        string directory = Path.Combine(Path.GetTempPath(), $"G3MLibTests-{Guid.NewGuid():N}");
+        var directory = Path.Combine(Path.GetTempPath(), $"G3MLibTests-{Guid.NewGuid():N}");
         Directory.CreateDirectory(directory);
         try
         {
-            using GameMakerData data = GameMakerData.CreateNew2026LTS();
+            using var data = GameMakerData.CreateNew2026LTS();
             GameMakerTexturePageItem texture = new()
             {
                 Name = data.Strings.MakeString("page_item")
@@ -42,8 +39,8 @@ public class ResourceExportServiceTests
             });
             ResourceExportService.ExportEmbeddedImages(data, directory);
             ResourceExportService.ExportGameObjects(data, directory);
-            using JsonDocument imageJson = JsonDocument.Parse(File.ReadAllText(Path.Combine(directory, "EmbeddedImages", "embedded", "embedded.json")));
-            using JsonDocument objectJson = JsonDocument.Parse(File.ReadAllText(Path.Combine(directory, "GameObjects", "second__idx0001", "object.json")));
+            using var imageJson = JsonDocument.Parse(File.ReadAllText(Path.Combine(directory, "EmbeddedImages", "embedded", "embedded.json")));
+            using var objectJson = JsonDocument.Parse(File.ReadAllText(Path.Combine(directory, "GameObjects", "second__idx0001", "object.json")));
             Assert.Equal(1, imageJson.RootElement.GetProperty("texturePageItemIndex").GetInt32());
             Assert.Equal(1, objectJson.RootElement.GetProperty("index").GetInt32());
         }

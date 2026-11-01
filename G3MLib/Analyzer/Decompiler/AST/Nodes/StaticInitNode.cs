@@ -4,8 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
-
 namespace G3MLib.Analyzer.Decompiler.AST;
 
 /// <summary>
@@ -30,6 +28,7 @@ public class StaticInitNode(BlockNode body) : IStatementNode
     /// <inheritdoc/>
     public IStatementNode Clean(ASTCleaner cleaner)
     {
+        ArgumentNullException.ThrowIfNull(cleaner);
         Body.Clean(cleaner);
         Body.UseBraces = false;
 
@@ -48,10 +47,11 @@ public class StaticInitNode(BlockNode body) : IStatementNode
     /// <inheritdoc/>
     public void Print(ASTPrinter printer)
     {
-        bool prevStaticInitState = printer.TopFragmentContext!.InStaticInitialization;
+        ArgumentNullException.ThrowIfNull(printer);
+        var prevStaticInitState = printer.TopFragmentContext.InStaticInitialization;
         printer.TopFragmentContext.InStaticInitialization = true;
 
-        Body.Print(printer);
+        printer.PrintNode(Body);
 
         printer.TopFragmentContext.InStaticInitialization = prevStaticInitState;
     }

@@ -1,4 +1,3 @@
-using System;
 using G3MLib.DataFile.Project.SerializableAssets;
 using G3MLib.DataFile.Project;
 
@@ -53,6 +52,7 @@ public class GameMakerAnimationCurve : GameMakerNamedResource, IProjectAsset, ID
     /// <param name="includeName">Whether to include <see cref="Name"/> in the serialization.</param>
     public void Serialize(GameMakerWriter writer, bool includeName)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         if (includeName)
             writer.WriteGameMakerString(Name);
         writer.Write((uint)GraphType);
@@ -72,6 +72,7 @@ public class GameMakerAnimationCurve : GameMakerNamedResource, IProjectAsset, ID
     /// <param name="includeName">Whether to include <see cref="Name"/> in the deserialization.</param>
     public void Unserialize(GameMakerReader reader, bool includeName)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         if (includeName)
             Name = reader.ReadGameMakerString();
         GraphType = (GraphTypeEnum)reader.ReadUInt32();
@@ -89,6 +90,7 @@ public class GameMakerAnimationCurve : GameMakerNamedResource, IProjectAsset, ID
     /// <param name="includeName">Whether to include <see cref="Name"/> in the deserialization.</param>
     public static uint UnserializeChildObjectCount(GameMakerReader reader, bool includeName)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         if (!includeName)
             reader.Position += 4;     // "GraphType"
         else
@@ -110,7 +112,7 @@ public class GameMakerAnimationCurve : GameMakerNamedResource, IProjectAsset, ID
 
         if (Channels is not null)
         {
-            foreach (Channel channel in Channels)
+            foreach (var channel in Channels)
                 channel?.Dispose();
         }
         Name = null;
@@ -163,6 +165,7 @@ public class GameMakerAnimationCurve : GameMakerNamedResource, IProjectAsset, ID
         /// <inheritdoc />
         public void Serialize(GameMakerWriter writer)
         {
+            ArgumentNullException.ThrowIfNull(writer);
             writer.WriteGameMakerString(Name);
             writer.Write((uint)Curve);
             writer.Write(Iterations);
@@ -172,6 +175,7 @@ public class GameMakerAnimationCurve : GameMakerNamedResource, IProjectAsset, ID
         /// <inheritdoc />
         public void Unserialize(GameMakerReader reader)
         {
+            ArgumentNullException.ThrowIfNull(reader);
             Name = reader.ReadGameMakerString();
             Curve = (CurveType)reader.ReadUInt32();
             Iterations = reader.ReadUInt32();
@@ -182,16 +186,17 @@ public class GameMakerAnimationCurve : GameMakerNamedResource, IProjectAsset, ID
         /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
         public static uint UnserializeChildObjectCount(GameMakerReader reader)
         {
+            ArgumentNullException.ThrowIfNull(reader);
             reader.Position += 12;
 
             // Read the number of points in the curve
-            uint pointCount = reader.ReadUInt32();
+            var pointCount = reader.ReadUInt32();
 
             // This check is partly duplicated from GameMakerChunks.cs, but it's necessary to handle embedded curves
             // (For example, those in SEQN in the TS!Underswap v1.0 demo; see issue #1414)
             if (!reader.gameMakerData.IsVersionAtLeast(2, 3, 1))
             {
-                long returnPosition = reader.AbsPosition;
+                var returnPosition = reader.AbsPosition;
                 if (pointCount > 0)
                 {
                     reader.AbsPosition += 8;
@@ -265,6 +270,7 @@ public class GameMakerAnimationCurve : GameMakerNamedResource, IProjectAsset, ID
             /// <inheritdoc />
             public void Serialize(GameMakerWriter writer)
             {
+                ArgumentNullException.ThrowIfNull(writer);
                 writer.Write(X);
                 writer.Write(Value);
 
@@ -282,6 +288,7 @@ public class GameMakerAnimationCurve : GameMakerNamedResource, IProjectAsset, ID
             /// <inheritdoc />
             public void Unserialize(GameMakerReader reader)
             {
+                ArgumentNullException.ThrowIfNull(reader);
                 X = reader.ReadSingle();
                 Value = reader.ReadSingle();
 
@@ -308,7 +315,7 @@ public class GameMakerAnimationCurve : GameMakerNamedResource, IProjectAsset, ID
     internal ISerializableProjectAsset GenerateSerializableProjectAsset(ProjectContext projectContext)
     {
         SerializableAnimationCurve serializable = new();
-        serializable.PopulateFromData(projectContext, this);
+        serializable.PopulateFromData(this);
         return serializable;
     }
 
@@ -316,7 +323,7 @@ public class GameMakerAnimationCurve : GameMakerNamedResource, IProjectAsset, ID
     ISerializableProjectAsset IProjectAsset.GenerateSerializableProjectAsset(ProjectContext projectContext)
     {
         SerializableAnimationCurve serializable = new();
-        serializable.PopulateFromData(projectContext, this);
+        serializable.PopulateFromData(this);
         return serializable;
     }
 

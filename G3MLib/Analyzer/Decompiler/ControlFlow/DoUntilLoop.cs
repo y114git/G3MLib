@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Decompiler.AST;
 using static G3MLib.Analyzer.IGMInstruction;
 
@@ -21,7 +20,7 @@ internal sealed class DoUntilLoop(int startAddress, int endAddress, int index, I
         // Get rid of jumps from tail
         IControlFlowNode.DisconnectSuccessor(Tail, 1);
         IControlFlowNode.DisconnectSuccessor(Tail, 0);
-        Block tailBlock = (Tail as Block)!;
+        var tailBlock = Tail as Block;
         tailBlock.Instructions.RemoveAt(tailBlock.Instructions.Count - 1);
 
         After = InsertLoopStructure(Head, After);
@@ -35,13 +34,13 @@ internal sealed class DoUntilLoop(int startAddress, int endAddress, int index, I
     public override void BuildAST(ASTBuilder builder, List<IStatementNode> output)
     {
         // Push this loop context
-        Loop? prevLoop = builder.TopFragmentContext!.SurroundingLoop;
+        var prevLoop = builder.TopFragmentContext.SurroundingLoop;
         builder.TopFragmentContext.SurroundingLoop = this;
 
         // Build body
-        int stackCountBefore = builder.ExpressionStack.Count;
-        BlockNode body = builder.BuildBlock(Head);
-        int stackCountAfter = builder.ExpressionStack.Count;
+        var stackCountBefore = builder.ExpressionStack.Count;
+        var body = builder.BuildBlock(Head);
+        var stackCountAfter = builder.ExpressionStack.Count;
 
         // Verify that we created a loop condition while simulating the body
         if (stackCountAfter != stackCountBefore + 1)
@@ -51,7 +50,7 @@ internal sealed class DoUntilLoop(int startAddress, int endAddress, int index, I
         }
 
         // Use newly-created condition from stack, and create statement
-        IExpressionNode condition = builder.ExpressionStack.Pop();
+        var condition = builder.ExpressionStack.Pop();
 
         // If condition was an int16 that was directly used without conversion, that means it was a boolean
         if (condition is Int16Node { Value: 0 or 1, StackType: not DataType.Boolean } i16)

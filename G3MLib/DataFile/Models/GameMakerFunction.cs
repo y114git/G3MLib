@@ -1,8 +1,5 @@
-using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
-using System.Linq;
 using G3MLib.Analyzer;
 using static G3MLib.DataFile.Models.GameMakerGeneralInfo;
 
@@ -44,11 +41,12 @@ public class GameMakerFunction : GameMakerNamedResource, GameMakerInstruction.IR
     /// <inheritdoc />
     public void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         writer.WriteGameMakerString(Name);
         writer.Write(Occurrences);
         if (Occurrences > 0)
         {
-            uint addr = writer.GetAddressForGameMakerObject(FirstAddress);
+            var addr = writer.GetAddressForGameMakerObject(FirstAddress);
             if (writer.gameMakerData.IsVersionAtLeast(2, 3))
                 writer.Write((addr == 0) ? 0 : (addr + 4)); // in GMS 2.3, it points to the actual reference rather than the instruction
             else
@@ -61,6 +59,7 @@ public class GameMakerFunction : GameMakerNamedResource, GameMakerInstruction.IR
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
+        ArgumentNullException.ThrowIfNull(reader);
         Name = reader.ReadGameMakerString();
         Occurrences = reader.ReadUInt32();
         if (Occurrences > 0)
@@ -112,7 +111,7 @@ public class GameMakerCodeLocals : GameMakerNamedResource, IDisposable
     /// <summary>
     /// A collection of local variables.
     /// </summary>
-    public ObservableCollection<LocalVar> Locals { get; private set; } = new ObservableCollection<LocalVar>();
+    public ObservableCollection<LocalVar> Locals { get; private set; } = [];
 
     /// <summary>
     /// Creates an empty code locals entry with the given name.
@@ -122,13 +121,14 @@ public class GameMakerCodeLocals : GameMakerNamedResource, IDisposable
     /// <returns>The new code locals entry.</returns>
     public static GameMakerCodeLocals CreateEmptyEntry(GameMakerData data, GameMakerString name)
     {
+        ArgumentNullException.ThrowIfNull(data);
         GameMakerCodeLocals locals = new()
         {
             Name = name
         };
         locals.Locals.Add(new()
         {
-            Name = data.Strings.MakeString("arguments", out int argumentsStringId),
+            Name = data.Strings.MakeString("arguments", out var argumentsStringId),
             Index = data.IsVersionAtLeast(2, 3) ? (uint)argumentsStringId : 0
         });
         data.CodeLocals.Add(locals);
@@ -138,9 +138,10 @@ public class GameMakerCodeLocals : GameMakerNamedResource, IDisposable
     /// <inheritdoc />
     public void Serialize(GameMakerWriter writer)
     {
+        ArgumentNullException.ThrowIfNull(writer);
         writer.Write((uint)Locals.Count);
         writer.WriteGameMakerString(Name);
-        foreach (LocalVar var in Locals)
+        foreach (var var in Locals)
         {
             writer.WriteGameMakerObject(var);
         }
@@ -149,11 +150,12 @@ public class GameMakerCodeLocals : GameMakerNamedResource, IDisposable
     /// <inheritdoc />
     public void Unserialize(GameMakerReader reader)
     {
-        uint count = reader.ReadUInt32();
+        ArgumentNullException.ThrowIfNull(reader);
+        var count = reader.ReadUInt32();
         Name = reader.ReadGameMakerString();
         if ((long)count * LocalVar.ChildObjectsSize > reader.Length - reader.Position)
             throw new IOException("Code local variables exceed the available input.");
-        List<LocalVar> newLocals = new();
+        List<LocalVar> newLocals = [];
         for (uint i = 0; i < count; i++)
             newLocals.Add(reader.ReadGameMakerObject<LocalVar>());
         Locals = new(newLocals);
@@ -163,9 +165,10 @@ public class GameMakerCodeLocals : GameMakerNamedResource, IDisposable
     /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
     public static uint UnserializeChildObjectCount(GameMakerReader reader)
     {
-        uint count = reader.ReadUInt32();
+        ArgumentNullException.ThrowIfNull(reader);
+        var count = reader.ReadUInt32();
 
-        reader.Position += 4 + ((long)count * LocalVar.ChildObjectsSize);
+        reader.Position += 4 + (long)count * LocalVar.ChildObjectsSize;
 
         return count;
     }
@@ -202,6 +205,7 @@ public class GameMakerCodeLocals : GameMakerNamedResource, IDisposable
         /// <inheritdoc />
         public void Serialize(GameMakerWriter writer)
         {
+            ArgumentNullException.ThrowIfNull(writer);
             writer.Write(Index);
             writer.WriteGameMakerString(Name);
         }
@@ -209,6 +213,7 @@ public class GameMakerCodeLocals : GameMakerNamedResource, IDisposable
         /// <inheritdoc />
         public void Unserialize(GameMakerReader reader)
         {
+            ArgumentNullException.ThrowIfNull(reader);
             Index = reader.ReadUInt32();
             Name = reader.ReadGameMakerString();
         }

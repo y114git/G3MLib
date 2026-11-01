@@ -17,6 +17,7 @@ public class AssetMacroType(AssetType type) : IMacroTypeInt32
 
     public IExpressionNode? Resolve(ASTCleaner cleaner, IMacroResolvableNode node, int data)
     {
+        ArgumentNullException.ThrowIfNull(cleaner);
         // Ensure we don't resolve this on newer GameMaker versions where this is unnecessary
         if (cleaner.Context.GameContext.UsingAssetReferences &&
             Type != AssetType.AudioGroup && (cleaner.Context.GameContext.UsingRoomInstanceReferences || Type != AssetType.RoomInstance))
@@ -25,7 +26,7 @@ public class AssetMacroType(AssetType type) : IMacroTypeInt32
         }
 
         // Check for asset name with the given type
-        string? assetName = cleaner.Context.GameContext.GetAssetName(Type, data);
+        var assetName = cleaner.Context.GameContext.GetAssetName(Type, data);
         if (assetName is not null)
         {
             return new MacroValueNode(assetName);

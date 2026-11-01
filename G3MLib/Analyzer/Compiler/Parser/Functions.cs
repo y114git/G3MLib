@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Compiler.Lexer;
 using G3MLib.Analyzer.Compiler.Nodes;
 
@@ -61,7 +60,7 @@ internal static class Functions
             if (!context.IsCurrentToken(SeparatorKind.GroupClose))
             {
                 // Failed to find group end, so give error and stop parsing
-                IToken currentToken = context.Tokens[context.Position];
+                var currentToken = context.Tokens[context.Position];
                 context.CompileContext.PushError(
                     $"Expected '{TokenSeparator.KindToString(SeparatorKind.Comma)}' or " +
                     $"'{TokenSeparator.KindToString(SeparatorKind.GroupClose)}', " +

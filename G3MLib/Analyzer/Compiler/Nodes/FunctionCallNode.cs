@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Compiler.Bytecode;
 using G3MLib.Analyzer.Compiler.Lexer;
 using G3MLib.Analyzer.Compiler.Parser;
@@ -28,7 +27,7 @@ internal sealed class FunctionCallNode : IMaybeStatementASTNode
     public List<IASTNode> Arguments { get; }
 
     /// <inheritdoc/>
-    public bool IsStatement { get; set; } = false;
+    public bool IsStatement { get; set; }
 
     /// <inheritdoc/>
     public IToken? NearbyToken { get; }
@@ -77,7 +76,7 @@ internal sealed class FunctionCallNode : IMaybeStatementASTNode
     private void GenerateArguments(BytecodeContext context)
     {
         // Push arguments in reverse order (so they get popped in normal order)
-        for (int i = Arguments.Count - 1; i >= 0; i--)
+        for (var i = Arguments.Count - 1; i >= 0; i--)
         {
             Arguments[i].GenerateCode(context);
             context.ConvertDataType(DataType.Variable);
@@ -92,9 +91,12 @@ internal sealed class FunctionCallNode : IMaybeStatementASTNode
         while (true)
         {
             // Check if left expression is immediately a function call
-            if (node.LeftExpression is FunctionCallNode { Expression: SimpleVariableNode { CollapsedFromDot: false } or
+            if (node.LeftExpression is FunctionCallNode
+                {
+                    Expression: SimpleVariableNode { CollapsedFromDot: false } or
                                                                       FunctionCallNode or SimpleFunctionCallNode or
-                                                                      AccessorNode } or
+                                                                      AccessorNode
+                } or
                                        SimpleFunctionCallNode)
             {
                 return true;
@@ -120,7 +122,7 @@ internal sealed class FunctionCallNode : IMaybeStatementASTNode
     private void GenerateCode(BytecodeContext context, bool inChain)
     {
         VariablePatch finalVariable;
-        bool argumentsAtTheEnd = false;
+        var argumentsAtTheEnd = false;
 
         // For some reason, chains of function calls generate arguments before instance.
         // We'll also have an exception for DotVariableNode expressions, which is broken in the original compiler.
@@ -146,7 +148,7 @@ internal sealed class FunctionCallNode : IMaybeStatementASTNode
                 argsToUse = 1;
 
                 // Generate object ID as number
-                int value = (int)simpleVar.ExplicitInstanceType;
+                var value = (int)simpleVar.ExplicitInstanceType;
                 if (simpleVar.RoomInstanceVariable)
                 {
                     // Add back 100000 for room instance IDs
@@ -190,7 +192,7 @@ internal sealed class FunctionCallNode : IMaybeStatementASTNode
                 // Push arguments to stack, if using old code gen
                 if (!context.CompileContext.GameContext.UsingNewChainedFunctionArgumentOrder)
                 {
-                    bool prevGeneratingDotVariableCall = context.CurrentScope.GeneratingDotVariableCall;
+                    var prevGeneratingDotVariableCall = context.CurrentScope.GeneratingDotVariableCall;
                     context.CurrentScope.GeneratingDotVariableCall = true;
                     GenerateArguments(context);
                     context.CurrentScope.GeneratingDotVariableCall = prevGeneratingDotVariableCall;
@@ -245,11 +247,11 @@ internal sealed class FunctionCallNode : IMaybeStatementASTNode
             }
 
             // Handle compiler quirk with dot on left side of accessors using the accessor as an instance
-            bool dupInstance = false;
+            var dupInstance = false;
             if (Expression is AccessorNode accessor)
             {
                 // Get leftmost accessor from here
-                AccessorNode leftmostAccessor = accessor;
+                var leftmostAccessor = accessor;
                 while (leftmostAccessor.Expression is AccessorNode furtherLeft)
                 {
                     leftmostAccessor = furtherLeft;
@@ -356,7 +358,7 @@ internal sealed class FunctionCallNode : IMaybeStatementASTNode
             // Push arguments to stack
             if (Expression is DotVariableNode)
             {
-                bool prevGeneratingDotVariableCall = context.CurrentScope.GeneratingDotVariableCall;
+                var prevGeneratingDotVariableCall = context.CurrentScope.GeneratingDotVariableCall;
                 context.CurrentScope.GeneratingDotVariableCall = true;
                 GenerateArguments(context);
                 context.CurrentScope.GeneratingDotVariableCall = prevGeneratingDotVariableCall;
@@ -383,7 +385,7 @@ internal sealed class FunctionCallNode : IMaybeStatementASTNode
         // Push arguments to stack right at the end, if using new code gen (from an above special case)
         if (argumentsAtTheEnd)
         {
-            bool prevGeneratingDotVariableCall = context.CurrentScope.GeneratingDotVariableCall;
+            var prevGeneratingDotVariableCall = context.CurrentScope.GeneratingDotVariableCall;
             context.CurrentScope.GeneratingDotVariableCall = true;
             GenerateArguments(context);
             context.CurrentScope.GeneratingDotVariableCall = prevGeneratingDotVariableCall;
@@ -414,7 +416,7 @@ internal sealed class FunctionCallNode : IMaybeStatementASTNode
     public IEnumerable<IASTNode> EnumerateChildren()
     {
         yield return Expression;
-        foreach (IASTNode argument in Arguments)
+        foreach (var argument in Arguments)
         {
             yield return argument;
         }

@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Compiler.Bytecode;
 using G3MLib.Analyzer.Compiler.Lexer;
 using G3MLib.Analyzer.Compiler.Parser;
@@ -74,19 +73,19 @@ internal sealed class TryCatchNode : IASTNode
         }
 
         // Parse "try" part of the statement
-        int previousEscapeCount = context.ExitReturnBreakContinueCount;
+        var previousEscapeCount = context.ExitReturnBreakContinueCount;
         if (Statements.ParseStatement(context) is not IASTNode @try)
         {
             return null;
         }
 
         // If exit/return/continue/break were encountered while parsing try, note that for later
-        bool tryEscape = (context.ExitReturnBreakContinueCount != previousEscapeCount);
+        var tryEscape = context.ExitReturnBreakContinueCount != previousEscapeCount;
 
         // Parse "catch" part of the statement, if it exists
         IASTNode? @catch = null;
         string? catchVariableName = null;
-        bool catchEscape = false;
+        var catchEscape = false;
         if (context.IsCurrentToken(KeywordKind.Catch))
         {
             context.Position++;
@@ -108,7 +107,7 @@ internal sealed class TryCatchNode : IASTNode
             @catch = Statements.ParseStatement(context);
 
             // If exit/return/continue/break/throw were encountered while parsing catch, note that for later
-            catchEscape = (context.ExitReturnBreakContinueCount + context.ThrowCount != previousEscapeCount);
+            catchEscape = context.ExitReturnBreakContinueCount + context.ThrowCount != previousEscapeCount;
         }
 
         // Parse "finally" part of the statement, if it exists
@@ -134,7 +133,7 @@ internal sealed class TryCatchNode : IASTNode
     private WhileLoopNode GenerateBlockLoop(ParseContext context, TryStatementContext tryContext, IASTNode block)
     {
         // Create block inside of loop
-        BlockNode innerBlock = BlockNode.CreateEmpty(NearbyToken, 3);
+        var innerBlock = BlockNode.CreateEmpty(NearbyToken, 3);
 
         // If continue variable is set at the top of the loop, break out of loop
         context.CurrentScope.DeclareLocal(tryContext.ContinueVariableName);
@@ -159,7 +158,7 @@ internal sealed class TryCatchNode : IASTNode
             // Awaiting official Underminers resolution: nested finally control flow varies by compiler version.
 
             // Process finally, with special flag to ensure control flow statements are not used
-            bool previousProcessingFinally = context.ProcessingFinally;
+            var previousProcessingFinally = context.ProcessingFinally;
             context.ProcessingFinally = true;
             Finally = Finally.PostProcess(context);
             context.ProcessingFinally = previousProcessingFinally;
@@ -169,15 +168,15 @@ internal sealed class TryCatchNode : IASTNode
         }
 
         // Get unique names for this try statement's variables
-        int uniqueIndex = context.CompileContext.GameContext.CodeBuilder.GenerateTryVariableID(context.TryStatementProcessIndex++);
-        string breakName = $"{VMConstants.TryBreakVariable}{uniqueIndex}";
-        string continueName = $"{VMConstants.TryContinueVariable}{uniqueIndex}";
+        var uniqueIndex = context.CompileContext.GameContext.CodeBuilder.GenerateTryVariableID(context.TryStatementProcessIndex++);
+        var breakName = $"{VMConstants.TryBreakVariable}{uniqueIndex}";
+        var continueName = $"{VMConstants.TryContinueVariable}{uniqueIndex}";
 
         // Create context for this try statement
-        TryStatementContext? previousTryContext = context.TryStatementContext;
+        var previousTryContext = context.TryStatementContext;
         TryStatementContext newTryContext = new(breakName, continueName, Finally is not null);
         context.TryStatementContext = newTryContext;
-        bool breakContinueUsedAnywhere = false;
+        var breakContinueUsedAnywhere = false;
 
         // Only generate finally code before throw if either an escape keyword was detected inside of
         // try block during parsing, or if there's no catch block.
@@ -227,8 +226,8 @@ internal sealed class TryCatchNode : IASTNode
         if (breakContinueUsedAnywhere)
         {
             // Create block with enough room for generated code
-            bool insideBreakContinueContext = context.CurrentScope.ProcessingBreakContinueContext;
-            BlockNode newBlock = BlockNode.CreateEmpty(NearbyToken, insideBreakContinueContext ? 5 : 3);
+            var insideBreakContinueContext = context.CurrentScope.ProcessingBreakContinueContext;
+            var newBlock = BlockNode.CreateEmpty(NearbyToken, insideBreakContinueContext ? 5 : 3);
 
             // Generate initial assignments
             context.CurrentScope.DeclareLocal(breakName);
@@ -270,15 +269,15 @@ internal sealed class TryCatchNode : IASTNode
     public void GenerateCode(BytecodeContext context)
     {
         // Hook the try statement with addresses to finally/catch blocks
-        IGMInstruction finallyInstr = context.Emit(Opcode.Push, -1, DataType.Int32);
+        var finallyInstr = context.Emit(Opcode.Push, -1, DataType.Int32);
         context.Emit(Opcode.Convert, DataType.Int32, DataType.Variable);
-        IGMInstruction catchInstr = context.Emit(Opcode.Push, -1, DataType.Int32);
+        var catchInstr = context.Emit(Opcode.Push, -1, DataType.Int32);
         context.Emit(Opcode.Convert, DataType.Int32, DataType.Variable);
         context.EmitCall(FunctionPatch.FromBuiltin(context, VMConstants.TryHookFunction), 2);
         context.Emit(Opcode.PopDelete, DataType.Variable);
 
         // Generate main try block
-        string? previousFunctionCallBeforeExit = context.FunctionCallBeforeExit;
+        var previousFunctionCallBeforeExit = context.FunctionCallBeforeExit;
         context.FunctionCallBeforeExit = VMConstants.TryUnhookFunction;
         Try.GenerateCode(context);
         context.FunctionCallBeforeExit = previousFunctionCallBeforeExit;
@@ -299,7 +298,7 @@ internal sealed class TryCatchNode : IASTNode
             context.PatchPush(catchInstr, context.Position);
 
             // Store thrown value in local variable and unhook try statement
-            context.Emit(Opcode.Pop, new VariablePatch(CatchVariableName!, InstanceType.Local), DataType.Variable, DataType.Variable);
+            context.Emit(Opcode.Pop, new VariablePatch(CatchVariableName, InstanceType.Local), DataType.Variable, DataType.Variable);
             context.EmitCall(FunctionPatch.FromBuiltin(context, VMConstants.TryUnhookFunction), 0);
             context.Emit(Opcode.PopDelete, DataType.Variable);
 

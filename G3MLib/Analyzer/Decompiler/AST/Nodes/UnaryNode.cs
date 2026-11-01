@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Decompiler.GameSpecific;
 using static G3MLib.Analyzer.IGMInstruction;
 
@@ -26,10 +25,10 @@ public class UnaryNode(IExpressionNode value, IGMInstruction instruction) : ICon
     public IGMInstruction Instruction { get; } = instruction;
 
     /// <inheritdoc/>
-    public bool Duplicated { get; set; } = false;
+    public bool Duplicated { get; set; }
 
     /// <inheritdoc/>
-    public bool Group { get; set; } = false;
+    public bool Group { get; set; }
 
     /// <inheritdoc/>
     public DataType StackType { get; set; } = instruction.Type1;
@@ -70,12 +69,13 @@ public class UnaryNode(IExpressionNode value, IGMInstruction instruction) : ICon
     /// <inheritdoc/>
     public void Print(ASTPrinter printer)
     {
+        ArgumentNullException.ThrowIfNull(printer);
         if (Group)
         {
             printer.Write('(');
         }
 
-        char op = Instruction switch
+        var op = Instruction switch
         {
             { Kind: Opcode.Negate } => '-',
             { Kind: Opcode.Not, Type1: DataType.Boolean } => '!',
@@ -84,7 +84,7 @@ public class UnaryNode(IExpressionNode value, IGMInstruction instruction) : ICon
         };
         printer.Write(op);
 
-        Value.Print(printer);
+        printer.PrintNode(Value);
 
         if (Group)
         {

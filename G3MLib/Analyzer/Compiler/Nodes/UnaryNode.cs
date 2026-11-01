@@ -4,7 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
 using G3MLib.Analyzer.Compiler.Bytecode;
 using G3MLib.Analyzer.Compiler.Lexer;
 using G3MLib.Analyzer.Compiler.Parser;
@@ -76,7 +75,7 @@ internal sealed class UnaryNode : IASTNode
             (UnaryKind.BooleanNot, Int64Node number) => new Int64Node((number.Value > 0.5) ? 1 : 0, number.NearbyToken),
             (UnaryKind.BooleanNot, BooleanNode boolean) => new BooleanNode(!boolean.Value, boolean.NearbyToken),
 
-            (UnaryKind.BitwiseNegate, NumberNode number) => new NumberNode(~((long)number.Value), number.NearbyToken),
+            (UnaryKind.BitwiseNegate, NumberNode number) => new NumberNode(~(long)number.Value, number.NearbyToken),
             (UnaryKind.BitwiseNegate, Int64Node number) => new Int64Node(~number.Value, number.NearbyToken),
             (UnaryKind.BitwiseNegate, BooleanNode boolean) => new NumberNode(~(boolean.Value ? 1 : 0), boolean.NearbyToken),
 
@@ -102,7 +101,7 @@ internal sealed class UnaryNode : IASTNode
     {
         // Compile expression that operation is being performed on
         Expression.GenerateCode(context);
-        DataType type = context.PeekDataType();
+        var type = context.PeekDataType();
 
         // Emit operation instruction (and possible conversion)
         switch (Kind)
@@ -149,7 +148,7 @@ internal sealed class UnaryNode : IASTNode
                 }
                 context.Emit(Opcode.Not, type);
                 break;
-            // Note: UnaryKind.Positive is a no-op apparently
+                // Note: UnaryKind.Positive is a no-op apparently
         }
     }
 

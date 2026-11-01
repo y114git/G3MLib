@@ -4,8 +4,7 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
-using System.Linq;
+using System.Globalization;
 using System.Text;
 using G3MLib.Analyzer.Decompiler.ControlFlow;
 
@@ -24,17 +23,17 @@ public sealed class ASTFragmentContext
     /// <summary>
     /// Whether this context belongs to the root fragment of the corresponding root code entry.
     /// </summary>
-    public bool IsRootFragment { get => Fragment.StartAddress == 0; }
+    public bool IsRootFragment => Fragment.StartAddress == 0;
 
     /// <summary>
     /// The name of the code entry this fragment belongs to.
     /// </summary>
-    public string? CodeEntryName { get => Fragment.CodeEntry.Name?.Content; }
+    public string? CodeEntryName => Fragment.CodeEntry.Name?.Content;
 
     /// <summary>
     /// The name of the function this fragment belongs to, or <see langword="null"/> if none.
     /// </summary>
-    public string? FunctionName { get; internal set; } = null;
+    public string? FunctionName { get; internal set; }
 
     /// <summary>
     /// Parent fragment of this fragment, if not the root.
@@ -54,23 +53,23 @@ public sealed class ASTFragmentContext
     /// <summary>
     /// If true, the currently-printing node is within a static variable initialization block.
     /// </summary>
-    internal bool InStaticInitialization { get; set; } = false;
+    internal bool InStaticInitialization { get; set; }
 
     /// <summary>
     /// If true, the currently-printing node is within a function declaration header (arguments and inheritance calls).
     /// </summary>
-    internal bool InFunctionDeclHeader { get; set; } = false;
+    internal bool InFunctionDeclHeader { get; set; }
 
     /// <summary>
     /// If not null, represents the list of arguments getting passed into this fragment (which is a struct).
     /// </summary>
-    public List<IExpressionNode>? StructArguments { get; internal set; } = null;
+    public List<IExpressionNode>? StructArguments { get; internal set; }
 
     /// <summary>
     /// Function call to the parent constructor function, if this is a constructor function that inherits
     /// another constructor function, or <see langword="null"/> otherwise.
     /// </summary>
-    internal IExpressionNode? BaseParentCall { get; set; } = null;
+    internal IExpressionNode? BaseParentCall { get; set; }
 
     /// <summary>
     /// Contains all local variables referenced from within this fragment.
@@ -100,7 +99,7 @@ public sealed class ASTFragmentContext
     /// <summary>
     /// The loop surrounding the currently-building position in the AST.
     /// </summary>
-    internal Loop? SurroundingLoop { get; set; } = null;
+    internal Loop? SurroundingLoop { get; set; }
 
     /// <summary>
     /// Contains local variable names that should be entirely removed from the fragment.
@@ -165,7 +164,7 @@ public sealed class ASTFragmentContext
         }
 
         // Look up existing name, and use that, if it exists already
-        if (NamedArgumentByIndex.TryGetValue(index, out string? existingName))
+        if (NamedArgumentByIndex.TryGetValue(index, out var existingName))
         {
             return existingName;
         }
@@ -173,14 +172,14 @@ public sealed class ASTFragmentContext
         string? name = null;
 
         // Resolve name from registry
-        string? codeEntryName = CodeEntryName;
+        var codeEntryName = CodeEntryName;
         if (codeEntryName is not null)
         {
             name = context.GameContext.GameSpecificRegistry.NamedArgumentResolver.ResolveArgument(codeEntryName, index);
         }
 
         // If no name exists in the registry, auto-generate one from settings
-        name ??= string.Format(context.Settings.UnknownArgumentNamePattern, index);
+        name ??= string.Format(CultureInfo.InvariantCulture, context.Settings.UnknownArgumentNamePattern, index);
 
         // Resolve conflicts with local variable names
         StringBuilder? nameBuilder = null;
@@ -206,7 +205,7 @@ public sealed class ASTFragmentContext
             return;
         }
 
-        LocalScope? oldScope = CurrentLocalScope;
+        var oldScope = CurrentLocalScope;
         CurrentLocalScope = new LocalScope(oldScope, containingBlock, startStatement);
         oldScope?.Children?.Add(CurrentLocalScope);
     }
@@ -221,7 +220,7 @@ public sealed class ASTFragmentContext
             return;
         }
 
-        LocalScope oldScope = CurrentLocalScope!;
+        var oldScope = CurrentLocalScope;
         CurrentLocalScope = oldScope.Parent;
 
         if (CurrentLocalScope is null)

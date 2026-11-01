@@ -6,7 +6,6 @@
 
 using G3MLib.Analyzer.Decompiler;
 using G3MLib.Analyzer.Decompiler.ControlFlow;
-using G3MLib.Analyzer.Mock;
 
 namespace G3MLib.Tests;
 
@@ -15,7 +14,7 @@ public class BinaryBranch_FindBinaryBranches_Loops
     [Fact]
     public void TestWhileIfElse()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             pushi.e 1
@@ -43,17 +42,17 @@ public class BinaryBranch_FindBinaryBranches_Loops
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
 
-        Assert.Single(loops);
-        WhileLoop loop = (WhileLoop)loops[0];
+        var item = Assert.Single(loops);
+        var loop = (WhileLoop)item;
 
-        Assert.Single(branches);
-        BinaryBranch b = branches[0];
+        var item_2 = Assert.Single(branches);
+        var b = item_2;
 
         Assert.Equal([], loop.Predecessors);
         Assert.Equal([blocks[5]], loop.Successors);
@@ -72,7 +71,7 @@ public class BinaryBranch_FindBinaryBranches_Loops
         Assert.Equal(blocks[3], b.Else);
         Assert.Empty(blocks[3].Successors);
         Assert.Empty(b.True.Predecessors);
-        Assert.Empty(b.Else!.Predecessors);
+        Assert.Empty(b.Else.Predecessors);
 
         Assert.Equal(2, blocks[2].Instructions.Count);
 
@@ -86,7 +85,7 @@ public class BinaryBranch_FindBinaryBranches_Loops
     [Fact]
     public void TestWhileIfEmpty()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             pushi.e 1
@@ -105,17 +104,17 @@ public class BinaryBranch_FindBinaryBranches_Loops
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
 
-        Assert.Single(loops);
-        WhileLoop loop = (WhileLoop)loops[0];
+        var item = Assert.Single(loops);
+        var loop = (WhileLoop)item;
 
-        Assert.Single(branches);
-        BinaryBranch b = branches[0];
+        var item_2 = Assert.Single(branches);
+        var b = item_2;
 
         Assert.Equal([], loop.Predecessors);
         Assert.Equal([blocks[3]], loop.Successors);
@@ -144,7 +143,7 @@ public class BinaryBranch_FindBinaryBranches_Loops
     [Fact]
     public void TestWhileIfElseEmpty()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             pushi.e 1
@@ -166,17 +165,17 @@ public class BinaryBranch_FindBinaryBranches_Loops
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
 
-        Assert.Single(loops);
-        WhileLoop loop = (WhileLoop)loops[0];
+        var item = Assert.Single(loops);
+        var loop = (WhileLoop)item;
 
-        Assert.Single(branches);
-        BinaryBranch b = branches[0];
+        var item_2 = Assert.Single(branches);
+        var b = item_2;
 
         Assert.Equal([], loop.Predecessors);
         Assert.Equal([blocks[4]], loop.Successors);
@@ -208,7 +207,7 @@ public class BinaryBranch_FindBinaryBranches_Loops
     [Fact]
     public void TestWhileIfContinue()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             pushi.e 1
@@ -230,17 +229,17 @@ public class BinaryBranch_FindBinaryBranches_Loops
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
 
-        Assert.Single(loops);
-        WhileLoop loop = (WhileLoop)loops[0];
+        var item = Assert.Single(loops);
+        var loop = (WhileLoop)item;
 
-        Assert.Single(branches);
-        BinaryBranch b = branches[0];
+        var item_2 = Assert.Single(branches);
+        var b = item_2;
 
         Assert.True(loop.MustBeWhileLoop);
         Assert.Equal([], loop.Predecessors);
@@ -256,9 +255,9 @@ public class BinaryBranch_FindBinaryBranches_Loops
         Assert.Equal(blocks[1], b.Condition);
         Assert.Equal(blocks[2], b.True);
         Assert.Empty(blocks[2].Instructions);
-        Assert.Single(blocks[2].Successors);
-        Assert.IsType<ContinueNode>(blocks[2].Successors[0]);
-        ContinueNode c = (ContinueNode)blocks[2].Successors[0];
+        var item_3 = Assert.Single(blocks[2].Successors);
+        Assert.IsType<ContinueNode>(item_3);
+        var c = (ContinueNode)blocks[2].Successors[0];
         Assert.Equal([blocks[2]], c.Predecessors);
         Assert.Equal([], c.Successors);
         Assert.Equal(blocks[3], b.False);
@@ -277,7 +276,7 @@ public class BinaryBranch_FindBinaryBranches_Loops
     [Fact]
     public void TestNestedWhileIfContinue()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             pushi.e 1
@@ -307,18 +306,18 @@ public class BinaryBranch_FindBinaryBranches_Loops
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
 
         Assert.Equal(2, loops.Count);
-        WhileLoop loop0 = (WhileLoop)loops[0];
-        WhileLoop loop1 = (WhileLoop)loops[1];
+        var loop0 = (WhileLoop)loops[0];
+        var loop1 = (WhileLoop)loops[1];
 
-        Assert.Single(branches);
-        BinaryBranch b = branches[0];
+        var item = Assert.Single(branches);
+        var b = item;
 
         Assert.True(loop0.MustBeWhileLoop);
         Assert.Equal([], loop0.Predecessors);
@@ -334,9 +333,9 @@ public class BinaryBranch_FindBinaryBranches_Loops
         Assert.Equal(blocks[1], b.Condition);
         Assert.Equal(blocks[2], b.True);
         Assert.Empty(blocks[2].Instructions);
-        Assert.Single(blocks[2].Successors);
-        Assert.IsType<ContinueNode>(blocks[2].Successors[0]);
-        ContinueNode c = (ContinueNode)blocks[2].Successors[0];
+        var item_2 = Assert.Single(blocks[2].Successors);
+        Assert.IsType<ContinueNode>(item_2);
+        var c = (ContinueNode)blocks[2].Successors[0];
         Assert.Equal([blocks[2]], c.Predecessors);
         Assert.Equal([], c.Successors);
         Assert.Equal(loop1, b.False);
@@ -353,7 +352,7 @@ public class BinaryBranch_FindBinaryBranches_Loops
     [Fact]
     public void TestWhileIfElseContinue()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             pushi.e 1
@@ -381,17 +380,17 @@ public class BinaryBranch_FindBinaryBranches_Loops
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
 
-        Assert.Single(loops);
-        WhileLoop loop = (WhileLoop)loops[0];
+        var item = Assert.Single(loops);
+        var loop = (WhileLoop)item;
 
-        Assert.Single(branches);
-        BinaryBranch b = branches[0];
+        var item_2 = Assert.Single(branches);
+        var b = item_2;
 
         Assert.True(loop.MustBeWhileLoop);
         Assert.Equal([], loop.Predecessors);
@@ -407,19 +406,19 @@ public class BinaryBranch_FindBinaryBranches_Loops
         Assert.Equal(blocks[1], b.Condition);
         Assert.Equal(blocks[2], b.True);
         Assert.Empty(blocks[2].Instructions);
-        Assert.Single(blocks[2].Successors);
-        Assert.IsType<ContinueNode>(blocks[2].Successors[0]);
-        ContinueNode c = (ContinueNode)blocks[2].Successors[0];
+        var item_3 = Assert.Single(blocks[2].Successors);
+        Assert.IsType<ContinueNode>(item_3);
+        var c = (ContinueNode)blocks[2].Successors[0];
         Assert.Equal([blocks[2]], c.Predecessors);
         Assert.Equal([blocks[3]], c.Successors);
         Assert.Equal([], blocks[3].Successors);
         Assert.Equal(blocks[4], b.False);
         Assert.Equal(blocks[4], b.Else);
-        Assert.IsType<ContinueNode>(blocks[4].Successors[0]);
-        c = (ContinueNode)blocks[4].Successors[0];
+        var typed = Assert.IsType<ContinueNode>(blocks[4].Successors[0]);
+        c = typed;
         Assert.Equal([blocks[4]], c.Predecessors);
         Assert.Equal([], c.Successors);
-        Assert.Empty(b.Else!.Predecessors);
+        Assert.Empty(b.Else.Predecessors);
         Assert.Empty(b.True.Predecessors);
 
         Assert.Empty(blocks[3].Instructions);
@@ -434,7 +433,7 @@ public class BinaryBranch_FindBinaryBranches_Loops
     [Fact]
     public void TestNestedWhileIfElseContinue()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             pushi.e 1
@@ -470,18 +469,18 @@ public class BinaryBranch_FindBinaryBranches_Loops
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
 
         Assert.Equal(2, loops.Count);
-        WhileLoop loop0 = (WhileLoop)loops[0];
-        WhileLoop loop1 = (WhileLoop)loops[1];
+        var loop0 = (WhileLoop)loops[0];
+        var loop1 = (WhileLoop)loops[1];
 
-        Assert.Single(branches);
-        BinaryBranch b = branches[0];
+        var item = Assert.Single(branches);
+        var b = item;
 
         Assert.True(loop0.MustBeWhileLoop);
         Assert.Equal([], loop0.Predecessors);
@@ -497,19 +496,19 @@ public class BinaryBranch_FindBinaryBranches_Loops
         Assert.Equal(blocks[1], b.Condition);
         Assert.Equal(blocks[2], b.True);
         Assert.Empty(blocks[2].Instructions);
-        Assert.Single(blocks[2].Successors);
-        Assert.IsType<ContinueNode>(blocks[2].Successors[0]);
-        ContinueNode c = (ContinueNode)blocks[2].Successors[0];
+        var item_2 = Assert.Single(blocks[2].Successors);
+        Assert.IsType<ContinueNode>(item_2);
+        var c = (ContinueNode)blocks[2].Successors[0];
         Assert.Equal([blocks[2]], c.Predecessors);
         Assert.Equal([blocks[3]], c.Successors);
         Assert.Equal([], blocks[3].Successors);
         Assert.Equal(blocks[4], b.False);
         Assert.Equal(blocks[4], b.Else);
-        Assert.IsType<ContinueNode>(blocks[4].Successors[0]);
-        c = (ContinueNode)blocks[4].Successors[0];
+        var typed = Assert.IsType<ContinueNode>(blocks[4].Successors[0]);
+        c = typed;
         Assert.Equal([blocks[4]], c.Predecessors);
         Assert.Equal([], c.Successors);
-        Assert.Empty(b.Else!.Predecessors);
+        Assert.Empty(b.Else.Predecessors);
         Assert.Empty(b.True.Predecessors);
 
         Assert.Empty(blocks[3].Instructions);
@@ -524,7 +523,7 @@ public class BinaryBranch_FindBinaryBranches_Loops
     [Fact]
     public void TestWhileIfBreak()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             pushi.e 1
@@ -546,17 +545,17 @@ public class BinaryBranch_FindBinaryBranches_Loops
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
 
-        Assert.Single(loops);
-        WhileLoop loop = (WhileLoop)loops[0];
+        var item = Assert.Single(loops);
+        var loop = (WhileLoop)item;
 
-        Assert.Single(branches);
-        BinaryBranch b = branches[0];
+        var item_2 = Assert.Single(branches);
+        var b = item_2;
 
         Assert.Equal([], loop.Predecessors);
         Assert.Equal([blocks[4]], loop.Successors);
@@ -571,9 +570,9 @@ public class BinaryBranch_FindBinaryBranches_Loops
         Assert.Equal(blocks[1], b.Condition);
         Assert.Equal(blocks[2], b.True);
         Assert.Empty(blocks[2].Instructions);
-        Assert.Single(blocks[2].Successors);
-        Assert.IsType<BreakNode>(blocks[2].Successors[0]);
-        BreakNode c = (BreakNode)blocks[2].Successors[0];
+        var item_3 = Assert.Single(blocks[2].Successors);
+        Assert.IsType<BreakNode>(item_3);
+        var c = (BreakNode)blocks[2].Successors[0];
         Assert.Equal([blocks[2]], c.Predecessors);
         Assert.Equal([], c.Successors);
         Assert.Equal(blocks[3], b.False);
@@ -590,7 +589,7 @@ public class BinaryBranch_FindBinaryBranches_Loops
     [Fact]
     public void TestNestedWhileIfBreak()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             pushi.e 1
@@ -620,18 +619,18 @@ public class BinaryBranch_FindBinaryBranches_Loops
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
 
         Assert.Equal(2, loops.Count);
-        WhileLoop loop0 = (WhileLoop)loops[0];
-        WhileLoop loop1 = (WhileLoop)loops[1];
+        var loop0 = (WhileLoop)loops[0];
+        var loop1 = (WhileLoop)loops[1];
 
-        Assert.Single(branches);
-        BinaryBranch b = branches[0];
+        var item = Assert.Single(branches);
+        var b = item;
 
         Assert.Equal([], loop0.Predecessors);
         Assert.Equal([blocks[6]], loop0.Successors);
@@ -646,9 +645,9 @@ public class BinaryBranch_FindBinaryBranches_Loops
         Assert.Equal(blocks[1], b.Condition);
         Assert.Equal(blocks[2], b.True);
         Assert.Empty(blocks[2].Instructions);
-        Assert.Single(blocks[2].Successors);
-        Assert.IsType<BreakNode>(blocks[2].Successors[0]);
-        BreakNode c = (BreakNode)blocks[2].Successors[0];
+        var item_2 = Assert.Single(blocks[2].Successors);
+        Assert.IsType<BreakNode>(item_2);
+        var c = (BreakNode)blocks[2].Successors[0];
         Assert.Equal([blocks[2]], c.Predecessors);
         Assert.Equal([], c.Successors);
         Assert.Equal(loop1, b.False);
@@ -665,7 +664,7 @@ public class BinaryBranch_FindBinaryBranches_Loops
     [Fact]
     public void TestWhileIfElseBreak()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             pushi.e 1
@@ -693,17 +692,17 @@ public class BinaryBranch_FindBinaryBranches_Loops
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
 
-        Assert.Single(loops);
-        WhileLoop loop = (WhileLoop)loops[0];
+        var item = Assert.Single(loops);
+        var loop = (WhileLoop)item;
 
-        Assert.Single(branches);
-        BinaryBranch b = branches[0];
+        var item_2 = Assert.Single(branches);
+        var b = item_2;
 
         Assert.Equal([], loop.Predecessors);
         Assert.Equal([blocks[6]], loop.Successors);
@@ -718,19 +717,19 @@ public class BinaryBranch_FindBinaryBranches_Loops
         Assert.Equal(blocks[1], b.Condition);
         Assert.Equal(blocks[2], b.True);
         Assert.Empty(blocks[2].Instructions);
-        Assert.Single(blocks[2].Successors);
-        Assert.IsType<BreakNode>(blocks[2].Successors[0]);
-        BreakNode c = (BreakNode)blocks[2].Successors[0];
+        var item_3 = Assert.Single(blocks[2].Successors);
+        Assert.IsType<BreakNode>(item_3);
+        var c = (BreakNode)blocks[2].Successors[0];
         Assert.Equal([blocks[2]], c.Predecessors);
         Assert.Equal([blocks[3]], c.Successors);
         Assert.Equal([], blocks[3].Successors);
         Assert.Equal(blocks[4], b.False);
         Assert.Equal(blocks[4], b.Else);
-        Assert.IsType<BreakNode>(blocks[4].Successors[0]);
-        c = (BreakNode)blocks[4].Successors[0];
+        var typed = Assert.IsType<BreakNode>(blocks[4].Successors[0]);
+        c = typed;
         Assert.Equal([blocks[4]], c.Predecessors);
         Assert.Equal([], c.Successors);
-        Assert.Empty(b.Else!.Predecessors);
+        Assert.Empty(b.Else.Predecessors);
         Assert.Empty(b.True.Predecessors);
 
         Assert.Empty(blocks[3].Instructions);
@@ -745,7 +744,7 @@ public class BinaryBranch_FindBinaryBranches_Loops
     [Fact]
     public void TestNestedWhileIfElseBreak()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             pushi.e 1
@@ -781,18 +780,18 @@ public class BinaryBranch_FindBinaryBranches_Loops
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
 
         Assert.Equal(2, loops.Count);
-        WhileLoop loop0 = (WhileLoop)loops[0];
-        WhileLoop loop1 = (WhileLoop)loops[1];
+        var loop0 = (WhileLoop)loops[0];
+        var loop1 = (WhileLoop)loops[1];
 
-        Assert.Single(branches);
-        BinaryBranch b = branches[0];
+        var item = Assert.Single(branches);
+        var b = item;
 
         Assert.Equal([], loop0.Predecessors);
         Assert.Equal([blocks[8]], loop0.Successors);
@@ -807,19 +806,19 @@ public class BinaryBranch_FindBinaryBranches_Loops
         Assert.Equal(blocks[1], b.Condition);
         Assert.Equal(blocks[2], b.True);
         Assert.Empty(blocks[2].Instructions);
-        Assert.Single(blocks[2].Successors);
-        Assert.IsType<BreakNode>(blocks[2].Successors[0]);
-        BreakNode c = (BreakNode)blocks[2].Successors[0];
+        var item_2 = Assert.Single(blocks[2].Successors);
+        Assert.IsType<BreakNode>(item_2);
+        var c = (BreakNode)blocks[2].Successors[0];
         Assert.Equal([blocks[2]], c.Predecessors);
         Assert.Equal([blocks[3]], c.Successors);
         Assert.Equal([], blocks[3].Successors);
         Assert.Equal(blocks[4], b.False);
         Assert.Equal(blocks[4], b.Else);
-        Assert.IsType<BreakNode>(blocks[4].Successors[0]);
-        c = (BreakNode)blocks[4].Successors[0];
+        var typed = Assert.IsType<BreakNode>(blocks[4].Successors[0]);
+        c = typed;
         Assert.Equal([blocks[4]], c.Predecessors);
         Assert.Equal([], c.Successors);
-        Assert.Empty(b.Else!.Predecessors);
+        Assert.Empty(b.Else.Predecessors);
         Assert.Empty(b.True.Predecessors);
 
         Assert.Empty(blocks[3].Instructions);
@@ -834,7 +833,7 @@ public class BinaryBranch_FindBinaryBranches_Loops
     [Fact]
     public void TestWhileNestedIfContinue()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             pushi.e 1
@@ -861,18 +860,18 @@ public class BinaryBranch_FindBinaryBranches_Loops
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
 
-        Assert.Single(loops);
-        WhileLoop loop0 = (WhileLoop)loops[0];
+        var item = Assert.Single(loops);
+        var loop0 = (WhileLoop)item;
 
         Assert.Equal(2, branches.Count);
-        BinaryBranch b0 = branches[0];
-        BinaryBranch b1 = branches[1];
+        var b0 = branches[0];
+        var b1 = branches[1];
 
         Assert.True(loop0.MustBeWhileLoop);
         Assert.Equal([], loop0.Predecessors);
@@ -897,9 +896,9 @@ public class BinaryBranch_FindBinaryBranches_Loops
         Assert.Equal(blocks[2], b1.Condition);
         Assert.Equal(blocks[3], b1.True);
         Assert.Empty(blocks[3].Instructions);
-        Assert.Single(blocks[3].Successors);
-        Assert.IsType<ContinueNode>(blocks[3].Successors[0]);
-        ContinueNode c = (ContinueNode)blocks[3].Successors[0];
+        var item_2 = Assert.Single(blocks[3].Successors);
+        Assert.IsType<ContinueNode>(item_2);
+        var c = (ContinueNode)blocks[3].Successors[0];
         Assert.Equal([blocks[3]], c.Predecessors);
         Assert.Equal([], c.Successors);
         Assert.Null(b1.Else);
@@ -915,7 +914,7 @@ public class BinaryBranch_FindBinaryBranches_Loops
     [Fact]
     public void TestForNestedIfContinue()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             push.l 1
@@ -946,18 +945,18 @@ public class BinaryBranch_FindBinaryBranches_Loops
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
 
-        Assert.Single(loops);
-        WhileLoop loop0 = (WhileLoop)loops[0];
+        var item = Assert.Single(loops);
+        var loop0 = (WhileLoop)item;
 
         Assert.Equal(2, branches.Count);
-        BinaryBranch b0 = branches[0];
-        BinaryBranch b1 = branches[1];
+        var b0 = branches[0];
+        var b1 = branches[1];
 
         Assert.Equal(blocks[5], loop0.ForLoopIncrementor);
         Assert.False(loop0.MustBeWhileLoop);
@@ -983,9 +982,9 @@ public class BinaryBranch_FindBinaryBranches_Loops
         Assert.Equal(blocks[2], b1.Condition);
         Assert.Equal(blocks[3], b1.True);
         Assert.Empty(blocks[3].Instructions);
-        Assert.Single(blocks[3].Successors);
-        Assert.IsType<ContinueNode>(blocks[3].Successors[0]);
-        ContinueNode c = (ContinueNode)blocks[3].Successors[0];
+        var item_2 = Assert.Single(blocks[3].Successors);
+        Assert.IsType<ContinueNode>(item_2);
+        var c = (ContinueNode)blocks[3].Successors[0];
         Assert.Equal([blocks[3]], c.Predecessors);
         Assert.Equal([], c.Successors);
         Assert.Null(b1.Else);
@@ -1001,7 +1000,7 @@ public class BinaryBranch_FindBinaryBranches_Loops
     [Fact]
     public void TestForNestedIfContinue2()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             push.l 1
@@ -1036,18 +1035,18 @@ public class BinaryBranch_FindBinaryBranches_Loops
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
 
-        Assert.Single(loops);
-        WhileLoop loop0 = (WhileLoop)loops[0];
+        var item = Assert.Single(loops);
+        var loop0 = (WhileLoop)item;
 
         Assert.Equal(2, branches.Count);
-        BinaryBranch b0 = branches[0];
-        BinaryBranch b1 = branches[1];
+        var b0 = branches[0];
+        var b1 = branches[1];
 
         Assert.Equal(blocks[6], loop0.ForLoopIncrementor);
         Assert.False(loop0.MustBeWhileLoop);
@@ -1073,9 +1072,9 @@ public class BinaryBranch_FindBinaryBranches_Loops
         Assert.Equal(blocks[2], b1.Condition);
         Assert.Equal(blocks[3], b1.True);
         Assert.Empty(blocks[3].Instructions);
-        Assert.Single(blocks[3].Successors);
-        Assert.IsType<ContinueNode>(blocks[3].Successors[0]);
-        ContinueNode c = (ContinueNode)blocks[3].Successors[0];
+        var item_2 = Assert.Single(blocks[3].Successors);
+        Assert.IsType<ContinueNode>(item_2);
+        var c = (ContinueNode)blocks[3].Successors[0];
         Assert.Equal([blocks[3]], c.Predecessors);
         Assert.Equal([], c.Successors);
         Assert.Null(b1.Else);
@@ -1091,7 +1090,7 @@ public class BinaryBranch_FindBinaryBranches_Loops
     [Fact]
     public void TestForNestedIfContinue3()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             push.l 1
@@ -1130,19 +1129,19 @@ public class BinaryBranch_FindBinaryBranches_Loops
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
 
-        Assert.Single(loops);
-        WhileLoop loop0 = (WhileLoop)loops[0];
+        var item = Assert.Single(loops);
+        var loop0 = (WhileLoop)item;
 
         Assert.Equal(3, branches.Count);
-        BinaryBranch b0 = branches[0];
-        BinaryBranch b1 = branches[1];
-        BinaryBranch b2 = branches[2];
+        var b0 = branches[0];
+        var b1 = branches[1];
+        var b2 = branches[2];
 
         Assert.Equal(blocks[7], loop0.ForLoopIncrementor);
         Assert.False(loop0.MustBeWhileLoop);
@@ -1168,9 +1167,9 @@ public class BinaryBranch_FindBinaryBranches_Loops
         Assert.Equal(blocks[2], b1.Condition);
         Assert.Equal(blocks[3], b1.True);
         Assert.Empty(blocks[3].Instructions);
-        Assert.Single(blocks[3].Successors);
-        Assert.IsType<ContinueNode>(blocks[3].Successors[0]);
-        ContinueNode c = (ContinueNode)blocks[3].Successors[0];
+        var item_2 = Assert.Single(blocks[3].Successors);
+        Assert.IsType<ContinueNode>(item_2);
+        var c = (ContinueNode)blocks[3].Successors[0];
         Assert.Equal([blocks[3]], c.Predecessors);
         Assert.Equal([], c.Successors);
         Assert.Null(b1.Else);
@@ -1180,8 +1179,8 @@ public class BinaryBranch_FindBinaryBranches_Loops
         Assert.Equal(blocks[4], b2.Condition);
         Assert.Equal(blocks[5], b2.True);
         Assert.Empty(blocks[5].Instructions);
-        Assert.Single(blocks[5].Successors);
-        Assert.IsType<ContinueNode>(blocks[5].Successors[0]);
+        var item_3 = Assert.Single(blocks[5].Successors);
+        Assert.IsType<ContinueNode>(item_3);
         c = (ContinueNode)blocks[5].Successors[0];
         Assert.Equal([blocks[5]], c.Predecessors);
         Assert.Equal([], c.Successors);
@@ -1198,7 +1197,7 @@ public class BinaryBranch_FindBinaryBranches_Loops
     [Fact]
     public void TestForNestedIfElseContinue()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             push.l 1
@@ -1235,18 +1234,18 @@ public class BinaryBranch_FindBinaryBranches_Loops
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
 
-        Assert.Single(loops);
-        WhileLoop loop0 = (WhileLoop)loops[0];
+        var item = Assert.Single(loops);
+        var loop0 = (WhileLoop)item;
 
         Assert.Equal(2, branches.Count);
-        BinaryBranch b0 = branches[0];
-        BinaryBranch b1 = branches[1];
+        var b0 = branches[0];
+        var b1 = branches[1];
 
         Assert.Equal(blocks[7], loop0.ForLoopIncrementor);
         Assert.False(loop0.MustBeWhileLoop);
@@ -1272,21 +1271,21 @@ public class BinaryBranch_FindBinaryBranches_Loops
         Assert.Equal(blocks[2], b1.Condition);
         Assert.Equal(blocks[3], b1.True);
         Assert.Empty(blocks[3].Instructions);
-        Assert.Single(blocks[3].Successors);
-        Assert.IsType<ContinueNode>(blocks[3].Successors[0]);
-        ContinueNode c = (ContinueNode)blocks[3].Successors[0];
+        var item_2 = Assert.Single(blocks[3].Successors);
+        Assert.IsType<ContinueNode>(item_2);
+        var c = (ContinueNode)blocks[3].Successors[0];
         Assert.Equal([blocks[3]], c.Predecessors);
         Assert.Equal([blocks[4]], c.Successors);
         Assert.Equal(blocks[5], b1.False);
         Assert.Equal(blocks[5], b1.Else);
         Assert.Empty(blocks[5].Instructions);
-        Assert.Single(blocks[5].Successors);
-        Assert.IsType<ContinueNode>(blocks[5].Successors[0]);
+        var item_3 = Assert.Single(blocks[5].Successors);
+        Assert.IsType<ContinueNode>(item_3);
         c = (ContinueNode)blocks[5].Successors[0];
         Assert.Equal([blocks[5]], c.Predecessors);
         Assert.Equal([], c.Successors);
         Assert.Empty(b1.True.Predecessors);
-        Assert.Empty(b1.Else!.Predecessors);
+        Assert.Empty(b1.Else.Predecessors);
 
         TestUtil.VerifyFlowDirections(blocks);
         TestUtil.VerifyFlowDirections(fragments);
@@ -1298,7 +1297,7 @@ public class BinaryBranch_FindBinaryBranches_Loops
     [Fact]
     public void TestWithBreak()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             push.v self.a
@@ -1321,20 +1320,20 @@ public class BinaryBranch_FindBinaryBranches_Loops
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
 
-        Assert.Single(loops);
-        Assert.IsType<WithLoop>(loops[0]);
+        var item = Assert.Single(loops);
+        Assert.IsType<WithLoop>(item);
 
         Assert.Empty(branches);
 
         Assert.Empty(blocks[1].Instructions);
-        Assert.Single(blocks[1].Successors);
-        Assert.IsType<BreakNode>(blocks[1].Successors[0]);
+        var item_2 = Assert.Single(blocks[1].Successors);
+        Assert.IsType<BreakNode>(item_2);
         Assert.Equal([blocks[2]], blocks[1].Successors[0].Successors);
 
         TestUtil.VerifyFlowDirections(blocks);
@@ -1347,7 +1346,7 @@ public class BinaryBranch_FindBinaryBranches_Loops
     [Fact]
     public void TestForNestedIfElseContinue2()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             # for (;;)
             # {
@@ -1396,18 +1395,18 @@ public class BinaryBranch_FindBinaryBranches_Loops
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
 
-        Assert.Single(loops);
-        WhileLoop loop0 = (WhileLoop)loops[0];
+        var item = Assert.Single(loops);
+        var loop0 = (WhileLoop)item;
 
         Assert.Equal(2, branches.Count);
-        BinaryBranch b0 = branches[0];
-        BinaryBranch b1 = branches[1];
+        var b0 = branches[0];
+        var b1 = branches[1];
 
         Assert.Equal(blocks[6], loop0.ForLoopIncrementor);
         Assert.False(loop0.MustBeWhileLoop);
@@ -1433,12 +1432,12 @@ public class BinaryBranch_FindBinaryBranches_Loops
         Assert.Equal(blocks[4], b1.Else);
         Assert.Equal(blocks[4], b1.False);
         Assert.Empty(b1.True.Predecessors);
-        Assert.Empty(b1.Else!.Predecessors);
+        Assert.Empty(b1.Else.Predecessors);
         Assert.Empty(blocks[3].Instructions);
 
         Assert.Empty(blocks[4].Instructions);
-        Assert.Single(blocks[4].Successors);
-        Assert.IsType<ContinueNode>(blocks[4].Successors[0]);
+        var item_2 = Assert.Single(blocks[4].Successors);
+        Assert.IsType<ContinueNode>(item_2);
         Assert.Empty(blocks[4].Successors[0].Successors);
 
         TestUtil.VerifyFlowDirections(blocks);
@@ -1451,7 +1450,7 @@ public class BinaryBranch_FindBinaryBranches_Loops
     [Fact]
     public void TestIfWhile()
     {
-        GMCode code = TestUtil.GetCode(
+        var code = TestUtil.GetCode(
             """
             :[0]
             push.v self.a
@@ -1470,17 +1469,17 @@ public class BinaryBranch_FindBinaryBranches_Loops
             """
         );
         DecompileContext ctx = new(code);
-        List<Block> blocks = Block.FindBlocks(ctx);
-        List<Fragment> fragments = Fragment.FindFragments(ctx);
-        List<Loop> loops = Loop.FindLoops(ctx);
+        var blocks = Block.FindBlocks(ctx);
+        var fragments = Fragment.FindFragments(ctx);
+        var loops = Loop.FindLoops(ctx);
         Switch.FindSwitchStatements(ctx);
-        List<BinaryBranch> branches = BinaryBranch.FindBinaryBranches(ctx);
+        var branches = BinaryBranch.FindBinaryBranches(ctx);
 
-        Assert.Single(loops);
-        WhileLoop loop0 = (WhileLoop)loops[0];
+        var item = Assert.Single(loops);
+        var loop0 = (WhileLoop)item;
 
-        Assert.Single(branches);
-        BinaryBranch b0 = branches[0];
+        var item_2 = Assert.Single(branches);
+        var b0 = item_2;
 
         Assert.Equal(loop0, b0.True);
         Assert.Null(b0.Else);

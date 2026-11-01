@@ -1,6 +1,4 @@
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using G3MLib.DataFile.Models;
@@ -74,12 +72,12 @@ internal sealed class SerializableAnimationCurve : ISerializableProjectAsset
     }
 
     // Data asset that was located during pre-import.
-    private GameMakerAnimationCurve _dataAsset = null;
+    private GameMakerAnimationCurve? _dataAsset;
 
     /// <summary>
     /// Populates this serializable animation curve with data from an actual animation curve.
     /// </summary>
-    internal void PopulateFromData(ProjectContext projectContext, GameMakerAnimationCurve curve)
+    internal void PopulateFromData(GameMakerAnimationCurve curve)
     {
         // Update all main properties
         DataName = curve.Name?.Content;
@@ -134,7 +132,7 @@ internal sealed class SerializableAnimationCurve : ISerializableProjectAsset
     /// <inheritdoc/>
     public IProjectAsset Import(ProjectContext projectContext)
     {
-        GameMakerAnimationCurve curve = _dataAsset;
+        var curve = _dataAsset;
 
         // Update all main properties
         curve.GraphType = (GameMakerAnimationCurve.GraphTypeEnum)GraphType;

@@ -4,9 +4,6 @@
   file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
-using System.Collections.Generic;
-using System.Reflection;
-
 namespace G3MLib.Analyzer.Decompiler.AST;
 
 /// <summary>
@@ -23,7 +20,7 @@ public class BlockNode(ASTFragmentContext fragmentContext) : IFragmentNode, IBlo
     /// <summary>
     /// Whether this block is the block of a switch statement.
     /// </summary>
-    public bool PartOfSwitch { get; set; } = false;
+    public bool PartOfSwitch { get; set; }
 
     /// <summary>
     /// All children contained within this block.
@@ -31,7 +28,7 @@ public class BlockNode(ASTFragmentContext fragmentContext) : IFragmentNode, IBlo
     public List<IStatementNode> Children { get; internal set; } = [];
 
     /// <inheritdoc/>
-    public bool SemicolonAfter { get => false; }
+    public bool SemicolonAfter => false;
 
     /// <inheritdoc/>
     public bool EmptyLineBefore { get => false; set => _ = value; }
@@ -45,6 +42,7 @@ public class BlockNode(ASTFragmentContext fragmentContext) : IFragmentNode, IBlo
     /// <inheritdoc/>
     public int BlockClean(ASTCleaner cleaner, BlockNode block, int i)
     {
+        ArgumentNullException.ThrowIfNull(block);
         // Remove this block if empty
         if (Children.Count == 0)
         {
@@ -62,13 +60,13 @@ public class BlockNode(ASTFragmentContext fragmentContext) : IFragmentNode, IBlo
             // Locals will be manually declared, so no block locals to clean up
             return;
         }
-        if (cleaner.TopFragmentContext!.LocalVariableNamesList.Count > 0)
+        if (cleaner.TopFragmentContext.LocalVariableNamesList.Count > 0)
         {
             // We have local(s) still, so don't remove declaration(s)
             return;
         }
 
-        for (int i = 0; i < Children.Count; i++)
+        for (var i = 0; i < Children.Count; i++)
         {
             if (Children[i] is BlockLocalVarDeclNode)
             {
@@ -81,7 +79,7 @@ public class BlockNode(ASTFragmentContext fragmentContext) : IFragmentNode, IBlo
     // Performs all cleanup operations for this block
     private void CleanAll(ASTCleaner cleaner)
     {
-        bool newFragment = FragmentContext != cleaner.TopFragmentContext;
+        var newFragment = FragmentContext != cleaner.TopFragmentContext;
         if (newFragment)
         {
             cleaner.PushFragmentContext(FragmentContext);
@@ -89,7 +87,7 @@ public class BlockNode(ASTFragmentContext fragmentContext) : IFragmentNode, IBlo
         }
 
         // Clean all child nodes, and perform block cleanup logic
-        for (int i = 0; i < Children.Count; i++)
+        for (var i = 0; i < Children.Count; i++)
         {
             Children[i] = Children[i].Clean(cleaner);
             if (Children[i] is IBlockCleanupNode blockCleanupNode)
@@ -109,15 +107,15 @@ public class BlockNode(ASTFragmentContext fragmentContext) : IFragmentNode, IBlo
     // Performs all post-cleanup operations for this block
     private void PostCleanAll(ASTCleaner cleaner, SwitchNode? parentSwitch, bool isStruct)
     {
-        bool newFragment = FragmentContext != cleaner.TopFragmentContext;
+        var newFragment = FragmentContext != cleaner.TopFragmentContext;
         if (newFragment)
         {
             if (isStruct && cleaner.Context.Settings.CleanupLocalVarDeclarations &&
-                cleaner.TopFragmentContext!.CurrentLocalScope is not null)
+                cleaner.TopFragmentContext.CurrentLocalScope is not null)
             {
                 // Connect the struct's local scope to the parent local scope tree.
                 // This allows struct local variable reads to hoist locals outside of the struct.
-                ASTFragmentContext parentContext = cleaner.TopFragmentContext;
+                var parentContext = cleaner.TopFragmentContext;
                 cleaner.PushFragmentContext(FragmentContext);
                 cleaner.TopFragmentContext.PushLocalScope(cleaner.Context, this, this);
                 cleaner.TopFragmentContext.CurrentLocalScope.InsertAsChildOf(parentContext.CurrentLocalScope);
@@ -126,19 +124,19 @@ public class BlockNode(ASTFragmentContext fragmentContext) : IFragmentNode, IBlo
             {
                 // Regular push of fragment context/scope.
                 cleaner.PushFragmentContext(FragmentContext);
-                cleaner.TopFragmentContext!.PushLocalScope(cleaner.Context, this, this);
+                cleaner.TopFragmentContext.PushLocalScope(cleaner.Context, this, this);
             }
 
         }
-        BlockNode? prevPostCleanupBlock = cleaner.TopFragmentContext!.CurrentPostCleanupBlock;
-        cleaner.TopFragmentContext!.CurrentPostCleanupBlock = this;
+        var prevPostCleanupBlock = cleaner.TopFragmentContext.CurrentPostCleanupBlock;
+        cleaner.TopFragmentContext.CurrentPostCleanupBlock = this;
 
         if (parentSwitch is not null)
         {
             // Handle switch statement case local scopes
-            bool inCaseScope = false;
-            bool endingCaseScope = false;
-            for (int i = 0; i < Children.Count; i++)
+            var inCaseScope = false;
+            var endingCaseScope = false;
+            for (var i = 0; i < Children.Count; i++)
             {
                 if (Children[i] is SwitchCaseNode && (!inCaseScope || endingCaseScope))
                 {
@@ -146,10 +144,10 @@ public class BlockNode(ASTFragmentContext fragmentContext) : IFragmentNode, IBlo
                     if (endingCaseScope)
                     {
                         // End scope from last case(s)
-                        cleaner.TopFragmentContext!.PopLocalScope(cleaner.Context);
+                        cleaner.TopFragmentContext.PopLocalScope(cleaner.Context);
                         endingCaseScope = false;
                     }
-                    cleaner.TopFragmentContext!.PushLocalScope(cleaner.Context, prevPostCleanupBlock!, parentSwitch);
+                    cleaner.TopFragmentContext.PushLocalScope(cleaner.Context, prevPostCleanupBlock, parentSwitch);
                 }
                 else if (inCaseScope && Children[i] is BreakNode or ContinueNode)
                 {
@@ -162,22 +160,22 @@ public class BlockNode(ASTFragmentContext fragmentContext) : IFragmentNode, IBlo
             }
             if (inCaseScope)
             {
-                cleaner.TopFragmentContext!.PopLocalScope(cleaner.Context);
+                cleaner.TopFragmentContext.PopLocalScope(cleaner.Context);
             }
         }
         else
         {
             // Normal cleanup
-            for (int i = 0; i < Children.Count; i++)
+            for (var i = 0; i < Children.Count; i++)
             {
                 Children[i] = Children[i].PostClean(cleaner);
             }
         }
 
-        cleaner.TopFragmentContext!.CurrentPostCleanupBlock = prevPostCleanupBlock;
+        cleaner.TopFragmentContext.CurrentPostCleanupBlock = prevPostCleanupBlock;
         if (newFragment)
         {
-            cleaner.TopFragmentContext!.PopLocalScope(cleaner.Context);
+            cleaner.TopFragmentContext.PopLocalScope(cleaner.Context);
             cleaner.PopFragmentContext();
         }
     }
@@ -185,6 +183,7 @@ public class BlockNode(ASTFragmentContext fragmentContext) : IFragmentNode, IBlo
     /// <inheritdoc cref="IASTNode{IStatementNode}.Clean(ASTCleaner)"/>
     public IFragmentNode Clean(ASTCleaner cleaner)
     {
+        ArgumentNullException.ThrowIfNull(cleaner);
         CleanAll(cleaner);
         return this;
     }
@@ -199,6 +198,7 @@ public class BlockNode(ASTFragmentContext fragmentContext) : IFragmentNode, IBlo
     /// <inheritdoc cref="IASTNode{IStatementNode}.PostClean(ASTCleaner)"/>
     public IFragmentNode PostClean(ASTCleaner cleaner)
     {
+        ArgumentNullException.ThrowIfNull(cleaner);
         PostCleanAll(cleaner, null, false);
         return this;
     }
@@ -208,6 +208,7 @@ public class BlockNode(ASTFragmentContext fragmentContext) : IFragmentNode, IBlo
     /// </summary>
     public IFragmentNode PostCleanStruct(ASTCleaner cleaner)
     {
+        ArgumentNullException.ThrowIfNull(cleaner);
         PostCleanAll(cleaner, null, true);
         return this;
     }
@@ -217,6 +218,7 @@ public class BlockNode(ASTFragmentContext fragmentContext) : IFragmentNode, IBlo
     /// </summary>
     public IFragmentNode PostCleanSwitch(ASTCleaner cleaner, SwitchNode parentSwitch)
     {
+        ArgumentNullException.ThrowIfNull(cleaner);
         PostCleanAll(cleaner, parentSwitch, false);
         return this;
     }
@@ -248,20 +250,20 @@ public class BlockNode(ASTFragmentContext fragmentContext) : IFragmentNode, IBlo
     {
         printer.OpenBlock();
 
-        bool switchCaseIndent = false;
-        bool justDidAfterEmptyLine = false;
-        for (int i = 0; i < Children.Count; i++)
+        var switchCaseIndent = false;
+        var justDidAfterEmptyLine = false;
+        for (var i = 0; i < Children.Count; i++)
         {
             printer.StartLine();
 
             // Print statement
-            IStatementNode current = Children[i];
+            var current = Children[i];
             if (current.EmptyLineBefore && i != 0 && !justDidAfterEmptyLine && Children[i - 1] is not SwitchCaseNode)
             {
                 printer.EndLine();
                 printer.StartLine();
             }
-            current.Print(printer);
+            printer.PrintNode(current);
             if (current.SemicolonAfter)
             {
                 printer.Semicolon();
@@ -278,7 +280,7 @@ public class BlockNode(ASTFragmentContext fragmentContext) : IFragmentNode, IBlo
             }
 
             // Check if we need to handle indents for switch
-            if ((i + 1) < Children.Count)
+            if (i + 1 < Children.Count)
             {
                 if (current is SwitchCaseNode && Children[i + 1] is not SwitchCaseNode)
                 {
@@ -310,19 +312,19 @@ public class BlockNode(ASTFragmentContext fragmentContext) : IFragmentNode, IBlo
     {
         printer.OpenBlock();
 
-        bool justDidAfterEmptyLine = false;
-        for (int i = 0; i < Children.Count; i++)
+        var justDidAfterEmptyLine = false;
+        for (var i = 0; i < Children.Count; i++)
         {
             printer.StartLine();
 
             // Print statement
-            IStatementNode child = Children[i];
+            var child = Children[i];
             if (child.EmptyLineBefore && i != 0 && !justDidAfterEmptyLine)
             {
                 printer.EndLine();
                 printer.StartLine();
             }
-            child.Print(printer);
+            printer.PrintNode(child);
             if (i != Children.Count - 1)
             {
                 // Write comma after struct members
@@ -357,19 +359,19 @@ public class BlockNode(ASTFragmentContext fragmentContext) : IFragmentNode, IBlo
             printer.OpenBlock();
         }
 
-        bool justDidAfterEmptyLine = false;
-        for (int i = 0; i < Children.Count; i++)
+        var justDidAfterEmptyLine = false;
+        for (var i = 0; i < Children.Count; i++)
         {
             printer.StartLine();
 
             // Print statement
-            IStatementNode child = Children[i];
+            var child = Children[i];
             if (child.EmptyLineBefore && i != 0 && !justDidAfterEmptyLine)
             {
                 printer.EndLine();
                 printer.StartLine();
             }
-            child.Print(printer);
+            printer.PrintNode(child);
             if (child.SemicolonAfter)
             {
                 printer.Semicolon();
@@ -397,7 +399,8 @@ public class BlockNode(ASTFragmentContext fragmentContext) : IFragmentNode, IBlo
     /// <inheritdoc/>
     public void Print(ASTPrinter printer)
     {
-        bool newFragment = FragmentContext != printer.TopFragmentContext;
+        ArgumentNullException.ThrowIfNull(printer);
+        var newFragment = FragmentContext != printer.TopFragmentContext;
         if (newFragment)
         {
             printer.PushFragmentContext(FragmentContext);
@@ -426,7 +429,8 @@ public class BlockNode(ASTFragmentContext fragmentContext) : IFragmentNode, IBlo
     /// <inheritdoc/>
     public void PrintSingleLine(ASTPrinter printer)
     {
-        bool newFragment = FragmentContext != printer.TopFragmentContext;
+        ArgumentNullException.ThrowIfNull(printer);
+        var newFragment = FragmentContext != printer.TopFragmentContext;
         if (newFragment)
         {
             printer.PushFragmentContext(FragmentContext);
@@ -439,7 +443,7 @@ public class BlockNode(ASTFragmentContext fragmentContext) : IFragmentNode, IBlo
         {
             throw new DecompilerException("Expected only one child node when printing on single line");
         }
-        Children[0].Print(printer);
+        printer.PrintNode(Children[0]);
         if (Children[0].SemicolonAfter)
         {
             printer.Semicolon();
@@ -455,8 +459,9 @@ public class BlockNode(ASTFragmentContext fragmentContext) : IFragmentNode, IBlo
     /// <inheritdoc/>
     public bool RequiresMultipleLines(ASTPrinter printer, bool isStatementLHS)
     {
+        ArgumentNullException.ThrowIfNull(printer);
         // If we have more than one child node, or zero child nodes, we need multiple lines
-        if (Children.Count > 1 || Children.Count == 0)
+        if (Children.Count is > 1 or 0)
         {
             return true;
         }
@@ -476,6 +481,7 @@ public class BlockNode(ASTFragmentContext fragmentContext) : IFragmentNode, IBlo
     /// </summary>
     public void AddBlockLocalVarDecl(DecompileContext context)
     {
+        ArgumentNullException.ThrowIfNull(context);
         if (context.Settings.CleanupLocalVarDeclarations)
         {
             // Locals will be manually declared

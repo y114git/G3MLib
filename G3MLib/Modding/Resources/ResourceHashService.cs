@@ -1,17 +1,13 @@
-using System;
+using System.Globalization;
 using System.Buffers;
 using System.Buffers.Binary;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Numerics;
-using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using System.Threading.Tasks;
 using G3MLib.DataFile;
 using G3MLib.DataFile.Decompiler;
 using G3MLib.DataFile.Models;
@@ -25,6 +21,7 @@ public static class ResourceHashService
 
 	public static Dictionary<string, Dictionary<string, string>> HashAll(GameMakerData data, string? dataFilePath = null)
 	{
+		ArgumentNullException.ThrowIfNull(data);
 		return new Dictionary<string, Dictionary<string, string>>
 		{
 			["GeneralInfo"] = HashGeneralInfo(data),
@@ -72,8 +69,8 @@ public static class ResourceHashService
 
 	private static string JsonHash(Action<Utf8JsonWriter> writeAction)
 	{
-		using MemoryStream ms = new MemoryStream();
-		using (Utf8JsonWriter w = new Utf8JsonWriter(ms))
+		using var ms = new MemoryStream();
+		using (var w = new Utf8JsonWriter(ms))
 		{
 			writeAction(w);
 		}
@@ -82,7 +79,7 @@ public static class ResourceHashService
 
 	private static string CanonicalJsonHash<T>(T value)
 	{
-		using JsonDocument document = JsonDocument.Parse(JsonSerializer.SerializeToUtf8Bytes(value, ProjectContext.JsonOptions));
+		using var document = JsonDocument.Parse(JsonSerializer.SerializeToUtf8Bytes(value, ProjectContext.JsonOptions));
 		return JsonHash(writer => WriteCanonicalJson(writer, document.RootElement));
 	}
 
@@ -92,7 +89,7 @@ public static class ResourceHashService
 		{
 			case JsonValueKind.Object:
 				writer.WriteStartObject();
-				foreach (JsonProperty property in element.EnumerateObject().OrderBy(static property => property.Name, StringComparer.Ordinal))
+				foreach (var property in element.EnumerateObject().OrderBy(static property => property.Name, StringComparer.Ordinal))
 				{
 					writer.WritePropertyName(property.Name);
 					WriteCanonicalJson(writer, property.Value);
@@ -101,7 +98,7 @@ public static class ResourceHashService
 				break;
 			case JsonValueKind.Array:
 				writer.WriteStartArray();
-				foreach (JsonElement item in element.EnumerateArray())
+				foreach (var item in element.EnumerateArray())
 				{
 					WriteCanonicalJson(writer, item);
 				}
@@ -117,14 +114,14 @@ public static class ResourceHashService
 	{
 		if (data.EmbeddedAudio == null)
 		{
-			return new Dictionary<string, string>();
+			return [];
 		}
-		ConcurrentDictionary<string, string> result = new ConcurrentDictionary<string, string>();
-		Parallel.For(0, data.EmbeddedAudio.Count, delegate(int i)
+		var result = new ConcurrentDictionary<string, string>();
+		CancellableParallel.For(0, data.EmbeddedAudio.Count, delegate (int i)
 		{
-			GameMakerEmbeddedAudio gameMakerEmbeddedAudio = data.EmbeddedAudio[i];
-			string key = $"audio_{i:D4}";
-			byte[] data2 = gameMakerEmbeddedAudio?.Data ?? Array.Empty<byte>();
+			var gameMakerEmbeddedAudio = data.EmbeddedAudio[i];
+			var key = $"audio_{i:D4}";
+			var data2 = gameMakerEmbeddedAudio?.Data ?? [];
 			result[key] = HexHash(data2);
 		});
 		return new Dictionary<string, string>(result, StringComparer.OrdinalIgnoreCase);
@@ -134,12 +131,12 @@ public static class ResourceHashService
 	{
 		if (data.EmbeddedTextures == null)
 		{
-			return new Dictionary<string, string>();
+			return [];
 		}
-		ConcurrentDictionary<string, string> result = new ConcurrentDictionary<string, string>();
-		Parallel.For(0, data.EmbeddedTextures.Count, delegate(int i)
+		var result = new ConcurrentDictionary<string, string>();
+		CancellableParallel.For(0, data.EmbeddedTextures.Count, delegate (int i)
 		{
-			GameMakerEmbeddedTexture gameMakerEmbeddedTexture = data.EmbeddedTextures[i];
+			var gameMakerEmbeddedTexture = data.EmbeddedTextures[i];
 			if (gameMakerEmbeddedTexture != null)
 			{
 				result[$"texture_{i:D4}"] = HashEmbeddedTexture(gameMakerEmbeddedTexture);
@@ -150,10 +147,10 @@ public static class ResourceHashService
 
 	private static string HashEmbeddedTexture(GameMakerEmbeddedTexture texture)
 	{
-		byte[] name = Encoding.UTF8.GetBytes(texture.Name?.Content ?? string.Empty);
-		byte[] format = Encoding.UTF8.GetBytes(texture.TextureData?.Image?.Format.ToString() ?? string.Empty);
-		byte[] image = texture.TextureData?.Image?.GetData() ?? Array.Empty<byte>();
-		using IncrementalHash hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+		var name = Encoding.UTF8.GetBytes(texture.Name?.Content ?? string.Empty);
+		var format = Encoding.UTF8.GetBytes(texture.TextureData?.Image?.Format.ToString() ?? string.Empty);
+		var image = texture.TextureData?.Image?.GetData() ?? [];
+		using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
 		Span<byte> intBuffer = stackalloc byte[4];
 		Span<byte> uintBuffer = stackalloc byte[4];
 		BinaryPrimitives.WriteInt32LittleEndian(intBuffer, name.Length);
@@ -176,10 +173,10 @@ public static class ResourceHashService
 	{
 		if (data.GeneralInfo == null)
 		{
-			return new Dictionary<string, string>();
+			return [];
 		}
-		GameMakerGeneralInfo gi = data.GeneralInfo;
-		string hash = JsonHash(delegate(Utf8JsonWriter w)
+		var gi = data.GeneralInfo;
+		var hash = JsonHash(delegate (Utf8JsonWriter w)
 		{
 			w.WriteStartObject();
 			w.WriteBoolean("isDebuggerDisabled", gi.IsDebuggerDisabled);
@@ -204,7 +201,7 @@ public static class ResourceHashService
 			w.WriteNumber("steamAppID", gi.SteamAppID);
 			w.WritePropertyName("roomOrder");
 			w.WriteStartArray();
-			foreach (GameMakerResourceById<GameMakerRoom, GameMakerChunkROOM> item in gi.RoomOrder)
+			foreach (var item in gi.RoomOrder)
 			{
 				w.WriteStringValue(item?.Resource?.Name?.Content ?? "");
 			}
@@ -222,14 +219,14 @@ public static class ResourceHashService
 	{
 		if (data.AudioGroups == null)
 		{
-			return new Dictionary<string, string>();
+			return [];
 		}
-		ConcurrentDictionary<string, string> result = new ConcurrentDictionary<string, string>();
-		Parallel.ForEach(data.AudioGroups, delegate(GameMakerAudioGroup ag)
+		var result = new ConcurrentDictionary<string, string>();
+		CancellableParallel.ForEach(data.AudioGroups, delegate (GameMakerAudioGroup ag)
 		{
 			if (ag?.Name?.Content != null)
 			{
-				string value = JsonHash(delegate(Utf8JsonWriter w)
+				var value = JsonHash(delegate (Utf8JsonWriter w)
 				{
 					w.WriteStartObject();
 					w.WriteString("name", ag.Name.Content);
@@ -249,14 +246,14 @@ public static class ResourceHashService
 	{
 		if (data.TextureGroupInfo == null)
 		{
-			return new Dictionary<string, string>();
+			return [];
 		}
-		ConcurrentDictionary<string, string> result = new ConcurrentDictionary<string, string>();
-		Parallel.ForEach(data.TextureGroupInfo, delegate(GameMakerTextureGroupInfo tg)
+		var result = new ConcurrentDictionary<string, string>();
+		CancellableParallel.ForEach(data.TextureGroupInfo, delegate (GameMakerTextureGroupInfo tg)
 		{
 			if (tg?.Name?.Content != null)
 			{
-				string value = JsonHash(delegate(Utf8JsonWriter w)
+				var value = JsonHash(delegate (Utf8JsonWriter w)
 				{
 					w.WriteStartObject();
 					w.WriteString("name", tg.Name.Content);
@@ -275,7 +272,7 @@ public static class ResourceHashService
 					w.WriteStartArray("texturePages");
 					if (tg.TexturePages != null)
 					{
-						foreach (GameMakerResourceById<GameMakerEmbeddedTexture, GameMakerChunkTXTR> current in tg.TexturePages)
+						foreach (var current in tg.TexturePages)
 						{
 							if (current.Resource?.Name?.Content != null)
 							{
@@ -287,7 +284,7 @@ public static class ResourceHashService
 					w.WriteStartArray("sprites");
 					if (tg.Sprites != null)
 					{
-						foreach (GameMakerResourceById<GameMakerSprite, GameMakerChunkSPRT> current2 in tg.Sprites)
+						foreach (var current2 in tg.Sprites)
 						{
 							if (current2.Resource?.Name?.Content != null)
 							{
@@ -299,7 +296,7 @@ public static class ResourceHashService
 					w.WriteStartArray("fonts");
 					if (tg.Fonts != null)
 					{
-						foreach (GameMakerResourceById<GameMakerFont, GameMakerChunkFONT> current3 in tg.Fonts)
+						foreach (var current3 in tg.Fonts)
 						{
 							if (current3.Resource?.Name?.Content != null)
 							{
@@ -311,7 +308,7 @@ public static class ResourceHashService
 					w.WriteStartArray("tilesets");
 					if (tg.Tilesets != null)
 					{
-						foreach (GameMakerResourceById<GameMakerBackground, GameMakerChunkBGND> current4 in tg.Tilesets)
+						foreach (var current4 in tg.Tilesets)
 						{
 							if (current4.Resource?.Name?.Content != null)
 							{
@@ -332,13 +329,13 @@ public static class ResourceHashService
 	{
 		if (data.FeatureFlags?.List == null)
 		{
-			return new Dictionary<string, string>();
+			return [];
 		}
-		string hash = JsonHash(delegate(Utf8JsonWriter w)
+		var hash = JsonHash(delegate (Utf8JsonWriter w)
 		{
 			w.WriteStartObject();
 			w.WriteStartArray("flags");
-			foreach (string current in data.FeatureFlags.List.Select((GameMakerString f) => f?.Content ?? "").OrderBy<string, string>((string f) => f, StringComparer.Ordinal))
+			foreach (var current in data.FeatureFlags.List.Select(f => f?.Content ?? "").OrderBy(f => f, StringComparer.Ordinal))
 			{
 				w.WriteStringValue(current);
 			}
@@ -352,20 +349,20 @@ public static class ResourceHashService
 	{
 		if (data.Language == null)
 		{
-			return new Dictionary<string, string>();
+			return [];
 		}
-		string hash = JsonHash(delegate(Utf8JsonWriter w)
+		var hash = JsonHash(delegate (Utf8JsonWriter w)
 		{
 			w.WriteStartObject();
 			w.WriteNumber("unknown1", data.Language.Unknown1);
 			w.WriteStartArray("entryIds");
-			foreach (GameMakerString item in data.Language.EntryIDs ?? new List<GameMakerString>())
+			foreach (var item in data.Language.EntryIDs ?? [])
 			{
 				w.WriteStringValue(item?.Content ?? "");
 			}
 			w.WriteEndArray();
 			w.WriteStartArray("languages");
-			foreach (GameMakerLanguage.LanguageData current in data.Language.Languages ?? new List<GameMakerLanguage.LanguageData>())
+			foreach (var current in data.Language.Languages ?? [])
 			{
 				if (current != null)
 				{
@@ -373,7 +370,7 @@ public static class ResourceHashService
 					w.WriteString("name", current.Name?.Content ?? "");
 					w.WriteString("region", current.Region?.Content ?? "");
 					w.WriteStartArray("entries");
-					foreach (GameMakerString item2 in current.Entries ?? new List<GameMakerString>())
+					foreach (var item2 in current.Entries ?? [])
 					{
 						w.WriteStringValue(item2?.Content ?? "");
 					}
@@ -391,15 +388,15 @@ public static class ResourceHashService
 	{
 		if (data.Tags == null)
 		{
-			return new Dictionary<string, string>();
+			return [];
 		}
-		string hash = JsonHash(delegate(Utf8JsonWriter w)
+		var hash = JsonHash(delegate (Utf8JsonWriter w)
 		{
 			w.WriteStartObject();
 			w.WriteStartArray("tags");
 			if (data.Tags.Tags != null)
 			{
-				foreach (string current in data.Tags.Tags.Select((GameMakerString t) => t?.Content ?? "").OrderBy<string, string>((string t) => t, StringComparer.Ordinal))
+				foreach (var current in data.Tags.Tags.Select(t => t?.Content ?? "").OrderBy(t => t, StringComparer.Ordinal))
 				{
 					w.WriteStringValue(current);
 				}
@@ -408,18 +405,18 @@ public static class ResourceHashService
 			w.WriteStartArray("assetTags");
 			if (data.Tags.AssetTags != null)
 			{
-				foreach (var (value, gameMakerSimpleListString, tuple2) in data.Tags.AssetTags.Select<KeyValuePair<int, GameMakerSimpleListString>, (int AssetId, GameMakerSimpleListString Tags, (string Type, string Name) Decoded)>((KeyValuePair<int, GameMakerSimpleListString> kvp) => (kvp.Key, kvp.Value, DecodeAssetTagId(data, kvp.Key))).OrderBy<(int AssetId, GameMakerSimpleListString Tags, (string Type, string Name) Decoded), string>(e => e.Decoded.Type, StringComparer.Ordinal).ThenBy<(int AssetId, GameMakerSimpleListString Tags, (string Type, string Name) Decoded), string>(e => e.Decoded.Name, StringComparer.Ordinal)
-					.ThenBy<(int AssetId, GameMakerSimpleListString Tags, (string Type, string Name) Decoded), int>(e => e.AssetId))
+				foreach (var (value, gameMakerSimpleListString, tuple2) in data.Tags.AssetTags.Select<KeyValuePair<int, GameMakerSimpleListString>, (int AssetId, GameMakerSimpleListString Tags, (string Type, string Name) Decoded)>(kvp => (kvp.Key, kvp.Value, DecodeAssetTagId(data, kvp.Key))).OrderBy(e => e.Decoded.Type, StringComparer.Ordinal).ThenBy(e => e.Decoded.Name, StringComparer.Ordinal)
+					.ThenBy(e => e.AssetId))
 				{
 					w.WriteStartObject();
-					w.WriteString("assetType", tuple2.Item1);
-					w.WriteString("assetName", tuple2.Item2);
-					if (string.IsNullOrEmpty(tuple2.Item2))
+					w.WriteString("assetType", tuple2.Type);
+					w.WriteString("assetName", tuple2.Name);
+					if (string.IsNullOrEmpty(tuple2.Name))
 					{
 						w.WriteNumber("assetId", value);
 					}
 					w.WriteStartArray("tags");
-					foreach (string current2 in (gameMakerSimpleListString ?? new GameMakerSimpleListString()).Select((GameMakerString t) => t?.Content ?? "").OrderBy<string, string>((string t) => t, StringComparer.Ordinal))
+					foreach (var current2 in (gameMakerSimpleListString ?? []).Select(t => t?.Content ?? "").OrderBy(t => t, StringComparer.Ordinal))
 					{
 						w.WriteStringValue(current2);
 					}
@@ -437,14 +434,14 @@ public static class ResourceHashService
 	{
 		if (data.FilterEffects == null)
 		{
-			return new Dictionary<string, string>();
+			return [];
 		}
-		ConcurrentDictionary<string, string> result = new ConcurrentDictionary<string, string>();
-		Parallel.ForEach(data.FilterEffects, delegate(GameMakerFilterEffect effect)
+		var result = new ConcurrentDictionary<string, string>();
+		CancellableParallel.ForEach(data.FilterEffects, delegate (GameMakerFilterEffect effect)
 		{
 			if (effect?.Name?.Content != null)
 			{
-				string value = JsonHash(delegate(Utf8JsonWriter w)
+				var value = JsonHash(delegate (Utf8JsonWriter w)
 				{
 					w.WriteStartObject();
 					w.WriteString("name", effect.Name.Content);
@@ -459,9 +456,9 @@ public static class ResourceHashService
 
 	private static (string Type, string Name) DecodeAssetTagId(GameMakerData data, int assetId)
 	{
-		ResourceType type = (ResourceType)(assetId >> 24);
-		int rawIndex = assetId & 0xFFFFFF;
-		int index = ((type == ResourceType.Script) ? (rawIndex - 100000) : rawIndex);
+		var type = (ResourceType)(assetId >> 24);
+		var rawIndex = assetId & 0xFFFFFF;
+		var index = (type == ResourceType.Script) ? (rawIndex - 100000) : rawIndex;
 		return (Type: type.ToString(), Name: ResourceAssetUtil.GetAssetNameByTagType(data, type, index) ?? "");
 	}
 
@@ -469,23 +466,23 @@ public static class ResourceHashService
 	{
 		if (data.TexturePageItems == null)
 		{
-			return new Dictionary<string, string>();
+			return [];
 		}
-		Dictionary<GameMakerEmbeddedTexture, int> embeddedTextureIndices = new Dictionary<GameMakerEmbeddedTexture, int>();
+		Dictionary<GameMakerEmbeddedTexture, int> embeddedTextureIndices = [];
 		if (data.EmbeddedTextures != null)
 		{
-			for (int i = 0; i < data.EmbeddedTextures.Count; i++)
+			for (var i = 0; i < data.EmbeddedTextures.Count; i++)
 			{
 				embeddedTextureIndices[data.EmbeddedTextures[i]] = i;
 			}
 		}
-		string hash = JsonHash(delegate(Utf8JsonWriter w)
+		var hash = JsonHash(delegate (Utf8JsonWriter w)
 		{
 			w.WriteStartObject();
 			w.WriteStartArray("items");
-			for (int j = 0; j < data.TexturePageItems.Count; j++)
+			for (var j = 0; j < data.TexturePageItems.Count; j++)
 			{
-				GameMakerTexturePageItem gameMakerTexturePageItem = data.TexturePageItems[j];
+				var gameMakerTexturePageItem = data.TexturePageItems[j];
 				if (gameMakerTexturePageItem == null)
 				{
 					w.WriteNullValue();
@@ -519,47 +516,47 @@ public static class ResourceHashService
 	{
 		if (data.Sprites == null)
 		{
-			return new Dictionary<string, string>();
+			return [];
 		}
-		Dictionary<GameMakerEmbeddedTexture, int> pageIndexMap = new Dictionary<GameMakerEmbeddedTexture, int>();
+		Dictionary<GameMakerEmbeddedTexture, int> pageIndexMap = [];
 		if (data.EmbeddedTextures != null)
 		{
-			for (int i = 0; i < data.EmbeddedTextures.Count; i++)
+			for (var i = 0; i < data.EmbeddedTextures.Count; i++)
 			{
 				pageIndexMap[data.EmbeddedTextures[i]] = i;
 			}
 		}
-		Dictionary<int, HashSet<(ushort, ushort, ushort, ushort)>> regionsPerPage = new Dictionary<int, HashSet<(ushort, ushort, ushort, ushort)>>();
-		foreach (GameMakerSprite sprite in data.Sprites)
+		Dictionary<int, HashSet<(ushort, ushort, ushort, ushort)>> regionsPerPage = [];
+		foreach (var sprite in data.Sprites)
 		{
 			if (sprite?.Textures == null)
 			{
 				continue;
 			}
-			foreach (GameMakerSprite.TextureEntry texture in sprite.Textures)
+			foreach (var texture in sprite.Textures)
 			{
-				GameMakerTexturePageItem tpi = texture?.Texture;
+				var tpi = texture?.Texture;
 				if (tpi?.TexturePage != null && pageIndexMap.TryGetValue(tpi.TexturePage, out var pageIdx))
 				{
 					if (!regionsPerPage.TryGetValue(pageIdx, out var regions))
 					{
-						regions = (regionsPerPage[pageIdx] = new HashSet<(ushort, ushort, ushort, ushort)>());
+						regions = regionsPerPage[pageIdx] = [];
 					}
 					regions.Add((tpi.SourceX, tpi.SourceY, tpi.SourceWidth, tpi.SourceHeight));
 				}
 			}
 		}
-		ConcurrentDictionary<(int, ushort, ushort, ushort, ushort), string> frameHashes = new ConcurrentDictionary<(int, ushort, ushort, ushort, ushort), string>();
-		Parallel.ForEach<KeyValuePair<int, HashSet<(ushort, ushort, ushort, ushort)>>>(regionsPerPage, new ParallelOptions
+		var frameHashes = new ConcurrentDictionary<(int, ushort, ushort, ushort, ushort), string>();
+		CancellableParallel.ForEach(regionsPerPage, new ParallelOptions
 		{
 			MaxDegreeOfParallelism = Math.Min(16, Environment.ProcessorCount)
-		}, delegate(KeyValuePair<int, HashSet<(ushort srcX, ushort srcY, ushort srcW, ushort srcH)>> kvp)
+		}, delegate (KeyValuePair<int, HashSet<(ushort srcX, ushort srcY, ushort srcW, ushort srcH)>> kvp)
 		{
 			KeyValuePair<int, HashSet<(ushort, ushort, ushort, ushort)>> keyValuePair = kvp;
 			keyValuePair.Deconstruct(out var key, out var value);
-			int num = key;
-			HashSet<(ushort, ushort, ushort, ushort)> hashSet2 = value;
-			GameMakerEmbeddedTexture gameMakerEmbeddedTexture = data.EmbeddedTextures[num];
+			var num = key;
+			var hashSet2 = value;
+			var gameMakerEmbeddedTexture = data.EmbeddedTextures[num];
 			if (gameMakerEmbeddedTexture?.TextureData?.Image == null)
 			{
 				foreach (var (item, item2, item3, item4) in hashSet2)
@@ -571,16 +568,16 @@ public static class ResourceHashService
 			var (width, height, array) = GetRgbaPixels(gameMakerEmbeddedTexture.TextureData.Image);
 			foreach (var (num2, num3, num4, num5) in hashSet2)
 			{
-				TryHashTextureRegionPixels(array, num, width, height, num2, num3, num4, num5, out string hash);
+				TryHashTextureRegionPixels(array, num, width, height, num2, num3, num4, num5, out var hash);
 				frameHashes[(num, num2, num3, num4, num5)] = hash;
 			}
 		});
-		ConcurrentDictionary<string, string> result = new ConcurrentDictionary<string, string>();
-		Parallel.ForEach(data.Sprites, delegate(GameMakerSprite gameMakerSprite)
+		var result = new ConcurrentDictionary<string, string>();
+		CancellableParallel.ForEach(data.Sprites, delegate (GameMakerSprite gameMakerSprite)
 		{
 			if (gameMakerSprite?.Name?.Content != null)
 			{
-				string value = JsonHash(delegate(Utf8JsonWriter w)
+				var value = JsonHash(delegate (Utf8JsonWriter w)
 				{
 					w.WriteStartObject();
 					w.WriteString("name", gameMakerSprite.Name.Content);
@@ -619,8 +616,8 @@ public static class ResourceHashService
 						w.WriteNumber("bottom", gameMakerSprite.V3NineSlice.Bottom);
 						w.WriteBoolean("enabled", gameMakerSprite.V3NineSlice.Enabled);
 						w.WriteStartArray("tileModes");
-						GameMakerSprite.NineSlice.TileMode[] tileModes = gameMakerSprite.V3NineSlice.TileModes;
-						foreach (GameMakerSprite.NineSlice.TileMode value2 in tileModes)
+						var tileModes = gameMakerSprite.V3NineSlice.TileModes;
+						foreach (var value2 in tileModes)
 						{
 							w.WriteNumberValue((int)value2);
 						}
@@ -634,9 +631,9 @@ public static class ResourceHashService
 					w.WriteStartArray("textures");
 					if (gameMakerSprite.Textures != null)
 					{
-						foreach (GameMakerSprite.TextureEntry texture2 in gameMakerSprite.Textures)
+						foreach (var texture2 in gameMakerSprite.Textures)
 						{
-							GameMakerTexturePageItem gameMakerTexturePageItem = texture2?.Texture;
+							var gameMakerTexturePageItem = texture2?.Texture;
 							if (gameMakerTexturePageItem != null)
 							{
 								w.WriteStartObject();
@@ -650,10 +647,9 @@ public static class ResourceHashService
 								w.WriteNumber("tgtH", gameMakerTexturePageItem.TargetHeight);
 								w.WriteNumber("bndX", gameMakerTexturePageItem.BoundingWidth);
 								w.WriteNumber("bndY", gameMakerTexturePageItem.BoundingHeight);
-								int value3;
-								int num = ((gameMakerTexturePageItem.TexturePage != null && pageIndexMap.TryGetValue(gameMakerTexturePageItem.TexturePage, out value3)) ? value3 : (-1));
+								var num = (gameMakerTexturePageItem.TexturePage != null && pageIndexMap.TryGetValue(gameMakerTexturePageItem.TexturePage, out var value3)) ? value3 : (-1);
 								w.WriteNumber("texPage", num);
-								string value4 = "";
+								var value4 = "";
 								if (num >= 0)
 								{
 									frameHashes.TryGetValue((num, gameMakerTexturePageItem.SourceX, gameMakerTexturePageItem.SourceY, gameMakerTexturePageItem.SourceWidth, gameMakerTexturePageItem.SourceHeight), out value4);
@@ -672,7 +668,7 @@ public static class ResourceHashService
 					{
 						w.WriteNumber("maskCount", gameMakerSprite.CollisionMasks.Count);
 						w.WriteStartArray("masks");
-						foreach (GameMakerSprite.MaskEntry current in gameMakerSprite.CollisionMasks)
+						foreach (var current in gameMakerSprite.CollisionMasks)
 						{
 							if (current == null)
 							{
@@ -683,7 +679,7 @@ public static class ResourceHashService
 								w.WriteStartObject();
 								w.WriteNumber("width", current.Width);
 								w.WriteNumber("height", current.Height);
-								byte[] data2 = current.Data;
+								var data2 = current.Data;
 								w.WriteNumber("length", (data2 != null) ? data2.Length : 0);
 								w.WriteString("dataHash", (current.Data != null) ? HexHash(current.Data) : "");
 								w.WriteEndObject();
@@ -701,23 +697,23 @@ public static class ResourceHashService
 
 	private static (int Width, int Height, byte[] Pixels) GetRgbaPixels(GMImage image)
 	{
-		GMImage rawImage = image.ConvertToRawBgra();
+		var rawImage = image.ConvertToRawBgra();
 		// Decoded images belong to this call; raw input pixels still belong to the caller.
-		byte[] rgba = ReferenceEquals(rawImage, image) ? rawImage.GetData().ToArray() : rawImage.GetData();
+		var rgba = ReferenceEquals(rawImage, image) ? [.. rawImage.GetData()] : rawImage.GetData();
 		ReadOnlySpan<byte> bgra = rgba;
-		int offset = 0;
+		var offset = 0;
 		if (Vector.IsHardwareAccelerated)
 		{
-			ReadOnlySpan<uint> bgraPixels = MemoryMarshal.Cast<byte, uint>(bgra);
-			Span<uint> rgbaPixels = MemoryMarshal.Cast<byte, uint>(rgba.AsSpan());
-			int vectorLength = Vector<uint>.Count;
-			int vectorEnd = bgraPixels.Length - bgraPixels.Length % vectorLength;
-			Vector<uint> preserve = new Vector<uint>(0xFF00FF00);
-			Vector<uint> blue = new Vector<uint>(0x000000FF);
-			Vector<uint> red = new Vector<uint>(0x00FF0000);
-			for (int index = 0; index < vectorEnd; index += vectorLength)
+			var bgraPixels = MemoryMarshal.Cast<byte, uint>(bgra);
+			var rgbaPixels = MemoryMarshal.Cast<byte, uint>(rgba.AsSpan());
+			var vectorLength = Vector<uint>.Count;
+			var vectorEnd = bgraPixels.Length - bgraPixels.Length % vectorLength;
+			var preserve = new Vector<uint>(0xFF00FF00);
+			var blue = new Vector<uint>(0x000000FF);
+			var red = new Vector<uint>(0x00FF0000);
+			for (var index = 0; index < vectorEnd; index += vectorLength)
 			{
-				Vector<uint> pixels = new Vector<uint>(bgraPixels.Slice(index, vectorLength));
+				var pixels = new Vector<uint>(bgraPixels.Slice(index, vectorLength));
 				((pixels & preserve) | ((pixels & blue) << 16) | ((pixels & red) >> 16)).CopyTo(rgbaPixels.Slice(index, vectorLength));
 			}
 			offset = vectorEnd * 4;
@@ -735,15 +731,15 @@ public static class ResourceHashService
 		{
 			return "";
 		}
-		(int Width, int Height, byte[]? Pixels) pagePixels = pixelsByPage.GetOrAdd(tpi.TexturePage, (GameMakerEmbeddedTexture texturePage) => new Lazy<(int Width, int Height, byte[]? Pixels)>(delegate
+		var pagePixels = pixelsByPage.GetOrAdd(tpi.TexturePage, texturePage => new Lazy<(int Width, int Height, byte[]? Pixels)>(delegate
 		{
 			if (texturePage.TextureData?.Image == null)
 			{
-				return ((int Width, int Height, byte[]? Pixels))default((int, int, byte[]));
+				return default((int, int, byte[]));
 			}
 			return GetRgbaPixels(texturePage.TextureData.Image);
 		})).Value;
-		if (pagePixels.Item3 == null)
+		if (pagePixels.Pixels == null)
 		{
 			return "";
 		}
@@ -752,50 +748,50 @@ public static class ResourceHashService
 		{
 			return $"invalid:{tpi.SourceX}:{tpi.SourceY}:{tpi.SourceWidth}:{tpi.SourceHeight}:{pageW}:{pageH}";
 		}
-		byte[] allPixels = pagePixels.Item3;
+		var allPixels = pagePixels.Pixels;
 		if (allPixels == null)
 		{
 			return "";
 		}
-		TryHashTextureRegionPixels(allPixels, -1, pageW, pageH, tpi.SourceX, tpi.SourceY, tpi.SourceWidth, tpi.SourceHeight, out string regionHash);
+		TryHashTextureRegionPixels(allPixels, -1, pageW, pageH, tpi.SourceX, tpi.SourceY, tpi.SourceWidth, tpi.SourceHeight, out var regionHash);
 		return regionHash;
 	}
 
 	private static void TryHashTextureRegionPixels(byte[] allPixels, int pageIdx, int pageW, int pageH, int srcX, int srcY, int srcW, int srcH, out string hash)
 	{
-		string invalidPrefix = ((pageIdx >= 0) ? $"invalid:{pageIdx}" : "invalid");
+		var invalidPrefix = (pageIdx >= 0) ? $"invalid:{pageIdx}" : "invalid";
 		if (srcW <= 0 || srcH <= 0 || srcX < 0 || srcY < 0 || srcX >= pageW || srcY >= pageH || srcX > pageW - srcW || srcY > pageH - srcH)
 		{
 			hash = $"{invalidPrefix}:{srcX}:{srcY}:{srcW}:{srcH}:{pageW}:{pageH}:rect";
 			return;
 		}
-		long expectedPixelsLength = (long)pageW * (long)pageH * 4;
+		var expectedPixelsLength = pageW * (long)pageH * 4;
 		if (allPixels.LongLength < expectedPixelsLength)
 		{
 			hash = $"{invalidPrefix}:{srcX}:{srcY}:{srcW}:{srcH}:{pageW}:{pageH}:buffer:{allPixels.LongLength}:{expectedPixelsLength}";
 			return;
 		}
-		long regionSizeLong = (long)srcW * (long)srcH * 4;
+		var regionSizeLong = srcW * (long)srcH * 4;
 		if (regionSizeLong > int.MaxValue)
 		{
 			hash = $"{invalidPrefix}:{srcX}:{srcY}:{srcW}:{srcH}:{pageW}:{pageH}:region-too-large";
 			return;
 		}
-		long rowBytesLong = (long)srcW * 4L;
+		var rowBytesLong = srcW * 4L;
 		if (rowBytesLong > int.MaxValue)
 		{
 			hash = $"{invalidPrefix}:{srcX}:{srcY}:{srcW}:{srcH}:{pageW}:{pageH}:row-too-large";
 			return;
 		}
-		int rowBytes = (int)rowBytesLong;
-		int regionSize = (int)regionSizeLong;
-		byte[] buffer = ArrayPool<byte>.Shared.Rent(regionSize);
+		var rowBytes = (int)rowBytesLong;
+		var regionSize = (int)regionSizeLong;
+		var buffer = ArrayPool<byte>.Shared.Rent(regionSize);
 		try
 		{
-			int dst = 0;
-			for (int y = srcY; y < srcY + srcH; y++)
+			var dst = 0;
+			for (var y = srcY; y < srcY + srcH; y++)
 			{
-				long sourceOffsetLong = ((long)y * (long)pageW + srcX) * 4;
+				var sourceOffsetLong = (y * (long)pageW + srcX) * 4;
 				if (sourceOffsetLong < 0 || sourceOffsetLong > allPixels.LongLength - rowBytes)
 				{
 					hash = $"{invalidPrefix}:{srcX}:{srcY}:{srcW}:{srcH}:{pageW}:{pageH}:offset:{sourceOffsetLong}:{allPixels.LongLength}:{rowBytes}";
@@ -816,22 +812,22 @@ public static class ResourceHashService
 	{
 		if (data.Backgrounds == null)
 		{
-			return new Dictionary<string, string>();
+			return [];
 		}
-		Dictionary<GameMakerEmbeddedTexture, int> pageIndexMap = new Dictionary<GameMakerEmbeddedTexture, int>();
+		Dictionary<GameMakerEmbeddedTexture, int> pageIndexMap = [];
 		if (data.EmbeddedTextures != null)
 		{
-			for (int i = 0; i < data.EmbeddedTextures.Count; i++)
+			for (var i = 0; i < data.EmbeddedTextures.Count; i++)
 			{
 				pageIndexMap[data.EmbeddedTextures[i]] = i;
 			}
 		}
-		ConcurrentDictionary<string, string> result = new ConcurrentDictionary<string, string>();
-		Parallel.ForEach(data.Backgrounds, delegate(GameMakerBackground bg)
+		var result = new ConcurrentDictionary<string, string>();
+		CancellableParallel.ForEach(data.Backgrounds, delegate (GameMakerBackground bg)
 		{
 			if (bg?.Name?.Content != null)
 			{
-				string value = JsonHash(delegate(Utf8JsonWriter w)
+				var value = JsonHash(delegate (Utf8JsonWriter w)
 				{
 					w.WriteStartObject();
 					w.WriteString("name", bg.Name.Content);
@@ -845,7 +841,7 @@ public static class ResourceHashService
 					w.WriteNumber("tileColumns", bg.GMS2TileColumns);
 					w.WriteNumber("tileCount", bg.GMS2TileCount);
 					w.WriteNumber("frameLength", bg.GMS2FrameLength);
-					GameMakerTexturePageItem texture = bg.Texture;
+					var texture = bg.Texture;
 					if (texture != null)
 					{
 						w.WriteNumber("texSrcX", texture.SourceX);
@@ -866,15 +862,15 @@ public static class ResourceHashService
 	{
 		if (data.Fonts == null)
 		{
-			return new Dictionary<string, string>();
+			return [];
 		}
 		ConcurrentDictionary<GameMakerEmbeddedTexture, Lazy<(int Width, int Height, byte[]? Pixels)>> pixelsByPage = new ConcurrentDictionary<GameMakerEmbeddedTexture, Lazy<(int, int, byte[])>>(ReferenceEqualityComparer.Instance);
-		ConcurrentDictionary<string, string> result = new ConcurrentDictionary<string, string>();
-		Parallel.ForEach(data.Fonts, delegate(GameMakerFont font)
+		var result = new ConcurrentDictionary<string, string>();
+		CancellableParallel.ForEach(data.Fonts, delegate (GameMakerFont font)
 		{
 			if (font?.Name?.Content != null)
 			{
-				string value = JsonHash(delegate(Utf8JsonWriter w)
+				var value = JsonHash(delegate (Utf8JsonWriter w)
 				{
 					w.WriteStartObject();
 					w.WriteString("name", font.Name.Content);
@@ -894,7 +890,7 @@ public static class ResourceHashService
 					w.WriteNumber("sdfSpread", font.SDFSpread);
 					w.WriteNumber("lineHeight", font.LineHeight);
 					w.WriteNumber("glyphCount", font.Glyphs?.Count ?? 0);
-					GameMakerTexturePageItem texture = font.Texture;
+					var texture = font.Texture;
 					if (texture != null)
 					{
 						w.WriteNumber("texSrcX", texture.SourceX);
@@ -906,7 +902,7 @@ public static class ResourceHashService
 					w.WriteStartArray("glyphs");
 					if (font.Glyphs != null)
 					{
-						foreach (GameMakerFont.Glyph current in font.Glyphs.OrderBy((GameMakerFont.Glyph g) => g.Character))
+						foreach (var current in font.Glyphs.OrderBy(g => g.Character))
 						{
 							if (current == null)
 							{
@@ -926,7 +922,7 @@ public static class ResourceHashService
 								w.WriteStartArray("kerning");
 								if (current.Kerning != null)
 								{
-									foreach (GameMakerFont.Glyph.GlyphKerning current2 in current.Kerning.OrderBy((GameMakerFont.Glyph.GlyphKerning k) => k.Character))
+									foreach (var current2 in current.Kerning.OrderBy(k => k.Character))
 									{
 										w.WriteStartObject();
 										w.WriteNumber("character", current2.Character);
@@ -952,15 +948,15 @@ public static class ResourceHashService
 	{
 		if (data.Sounds == null)
 		{
-			return new Dictionary<string, string>();
+			return [];
 		}
-		Dictionary<int, Dictionary<int, string>> externalAudioHashes = LoadExternalAudioHashes(data, dataFilePath);
-		ConcurrentDictionary<string, string> result = new ConcurrentDictionary<string, string>();
-		Parallel.ForEach(data.Sounds, delegate(GameMakerSound snd)
+		var externalAudioHashes = LoadExternalAudioHashes(data, dataFilePath);
+		var result = new ConcurrentDictionary<string, string>();
+		CancellableParallel.ForEach(data.Sounds, delegate (GameMakerSound snd)
 		{
 			if (snd?.Name?.Content != null)
 			{
-				string value = JsonHash(delegate(Utf8JsonWriter w)
+				var value = JsonHash(delegate (Utf8JsonWriter w)
 				{
 					w.WriteStartObject();
 					w.WriteString("name", snd.Name.Content);
@@ -990,7 +986,7 @@ public static class ResourceHashService
 		{
 			return HexHash(sound.AudioFile.Data);
 		}
-		if (sound.GroupID > 0 && sound.AudioID >= 0 && externalAudioHashes.TryGetValue(sound.GroupID, out Dictionary<int, string> groupHashes) && groupHashes.TryGetValue(sound.AudioID, out var hash))
+		if (sound.GroupID > 0 && sound.AudioID >= 0 && externalAudioHashes.TryGetValue(sound.GroupID, out var groupHashes) && groupHashes.TryGetValue(sound.AudioID, out var hash))
 		{
 			return hash;
 		}
@@ -1001,37 +997,37 @@ public static class ResourceHashService
 	{
 		if (data.Sounds == null || string.IsNullOrWhiteSpace(dataFilePath))
 		{
-			return new Dictionary<int, Dictionary<int, string>>();
+			return [];
 		}
-		string dataDir = Path.GetDirectoryName(dataFilePath);
+		var dataDir = Path.GetDirectoryName(dataFilePath);
 		if (string.IsNullOrWhiteSpace(dataDir))
 		{
-			return new Dictionary<int, Dictionary<int, string>>();
+			return [];
 		}
-		int[] array = (from sound in data.Sounds
-			where sound != null && sound.GroupID > 0 && sound.AudioID >= 0
-			select sound.GroupID).Distinct().ToArray();
-		Dictionary<int, Dictionary<int, string>> result = new Dictionary<int, Dictionary<int, string>>();
-		int[] array2 = array;
-		foreach (int groupId in array2)
+		int[] array = [.. (from sound in data.Sounds
+					   where sound != null && sound.GroupID > 0 && sound.AudioID >= 0
+					   select sound.GroupID).Distinct()];
+		Dictionary<int, Dictionary<int, string>> result = [];
+		var array2 = array;
+		foreach (var groupId in array2)
 		{
-			string audioGroupPath = ResourceAssetUtil.ResolveAudioGroupPath(data, dataDir, groupId);
+			var audioGroupPath = ResourceAssetUtil.ResolveAudioGroupPath(data, dataDir, groupId);
 			if (audioGroupPath == null || !File.Exists(audioGroupPath))
 			{
 				continue;
 			}
 			try
 			{
-				using FileStream stream = new FileStream(audioGroupPath, FileMode.Open, FileAccess.Read, FileShare.Read);
-				using GameMakerData audioGroupData = GameMakerIO.Read(stream);
+				using var stream = new FileStream(audioGroupPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+				using var audioGroupData = GameMakerIO.Read(stream);
 				if (audioGroupData.EmbeddedAudio == null)
 				{
 					continue;
 				}
-				Dictionary<int, string> hashes = new Dictionary<int, string>();
-				for (int i = 0; i < audioGroupData.EmbeddedAudio.Count; i++)
+				Dictionary<int, string> hashes = [];
+				for (var i = 0; i < audioGroupData.EmbeddedAudio.Count; i++)
 				{
-					GameMakerEmbeddedAudio audio = audioGroupData.EmbeddedAudio[i];
+					var audio = audioGroupData.EmbeddedAudio[i];
 					if (audio?.Data != null)
 					{
 						hashes[i] = HexHash(audio.Data);
@@ -1053,36 +1049,42 @@ public static class ResourceHashService
 	{
 		if (data.Options == null)
 		{
-			return new Dictionary<string, string>();
+			return [];
 		}
-		return new Dictionary<string, string> { ["Options"] = JsonHash(delegate(Utf8JsonWriter w)
+		return new Dictionary<string, string>
+		{
+			["Options"] = JsonHash(delegate (Utf8JsonWriter w)
 		{
 			WriteOptionsJson(w, data);
-		}) };
+		})
+		};
 	}
 
 	private static Dictionary<string, string> HashGlobalScripts(GameMakerData data)
 	{
-		return new Dictionary<string, string> { ["GlobalScripts"] = JsonHash(delegate(Utf8JsonWriter w)
+		return new Dictionary<string, string>
+		{
+			["GlobalScripts"] = JsonHash(delegate (Utf8JsonWriter w)
 		{
 			WriteGlobalScriptsJson(w, data);
-		}) };
+		})
+		};
 	}
 
 	private static Dictionary<string, string> HashScripts(GameMakerData data)
 	{
 		if (data.Scripts == null)
 		{
-			return new Dictionary<string, string>();
+			return [];
 		}
-		List<(GameMakerScript Item, string Key)> source = BuildUniqueResourceKeys((from script in data.Scripts
-			where script?.Name?.Content != null
-			select (script)).ToList(), (GameMakerScript script) => script.Name.Content);
-		ConcurrentDictionary<string, string> result = new ConcurrentDictionary<string, string>();
-		Parallel.ForEach<(GameMakerScript, string)>(source, delegate((GameMakerScript Item, string Key) entry)
+		var source = BuildUniqueResourceKeys([.. from script in data.Scripts
+																				   where script?.Name?.Content != null
+																				   select script], script => script.Name.Content);
+		var result = new ConcurrentDictionary<string, string>();
+		CancellableParallel.ForEach<(GameMakerScript, string)>(source, delegate ((GameMakerScript Item, string Key) entry)
 		{
 			var (script, _) = entry;
-			result[entry.Key] = JsonHash(delegate(Utf8JsonWriter w)
+			result[entry.Key] = JsonHash(delegate (Utf8JsonWriter w)
 			{
 				w.WriteStartObject();
 				w.WriteString("name", script.Name.Content);
@@ -1096,11 +1098,11 @@ public static class ResourceHashService
 
 	private static List<(T Item, string Key)> BuildUniqueResourceKeys<T>(List<T> items, Func<T, string> getName)
 	{
-		Dictionary<string, int> used = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-		List<(T, string)> result = new List<(T, string)>(items.Count);
-		foreach (T item in items)
+		var used = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+		var result = new List<(T, string)>(items.Count);
+		foreach (var item in items)
 		{
-			string baseName = getName(item);
+			var baseName = getName(item);
 			if (!used.TryGetValue(baseName, out var count))
 			{
 				used[baseName] = 1;
@@ -1125,26 +1127,26 @@ public static class ResourceHashService
 	{
 		if (data.EmbeddedImages == null)
 		{
-			return new Dictionary<string, string>();
+			return [];
 		}
-		Dictionary<GameMakerTexturePageItem, int> texturePageItemIndices = new Dictionary<GameMakerTexturePageItem, int>(ReferenceEqualityComparer.Instance);
+		var texturePageItemIndices = new Dictionary<GameMakerTexturePageItem, int>(ReferenceEqualityComparer.Instance);
 		if (data.TexturePageItems != null)
 		{
-			for (int i = 0; i < data.TexturePageItems.Count; i++)
+			for (var i = 0; i < data.TexturePageItems.Count; i++)
 			{
-				GameMakerTexturePageItem texturePageItem = data.TexturePageItems[i];
+				var texturePageItem = data.TexturePageItems[i];
 				if (texturePageItem != null)
 				{
 					texturePageItemIndices.TryAdd(texturePageItem, i);
 				}
 			}
 		}
-		ConcurrentDictionary<string, string> result = new ConcurrentDictionary<string, string>();
-		Parallel.ForEach(data.EmbeddedImages, delegate(GameMakerEmbeddedImage image)
+		var result = new ConcurrentDictionary<string, string>();
+		CancellableParallel.ForEach(data.EmbeddedImages, delegate (GameMakerEmbeddedImage image)
 		{
 			if (image?.Name?.Content != null)
 			{
-				result[image.Name.Content] = JsonHash(delegate(Utf8JsonWriter w)
+				result[image.Name.Content] = JsonHash(delegate (Utf8JsonWriter w)
 				{
 					w.WriteStartObject();
 					w.WriteString("name", image.Name.Content);
@@ -1156,7 +1158,7 @@ public static class ResourceHashService
 		return new Dictionary<string, string>(result);
 	}
 
-	private static void WriteTexturePageItemRef(Utf8JsonWriter w, IReadOnlyDictionary<GameMakerTexturePageItem, int> texturePageItemIndices, GameMakerTexturePageItem? tpi)
+	private static void WriteTexturePageItemRef(Utf8JsonWriter w, Dictionary<GameMakerTexturePageItem, int> texturePageItemIndices, GameMakerTexturePageItem? tpi)
 	{
 		w.WriteNumber("texturePageItemIndex", (tpi != null && texturePageItemIndices.TryGetValue(tpi, out var index)) ? index : (-1));
 		if (tpi != null)
@@ -1177,7 +1179,7 @@ public static class ResourceHashService
 
 	private static void WriteOptionsJson(Utf8JsonWriter w, GameMakerData data)
 	{
-		GameMakerOptions options = data.Options;
+		var options = data.Options;
 		w.WriteStartObject();
 		if (options == null)
 		{
@@ -1199,7 +1201,7 @@ public static class ResourceHashService
 		w.WriteStartArray("constants");
 		if (options.Constants != null)
 		{
-			foreach (GameMakerOptions.Constant constant in options.Constants)
+			foreach (var constant in options.Constants)
 			{
 				w.WriteStartObject();
 				w.WriteString("name", constant?.Name?.Content ?? "");
@@ -1224,7 +1226,7 @@ public static class ResourceHashService
 		w.WriteStartArray(propertyName);
 		if (scripts != null)
 		{
-			foreach (GameMakerGlobalInit script2 in scripts)
+			foreach (var script2 in scripts)
 			{
 				w.WriteStringValue(script2?.Code?.Name?.Content ?? "");
 			}
@@ -1236,14 +1238,14 @@ public static class ResourceHashService
 	{
 		if (data.AnimationCurves == null)
 		{
-			return new Dictionary<string, string>();
+			return [];
 		}
-		ConcurrentDictionary<string, string> result = new ConcurrentDictionary<string, string>();
-		Parallel.ForEach(data.AnimationCurves, delegate(GameMakerAnimationCurve curve)
+		var result = new ConcurrentDictionary<string, string>();
+		CancellableParallel.ForEach(data.AnimationCurves, delegate (GameMakerAnimationCurve curve)
 		{
 			if (curve?.Name?.Content != null)
 			{
-				string value = JsonHash(delegate(Utf8JsonWriter w)
+				var value = JsonHash(delegate (Utf8JsonWriter w)
 				{
 					w.WriteStartObject();
 					WriteAnimationCurveJson(w, data, curve);
@@ -1259,18 +1261,18 @@ public static class ResourceHashService
 	{
 		if (data.Sequences == null)
 		{
-			return new Dictionary<string, string>();
+			return [];
 		}
-		Dictionary<string, string> result = new Dictionary<string, string>(StringComparer.Ordinal);
-		string tempRoot = Path.Combine(Path.GetTempPath(), "g3mlib_seq_hash", Guid.NewGuid().ToString("N"));
+		var result = new Dictionary<string, string>(StringComparer.Ordinal);
+		var tempRoot = Path.Combine(TempRoot.Path, "g3mlib_seq_hash", Guid.NewGuid().ToString("N"));
 		try
 		{
-			ProjectContext context = ResourceAssetUtil.CreateProjectContext(data, tempRoot);
-			foreach (GameMakerSequence sequence in data.Sequences)
+			var context = ResourceAssetUtil.CreateProjectContext(data, tempRoot);
+			foreach (var sequence in data.Sequences)
 			{
 				if (sequence?.Name?.Content != null)
 				{
-					ISerializableProjectAsset serializable = sequence.GenerateSerializableProjectAsset(context);
+					var serializable = sequence.GenerateSerializableProjectAsset(context);
 					result[sequence.Name.Content] = CanonicalJsonHash(serializable);
 				}
 			}
@@ -1293,14 +1295,14 @@ public static class ResourceHashService
 	{
 		if (data.ParticleSystems == null)
 		{
-			return new Dictionary<string, string>();
+			return [];
 		}
-		ConcurrentDictionary<string, string> result = new ConcurrentDictionary<string, string>();
-		Parallel.ForEach(data.ParticleSystems, delegate(GameMakerParticleSystem ps)
+		var result = new ConcurrentDictionary<string, string>();
+		CancellableParallel.ForEach(data.ParticleSystems, delegate (GameMakerParticleSystem ps)
 		{
 			if (ps?.Name?.Content != null)
 			{
-				result[ps.Name.Content] = JsonHash(delegate(Utf8JsonWriter w)
+				result[ps.Name.Content] = JsonHash(delegate (Utf8JsonWriter w)
 				{
 					w.WriteStartObject();
 					w.WriteString("name", ps.Name.Content);
@@ -1309,7 +1311,7 @@ public static class ResourceHashService
 					w.WriteNumber("drawOrder", (int)ps.DrawOrder);
 					w.WriteBoolean("globalSpaceParticles", ps.GlobalSpaceParticles);
 					w.WriteStartArray("emitters");
-					foreach (GameMakerResourceById<GameMakerParticleSystemEmitter, GameMakerChunkPSEM> item in ps.Emitters ?? new GameMakerSimpleResourcesList<GameMakerParticleSystemEmitter, GameMakerChunkPSEM>())
+					foreach (var item in ps.Emitters ?? [])
 					{
 						w.WriteStringValue(item?.Resource?.Name?.Content ?? "");
 					}
@@ -1325,63 +1327,51 @@ public static class ResourceHashService
 	{
 		if (data.ParticleSystemEmitters == null)
 		{
-			return new Dictionary<string, string>();
+			return [];
 		}
-		ConcurrentDictionary<string, string> result = new ConcurrentDictionary<string, string>();
-		Parallel.ForEach(data.ParticleSystemEmitters, delegate(GameMakerParticleSystemEmitter e)
+		var result = new ConcurrentDictionary<string, string>();
+		CancellableParallel.ForEach(data.ParticleSystemEmitters, delegate (GameMakerParticleSystemEmitter e)
 		{
 			if (e?.Name?.Content != null)
 			{
-				result[e.Name.Content] = JsonHash(delegate(Utf8JsonWriter w)
+				result[e.Name.Content] = JsonHash(delegate (Utf8JsonWriter w)
 				{
 					w.WriteStartObject();
 					w.WriteString("name", e.Name.Content);
 					w.WriteString("sprite", e.Sprite?.Name?.Content ?? "");
 					w.WriteString("spawnOnDeath", e.SpawnOnDeath?.Name?.Content ?? "");
 					w.WriteString("spawnOnUpdate", e.SpawnOnUpdate?.Name?.Content ?? "");
-					foreach (PropertyInfo current in typeof(GameMakerParticleSystemEmitter).GetProperties().OrderBy<PropertyInfo, string>((PropertyInfo p) => p.Name, StringComparer.Ordinal))
+					foreach (var current in typeof(GameMakerParticleSystemEmitter).GetProperties().OrderBy(p => p.Name, StringComparer.Ordinal))
 					{
 						if (current.CanRead && current.CanWrite)
 						{
-							bool flag;
-							switch (current.Name)
+							var flag = current.Name switch
 							{
-							case "SizeIncrease":
-							case "SpawnOnDeath":
-							case "SizeMax":
-							case "SizeMin":
-							case "Name":
-							case "Sprite":
-							case "SpawnOnUpdate":
-							case "SizeWiggle":
-								flag = true;
-								break;
-							default:
-								flag = false;
-								break;
-							}
+								"SizeIncrease" or "SpawnOnDeath" or "SizeMax" or "SizeMin" or "Name" or "Sprite" or "SpawnOnUpdate" or "SizeWiggle" => true,
+								_ => false,
+							};
 							if (!flag)
 							{
-								Type type = Nullable.GetUnderlyingType(current.PropertyType) ?? current.PropertyType;
+								var type = Nullable.GetUnderlyingType(current.PropertyType) ?? current.PropertyType;
 								if (type.IsEnum)
 								{
-									w.WriteNumber(current.Name, Convert.ToInt32(current.GetValue(e)));
+									w.WriteNumber(current.Name, Convert.ToInt32(current.GetValue(e), CultureInfo.InvariantCulture));
 								}
 								else if (type == typeof(bool))
 								{
-									w.WriteBoolean(current.Name, (bool)(current.GetValue(e) ?? ((object)false)));
+									w.WriteBoolean(current.Name, (bool)(current.GetValue(e) ?? false));
 								}
 								else if (type == typeof(int))
 								{
-									w.WriteNumber(current.Name, (int)(current.GetValue(e) ?? ((object)0)));
+									w.WriteNumber(current.Name, (int)(current.GetValue(e) ?? 0));
 								}
 								else if (type == typeof(uint))
 								{
-									w.WriteNumber(current.Name, (uint)(current.GetValue(e) ?? ((object)0u)));
+									w.WriteNumber(current.Name, (uint)(current.GetValue(e) ?? 0u));
 								}
 								else if (type == typeof(float))
 								{
-									w.WriteNumber(current.Name, (float)(current.GetValue(e) ?? ((object)0f)));
+									w.WriteNumber(current.Name, (float)(current.GetValue(e) ?? 0f));
 								}
 							}
 						}
@@ -1400,7 +1390,7 @@ public static class ResourceHashService
 		w.WriteStartArray("channels");
 		if (curve.Channels != null)
 		{
-			foreach (GameMakerAnimationCurve.Channel channel in curve.Channels)
+			foreach (var channel in curve.Channels)
 			{
 				if (channel == null)
 				{
@@ -1413,7 +1403,7 @@ public static class ResourceHashService
 				w.WriteStartArray("points");
 				if (channel.Points != null)
 				{
-					foreach (GameMakerAnimationCurve.Channel.Point point in channel.Points)
+					foreach (var point in channel.Points)
 					{
 						if (point != null)
 						{
@@ -1442,14 +1432,14 @@ public static class ResourceHashService
 	{
 		if (data.Paths == null)
 		{
-			return new Dictionary<string, string>();
+			return [];
 		}
-		ConcurrentDictionary<string, string> result = new ConcurrentDictionary<string, string>();
-		Parallel.ForEach(data.Paths, delegate(GameMakerPath path)
+		var result = new ConcurrentDictionary<string, string>();
+		CancellableParallel.ForEach(data.Paths, delegate (GameMakerPath path)
 		{
 			if (path?.Name?.Content != null)
 			{
-				string value = JsonHash(delegate(Utf8JsonWriter w)
+				var value = JsonHash(delegate (Utf8JsonWriter w)
 				{
 					w.WriteStartObject();
 					w.WriteString("name", path.Name.Content);
@@ -1460,7 +1450,7 @@ public static class ResourceHashService
 					w.WriteStartArray("points");
 					if (path.Points != null)
 					{
-						foreach (GameMakerPath.PathPoint current in path.Points)
+						foreach (var current in path.Points)
 						{
 							w.WriteStartObject();
 							w.WriteNumber("x", current.X);
@@ -1482,25 +1472,25 @@ public static class ResourceHashService
 	{
 		if (data.Backgrounds == null)
 		{
-			return new Dictionary<string, string>();
+			return [];
 		}
-		List<GameMakerBackground> tilesets = data.Backgrounds.Where((GameMakerBackground bg) => bg != null && bg.Name?.Content != null && bg.GMS2TileWidth != 0 && bg.GMS2TileHeight != 0).ToList();
+		List<GameMakerBackground> tilesets = [.. data.Backgrounds.Where(bg => bg != null && bg.Name?.Content != null && bg.GMS2TileWidth != 0 && bg.GMS2TileHeight != 0)];
 		if (tilesets.Count == 0)
 		{
-			return new Dictionary<string, string>();
+			return [];
 		}
-		Dictionary<GameMakerEmbeddedTexture, int> tsPageIndexMap = new Dictionary<GameMakerEmbeddedTexture, int>();
+		Dictionary<GameMakerEmbeddedTexture, int> tsPageIndexMap = [];
 		if (data.EmbeddedTextures != null)
 		{
-			for (int i = 0; i < data.EmbeddedTextures.Count; i++)
+			for (var i = 0; i < data.EmbeddedTextures.Count; i++)
 			{
 				tsPageIndexMap[data.EmbeddedTextures[i]] = i;
 			}
 		}
-		string combinedHash = JsonHash(delegate(Utf8JsonWriter w)
+		var combinedHash = JsonHash(delegate (Utf8JsonWriter w)
 		{
 			w.WriteStartArray();
-			foreach (GameMakerBackground current in tilesets.OrderBy((GameMakerBackground t) => t.Name.Content))
+			foreach (var current in tilesets.OrderBy(t => t.Name.Content))
 			{
 				w.WriteStartObject();
 				w.WriteString("name", current.Name.Content);
@@ -1511,7 +1501,7 @@ public static class ResourceHashService
 				w.WriteNumber("outputBorderX", current.GMS2OutputBorderX);
 				w.WriteNumber("outputBorderY", current.GMS2OutputBorderY);
 				w.WriteNumber("frameLength", current.GMS2FrameLength);
-				GameMakerTexturePageItem texture = current.Texture;
+				var texture = current.Texture;
 				if (texture != null)
 				{
 					w.WriteNumber("texSrcX", texture.SourceX);
@@ -1531,14 +1521,14 @@ public static class ResourceHashService
 	{
 		if (data.Shaders == null)
 		{
-			return new Dictionary<string, string>();
+			return [];
 		}
-		ConcurrentDictionary<string, string> result = new ConcurrentDictionary<string, string>();
-		Parallel.ForEach(data.Shaders, delegate(GameMakerShader shader)
+		var result = new ConcurrentDictionary<string, string>();
+		CancellableParallel.ForEach(data.Shaders, delegate (GameMakerShader shader)
 		{
 			if (shader?.Name?.Content != null)
 			{
-				string value = JsonHash(delegate(Utf8JsonWriter w)
+				var value = JsonHash(delegate (Utf8JsonWriter w)
 				{
 					w.WriteStartObject();
 					w.WriteString("name", shader.Name.Content);
@@ -1561,28 +1551,28 @@ public static class ResourceHashService
 	{
 		if (data.Timelines == null)
 		{
-			return new Dictionary<string, string>();
+			return [];
 		}
-		ConcurrentDictionary<string, string> result = new ConcurrentDictionary<string, string>();
-		Parallel.ForEach(data.Timelines, delegate(GameMakerTimeline tl)
+		var result = new ConcurrentDictionary<string, string>();
+		CancellableParallel.ForEach(data.Timelines, delegate (GameMakerTimeline tl)
 		{
 			if (tl?.Name?.Content != null)
 			{
-				string value = JsonHash(delegate(Utf8JsonWriter w)
+				var value = JsonHash(delegate (Utf8JsonWriter w)
 				{
 					w.WriteStartObject();
 					w.WriteString("name", tl.Name.Content);
 					w.WriteStartArray("moments");
 					if (tl.Moments != null)
 					{
-						foreach (GameMakerTimeline.GameMakerTimelineMoment current in tl.Moments)
+						foreach (var current in tl.Moments)
 						{
 							w.WriteStartObject();
 							w.WriteNumber("step", current.Step);
 							w.WriteStartArray("actions");
 							if (current.Event != null)
 							{
-								foreach (GameMakerGameObject.EventAction item in current.Event)
+								foreach (var item in current.Event)
 								{
 									w.WriteStringValue(item?.CodeId?.Name?.Content ?? "");
 								}
@@ -1604,17 +1594,17 @@ public static class ResourceHashService
 	{
 		if (data.GameObjects == null)
 		{
-			return new Dictionary<string, string>();
+			return [];
 		}
-		Dictionary<string, string> result = new Dictionary<string, string>(StringComparer.Ordinal);
-		foreach (IGrouping<string, (GameMakerGameObject, int)> group in (from item in data.GameObjects.Select((GameMakerGameObject obj, int index) => (obj: obj, index: index))
-			where item.obj?.Name?.Content != null
-			select item).GroupBy<(GameMakerGameObject, int), string>(((GameMakerGameObject obj, int index) item) => item.obj.Name.Content, StringComparer.Ordinal))
+		var result = new Dictionary<string, string>(StringComparer.Ordinal);
+		foreach (var group in (from item in data.GameObjects.Select((obj, index) => (obj, index))
+							   where item.obj?.Name?.Content != null
+							   select item).GroupBy<(GameMakerGameObject, int), string>(((GameMakerGameObject obj, int index) item) => item.obj.Name.Content, StringComparer.Ordinal))
 		{
-			string hash = JsonHash(delegate(Utf8JsonWriter w)
+			var hash = JsonHash(delegate (Utf8JsonWriter w)
 			{
 				w.WriteStartArray();
-				foreach (var (gameMakerGameObject, value) in group.OrderBy<(GameMakerGameObject, int), int>(((GameMakerGameObject obj, int index) item) => item.index))
+				foreach (var (gameMakerGameObject, value) in group.OrderBy(((GameMakerGameObject obj, int index) item) => item.index))
 				{
 					w.WriteStartObject();
 					w.WriteNumber("index", value);
@@ -1638,15 +1628,15 @@ public static class ResourceHashService
 					w.WriteNumber("friction", gameMakerGameObject.Friction);
 					w.WriteBoolean("kinematic", gameMakerGameObject.Kinematic);
 					w.WriteStartArray("events");
-					for (int num = 0; num < gameMakerGameObject.Events.Count; num++)
+					for (var num = 0; num < gameMakerGameObject.Events.Count; num++)
 					{
-						foreach (GameMakerGameObject.Event current in gameMakerGameObject.Events[num])
+						foreach (var current in gameMakerGameObject.Events[num])
 						{
 							w.WriteStartObject();
 							w.WriteNumber("type", num);
 							w.WriteNumber("subtype", current.EventSubtype);
 							w.WriteStartArray("actions");
-							foreach (GameMakerGameObject.EventAction current2 in current.Actions)
+							foreach (var current2 in current.Actions)
 							{
 								w.WriteStringValue(current2.CodeId?.Name?.Content ?? "");
 							}
@@ -1668,14 +1658,14 @@ public static class ResourceHashService
 	{
 		if (data.Rooms == null)
 		{
-			return new Dictionary<string, string>();
+			return [];
 		}
-		ConcurrentDictionary<string, string> result = new ConcurrentDictionary<string, string>();
-		Parallel.ForEach(data.Rooms, delegate(GameMakerRoom room)
+		var result = new ConcurrentDictionary<string, string>();
+		CancellableParallel.ForEach(data.Rooms, delegate (GameMakerRoom room)
 		{
 			if (room?.Name?.Content != null)
 			{
-				string value = JsonHash(delegate(Utf8JsonWriter w)
+				var value = JsonHash(delegate (Utf8JsonWriter w)
 				{
 					w.WriteStartObject();
 					w.WriteString("name", room.Name.Content);
@@ -1699,7 +1689,7 @@ public static class ResourceHashService
 					w.WriteStartArray("backgrounds");
 					if (room.Backgrounds != null)
 					{
-						foreach (GameMakerRoom.Background current in room.Backgrounds)
+						foreach (var current in room.Backgrounds)
 						{
 							w.WriteStartObject();
 							w.WriteBoolean("enabled", current.Enabled);
@@ -1719,7 +1709,7 @@ public static class ResourceHashService
 					w.WriteStartArray("views");
 					if (room.Views != null)
 					{
-						foreach (GameMakerRoom.View current2 in room.Views)
+						foreach (var current2 in room.Views)
 						{
 							w.WriteStartObject();
 							w.WriteBoolean("enabled", current2.Enabled);
@@ -1743,7 +1733,7 @@ public static class ResourceHashService
 					w.WriteStartArray("instances");
 					if (room.GameObjects != null)
 					{
-						foreach (GameMakerRoom.GameObject current3 in room.GameObjects)
+						foreach (var current3 in room.GameObjects)
 						{
 							w.WriteStartObject();
 							w.WriteNumber("id", current3.InstanceID);
@@ -1764,7 +1754,7 @@ public static class ResourceHashService
 					w.WriteStartArray("tiles");
 					if (room.Tiles != null)
 					{
-						foreach (GameMakerRoom.Tile current4 in room.Tiles)
+						foreach (var current4 in room.Tiles)
 						{
 							w.WriteStartObject();
 							w.WriteNumber("x", current4.X);
@@ -1794,7 +1784,7 @@ public static class ResourceHashService
 					if (room.Layers != null)
 					{
 						w.WriteStartArray("layers");
-						foreach (GameMakerRoom.Layer current5 in room.Layers)
+						foreach (var current5 in room.Layers)
 						{
 							w.WriteStartObject();
 							w.WriteString("name", current5.LayerName?.Content ?? "");
@@ -1809,7 +1799,7 @@ public static class ResourceHashService
 							if (current5.LayerType == GameMakerRoom.LayerType.Instances && current5.InstancesData?.Instances != null)
 							{
 								w.WriteStartArray("instIds");
-								foreach (GameMakerRoom.GameObject current6 in current5.InstancesData.Instances)
+								foreach (var current6 in current5.InstancesData.Instances)
 								{
 									w.WriteNumberValue((int)current6.InstanceID);
 								}
@@ -1823,14 +1813,14 @@ public static class ResourceHashService
 								if (current5.TilesData.TileData != null)
 								{
 									w.WriteStartArray("td");
-									uint[][] tileData = current5.TilesData.TileData;
-									foreach (uint[] array in tileData)
+									var tileData = current5.TilesData.TileData;
+									foreach (var array in tileData)
 									{
 										w.WriteStartArray();
 										if (array != null)
 										{
-											uint[] array2 = array;
-											foreach (uint value2 in array2)
+											var array2 = array;
+											foreach (var value2 in array2)
 											{
 												w.WriteNumberValue(value2);
 											}
@@ -1842,7 +1832,7 @@ public static class ResourceHashService
 							}
 							else if (current5.LayerType == GameMakerRoom.LayerType.Background && current5.BackgroundData != null)
 							{
-								GameMakerRoom.Layer.LayerBackgroundData backgroundData = current5.BackgroundData;
+								var backgroundData = current5.BackgroundData;
 								w.WriteBoolean("bgVis", backgroundData.Visible);
 								w.WriteString("bgSpr", backgroundData.Sprite?.Name?.Content ?? "");
 								w.WriteBoolean("bgTH", backgroundData.TiledHorizontally);
@@ -1853,13 +1843,13 @@ public static class ResourceHashService
 							}
 							else if (current5.LayerType == GameMakerRoom.LayerType.Assets && current5.AssetsData != null)
 							{
-								GameMakerRoom.Layer.LayerAssetsData assetsData = current5.AssetsData;
+								var assetsData = current5.AssetsData;
 								w.WriteNumber("ltCount", assetsData.LegacyTiles?.Count ?? 0);
 								w.WriteNumber("sprCount", assetsData.Sprites?.Count ?? 0);
 								if (assetsData.LegacyTiles != null)
 								{
 									w.WriteStartArray("lt");
-									foreach (GameMakerRoom.Tile current7 in assetsData.LegacyTiles)
+									foreach (var current7 in assetsData.LegacyTiles)
 									{
 										w.WriteStartObject();
 										w.WriteNumber("x", current7.X);
@@ -1878,7 +1868,7 @@ public static class ResourceHashService
 								if (assetsData.Sprites != null)
 								{
 									w.WriteStartArray("spr");
-									foreach (GameMakerRoom.SpriteInstance current8 in assetsData.Sprites)
+									foreach (var current8 in assetsData.Sprites)
 									{
 										w.WriteStartObject();
 										w.WriteString("n", current8.Name?.Content ?? "");
@@ -1910,37 +1900,37 @@ public static class ResourceHashService
 	{
 		if (data.Code == null)
 		{
-			return new Dictionary<string, string>();
+			return [];
 		}
-		List<GameMakerCode> topLevel = new List<GameMakerCode>(data.Code.Count);
-		foreach (GameMakerCode c in data.Code)
+		var topLevel = new List<GameMakerCode>(data.Code.Count);
+		foreach (var c in data.Code)
 		{
 			if (c != null && c.Name?.Content != null && c.ParentEntry == null)
 			{
 				topLevel.Add(c);
 			}
 		}
-		Dictionary<string, string> result = new Dictionary<string, string>(topLevel.Count, StringComparer.Ordinal);
-		Dictionary<string, GameMakerCodeLocals> localsByName = data.CodeLocals?.Where((GameMakerCodeLocals locals) => locals?.Name?.Content != null).GroupBy<GameMakerCodeLocals, string>((GameMakerCodeLocals locals) => locals.Name.Content, StringComparer.Ordinal).ToDictionary<IGrouping<string, GameMakerCodeLocals>, string, GameMakerCodeLocals>((IGrouping<string, GameMakerCodeLocals> group) => group.Key, (IGrouping<string, GameMakerCodeLocals> group) => group.First(), StringComparer.Ordinal);
-		Dictionary<string, List<string>> perName = new Dictionary<string, List<string>>(StringComparer.Ordinal);
-		string[] entryHashes = new string[topLevel.Count];
-		Parallel.For(0, topLevel.Count, index => entryHashes[index] = HashCodeEntry(topLevel[index], data.Variables, localsByName));
-		for (int index = 0; index < topLevel.Count; index++)
+		var result = new Dictionary<string, string>(topLevel.Count, StringComparer.Ordinal);
+		var localsByName = data.CodeLocals?.Where(locals => locals?.Name?.Content != null).GroupBy(locals => locals.Name.Content, StringComparer.Ordinal).ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+		var perName = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+		var entryHashes = new string[topLevel.Count];
+		CancellableParallel.For(0, topLevel.Count, index => entryHashes[index] = HashCodeEntry(topLevel[index], data.Variables, localsByName));
+		for (var index = 0; index < topLevel.Count; index++)
 		{
-			GameMakerCode entry = topLevel[index];
-			if (!perName.TryGetValue(entry.Name.Content, out List<string>? hashes))
+			var entry = topLevel[index];
+			if (!perName.TryGetValue(entry.Name.Content, out var hashes))
 			{
-				hashes = new List<string>();
+				hashes = [];
 				perName[entry.Name.Content] = hashes;
 			}
 			hashes.Add(entryHashes[index]);
 		}
 		foreach (var (name, hashes3) in perName)
 		{
-			using MemoryStream ms3 = new MemoryStream();
-			using BinaryWriter bw2 = new BinaryWriter(ms3);
+			using var ms3 = new MemoryStream();
+			using var bw2 = new BinaryWriter(ms3);
 			bw2.Write(hashes3.Count);
-			foreach (string hash in hashes3)
+			foreach (var hash in hashes3)
 			{
 				bw2.Write(hash);
 			}
@@ -1950,16 +1940,16 @@ public static class ResourceHashService
 		return result;
 	}
 
-	private static string HashCodeEntry(GameMakerCode entry, IList<GameMakerVariable> variables, IReadOnlyDictionary<string, GameMakerCodeLocals>? localsByName)
+	private static string HashCodeEntry(GameMakerCode entry, IList<GameMakerVariable> variables, Dictionary<string, GameMakerCodeLocals>? localsByName)
 	{
 		try
 		{
-			using MemoryStream stream = new MemoryStream();
+			using var stream = new MemoryStream();
 			GameMakerCodeLocals? entryLocals = null;
 			localsByName?.TryGetValue(entry.Name.Content, out entryLocals);
-			byte[] bytes = Encoding.UTF8.GetBytes(entry.Disassemble(variables, entryLocals));
+			var bytes = Encoding.UTF8.GetBytes(entry.Disassemble(variables, entryLocals));
 			stream.Write(bytes, 0, bytes.Length);
-			foreach (GameMakerCode child in entry.ChildEntries)
+			foreach (var child in entry.ChildEntries)
 			{
 				if (child?.Name?.Content == null)
 				{
@@ -1970,7 +1960,7 @@ public static class ResourceHashService
 					stream.WriteByte(0);
 					GameMakerCodeLocals? childLocals = null;
 					localsByName?.TryGetValue(child.Name.Content, out childLocals);
-					byte[] childBytes = Encoding.UTF8.GetBytes(child.Disassemble(variables, childLocals));
+					var childBytes = Encoding.UTF8.GetBytes(child.Disassemble(variables, childLocals));
 					stream.Write(childBytes, 0, childBytes.Length);
 				}
 				catch
@@ -1981,11 +1971,11 @@ public static class ResourceHashService
 		}
 		catch
 		{
-			using MemoryStream stream = new MemoryStream();
-			using BinaryWriter writer = new BinaryWriter(stream);
+			using var stream = new MemoryStream();
+			using var writer = new BinaryWriter(stream);
 			writer.Write(entry.Length);
 			writer.Write(entry.Instructions.Count);
-			foreach (GameMakerInstruction instruction in entry.Instructions)
+			foreach (var instruction in entry.Instructions)
 			{
 				writer.Write((byte)instruction.Kind);
 				writer.Write((byte)instruction.Type1);
@@ -2000,14 +1990,14 @@ public static class ResourceHashService
 	{
 		if (data.Extensions == null)
 		{
-			return new Dictionary<string, string>();
+			return [];
 		}
-		ConcurrentDictionary<string, string> result = new ConcurrentDictionary<string, string>();
-		Parallel.ForEach(data.Extensions, delegate(GameMakerExtension ext)
+		var result = new ConcurrentDictionary<string, string>();
+		CancellableParallel.ForEach(data.Extensions, delegate (GameMakerExtension ext)
 		{
 			if (ext?.Name?.Content != null)
 			{
-				string value = JsonHash(delegate(Utf8JsonWriter w)
+				var value = JsonHash(delegate (Utf8JsonWriter w)
 				{
 					w.WriteStartObject();
 					w.WriteString("name", ext.Name.Content);
@@ -2017,31 +2007,31 @@ public static class ResourceHashService
 					w.WriteStartArray("files");
 					if (ext.Files != null)
 					{
-						foreach (GameMakerExtensionFile current in ext.Files)
+						foreach (var current in ext.Files)
 						{
 							w.WriteStartObject();
 							w.WriteString("filename", current?.Filename?.Content ?? "");
 							w.WriteString("cleanupScript", current?.CleanupScript?.Content ?? "");
 							w.WriteString("initScript", current?.InitScript?.Content ?? "");
-							w.WriteNumber("kind", (int)(current?.Kind ?? ((GameMakerExtensionKind)0u)));
+							w.WriteNumber("kind", (int)(current?.Kind ?? 0u));
 							w.WriteStartArray("functions");
 							if (current?.Functions != null)
 							{
-								foreach (GameMakerExtensionFunction current2 in current.Functions)
+								foreach (var current2 in current.Functions)
 								{
 									w.WriteStartObject();
 									w.WriteString("name", current2?.Name?.Content ?? "");
 									w.WriteString("extName", current2?.ExtName?.Content ?? "");
 									w.WriteNumber("id", (int)(current2?.ID ?? 0));
 									w.WriteNumber("kind", (int)(current2?.Kind ?? 0));
-									w.WriteNumber("retType", (int)(current2?.RetType ?? ((GameMakerExtensionVarType)0u)));
+									w.WriteNumber("retType", (int)(current2?.RetType ?? 0u));
 									w.WriteStartArray("arguments");
 									if (current2?.Arguments != null)
 									{
-										foreach (GameMakerExtensionFunctionArg current3 in current2.Arguments)
+										foreach (var current3 in current2.Arguments)
 										{
 											w.WriteStartObject();
-											w.WriteNumber("type", (int)(current3?.Type ?? ((GameMakerExtensionVarType)0u)));
+											w.WriteNumber("type", (int)(current3?.Type ?? 0u));
 											w.WriteEndObject();
 										}
 									}
@@ -2057,7 +2047,7 @@ public static class ResourceHashService
 					w.WriteStartArray("options");
 					if (ext.Options != null)
 					{
-						foreach (GameMakerExtensionOption current4 in ext.Options)
+						foreach (var current4 in ext.Options)
 						{
 							w.WriteStartObject();
 							w.WriteString("name", current4?.Name?.Content ?? "");
