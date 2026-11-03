@@ -1103,7 +1103,7 @@ public class PatchServiceTests
         Assert.Null(config.Patches[0].Group);
         Assert.NotNull(config.Patches[0].Options);
         Assert.False(config.Patches[0].Options!.ValidateBeforeApply);
-        Assert.Equal("C:/game/data.win", config.Patches[0].Options!.DataFilePath);
+        Assert.Null(config.Patches[0].Options!.DataFilePath); // a mod cannot choose where external files are written
 
         Assert.Equal("DATA.WIN", config.Patches[1].TargetFileName);
         Assert.Equal("nested.g3mpatch", config.Patches[1].PatchFile);

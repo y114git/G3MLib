@@ -180,11 +180,7 @@ public sealed class ModConfig
 			options.ValidateBeforeApply = validateElement.GetBoolean();
 		}
 
-		if (optionsElement.TryGetProperty("dataFilePath", out var dataFilePathElement) &&
-			dataFilePathElement.ValueKind == JsonValueKind.String)
-		{
-			options.DataFilePath = dataFilePathElement.GetString();
-		}
+		// "dataFilePath" in the file is ignored on purpose: it decides where external audio groups are written, and a mod must not choose that. The host sets PatchApplyOptions.DataFilePath from the file the user picked.
 
 		return options;
 	}

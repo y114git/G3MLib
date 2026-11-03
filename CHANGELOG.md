@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- `ModConfig` no longer reads `dataFilePath` from a mod config: it decides where external audio group files are written, so only the host sets `PatchApplyOptions.DataFilePath`.
+
 ## [1.1.1] - 2026-11-03
 
 ### Added
