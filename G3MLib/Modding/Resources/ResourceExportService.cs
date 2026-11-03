@@ -56,18 +56,19 @@ public static partial class ResourceExportService
 		var safe = sb.ToString();
 		var trimmed = safe.TrimEnd('.', ' ');
 		// "." and ".." would name the folder itself or its parent, and a device name such as CON cannot be a file on Windows.
-		// Such a name gets a hash suffix so it cannot collide with a real resource that has the fixed-up name.
-		if (trimmed.Length != safe.Length || trimmed.Length == 0 || IsReservedDeviceName(trimmed))
+		// Such a name, like a name that is too long, gets a hash suffix so it cannot collide with a real resource that has the fixed-up name.
+		var altered = trimmed.Length != safe.Length || trimmed.Length == 0 || IsReservedDeviceName(trimmed);
+		if (altered)
 		{
-			return "_" + trimmed + "__" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(name)))[..12];
+			safe = "_" + trimmed;
 		}
 
-		if (safe.Length <= 96)
+		if (!altered && safe.Length <= 96)
 		{
 			return safe;
 		}
 		var hash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(name)))[..12];
-		var prefixLength = 96 - hash.Length - 2;
+		var prefixLength = Math.Min(safe.Length, 96 - hash.Length - 2);
 		return safe[..prefixLength] + "__" + hash;
 	}
 
