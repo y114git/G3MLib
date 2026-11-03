@@ -57,12 +57,6 @@ public class ReturnNode(IExpressionNode value) : IStatementNode, IBlockCleanupNo
         ArgumentNullException.ThrowIfNull(printer);
         printer.Write("return ");
         printer.PrintNode(Value);
-
-        if (!printer.Context.Settings.UseSemicolon)
-        {
-            // Manually print semicolon for this specific statement, to prevent ambiguity
-            printer.Write(';');
-        }
     }
 
     /// <inheritdoc/>

@@ -1,4 +1,9 @@
 using System.Collections.ObjectModel;
+using System.IO.Compression;
+using System.Text;
+using System.Text.Json;
+using G3MLib.Modding.Hashing;
+using G3MLib.Modding.Resources;
 using G3MLib.DataFile;
 using G3MLib.DataFile.Models;
 using G3MLib.Modding.Diffing;
@@ -733,6 +738,447 @@ public class PatchServiceTests
     {
         using var stream = File.OpenRead(source);
         return GameMakerIO.Read(stream);
+    }
+
+    private static byte[] ToBytes(GameMakerData data)
+    {
+        using var stream = new MemoryStream();
+        GameMakerIO.Write(stream, data);
+        return stream.ToArray();
+    }
+
+    private sealed class SynchronousProgress<T>(Action<T> handler) : IProgress<T>
+    {
+        public void Report(T value) => handler(value);
+    }
+
+    [Fact]
+    public async Task ApplyPatchInMemoryMatchesModifiedDataBytesAndChunkDigests()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"G3MLibTests-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var originalPath = Path.Combine(directory, "original.win");
+            var modifiedPath = Path.Combine(directory, "modified.win");
+            var patchPath = Path.Combine(directory, "change.g3mpatch");
+
+            using (var v1 = GameMakerData.CreateNew2026LTS())
+            {
+                v1.Rooms.Add(new GameMakerRoom
+                {
+                    Name = v1.Strings.MakeString("room_alpha"),
+                    Width = 640,
+                    Height = 480
+                });
+                v1.GameObjects.Add(new GameMakerGameObject
+                {
+                    Name = v1.Strings.MakeString("obj_hero"),
+                    Depth = 10
+                });
+                Write(originalPath, v1);
+            }
+
+            byte[] expectedBytes;
+            using (var v2 = Read(originalPath))
+            {
+                v2.Rooms.Insert(0, new GameMakerRoom
+                {
+                    Name = v2.Strings.MakeString("room_intro"),
+                    Width = 800,
+                    Height = 600
+                });
+                v2.Rooms.ByName("room_alpha").Width = 1280;
+                v2.GameObjects.ByName("obj_hero").Depth = -50;
+                v2.GameObjects.ByName("obj_hero").Solid = true;
+                v2.GeneralInfo.LastObj = 777;
+                Write(modifiedPath, v2);
+                expectedBytes = ToBytes(v2);
+            }
+
+            var created = await PatchService.CreatePatchAsync(originalPath, modifiedPath, patchPath, cancellationToken: TestContext.Current.CancellationToken);
+            Assert.True(created.Success, created.Error);
+
+            List<BatchProgress> progressUpdates = [];
+            using var inMemoryCopy = Read(originalPath);
+            var applyResult = await PatchService.ApplyPatchAsync(
+                inMemoryCopy,
+                patchPath,
+                new PatchApplyOptions { ValidateBeforeApply = true },
+                new SynchronousProgress<BatchProgress>(progressUpdates.Add),
+                TestContext.Current.CancellationToken);
+
+            Assert.True(applyResult.Success, applyResult.Error);
+            Assert.True(applyResult.AppliedCount > 0);
+            Assert.Equal(0, applyResult.FailedCount);
+            Assert.Empty(applyResult.Warnings);
+            Assert.NotEmpty(progressUpdates);
+            Assert.Equal(progressUpdates[^1].Total, progressUpdates[^1].Done);
+
+            var actualBytes = ToBytes(inMemoryCopy);
+            Assert.Empty(ChunkDigests.Compare(ChunkDigests.Compute(new MemoryStream(actualBytes), token: TestContext.Current.CancellationToken), ChunkDigests.Compute(new MemoryStream(expectedBytes), token: TestContext.Current.CancellationToken)));
+            Assert.Equal(expectedBytes, actualBytes);
+        }
+        finally
+        {
+            if (Directory.Exists(directory))
+            {
+                Directory.Delete(directory, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task ApplyPatchInMemoryAndFileVersionProduceIdenticalResults()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"G3MLibTests-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var originalPath = Path.Combine(directory, "original.win");
+            var modifiedPath = Path.Combine(directory, "modified.win");
+            var patchPath = Path.Combine(directory, "change.g3mpatch");
+            var fileAppliedPath = Path.Combine(directory, "file-applied.win");
+
+            using (var v1 = GameMakerData.CreateNew2026LTS())
+            {
+                v1.Rooms.Add(new GameMakerRoom
+                {
+                    Name = v1.Strings.MakeString("room_one"),
+                    Width = 320,
+                    Height = 240
+                });
+                v1.Rooms.Add(new GameMakerRoom
+                {
+                    Name = v1.Strings.MakeString("room_two"),
+                    Width = 640,
+                    Height = 360
+                });
+                Write(originalPath, v1);
+            }
+
+            using (var v2 = Read(originalPath))
+            {
+                v2.Rooms.Insert(0, new GameMakerRoom
+                {
+                    Name = v2.Strings.MakeString("room_zero"),
+                    Width = 1024,
+                    Height = 768
+                });
+                v2.Rooms.ByName("room_two").Height = 900;
+                v2.GeneralInfo.DefaultWindowWidth = 1600;
+                Write(modifiedPath, v2);
+            }
+
+            Assert.True((await PatchService.CreatePatchAsync(originalPath, modifiedPath, patchPath, cancellationToken: TestContext.Current.CancellationToken)).Success);
+
+            var fileResult = await PatchService.ApplyPatchAsync(originalPath, patchPath, fileAppliedPath, cancellationToken: TestContext.Current.CancellationToken);
+            using var inMemoryData = Read(originalPath);
+            var inMemoryResult = await PatchService.ApplyPatchAsync(inMemoryData, patchPath, cancellationToken: TestContext.Current.CancellationToken);
+
+            Assert.Equal(fileResult.Success, inMemoryResult.Success);
+            Assert.Equal(fileResult.Error, inMemoryResult.Error);
+            Assert.Equal(fileResult.AppliedCount, inMemoryResult.AppliedCount);
+            Assert.Equal(fileResult.FailedCount, inMemoryResult.FailedCount);
+            Assert.Equal(fileResult.Warnings, inMemoryResult.Warnings);
+
+            var fileBytes = await File.ReadAllBytesAsync(fileAppliedPath, TestContext.Current.CancellationToken);
+            var memoryBytes = ToBytes(inMemoryData);
+            Assert.Empty(ChunkDigests.Compare(ChunkDigests.Compute(new MemoryStream(fileBytes), token: TestContext.Current.CancellationToken), ChunkDigests.Compute(new MemoryStream(memoryBytes), token: TestContext.Current.CancellationToken)));
+            Assert.Equal(fileBytes, memoryBytes);
+
+            var minimalModifiedPath = Path.Combine(directory, "minimal-modified.win");
+            var minimalPatchPath = Path.Combine(directory, "minimal.g3mpatch");
+            var minimalFileOutPath = Path.Combine(directory, "minimal-out.win");
+            using (var v2Minimal = Read(originalPath))
+            {
+                v2Minimal.GeneralInfo.LastObj = 999;
+                Write(minimalModifiedPath, v2Minimal);
+            }
+
+            Assert.True((await PatchService.CreatePatchAsync(originalPath, minimalModifiedPath, minimalPatchPath, cancellationToken: TestContext.Current.CancellationToken)).Success);
+
+            var minimalFileResult = await PatchService.ApplyPatchAsync(originalPath, minimalPatchPath, minimalFileOutPath, cancellationToken: TestContext.Current.CancellationToken);
+            using var minimalMemoryData = Read(originalPath);
+            using var patchStream = new MemoryStream(await File.ReadAllBytesAsync(minimalPatchPath, TestContext.Current.CancellationToken));
+            var minimalStreamResult = await PatchService.ApplyPatchAsync(minimalMemoryData, patchStream, cancellationToken: TestContext.Current.CancellationToken);
+
+            Assert.True(patchStream.CanRead);
+            Assert.Equal(minimalFileResult.Success, minimalStreamResult.Success);
+            Assert.Equal(minimalFileResult.AppliedCount, minimalStreamResult.AppliedCount);
+            Assert.Equal(minimalFileResult.FailedCount, minimalStreamResult.FailedCount);
+            Assert.Equal(await File.ReadAllBytesAsync(minimalFileOutPath, TestContext.Current.CancellationToken), ToBytes(minimalMemoryData));
+        }
+        finally
+        {
+            if (Directory.Exists(directory))
+            {
+                Directory.Delete(directory, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task ApplyPatchInMemoryFromZipEntryStreamWithModConfigWorksWithoutTempFile()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"G3MLibTests-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var originalPath = Path.Combine(directory, "data.win");
+            var modifiedPath = Path.Combine(directory, "modified.win");
+            var patchPath = Path.Combine(directory, "mod.g3mpatch");
+            var modZipPath = Path.Combine(directory, "package.zip");
+
+            using (var original = GameMakerData.CreateNew2026LTS())
+            {
+                Write(originalPath, original);
+                original.Rooms[0].Width = 1920;
+                Write(modifiedPath, original);
+            }
+
+            Assert.True((await PatchService.CreatePatchAsync(originalPath, modifiedPath, patchPath, cancellationToken: TestContext.Current.CancellationToken)).Success);
+
+            const string modConfigJson = """
+                {
+                  "configVersion": "2.0.0",
+                  "name": "Widescreen Mod",
+                  "version": "1.2.0",
+                  "game": "TestGame",
+                  "files": [
+                    {
+                      "Core": [
+                        {
+                          "type": "patch",
+                          "source": "${mod_path}/patches/mod.g3mpatch",
+                          "target": "${game_path}/data.win"
+                        }
+                      ]
+                    }
+                  ]
+                }
+                """;
+
+            using (var zipStream = File.Create(modZipPath))
+            using (var archive = new ZipArchive(zipStream, ZipArchiveMode.Create))
+            {
+                using (var configWriter = new StreamWriter(archive.CreateEntry("mod_config.json").Open(), Encoding.UTF8))
+                {
+                    configWriter.Write(modConfigJson);
+                }
+                archive.CreateEntryFromFile(patchPath, "patches/mod.g3mpatch");
+            }
+
+            using var modZip = ZipFile.OpenRead(modZipPath);
+            ModConfig config;
+            using (var configStream = modZip.GetEntry("mod_config.json")!.Open())
+            {
+                config = ModConfig.Parse(configStream);
+            }
+
+            var matching = config.ForDataFile(originalPath);
+            var patchOp = Assert.Single(matching);
+            Assert.True(patchOp.Supported);
+            Assert.Equal("patches/mod.g3mpatch", patchOp.PatchFile);
+
+            using var data = Read(originalPath);
+            using var entryStream = modZip.GetEntry(patchOp.Member!)!.Open();
+            var applyResult = await PatchService.ApplyPatchAsync(data, entryStream, patchOp.Options, cancellationToken: TestContext.Current.CancellationToken);
+
+            Assert.True(applyResult.Success, applyResult.Error);
+            Assert.Equal(1920u, data.Rooms[0].Width);
+            Assert.Equal(await File.ReadAllBytesAsync(modifiedPath, TestContext.Current.CancellationToken), ToBytes(data));
+        }
+        finally
+        {
+            if (Directory.Exists(directory))
+            {
+                Directory.Delete(directory, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task ApplyPatchInMemoryValidateBeforeApplyRejectsBadPatchWithoutMutatingData()
+    {
+        using var data = GameMakerData.CreateNew2026LTS();
+        data.Rooms[0].Width = 777;
+        var beforeBytes = ToBytes(data);
+        var beforeDigests = ChunkDigests.Compute(new MemoryStream(beforeBytes), token: TestContext.Current.CancellationToken);
+
+        using (var missingManifestStream = new MemoryStream())
+        {
+            using (var archive = new ZipArchive(missingManifestStream, ZipArchiveMode.Create, leaveOpen: true))
+            using (var writer = new StreamWriter(archive.CreateEntry("Rooms/room0/room0.json").Open(), Encoding.UTF8))
+            {
+                writer.Write("{}");
+            }
+            missingManifestStream.Position = 0;
+
+            var result1 = await PatchService.ApplyPatchAsync(data, missingManifestStream, new PatchApplyOptions { ValidateBeforeApply = true }, cancellationToken: TestContext.Current.CancellationToken);
+            Assert.False(result1.Success);
+            Assert.Contains("g3mpatch.json", result1.Error, StringComparison.OrdinalIgnoreCase);
+        }
+
+        using (var corruptJsonStream = new MemoryStream())
+        {
+            using (var archive = new ZipArchive(corruptJsonStream, ZipArchiveMode.Create, leaveOpen: true))
+            {
+                using (var manifestWriter = new StreamWriter(archive.CreateEntry("g3mpatch.json").Open(), Encoding.UTF8))
+                {
+                    manifestWriter.Write("""{"patchVersion":1}""");
+                }
+                using (var roomWriter = new StreamWriter(archive.CreateEntry("Rooms/room0/room0.json").Open(), Encoding.UTF8))
+                {
+                    roomWriter.Write("{not-valid-json");
+                }
+            }
+            corruptJsonStream.Position = 0;
+
+            var result2 = await PatchService.ApplyPatchAsync(data, corruptJsonStream, new PatchApplyOptions { ValidateBeforeApply = true }, cancellationToken: TestContext.Current.CancellationToken);
+            Assert.False(result2.Success);
+            Assert.Contains("Invalid patch JSON", result2.Error, StringComparison.OrdinalIgnoreCase);
+        }
+
+        var afterBytes = ToBytes(data);
+        Assert.Empty(ChunkDigests.Compare(beforeDigests, ChunkDigests.Compute(new MemoryStream(afterBytes), token: TestContext.Current.CancellationToken)));
+        Assert.Equal(beforeBytes, afterBytes);
+    }
+
+    [Fact]
+    public void ModConfigParseFlattensGroupsFiltersOperationsAndEnforcesCaps()
+    {
+        const string json = """
+            {
+              "configVersion": "2.0.0",
+              "name": "Sample Mod",
+              "version": "2.1.0",
+              "game": "SampleGame",
+              "files": [
+                {
+                  "type": "copy",
+                  "source": "${mod_path}/readme.txt",
+                  "target": "${game_path}/readme.txt"
+                },
+                {
+                  "type": "patch",
+                  "source": "${mod_path}/base.g3mpatch",
+                  "target": "${game_path}/data.win",
+                  "options": {
+                    "validateBeforeApply": false,
+                    "dataFilePath": "C:/game/data.win"
+                  }
+                },
+                {
+                  "GroupA": [
+                    {
+                      "NestedGroup": [
+                        {
+                          "type": "patch",
+                          "source": "${mod_path}/nested.g3mpatch",
+                          "target": "${game_path}/sub/DATA.WIN"
+                        },
+                        {
+                          "type": "patch",
+                          "source": "${mod_path}/other.g3mpatch",
+                          "target": "${game_path}/other.ios"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+            """;
+
+        var config = ModConfig.Parse(json);
+        Assert.Equal("Sample Mod", config.Name);
+        Assert.Equal("2.1.0", config.Version);
+        Assert.Equal("SampleGame", config.Game);
+        Assert.Equal(3, config.Patches.Count);
+
+        Assert.Equal("data.win", config.Patches[0].TargetFileName);
+        Assert.Equal("base.g3mpatch", config.Patches[0].PatchFile);
+        Assert.True(config.Patches[0].Supported);
+        Assert.Null(config.Patches[0].Group);
+        Assert.NotNull(config.Patches[0].Options);
+        Assert.False(config.Patches[0].Options!.ValidateBeforeApply);
+        Assert.Equal("C:/game/data.win", config.Patches[0].Options!.DataFilePath);
+
+        Assert.Equal("DATA.WIN", config.Patches[1].TargetFileName);
+        Assert.Equal("nested.g3mpatch", config.Patches[1].PatchFile);
+        Assert.Equal("NestedGroup", config.Patches[1].Group);
+        Assert.Null(config.Patches[1].Options);
+
+        var forDataWin = config.ForDataFile("C:/Steam/SampleGame/data.win");
+        Assert.Equal(2, forDataWin.Count);
+        Assert.Equal(["base.g3mpatch", "nested.g3mpatch"], forDataWin.Select(p => p.PatchFile));
+
+        var oversized = "{\"name\":\"" + new string('a', (int)ModConfig.MaxConfigBytes + 16) + "\"}";
+        Assert.Throws<InvalidDataException>(() => ModConfig.Parse(oversized));
+
+        var deepBuilder = new StringBuilder("{\"files\":");
+        for (var i = 0; i < 70; i++)
+            deepBuilder.Append('[');
+        for (var i = 0; i < 70; i++)
+            deepBuilder.Append(']');
+        deepBuilder.Append('}');
+        Assert.ThrowsAny<JsonException>(() => ModConfig.Parse(deepBuilder.ToString()));
+
+        var groupBuilder = new StringBuilder("{\"files\":[");
+        for (var i = 0; i < 20; i++)
+            groupBuilder.Append("{\"g\":[");
+        groupBuilder.Append("{\"type\":\"patch\",\"source\":\"${mod_path}/too_deep.g3mpatch\",\"target\":\"data.win\"}");
+        for (var i = 0; i < 20; i++)
+            groupBuilder.Append("]}");
+        groupBuilder.Append("]}");
+        var deepGroupConfig = ModConfig.Parse(groupBuilder.ToString());
+        Assert.Single(deepGroupConfig.Patches);
+    }
+
+    [Fact]
+    public void ModConfigCollectThrowsInvalidDataExceptionWhenGroupDepthExceedsMaxGroupDepth()
+    {
+        using var doc = JsonDocument.Parse("[]");
+        List<ModPatchOperation> operations = [];
+        Assert.Throws<InvalidDataException>(() =>
+            ModConfig.Collect(doc.RootElement, operations, depth: ModConfig.MaxGroupDepth + 1, groupName: null));
+    }
+
+    [Theory]
+    [InlineData("${mod_path}/../secret.g3mpatch", false)]
+    [InlineData("${mod_path}/foo/../../secret.g3mpatch", false)]
+    [InlineData("${mod_path}//root/secret.g3mpatch", false)]
+    [InlineData("${mod_path}/C:/secret.g3mpatch", false)]
+    [InlineData("${mod_path}/sub\\patch.g3mpatch", false)]
+    [InlineData("${mod_path}/valid/patch.g3mpatch", true)]
+    [InlineData("${mod_path}/patch.g3mpatch", true)]
+    public void ModPatchOperationValidatesMemberSecurity(string source, bool expectedSupported)
+    {
+        ModPatchOperation op = new(source, "data.win");
+        if (expectedSupported)
+        {
+            Assert.NotNull(op.Member);
+            Assert.True(op.Supported);
+        }
+        else
+        {
+            Assert.Null(op.Member);
+            Assert.False(op.Supported);
+        }
+    }
+
+    private sealed class MockOversizedSeekableStream(long length) : MemoryStream
+    {
+        public override long Length => length;
+    }
+
+    [Fact]
+    public void PatchFileSystemLoadFromZipThrowsWhenStreamExceedsMaxPayloadBytes()
+    {
+        using var stream = new MockOversizedSeekableStream(ModConfig.MaxPayloadBytes + 1024);
+        var ex = Assert.Throws<InvalidDataException>(() => PatchFileSystem.LoadFromZip(stream));
+        Assert.Contains("maximum allowed size", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     private static void Write(string path, GameMakerData data)

@@ -1,3 +1,4 @@
+using G3MLib.Analyzer.Decompiler;
 using G3MLib.DataFile;
 using G3MLib.DataFile.Compiler;
 using G3MLib.DataFile.Decompiler;
@@ -55,6 +56,45 @@ public sealed class YyScriptTests : IDisposable
 
         using var reloaded = RoundTrip(data);
         Assert.NotNull(reloaded.Scripts.ByName("gml_Script_" + name));
+        var outFolder = Path.Combine(_root, "reloaded", fixture);
+        YyScript.Write(name, reloaded, new GlobalDecompileContext(reloaded), outFolder, YyFormat.Lts2026);
+        Assert.Contains("yy_script_made_up_global = 1;", File.ReadAllText(Path.Combine(outFolder, name + ".gml")), StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("data-2022.win", "gml_GlobalScript_f")]
+    [InlineData("data-2022.win", "gml_Script_f")]
+    [InlineData("data-2026.win", "gml_GlobalScript_f")]
+    [InlineData("data-2026.win", "gml_Script_f")]
+    public void CompiledFunctionScriptDecompilesAfterRoundTrip(string fixture, string entryName)
+    {
+        using var data = Load(fixture);
+        CodeImportGroup group = new(data);
+        group.QueueReplace(entryName, "function f(){ g = 1; }");
+        Assert.True(group.Import().Successful);
+
+        using var reloaded = RoundTrip(data);
+        GlobalDecompileContext context = new(reloaded);
+        var decompiled = new DecompileContext(context, reloaded.Code.ByName(entryName), reloaded.ToolInfo.DecompilerSettings).DecompileToString();
+        Assert.Contains("function f()", decompiled, StringComparison.Ordinal);
+        Assert.Contains("g = 1;", decompiled, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("gml_GlobalScript_f")]
+    [InlineData("gml_Script_f")]
+    public void CompiledFunctionScriptOnFreshDataFileDecompilesAfterRoundTrip(string entryName)
+    {
+        using var data = GameMakerData.CreateNew2026LTS();
+        CodeImportGroup group = new(data);
+        group.QueueReplace(entryName, "function f(){ g = 1; }");
+        Assert.True(group.Import().Successful);
+
+        using var reloaded = RoundTrip(data);
+        GlobalDecompileContext context = new(reloaded);
+        var decompiled = new DecompileContext(context, reloaded.Code.ByName(entryName), reloaded.ToolInfo.DecompilerSettings).DecompileToString();
+        Assert.Contains("function f()", decompiled, StringComparison.Ordinal);
+        Assert.Contains("g = 1;", decompiled, StringComparison.Ordinal);
     }
 
     [Theory]

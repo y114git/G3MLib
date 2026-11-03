@@ -198,6 +198,48 @@ public sealed class TexturePageRepackerTests
     }
 
     [Fact]
+    public void PlanReportsPerPageDimensionsFillRatioAndItemCountsBeforeApply()
+    {
+        using var data = Load("data-2026.win");
+        var expectedGroup = data.EmbeddedTextures.First(t => !t.TextureExternal).TextureInfo;
+        var existingItems = data.TexturePageItems.Count(i => i.TexturePage is { TextureExternal: false } && ReferenceEquals(i.TexturePage.TextureInfo, expectedGroup));
+        using var first = Solid(20, 16, new MagickColor(10, 20, 30, 255));
+        using var second = Solid(24, 18, new MagickColor(40, 50, 60, 255));
+
+        TexturePageRepacker repacker = new(data);
+        var isolatedItem = repacker.Add(first);
+        repacker.Add(second);
+        var plan = repacker.Plan(new RepackOptions(KeepAlone: item => ReferenceEquals(item, isolatedItem)), cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal(plan.PageCount.After, plan.Pages.Count);
+        Assert.True(plan.Pages.Count >= 2);
+        Assert.Equal(Enumerable.Range(0, plan.Pages.Count), plan.Pages.Select(p => p.PageIndex));
+        Assert.Equal(existingItems + 2, plan.Pages.Sum(p => p.ItemCount));
+        Assert.All(plan.Pages, page =>
+        {
+            Assert.Same(expectedGroup, page.Group);
+            Assert.True(page.Width >= 16);
+            Assert.True(page.Height >= 16);
+            Assert.InRange(page.FillRatio, 0.0001, 1.0);
+            Assert.True(page.ItemCount >= 1);
+        });
+        var isolatedPage = Assert.Single(plan.Pages, p => p.ItemCount == 1);
+        Assert.Equal((double)(20 * 16) / (isolatedPage.Width * isolatedPage.Height), isolatedPage.FillRatio, 6);
+
+        repacker.Apply(plan);
+        var committedPages = data.EmbeddedTextures.Where(t => !t.TextureExternal && ReferenceEquals(t.TextureInfo, expectedGroup)).ToList();
+        Assert.Equal(plan.Pages.Count, committedPages.Count);
+        for (var i = 0; i < plan.Pages.Count; i++)
+        {
+            var plannedPage = plan.Pages[i];
+            var committedPage = committedPages[i];
+            Assert.Equal(plannedPage.PageIndex, committedPage.IndexInGroup);
+            Assert.Equal((plannedPage.Width, plannedPage.Height), (committedPage.TextureData.Width, committedPage.TextureData.Height));
+            Assert.Equal(plannedPage.ItemCount, data.TexturePageItems.Count(item => ReferenceEquals(item.TexturePage, committedPage)));
+        }
+    }
+
+    [Fact]
     public void PlanHonoursCancellation()
     {
         using var data = Load("data-2026.win");
@@ -232,6 +274,45 @@ public sealed class TexturePageRepackerTests
         using var data = Load("data-2026.win");
         using var wide = Solid(70000, 1, new MagickColor(1, 1, 1, 255));
         Assert.Throws<OverflowException>(() => new TexturePageRepacker(data).Add(wide));
+    }
+
+    [Fact]
+    public void PagePlanItemCountIncludesAllSharedOwnersMatchingCommittedItemCount()
+    {
+        using var data = Load("data-2026.win");
+        var existingItem = data.TexturePageItems.First(i => i.TexturePage is { TextureExternal: false });
+        var duplicateItem = new GameMakerTexturePageItem
+        {
+            Name = data.Strings.MakeString("duplicate_item"),
+            TexturePage = existingItem.TexturePage,
+            SourceX = existingItem.SourceX,
+            SourceY = existingItem.SourceY,
+            SourceWidth = existingItem.SourceWidth,
+            SourceHeight = existingItem.SourceHeight,
+            TargetX = existingItem.TargetX,
+            TargetY = existingItem.TargetY,
+            TargetWidth = existingItem.TargetWidth,
+            TargetHeight = existingItem.TargetHeight,
+            BoundingWidth = existingItem.BoundingWidth,
+            BoundingHeight = existingItem.BoundingHeight
+        };
+        data.TexturePageItems.Add(duplicateItem);
+
+        TexturePageRepacker repacker = new(data);
+        var plan = repacker.Plan(new RepackOptions(), cancellationToken: TestContext.Current.CancellationToken);
+        Assert.NotNull(plan);
+
+        repacker.Apply(plan);
+        var committedPages = data.EmbeddedTextures.Where(t => !t.TextureExternal).ToList();
+        for (var i = 0; i < plan.Pages.Count; i++)
+        {
+            var plannedPage = plan.Pages[i];
+            var committedPage = committedPages.FirstOrDefault(p => p.IndexInGroup == plannedPage.PageIndex && ReferenceEquals(p.TextureInfo, plannedPage.Group));
+            if (committedPage != null)
+            {
+                Assert.Equal(plannedPage.ItemCount, data.TexturePageItems.Count(item => ReferenceEquals(item.TexturePage, committedPage)));
+            }
+        }
     }
 
     [Fact]

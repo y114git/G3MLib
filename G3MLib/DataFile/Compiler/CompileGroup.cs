@@ -1007,7 +1007,7 @@ public sealed class CompileGroup
                             // Get index of root code entry only when required
                             rootCodeEntryIndex = Data.Code.IndexOf(operation.CodeEntry);
                         }
-                        Data.Code.Insert(rootCodeEntryIndex + childIndex, childData.Code);
+                        Data.Code.Insert(rootCodeEntryIndex + 1 + childIndex, childData.Code);
                     }
 
                     // Define script

@@ -118,10 +118,13 @@ public static partial class ResourceImportService
 	private static (int Start, int End)? _progressRange { get => ProgressRangeContext.Value; set => ProgressRangeContext.Value = value; }
 	private static string? _loadedDataPath { get => LoadedDataPathContext.Value; set => LoadedDataPathContext.Value = value; }
 	private static string? _savingDataPath { get => SavingDataPathContext.Value; set => SavingDataPathContext.Value = value; }
+	private sealed record OnlyFilter(HashSet<string> Names, HashSet<string> SafeNames);
+	private static readonly AsyncLocal<OnlyFilter?> OnlyFilterContext = new();
+	private static OnlyFilter? _only { get => OnlyFilterContext.Value; set => OnlyFilterContext.Value = value; }
 
 	private static void ImportGameObjects(GameMakerData data, string inputDir)
 	{
-		var objDirs = GetDirs(inputDir);
+		var objDirs = GetTopLevelDirs(inputDir);
 		if (objDirs.Length == 0)
 		{
 			return;
@@ -913,7 +916,7 @@ public static partial class ResourceImportService
 			return 0;
 		}
 		var imported = 0;
-		var dirs = GetDirs(embeddedDir);
+		var dirs = GetTopLevelDirs(embeddedDir);
 		BatchRun.Expect(dirs.Length);
 		foreach (var texDir in dirs)
 		{
@@ -1166,6 +1169,99 @@ public static partial class ResourceImportService
 		return Sorted(_pfs == null ? Directory.GetDirectories(path) : _pfs.GetDirectories(path));
 	}
 
+	private static string[] GetTopLevelDirs(string path)
+	{
+		var dirs = GetDirs(path);
+		return _only is null ? dirs : [.. dirs.Where(MatchesOnlyDir)];
+	}
+
+	private static string ResolveTypeDir(string inputDir, string resourceType)
+	{
+		var typeDir = Path.Combine(inputDir, resourceType);
+		return DirExists(typeDir) ? typeDir : inputDir;
+	}
+
+	private static bool MatchesOnlyName(string name)
+	{
+		if (_only is not { } only)
+		{
+			return true;
+		}
+		if (only.Names.Contains(name) || only.SafeNames.Contains(name))
+		{
+			return true;
+		}
+		var idxPos = name.LastIndexOf("__idx", StringComparison.Ordinal);
+		if (idxPos > 0)
+		{
+			var prefix = name[..idxPos];
+			if (only.Names.Contains(prefix) || only.SafeNames.Contains(prefix))
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private static bool MatchesOnlyDir(string dir)
+	{
+		if (_only is not { } only)
+		{
+			return true;
+		}
+		if (only.Names.Count == 0)
+		{
+			return false;
+		}
+		var folderName = Path.GetFileName(dir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+		if (string.IsNullOrEmpty(folderName))
+		{
+			return false;
+		}
+		if (MatchesOnlyName(folderName))
+		{
+			return true;
+		}
+		string[] candidates =
+		[
+			Path.Combine(dir, folderName + ".json"),
+			Path.Combine(dir, "object.json"),
+			Path.Combine(dir, "room.json"),
+			Path.Combine(dir, "font.json"),
+			Path.Combine(dir, "sprite_meta.json")
+		];
+		foreach (var candidate in candidates)
+		{
+			if (!FExists(candidate))
+			{
+				continue;
+			}
+			try
+			{
+				using var doc = JsonDocument.Parse(FReadText(candidate));
+				var root = doc.RootElement;
+				if (root.ValueKind != JsonValueKind.Object)
+				{
+					continue;
+				}
+				if (root.TryGetProperty("name", out var nameEl) && nameEl.ValueKind == JsonValueKind.String
+					&& nameEl.GetString() is { Length: > 0 } jsonName && MatchesOnlyName(jsonName))
+				{
+					return true;
+				}
+				if (root.TryGetProperty("key", out var keyEl) && keyEl.ValueKind == JsonValueKind.String
+					&& keyEl.GetString() is { Length: > 0 } jsonKey && MatchesOnlyName(jsonKey))
+				{
+					return true;
+				}
+			}
+			catch (Exception ex) when (!ModdingCancellation.IsCancellation(ex))
+			{
+			}
+		}
+		return false;
+	}
+
 	private static string[] GetFilesIn(string path, string pattern = "*")
 	{
 		ModdingCancellation.Throw();
@@ -1246,11 +1342,12 @@ public static partial class ResourceImportService
 	/// <summary>Imports one resource type and returns one result per item. The input folder is never changed; cancelling throws <see cref="OperationCanceledException"/> and <paramref name="data"/> may hold part of the import.</summary>
 	public static IReadOnlyList<ItemResult> Import(string resourceType, GameMakerData data, string inputDir, IProgress<BatchProgress>? progress, CancellationToken cancellationToken)
 	{
+		var targetDir = ResolveTypeDir(inputDir, resourceType);
 		return BatchRun.RunImport(progress, cancellationToken, delegate
 		{
 			try
 			{
-				if (!Import(resourceType, data, inputDir))
+				if (!Import(resourceType, data, targetDir))
 				{
 					throw new ArgumentException("Unknown resource type: " + resourceType, nameof(resourceType));
 				}
@@ -1262,27 +1359,133 @@ public static partial class ResourceImportService
 		});
 	}
 
+	/// <summary>Imports only the named entries of one resource type and returns one result per item. When <paramref name="only"/> is null, every entry in <paramref name="inputDir"/> is imported. Cancelling throws <see cref="OperationCanceledException"/> and <paramref name="data"/> may hold part of the import.</summary>
+	public static IReadOnlyList<ItemResult> Import(string resourceType, GameMakerData data, string inputDir, IEnumerable<string>? only, IProgress<BatchProgress>? progress = null, CancellationToken cancellationToken = default)
+	{
+		if (only is null)
+		{
+			return Import(resourceType, data, inputDir, progress, cancellationToken);
+		}
+		if (IsFilterUnsupported(resourceType))
+		{
+			throw new NotSupportedException($"Resource type '{resourceType}' does not support filtering.");
+		}
+		var targetDir = ResolveTypeDir(inputDir, resourceType);
+		var names = new HashSet<string>(only, StringComparer.Ordinal);
+		var safeNames = new HashSet<string>(names.Select(SafeName), StringComparer.Ordinal);
+		return BatchRun.RunImport(progress, cancellationToken, delegate
+		{
+			var previous = _only;
+			_only = new OnlyFilter(names, safeNames);
+			try
+			{
+				if (!Import(resourceType, data, targetDir))
+				{
+					throw new ArgumentException("Unknown resource type: " + resourceType, nameof(resourceType));
+				}
+			}
+			catch (Exception ex) when (ex is not ArgumentException && ex is not NotSupportedException && !ModdingCancellation.IsCancellation(ex))
+			{
+				BatchRun.Failed(resourceType, ex);
+			}
+			finally
+			{
+				_only = previous;
+			}
+		});
+	}
+
+	private static bool IsFilterUnsupported(string resourceType) =>
+		resourceType is "Language" or "Options" or "GlobalScripts" or "FeatureFlags" or "Tags" or "GeneralInfo" or "TexturePageItems";
+
+	/// <summary>Imports only the named entries per resource type from a folder of exported resource folders, in dependency order. Cancelling throws <see cref="OperationCanceledException"/> and <paramref name="data"/> may hold part of the import.</summary>
+	public static IReadOnlyList<ItemResult> Import(GameMakerData data, string inputDir, IReadOnlyDictionary<string, IReadOnlySet<string>> only, IProgress<BatchProgress>? progress = null, CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(data);
+		ArgumentNullException.ThrowIfNull(only);
+		return BatchRun.RunImport(progress, cancellationToken, delegate
+		{
+			HashSet<string> ran = new(StringComparer.Ordinal);
+			foreach (var type in G3MLib.Modding.Internal.ResourceTypeRegistry.ImportOrder)
+			{
+				if (only.TryGetValue(type, out var names))
+				{
+					ran.Add(type);
+					ImportFilteredType(type, data, inputDir, names);
+				}
+			}
+			foreach (var pair in only)
+			{
+				if (ran.Add(pair.Key))
+				{
+					ImportFilteredType(pair.Key, data, inputDir, pair.Value);
+				}
+			}
+		});
+	}
+
+	private static void ImportFilteredType(string resourceType, GameMakerData data, string inputDir, IEnumerable<string>? only)
+	{
+		var targetDir = ResolveTypeDir(inputDir, resourceType);
+		var previous = _only;
+		if (only is not null)
+		{
+			var names = new HashSet<string>(only, StringComparer.Ordinal);
+			var safeNames = new HashSet<string>(names.Select(SafeName), StringComparer.Ordinal);
+			_only = new OnlyFilter(names, safeNames);
+		}
+		else
+		{
+			_only = null;
+		}
+		try
+		{
+			if (!Import(resourceType, data, targetDir))
+			{
+				throw new ArgumentException("Unknown resource type: " + resourceType, nameof(resourceType));
+			}
+		}
+		catch (Exception ex) when (ex is not ArgumentException && ex is not NotSupportedException && !ModdingCancellation.IsCancellation(ex))
+		{
+			BatchRun.Failed(resourceType, ex);
+		}
+		finally
+		{
+			_only = previous;
+		}
+	}
+
 	public static bool Import(string resourceType, GameMakerData data, string inputDir)
 	{
 		ArgumentNullException.ThrowIfNull(data);
 		switch (resourceType)
 		{
 			case "Language":
+				if (_only is not null)
+					throw new NotSupportedException($"Resource type '{resourceType}' does not support filtering.");
 				ImportLanguage(data, inputDir);
 				return true;
 			case "Options":
+				if (_only is not null)
+					throw new NotSupportedException($"Resource type '{resourceType}' does not support filtering.");
 				ImportOptions(data, inputDir);
 				return true;
 			case "GlobalScripts":
+				if (_only is not null)
+					throw new NotSupportedException($"Resource type '{resourceType}' does not support filtering.");
 				ImportGlobalScripts(data, inputDir);
 				return true;
 			case "Scripts":
 				ImportScripts(data, inputDir);
 				return true;
 			case "FeatureFlags":
+				if (_only is not null)
+					throw new NotSupportedException($"Resource type '{resourceType}' does not support filtering.");
 				ImportFeatureFlags(data, inputDir);
 				return true;
 			case "Tags":
+				if (_only is not null)
+					throw new NotSupportedException($"Resource type '{resourceType}' does not support filtering.");
 				ImportTags(data, inputDir);
 				return true;
 			case "FilterEffects":
@@ -1349,9 +1552,13 @@ public static partial class ResourceImportService
 				ImportParticleSystems(data, inputDir);
 				return true;
 			case "GeneralInfo":
+				if (_only is not null)
+					throw new NotSupportedException($"Resource type '{resourceType}' does not support filtering.");
 				ImportGeneralInfo(data, inputDir);
 				return true;
 			case "TexturePageItems":
+				if (_only is not null)
+					throw new NotSupportedException($"Resource type '{resourceType}' does not support filtering.");
 				ImportTexturePageItems(data, inputDir);
 				return true;
 			default:
@@ -1388,24 +1595,45 @@ public static partial class ResourceImportService
 
 	private static void ImportNamedJsonResources(string inputDir, string operation, Action<string, JsonElement> import)
 	{
-		var dirs = GetDirs(inputDir);
-		BatchRun.Expect(dirs.Length);
-		foreach (var obj in dirs)
+		var dirs = GetTopLevelDirs(inputDir);
+		var files = GetFilesIn(inputDir, "*.json");
+		List<(string Name, string Path)> entries = [];
+		foreach (var dir in dirs)
 		{
-			var name = Path.GetFileName(obj);
-			var jsonFile = Path.Combine(obj, name + ".json");
-			if (!FExists(jsonFile))
+			var name = Path.GetFileName(dir);
+			var jsonPath = Path.Combine(dir, name + ".json");
+			if (FExists(jsonPath))
+			{
+				entries.Add((name, jsonPath));
+			}
+			else
 			{
 				BatchRun.Item(name, ResultKind.Skipped, "Missing json file");
-				continue;
 			}
+		}
+		foreach (var file in files)
+		{
+			var name = Path.GetFileNameWithoutExtension(file);
+			if (!name.Equals("config", StringComparison.OrdinalIgnoreCase))
+			{
+				entries.Add((name, file));
+			}
+		}
+		BatchRun.Expect(entries.Count);
+		foreach (var entry in entries)
+		{
+			var name = entry.Name;
 			try
 			{
-				using var jsonDoc = JsonDocument.Parse(FReadText(jsonFile));
+				using var jsonDoc = JsonDocument.Parse(FReadText(entry.Path));
 				var root = jsonDoc.RootElement;
-				if (root.TryGetProperty("name", out var nameElm))
+				if (root.TryGetProperty("name", out var nameElm) && nameElm.GetString() is { Length: > 0 } customName)
 				{
-					name = nameElm.GetString() ?? name;
+					name = customName;
+				}
+				if (!MatchesOnlyName(name) && !MatchesOnlyName(entry.Name))
+				{
+					continue;
 				}
 				import(name, root);
 				BatchRun.Item(name);
@@ -1559,8 +1787,9 @@ public static partial class ResourceImportService
 		HashSet<GameMakerScript> usedScripts = [];
 		var imported = 0;
 		var created = 0;
-		var dirs = GetDirs(inputDir);
-		BatchRun.Expect(dirs.Length);
+		var dirs = GetTopLevelDirs(inputDir);
+		var files = GetFilesIn(inputDir, "*.json");
+		List<(string FolderName, string JsonPath)> scriptEntries = [];
 		foreach (var dir in dirs)
 		{
 			var folderName = Path.GetFileName(dir);
@@ -1575,11 +1804,28 @@ public static partial class ResourceImportService
 				BatchRun.Item(folderName, ResultKind.Skipped, "Missing json file");
 				continue;
 			}
+			scriptEntries.Add((folderName, jsonPath));
+		}
+		foreach (var file in files)
+		{
+			var fileName = Path.GetFileNameWithoutExtension(file);
+			if (!fileName.Equals("config", StringComparison.OrdinalIgnoreCase))
+			{
+				scriptEntries.Add((fileName, file));
+			}
+		}
+		BatchRun.Expect(scriptEntries.Count);
+		foreach (var (folderName, jsonPath) in scriptEntries)
+		{
 			try
 			{
 				using var jsonDoc = JsonDocument.Parse(FReadText(jsonPath));
 				var root = jsonDoc.RootElement;
 				var name = root.TryGetProperty("name", out var nameEl) ? (nameEl.GetString() ?? folderName) : folderName;
+				if (!MatchesOnlyName(name) && !MatchesOnlyName(folderName))
+				{
+					continue;
+				}
 				var codeName = root.TryGetProperty("code", out var codeEl) ? (codeEl.GetString() ?? "") : "";
 				var isConstructor = root.TryGetProperty("isConstructor", out var ctorEl) && ctorEl.GetBoolean();
 				var resolvedCode = PatchService.ScriptCodeResolver.Resolve(data, name, codeName);
@@ -1701,7 +1947,7 @@ public static partial class ResourceImportService
 		}
 		var imported = 0;
 		var created = 0;
-		var dirs = GetDirs(inputDir);
+		var dirs = GetTopLevelDirs(inputDir);
 		BatchRun.Expect(dirs.Length);
 		foreach (var dir in dirs)
 		{
@@ -2117,7 +2363,7 @@ public static partial class ResourceImportService
 
 	private static void ImportAudioGroups(GameMakerData data, string inputDir)
 	{
-		var dirs = GetDirs(inputDir);
+		var dirs = GetTopLevelDirs(inputDir);
 		if (dirs.Length == 0)
 		{
 			return;
@@ -2179,7 +2425,7 @@ public static partial class ResourceImportService
 
 	private static void ImportPaths(GameMakerData data, string inputDir)
 	{
-		var dirs = GetDirs(inputDir);
+		var dirs = GetTopLevelDirs(inputDir);
 		if (dirs.Length == 0)
 		{
 			return;
@@ -2372,7 +2618,7 @@ public static partial class ResourceImportService
 
 	private static void ImportBackgrounds(GameMakerData data, string inputDir)
 	{
-		var dirs = GetDirs(inputDir);
+		var dirs = GetTopLevelDirs(inputDir);
 		if (dirs.Length == 0)
 		{
 			return;
@@ -2620,7 +2866,7 @@ public static partial class ResourceImportService
 			BatchRun.Item("Sequences", ResultKind.Skipped, "Target data has no SEQN chunk");
 			return;
 		}
-		var dirs = GetDirs(inputDir);
+		var dirs = GetTopLevelDirs(inputDir);
 		if (dirs.Length == 0)
 		{
 			return;
@@ -2691,7 +2937,7 @@ public static partial class ResourceImportService
 			BatchRun.Item("ParticleSystems", ResultKind.Skipped, "Target data has no PSYS chunk");
 			return;
 		}
-		var dirs = GetDirs(inputDir);
+		var dirs = GetTopLevelDirs(inputDir);
 		BatchRun.Expect(dirs.Length);
 		foreach (var obj in dirs)
 		{
@@ -2757,7 +3003,7 @@ public static partial class ResourceImportService
 			return;
 		}
 		List<(GameMakerParticleSystemEmitter, string, string, string)> pendingRefs = [];
-		var dirs = GetDirs(inputDir);
+		var dirs = GetTopLevelDirs(inputDir);
 		BatchRun.Expect(dirs.Length);
 		foreach (var obj in dirs)
 		{
@@ -2939,7 +3185,7 @@ public static partial class ResourceImportService
 
 	private static void ImportShaders(GameMakerData data, string inputDir)
 	{
-		var dirs = GetDirs(inputDir);
+		var dirs = GetTopLevelDirs(inputDir);
 		BatchRun.Expect(dirs.Length);
 		var imported = 0;
 		var updated = 0;
@@ -3393,7 +3639,7 @@ public static partial class ResourceImportService
 			BatchRun.Item("TextureGroupInfo", ResultKind.Skipped, "Target data has no TGIN chunk");
 			return;
 		}
-		var dirs = GetDirs(inputDir);
+		var dirs = GetTopLevelDirs(inputDir);
 		if (dirs.Length == 0)
 		{
 			return;
@@ -3540,7 +3786,7 @@ public static partial class ResourceImportService
 
 	private static void ImportFonts(GameMakerData data, string inputDir)
 	{
-		var dirs = GetDirs(inputDir);
+		var dirs = GetTopLevelDirs(inputDir);
 		if (dirs.Length == 0)
 		{
 			return;
@@ -3759,7 +4005,7 @@ public static partial class ResourceImportService
 
 	private static void ImportSounds(GameMakerData data, string inputDir)
 	{
-		List<string> soundDirs = [.. GetDirs(inputDir).Select(Path.GetFileName)];
+		List<string> soundDirs = [.. GetTopLevelDirs(inputDir).Select(Path.GetFileName)];
 		if (soundDirs.Count == 0)
 		{
 			return;
@@ -3982,7 +4228,7 @@ public static partial class ResourceImportService
 
 	private static void ImportEmbeddedAudio(GameMakerData data, string inputDir)
 	{
-		var audioDirs = GetDirs(inputDir);
+		var audioDirs = GetTopLevelDirs(inputDir);
 		if (audioDirs.Length == 0)
 		{
 			return;
@@ -4248,13 +4494,17 @@ public static partial class ResourceImportService
 		var filesIn = GetFilesIn(inputDir, "*.png");
 		foreach (var f in filesIn)
 		{
-			names.Add(Path.GetFileNameWithoutExtension(f));
+			var pngName = Path.GetFileNameWithoutExtension(f);
+			if (MatchesOnlyName(pngName))
+			{
+				names.Add(pngName);
+			}
 		}
 		filesIn = GetFilesIn(inputDir, "*.json");
 		for (var i = 0; i < filesIn.Length; i++)
 		{
 			var n = Path.GetFileNameWithoutExtension(filesIn[i]);
-			if (!n.Equals("config", StringComparison.OrdinalIgnoreCase))
+			if (!n.Equals("config", StringComparison.OrdinalIgnoreCase) && MatchesOnlyName(n))
 			{
 				names.Add(n);
 			}
@@ -4609,7 +4859,7 @@ public static partial class ResourceImportService
 
 	private static void ImportRooms(GameMakerData data, string inputDir)
 	{
-		var roomDirs = GetDirs(inputDir);
+		var roomDirs = GetTopLevelDirs(inputDir);
 		if (roomDirs.Length == 0)
 		{
 			return;
@@ -5532,7 +5782,7 @@ public static partial class ResourceImportService
 		Dictionary<string, List<Dictionary<string, object>>?> textureFrameCache = [];
 		Dictionary<GameMakerEmbeddedTexture, MagickImage> atlasImageCache = [];
 		var lookup = DataLookup.Build(data);
-		var dirs = GetDirs(inputDir);
+		var dirs = GetTopLevelDirs(inputDir);
 		BatchRun.Expect(dirs.Length);
 		HashSet<string> metaFailed = [];
 		HashSet<string> handledFolders = [];

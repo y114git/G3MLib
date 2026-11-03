@@ -123,4 +123,149 @@ public sealed class BatchExportTests : IDisposable
         Assert.Equal(["first", "second"], results.Where(result => result.Kind == ResultKind.Written).Select(result => result.Name).Order());
         Assert.Equal(2, reports.Max(report => report.Done));
     }
+
+    [Fact("BatchExportTests.cs", 7)]
+    public void ImportOnlyImportsNamedEntriesAndMatchesDiscardingTheRest()
+    {
+        using var source = CreateData();
+        source.GameObjects[0].Depth = 10;
+        source.GameObjects[1].Depth = 42;
+        var folder = Path.Combine(_root, "export_only");
+        ResourceExportService.ExportGameObjects(source, folder);
+        ResourceExportService.ExportScripts(source, folder);
+
+        using var selective = GameMakerData.CreateNew2026LTS();
+        List<BatchProgress> reports = [];
+        var objectResults = ResourceImportService.Import(
+            "GameObjects",
+            selective,
+            Path.Combine(folder, "GameObjects"),
+            new HashSet<string> { "second" },
+            new SyncProgress(reports.Add),
+            CancellationToken.None);
+
+        var writtenObject = Assert.Single(objectResults);
+        Assert.Equal("second", writtenObject.Name);
+        Assert.Equal(ResultKind.Written, writtenObject.Kind);
+        var lastReport = reports.OrderBy(report => report.Done).Last();
+        Assert.Equal(1, lastReport.Total);
+        Assert.Equal(1, lastReport.Done);
+        Assert.Equal("second", lastReport.Item);
+
+        var scriptResults = ResourceImportService.Import(
+            "Scripts",
+            selective,
+            Path.Combine(folder, "Scripts"),
+            new HashSet<string> { "scr_second" },
+            progress: null,
+            CancellationToken.None);
+        var writtenScript = Assert.Single(scriptResults);
+        Assert.Equal("scr_second", writtenScript.Name);
+        Assert.Equal(ResultKind.Written, writtenScript.Kind);
+
+        using var fullThenDiscarded = GameMakerData.CreateNew2026LTS();
+        ResourceImportService.Import("GameObjects", fullThenDiscarded, Path.Combine(folder, "GameObjects"), CancellationToken.None);
+        ResourceImportService.Import("Scripts", fullThenDiscarded, Path.Combine(folder, "Scripts"), CancellationToken.None);
+        fullThenDiscarded.GameObjects.Remove(fullThenDiscarded.GameObjects.ByName("first"));
+        fullThenDiscarded.Scripts.Remove(fullThenDiscarded.Scripts.ByName("scr_first"));
+
+        Assert.Equal(
+            fullThenDiscarded.GameObjects.Select(o => (o.Name?.Content, o.Depth)),
+            selective.GameObjects.Select(o => (o.Name?.Content, o.Depth)));
+        Assert.Equal(
+            fullThenDiscarded.Scripts.Select(s => s.Name?.Content),
+            selective.Scripts.Select(s => s.Name?.Content));
+    }
+
+    [Fact("BatchExportTests.cs", 8)]
+    public void ImportOnlyDictionarySupportsProgressAndCancellation()
+    {
+        using var source = CreateData();
+        var folder = Path.Combine(_root, "export_dict");
+        ResourceExportService.ExportGameObjects(source, folder);
+        ResourceExportService.ExportScripts(source, folder);
+
+        var only = new Dictionary<string, IReadOnlySet<string>>
+        {
+            ["GameObjects"] = new HashSet<string> { "second" },
+            ["Scripts"] = new HashSet<string> { "scr_first" }
+        };
+
+        using var target = GameMakerData.CreateNew2026LTS();
+        List<BatchProgress> reports = [];
+        var results = ResourceImportService.Import(target, folder, only, new SyncProgress(reports.Add), CancellationToken.None);
+
+        Assert.Equal(["scr_first", "second"], results.Where(r => r.Kind == ResultKind.Written).Select(r => r.Name));
+        Assert.Equal(["second"], target.GameObjects.Select(o => o.Name?.Content));
+        Assert.Equal(["scr_first"], target.Scripts.Select(s => s.Name?.Content));
+        Assert.NotEmpty(reports);
+
+        using var cancelledTarget = GameMakerData.CreateNew2026LTS();
+        using CancellationTokenSource cts = new();
+        Assert.ThrowsAny<OperationCanceledException>(() =>
+            ResourceImportService.Import(
+                "GameObjects",
+                cancelledTarget,
+                Path.Combine(folder, "GameObjects"),
+                new HashSet<string> { "first", "second" },
+                new SyncProgress(_ => cts.Cancel()),
+                cts.Token));
+    }
+
+    [Theory]
+    [InlineData("Language")]
+    [InlineData("Options")]
+    [InlineData("GlobalScripts")]
+    [InlineData("FeatureFlags")]
+    [InlineData("Tags")]
+    [InlineData("GeneralInfo")]
+    [InlineData("TexturePageItems")]
+    public void ImportWithOnlyThrowsNotSupportedExceptionForUnsupportedTypes(string resourceType)
+    {
+        using var target = GameMakerData.CreateNew2026LTS();
+        var ex = Assert.Throws<NotSupportedException>(() =>
+            ResourceImportService.Import(resourceType, target, _root, new HashSet<string> { "test" }, cancellationToken: TestContext.Current.CancellationToken));
+        Assert.Contains(resourceType, ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ImportScriptsHonoursOnlyWithLooseJsonFiles()
+    {
+        var scriptsDir = Path.Combine(_root, "loose_scripts");
+        Directory.CreateDirectory(scriptsDir);
+        File.WriteAllText(Path.Combine(scriptsDir, "scr_a.json"), """{"name":"scr_a","code":"gml_Script_scr_a"}""");
+        File.WriteAllText(Path.Combine(scriptsDir, "scr_b.json"), """{"name":"scr_b","code":"gml_Script_scr_b"}""");
+
+        using var target = GameMakerData.CreateNew2026LTS();
+        var results = ResourceImportService.Import("Scripts", target, scriptsDir, new HashSet<string> { "scr_b" }, cancellationToken: TestContext.Current.CancellationToken);
+        var written = Assert.Single(results);
+        Assert.Equal("scr_b", written.Name);
+        Assert.NotNull(target.Scripts.ByName("scr_b"));
+        Assert.Null(target.Scripts.ByName("scr_a"));
+    }
+
+    [Fact]
+    public void SingleTypeAndDictionaryOverloadsBothResolveTypeSubfolder()
+    {
+        using var source = CreateData();
+        var rootExport = Path.Combine(_root, "resolve_subfolder");
+        ResourceExportService.ExportScripts(source, rootExport);
+
+        Assert.True(Directory.Exists(Path.Combine(rootExport, "Scripts")));
+
+        using var targetSingle = GameMakerData.CreateNew2026LTS();
+        var singleResults = ResourceImportService.Import("Scripts", targetSingle, rootExport, new HashSet<string> { "scr_first" }, cancellationToken: TestContext.Current.CancellationToken);
+        var singleWritten = Assert.Single(singleResults);
+        Assert.Equal("scr_first", singleWritten.Name);
+        Assert.NotNull(targetSingle.Scripts.ByName("scr_first"));
+
+        using var targetDict = GameMakerData.CreateNew2026LTS();
+        var dictResults = ResourceImportService.Import(targetDict, rootExport, new Dictionary<string, IReadOnlySet<string>>
+        {
+            ["Scripts"] = new HashSet<string> { "scr_second" }
+        }, cancellationToken: TestContext.Current.CancellationToken);
+        var dictWritten = Assert.Single(dictResults);
+        Assert.Equal("scr_second", dictWritten.Name);
+        Assert.NotNull(targetDict.Scripts.ByName("scr_second"));
+    }
 }

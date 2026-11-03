@@ -1,3 +1,4 @@
+using System.IO;
 using ImageMagick;
 using G3MLib.DataFile.Models;
 
@@ -377,60 +378,87 @@ public sealed class TextureGroupPacker
             height = (uint)maxHeight;
         }
 
-        // Generate texture image
-        using MagickImage textureImage = new(MagickColors.Transparent, width, height)
+        // Generate texture image: every frame is copied into one RGBA buffer, and the page image is built from it once
+        int pageWidth = (int)width, pageHeight = (int)height;
+        long pageBufferSize = (long)pageWidth * pageHeight * 4L;
+        if (pageBufferSize > Array.MaxLength)
         {
-            Format = MagickFormat.Rgba
-        };
-        textureImage.SetCompression(CompressionMethod.NoCompression);
-        textureImage.Alpha(AlphaOption.Set);
+            throw new InvalidOperationException($"Texture page size {pageWidth}x{pageHeight} requires a buffer of {pageBufferSize} bytes, exceeding the maximum array length.");
+        }
+        var pagePixels = new byte[(int)pageBufferSize];
         foreach (var image in currentPageImages)
         {
-            int x = image.TextureItem.SourceX, y = image.TextureItem.SourceY;
-            textureImage.Composite(image.Image, x, y, CompositeOperator.Copy);
-            CopyBorder(textureImage, image);
+            CopyImage(pagePixels, pageWidth, pageHeight, image);
 
             image.Dispose();
         }
+        using MagickImage textureImage = new(pagePixels, new PixelReadSettings(width, height, StorageType.Char, PixelMapping.RGBA));
         newTex.TextureData.Image = GMImage.FromMagickImage(textureImage).ConvertToFormat(Format);
 
         return newTex;
     }
 
-    private void CopyBorder(MagickImage textureImage, PackImage image)
+    // Copies the frame and its border into the page buffer.
+    private void CopyImage(byte[] pagePixels, int pageWidth, int pageHeight, PackImage image)
     {
-        if (Border == 0 || !image.BorderFlags.HasFlag(BorderFlags.Enabled))
-            return;
-
-        var borderWidth = image.BorderFlags.HasFlag(BorderFlags.ExtraBorder) ? Border : Math.Min(Border, 1);
-        int width = (int)image.Width, height = (int)image.Height;
-        int x = image.TextureItem.SourceX, y = image.TextureItem.SourceY;
-        var wrapX = image.BorderFlags.HasFlag(BorderFlags.TileHorizontally);
-        var wrapY = image.BorderFlags.HasFlag(BorderFlags.TileVertically);
+        var borderWidth = Border == 0 || !image.BorderFlags.HasFlag(BorderFlags.Enabled) ? 0 : image.BorderFlags.HasFlag(BorderFlags.ExtraBorder) ? Border : Math.Min(Border, 1);
         using var sourcePixels = image.Image.GetPixels();
-        var source = sourcePixels.GetReadOnlyArea(0, 0, (uint)width, (uint)height);
-
-        // The frame plus its border is built in one buffer and written back as one area.
-        int patchWidth = width + borderWidth * 2, patchHeight = height + borderWidth * 2;
-        var patch = new byte[patchWidth * patchHeight * 4];
-        for (var offsetY = -borderWidth; offsetY < height + borderWidth; offsetY++)
+        var source = sourcePixels.ToByteArray(PixelMapping.RGBA);
+        if (source is null)
         {
-            var sourceY = wrapY ? Mod(offsetY, height) : Math.Clamp(offsetY, 0, height - 1);
-            var sourceRow = source.Slice(sourceY * width * 4, width * 4);
-            var patchRow = patch.AsSpan((offsetY + borderWidth) * patchWidth * 4, patchWidth * 4);
-            sourceRow.CopyTo(patchRow[(borderWidth * 4)..]);
-            for (var b = 1; b <= borderWidth; b++)
-            {
-                var left = wrapX ? Mod(-b, width) : 0;
-                var right = wrapX ? Mod(width - 1 + b, width) : width - 1;
-                sourceRow.Slice(left * 4, 4).CopyTo(patchRow[((borderWidth - b) * 4)..]);
-                sourceRow.Slice(right * 4, 4).CopyTo(patchRow[((borderWidth + width - 1 + b) * 4)..]);
-            }
+            var name = image.TextureItem.Name?.Content ?? "unnamed";
+            throw new InvalidDataException($"Frame '{name}' has null source pixel data.");
         }
-        using var destinationPixels = textureImage.GetPixels();
-        destinationPixels.SetArea(x - borderWidth, y - borderWidth, (uint)patchWidth, (uint)patchHeight, patch);
+
+        CopyFrame(pagePixels, pageWidth, pageHeight, source, (int)image.Image.Width, (int)image.Image.Height,
+                  image.TextureItem.SourceX, image.TextureItem.SourceY, borderWidth,
+                  image.BorderFlags.HasFlag(BorderFlags.TileHorizontally), image.BorderFlags.HasFlag(BorderFlags.TileVertically),
+                  image.TextureItem.Name?.Content);
     }
 
+    // Copies RGBA frame pixels and a border around them into an RGBA page buffer. Everything is cut to the page and to the
+    // frame data that exists, so frames that touch an edge, or are larger than the room left on the page, never throw.
+    internal static void CopyFrame(byte[] pagePixels, int pageWidth, int pageHeight, byte[] source, int width, int height,
+                                   int x, int y, int borderWidth, bool wrapX, bool wrapY, string? itemName = null)
+    {
+        var itemPrefix = string.IsNullOrEmpty(itemName) ? "Frame" : $"Frame '{itemName}'";
+        if (width <= 0 || height <= 0)
+            throw new InvalidDataException($"{itemPrefix} has invalid dimensions {width}x{height}.");
+        if (x < 0 || y < 0 || x >= pageWidth || y >= pageHeight)
+            throw new InvalidDataException($"{itemPrefix} placement coordinates ({x}, {y}) are outside the page bounds {pageWidth}x{pageHeight}.");
+        long requiredSourceSize = (long)width * height * 4L;
+        if (source.Length < requiredSourceSize)
+            throw new InvalidDataException($"{itemPrefix} source buffer length {source.Length} is shorter than required {requiredSourceSize} bytes.");
+        long requiredPageSize = (long)pageWidth * pageHeight * 4L;
+        if (pagePixels.Length < requiredPageSize)
+            throw new InvalidDataException($"Page buffer length {pagePixels.Length} is shorter than required {requiredPageSize} bytes.");
+
+        var copyWidth = Math.Min(width, pageWidth - x);
+        var lastY = Math.Min(y + height + borderWidth, pageHeight);
+        for (var pageY = Math.Max(y - borderWidth, 0); pageY < lastY; pageY++)
+        {
+            var offsetY = pageY - y;
+            var sourceY = wrapY ? Mod(offsetY, height) : Math.Clamp(offsetY, 0, height - 1);
+            var sourceRow = source.AsSpan(sourceY * width * 4, width * 4);
+            var pageRow = pagePixels.AsSpan(pageY * pageWidth * 4, pageWidth * 4);
+            sourceRow[..(copyWidth * 4)].CopyTo(pageRow[(x * 4)..]);
+            for (var b = 1; b <= borderWidth; b++)
+            {
+                var left = x - b;
+                if (left >= 0)
+                {
+                    var leftSource = wrapX ? Mod(-b, width) : 0;
+                    sourceRow.Slice(leftSource * 4, 4).CopyTo(pageRow[(left * 4)..]);
+                }
+                var right = x + width - 1 + b;
+                if (right < pageWidth)
+                {
+                    var rightSource = wrapX ? Mod(width - 1 + b, width) : width - 1;
+                    sourceRow.Slice(rightSource * 4, 4).CopyTo(pageRow[(right * 4)..]);
+                }
+            }
+        }
+    }
     private static int Mod(int value, int modulus) => (value % modulus + modulus) % modulus;
 
     private static bool TryInsertImage(List<TextureRect> freeRects, int width, int height, out int x, out int y)

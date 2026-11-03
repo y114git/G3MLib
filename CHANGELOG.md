@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.1.1] - 2026-11-03
+
+### Added
+
+- `PatchService.ApplyPatchAsync` overloads that patch a `GameMakerData` in memory, from a file or a stream, with an optional validation pass before any change; `ModConfig` reads a mod `mod_config.json` and lists its patch operations.
+- `GameMakerData.LoadWarnings` and `MayLoseDataOnSave`: the warnings raised while a data file was read, and whether saving could lose data.
+- `ChunkDigests` to hash every chunk of a data file without parsing it and to compare two files; `GameMakerChunk.Offset`.
+- `ReferenceIndex.FindTileUses` and `ReferenceIndex.ClassifyString`.
+- `RepackPlan.Pages` with the size, fill and item count of every planned page.
+- `ResourceImportService.Import` overloads that import only named entries.
+- `DebugDataGenerator` builds GameMaker 1.4 debugger data (`.yydebug`) from a data file as decompiled text, assembler text or full assembler text; `GameMakerDebugIO.Write` saves it.
+
+### Fixed
+
+- Texture page repack no longer stops with an out of range error for frames at a page edge, and builds each page in one pass.
+- Code compiled from a function script now decompiles: the child code entry is placed after its root entry.
+- `DecompileSettings.UseSemicolon` now applies to `return`.
+
 ## [1.1.0] - 2026-11-01
 
 ### Added

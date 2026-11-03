@@ -241,8 +241,17 @@ public class GameMakerReader : AdaptiveBinaryReader
         staticObjSizeDict = new(metadata.StaticObjectSizes);
     }
 
-    public void SubmitWarning(string warning, bool isImportant = true)
+    public void SubmitWarning(string warning, bool isImportant = true) => SubmitWarning(warning, isImportant, isImportant);
+
+    /// <summary>
+    /// Submits a warning, and records it in the <see cref="GameMakerData.LoadWarnings"/> of the data being read.
+    /// </summary>
+    /// <param name="warning">Warning message.</param>
+    /// <param name="isImportant">Whether the warning is passed to the handler as important. Without a handler, an important warning throws.</param>
+    /// <param name="mayLoseData">Whether the reader skipped or could not model data, so that <see cref="GameMakerData.MayLoseDataOnSave"/> is set.</param>
+    internal void SubmitWarning(string warning, bool isImportant, bool mayLoseData)
     {
+        gameMakerData?.AddLoadWarning(new LoadWarning(gameMakerData.ReadingChunkName ?? string.Empty, warning, isImportant, AbsPosition), mayLoseData);
         warning += "\nat " + AbsPosition.ToString("X8", CultureInfo.InvariantCulture);
         if (_warningHandler != null)
             _warningHandler.Invoke(warning, isImportant);
@@ -277,6 +286,7 @@ public class GameMakerReader : AdaptiveBinaryReader
         gameMakerData = data;
 
         // Ensure root chunk is called "FORM"
+        var formOffset = AbsPosition;
         var name = ReadChars(4);
         if (name != "FORM")
             throw new IOException($"Root chunk is \"{name}\", not FORM");
@@ -285,7 +295,8 @@ public class GameMakerReader : AdaptiveBinaryReader
             throw new IOException("Root chunk exceeds the available input.");
         data.FORM = new GameMakerChunkFORM
         {
-            Length = length
+            Length = length,
+            Offset = formOffset
         };
         DebugUtil.Assert(data.FORM.Name == name);
 
@@ -378,6 +389,7 @@ public class GameMakerReader : AdaptiveBinaryReader
         gameMakerData = GameMakerData.CreateNew();
         gameMakerData.SetGMS2Version(2024, 11);
 
+        var formOffset = AbsPosition;
         var name = ReadChars(4);
         if (name != "FORM")
             throw new IOException($"Root chunk is \"{name}\", not FORM");
@@ -387,7 +399,7 @@ public class GameMakerReader : AdaptiveBinaryReader
 
         GameMakerDebugData data = new()
         {
-            FORM = new GameMakerDebugFORM { Length = length }
+            FORM = new GameMakerDebugFORM { Offset = formOffset, Length = length }
         };
 
         var startPos = Position;

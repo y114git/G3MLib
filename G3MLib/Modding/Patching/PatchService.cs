@@ -324,14 +324,18 @@ public partial class PatchService
 		};
 	}
 
-	private static (int AppliedCount, int FailedCount) ImportMinimalResources(GameMakerData data, PatchFileSystem pfs, IReadOnlyList<string> resourceTypes, string dataPath, string outputPath)
+	private static (int AppliedCount, int FailedCount) ImportMinimalResources(GameMakerData data, PatchFileSystem pfs, List<string> resourceTypes, string? dataPath, string? outputPath, IProgress<BatchProgress>? progress = null)
 	{
 		var appliedCount = 0;
 		var failedCount = 0;
+		var progressIndex = 0;
+		var progressTotal = resourceTypes.Count;
 		foreach (var resourceType in resourceTypes)
 		{
 			if (!pfs.DirectoryExists(resourceType))
 			{
+				progressIndex++;
+				progress?.Report(new BatchProgress(progressIndex, progressTotal, resourceType));
 				continue;
 			}
 			try
@@ -346,7 +350,7 @@ public partial class PatchService
 					appliedCount++;
 				}
 			}
-			catch (Exception ex)
+			catch (Exception ex) when (!ModdingCancellation.IsCancellation(ex))
 			{
 				LogService.Warning("ERROR applying " + resourceType + ": " + ex.Message);
 				failedCount++;
@@ -355,11 +359,13 @@ public partial class PatchService
 			{
 				ResourceImportService.SetDataPaths(null, null);
 			}
+			progressIndex++;
+			progress?.Report(new BatchProgress(progressIndex, progressTotal, resourceType));
 		}
 		return (appliedCount, failedCount);
 	}
 
-	private static (int AppliedCount, int FailedCount) ImportPatchResources(GameMakerData data, PatchFileSystem pfs, G3MPatchManifest? manifest, IReadOnlyList<string> resourceTypes, PatchApplyPreparation preparation, bool hasCodeEntries, string dataPath, string outputPath, Stopwatch nonCodeImportSw, Stopwatch codeImportSw, Stopwatch phaseSw, Stopwatch preCodeReorderSw, Stopwatch postSpriteReorderSw, bool logDetailedCodeImport)
+	private static (int AppliedCount, int FailedCount) ImportPatchResources(GameMakerData data, PatchFileSystem pfs, G3MPatchManifest? manifest, List<string> resourceTypes, PatchApplyPreparation preparation, bool hasCodeEntries, string? dataPath, string? outputPath, Stopwatch nonCodeImportSw, Stopwatch codeImportSw, Stopwatch phaseSw, Stopwatch preCodeReorderSw, Stopwatch postSpriteReorderSw, bool logDetailedCodeImport, IProgress<BatchProgress>? progress = null)
 	{
 		(var Weights, var TotalNonCodeWeight, _, var NonCodeRangeStart, var NonCodeRange) = CreateImportProgressState(resourceTypes);
 		var resourceWeights = Weights;
@@ -369,6 +375,8 @@ public partial class PatchService
 		var nonCodeProgress = 0;
 		var appliedCount = 0;
 		var failedCount = 0;
+		var progressIndex = 0;
+		var progressTotal = resourceTypes.Count;
 		nonCodeImportSw.Start();
 		foreach (var resourceType in resourceTypes)
 		{
@@ -432,6 +440,8 @@ public partial class PatchService
 					LogService.Log(ref handler2);
 				}
 				LogService.Progress(90, 100);
+				progressIndex++;
+				progress?.Report(new BatchProgress(progressIndex, progressTotal, resourceType));
 				nonCodeImportSw.Start();
 				continue;
 			}
@@ -440,12 +450,16 @@ public partial class PatchService
 				LogService.Log("[PatchService] Deferring Scripts import until after CodeEntries...");
 				nonCodeProgress += resourceWeights.GetValueOrDefault(resourceType, 1);
 				LogService.Progress(nonCodeRangeStart + nonCodeRange * nonCodeProgress / Math.Max(totalNonCodeWeight, 1), 100);
+				progressIndex++;
+				progress?.Report(new BatchProgress(progressIndex, progressTotal, resourceType));
 				continue;
 			}
 			if (!pfs.DirectoryExists(resourceType))
 			{
 				nonCodeProgress += resourceWeights.GetValueOrDefault(resourceType, 1);
 				LogService.Progress(nonCodeRangeStart + nonCodeRange * nonCodeProgress / Math.Max(totalNonCodeWeight, 1), 100);
+				progressIndex++;
+				progress?.Report(new BatchProgress(progressIndex, progressTotal, resourceType));
 				continue;
 			}
 			var handler3 = new LogInterpolatedStringHandler(27, 1, out shouldAppend);
@@ -474,7 +488,7 @@ public partial class PatchService
 					appliedCount++;
 				}
 			}
-			catch (Exception ex)
+			catch (Exception ex) when (!ModdingCancellation.IsCancellation(ex))
 			{
 				LogService.Warning("ERROR applying " + resourceType + ": " + ex.Message);
 				failedCount++;
@@ -505,6 +519,8 @@ public partial class PatchService
 			}
 			nonCodeProgress += resourceWeights.GetValueOrDefault(resourceType, 1);
 			LogService.Progress(nonCodeRangeStart + nonCodeRange * nonCodeProgress / Math.Max(totalNonCodeWeight, 1), 100);
+			progressIndex++;
+			progress?.Report(new BatchProgress(progressIndex, progressTotal, resourceType));
 		}
 		nonCodeImportSw.Stop();
 		return (AppliedCount: appliedCount, FailedCount: failedCount);
@@ -1992,6 +2008,400 @@ public partial class PatchService
 		}
 	}
 
+	/// <summary>
+	/// Applies a <c>.g3mpatch</c> archive at <paramref name="patchPath"/> in place to an in-memory <see cref="GameMakerData"/> instance without reading or writing a data file on disk.
+	/// </summary>
+	/// <remarks>
+	/// When <see cref="PatchApplyOptions.ValidateBeforeApply"/> is <see langword="true"/> (the default), the patch manifest, JSON payloads, resource types and required helpers are validated before <paramref name="data"/> is mutated so invalid patches are rejected cleanly.
+	/// If patch application fails or is cancelled after resource import begins, <paramref name="data"/> may be left partially modified and should be discarded or reloaded by the caller.
+	/// </remarks>
+	public static async Task<PatchApplyResult> ApplyPatchAsync(
+		GameMakerData data,
+		string patchPath,
+		PatchApplyOptions? options = null,
+		IProgress<BatchProgress>? progress = null,
+		CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(data);
+		ArgumentNullException.ThrowIfNull(patchPath);
+		using var cancellationScope = ModdingCancellation.Begin(cancellationToken);
+		cancellationToken.ThrowIfCancellationRequested();
+		if (!File.Exists(patchPath))
+		{
+			return new PatchApplyResult
+			{
+				Success = false,
+				Error = "Patch file not found: " + patchPath
+			};
+		}
+		try
+		{
+			LogService.SetOperation("Applying patch");
+			LogService.Progress(0, 100);
+			var totalSw = Stopwatch.StartNew();
+			var patchLoadSw = Stopwatch.StartNew();
+			LogService.Log("[PatchService] Loading .g3mpatch file into memory...");
+			var pfs = await Task.Run(() => PatchFileSystem.LoadFromZip(patchPath, loadExactPayloads: false), cancellationToken).ConfigureAwait(false);
+			patchLoadSw.Stop();
+			return ApplyLoadedPatchInMemory(data, pfs, options, progress, totalSw, patchLoadSw, cancellationToken);
+		}
+		catch (Exception ex) when (ModdingCancellation.IsCancellation(ex))
+		{
+			ModdingCancellation.Rethrow(ex, cancellationToken);
+			throw;
+		}
+		catch (Exception ex)
+		{
+			return new PatchApplyResult { Success = false, Error = "Failed to apply patch: " + ex.Message };
+		}
+	}
+
+	/// <summary>
+	/// Applies a <c>.g3mpatch</c> archive from <paramref name="patchStream"/> in place to an in-memory <see cref="GameMakerData"/> instance without reading or writing a data file on disk or creating a temporary patch file.
+	/// </summary>
+	/// <remarks>
+	/// The caller retains ownership of <paramref name="patchStream"/>; this method does not dispose it. Both seekable and non-seekable streams (such as a <see cref="ZipArchiveEntry"/> stream) are supported.
+	/// When <see cref="PatchApplyOptions.ValidateBeforeApply"/> is <see langword="true"/> (the default), the patch manifest, JSON payloads, resource types and required helpers are validated before <paramref name="data"/> is mutated so invalid patches are rejected cleanly.
+	/// If patch application fails or is cancelled after resource import begins, <paramref name="data"/> may be left partially modified and should be discarded or reloaded by the caller.
+	/// </remarks>
+	public static async Task<PatchApplyResult> ApplyPatchAsync(
+		GameMakerData data,
+		Stream patchStream,
+		PatchApplyOptions? options = null,
+		IProgress<BatchProgress>? progress = null,
+		CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(data);
+		ArgumentNullException.ThrowIfNull(patchStream);
+		using var cancellationScope = ModdingCancellation.Begin(cancellationToken);
+		cancellationToken.ThrowIfCancellationRequested();
+		try
+		{
+			LogService.SetOperation("Applying patch");
+			LogService.Progress(0, 100);
+			var totalSw = Stopwatch.StartNew();
+			var patchLoadSw = Stopwatch.StartNew();
+			LogService.Log("[PatchService] Loading .g3mpatch stream into memory...");
+			var pfs = await Task.Run(() => PatchFileSystem.LoadFromZip(patchStream, loadExactPayloads: false), cancellationToken).ConfigureAwait(false);
+			patchLoadSw.Stop();
+			return ApplyLoadedPatchInMemory(data, pfs, options, progress, totalSw, patchLoadSw, cancellationToken);
+		}
+		catch (Exception ex) when (ModdingCancellation.IsCancellation(ex))
+		{
+			ModdingCancellation.Rethrow(ex, cancellationToken);
+			throw;
+		}
+		catch (Exception ex)
+		{
+			return new PatchApplyResult { Success = false, Error = "Failed to apply patch: " + ex.Message };
+		}
+	}
+
+	private static PatchApplyResult ApplyLoadedPatchInMemory(
+		GameMakerData data,
+		PatchFileSystem pfs,
+		PatchApplyOptions? options,
+		IProgress<BatchProgress>? progress,
+		Stopwatch totalSw,
+		Stopwatch patchLoadSw,
+		CancellationToken cancellationToken)
+	{
+		try
+		{
+			cancellationToken.ThrowIfCancellationRequested();
+			LogService.Progress(5, 100);
+			var validateBeforeApply = options?.ValidateBeforeApply ?? true;
+			var dataFilePath = options?.DataFilePath;
+			var result = ApplyPatchToDataCore(
+				data,
+				pfs,
+				dataFilePath,
+				dataFilePath,
+				logDetailedCodeImport: true,
+				validateBeforeApply: validateBeforeApply,
+				progress: progress,
+				totalSw: totalSw,
+				patchLoadSw: patchLoadSw,
+				out _,
+				out var usedMinimalApply);
+			cancellationToken.ThrowIfCancellationRequested();
+			if (result.Success && !usedMinimalApply)
+			{
+				LogService.Progress(100, 100);
+				LogService.ProgressComplete();
+			}
+			return result;
+		}
+		finally
+		{
+			pfs.ReleaseFileData();
+			pfs.ReleaseCodeEntries();
+		}
+	}
+
+	private static string? ValidatePatchBeforeApply(PatchFileSystem pfs, List<string> resourceTypesToProcess, bool hasCodeEntries)
+	{
+		if (!pfs.FileExists("g3mpatch.json") || pfs.Manifest == null)
+		{
+			return "Invalid patch: g3mpatch.json not found or failed to parse manifest";
+		}
+		foreach (var (filePath, bytes) in pfs.GetAllFiles())
+		{
+			if (!filePath.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+			{
+				continue;
+			}
+			try
+			{
+				using var doc = JsonDocument.Parse(pfs.ReadAllText(filePath));
+			}
+			catch (JsonException ex)
+			{
+				return $"Invalid patch JSON in '{filePath}': {ex.Message}";
+			}
+		}
+		foreach (var resourceType in resourceTypesToProcess)
+		{
+			if (!resourceType.Equals("CodeEntries", StringComparison.OrdinalIgnoreCase) &&
+				!ResourceTypeRegistry.AllTypes.Contains(resourceType, StringComparer.OrdinalIgnoreCase))
+			{
+				return $"Unsupported resource type in patch: '{resourceType}'";
+			}
+		}
+		if (hasCodeEntries && ReadCodeMetadataContent(pfs, pfs.HelpersPrefix) == null)
+		{
+			return "Invalid patch: CodeEntries present without variables_functions.json or code_patch_metadata.json";
+		}
+		return null;
+	}
+
+	private static PatchApplyResult ApplyPatchToDataCore(
+		GameMakerData data,
+		PatchFileSystem pfs,
+		string? dataPath,
+		string? outputPath,
+		bool logDetailedCodeImport,
+		bool validateBeforeApply,
+		IProgress<BatchProgress>? progress,
+		Stopwatch totalSw,
+		Stopwatch patchLoadSw,
+		out bool noOp,
+		out bool usedMinimalApply)
+	{
+		noOp = false;
+		usedMinimalApply = false;
+		using var warningScope = LogService.CollectWarnings(out var warningsQueue);
+		var manifest = pfs.Manifest;
+		var applyPlan = manifest?.ApplyPlan ?? BuildPatchApplyPlan(manifest?.Resources ?? new Dictionary<string, ResourceTypeChanges>(StringComparer.OrdinalIgnoreCase));
+		var phaseSw = new Stopwatch();
+		var nonCodeImportSw = new Stopwatch();
+		var codeImportSw = new Stopwatch();
+		var finalizeSw = new Stopwatch();
+		var preCodeReorderSw = new Stopwatch();
+		var postSpriteReorderSw = new Stopwatch();
+		var finalReorderSw = new Stopwatch();
+		var repairDuplicatesSw = new Stopwatch();
+		var applyEventsSw = new Stopwatch();
+		var repairDanglingCodeSw = new Stopwatch();
+		var ensureScriptsSw = new Stopwatch();
+		var integritySw = new Stopwatch();
+		PatchApplyPreparation? preparation = null;
+		bool shouldAppend;
+		ResourceImportService.SetPatchFileSystem(pfs);
+		try
+		{
+			var resourceTypesToProcess = BuildResourceTypesToProcess(pfs, manifest);
+			var scriptOrderOnly = resourceTypesToProcess.Count == 0 && HasScriptOrderOnlyAssetPayload(pfs);
+			if (scriptOrderOnly)
+			{
+				resourceTypesToProcess.Add("Scripts");
+			}
+			var hasCodeEntries = CreateImportProgressState(resourceTypesToProcess).HasCodeEntries;
+			if (validateBeforeApply)
+			{
+				var validationError = ValidatePatchBeforeApply(pfs, resourceTypesToProcess, hasCodeEntries);
+				if (validationError != null)
+				{
+					return new PatchApplyResult
+					{
+						Success = false,
+						Error = validationError,
+						Warnings = [.. warningsQueue]
+					};
+				}
+			}
+			var handler = new LogInterpolatedStringHandler(37, 1, out shouldAppend);
+			if (shouldAppend)
+			{
+				handler.AppendLiteral("[PatchService] Resources to process: ");
+				handler.AppendFormatted(string.Join(", ", resourceTypesToProcess));
+			}
+			LogService.Log(ref handler);
+			if (resourceTypesToProcess.Count == 0)
+			{
+				noOp = true;
+				progress?.Report(new BatchProgress(0, 0, null));
+				return new PatchApplyResult
+				{
+					Success = true,
+					AppliedCount = 0,
+					FailedCount = 0,
+					Warnings = [.. warningsQueue]
+				};
+			}
+			if (!scriptOrderOnly && CanUseMinimalStandardApply(applyPlan, resourceTypesToProcess))
+			{
+				usedMinimalApply = true;
+				var handler2 = new LogInterpolatedStringHandler(58, 1, out shouldAppend);
+				if (shouldAppend)
+				{
+					handler2.AppendLiteral("[PatchService] Applying only required resource functions: ");
+					handler2.AppendFormatted(string.Join(", ", resourceTypesToProcess));
+				}
+				LogService.Log(ref handler2);
+				(var minimalAppliedCount, var minimalFailedCount) = ImportMinimalResources(data, pfs, resourceTypesToProcess, dataPath, outputPath, progress);
+				if (minimalFailedCount > 0 || minimalAppliedCount == 0)
+				{
+					return new PatchApplyResult
+					{
+						Success = false,
+						AppliedCount = minimalAppliedCount,
+						FailedCount = minimalFailedCount,
+						Warnings = [.. warningsQueue],
+						Error = (minimalFailedCount > 0) ? $"Patch apply failed: {minimalFailedCount} resource type(s) failed during import; output was not written" : "No resources were applied successfully"
+					};
+				}
+				var minimalIntegrity = DataIntegrityService.ValidateOnly(data);
+				if (!minimalIntegrity.Success)
+				{
+					return new PatchApplyResult
+					{
+						Success = false,
+						AppliedCount = minimalAppliedCount,
+						FailedCount = minimalFailedCount,
+						Warnings = [.. warningsQueue],
+						Error = "Integrity validation failed: " + string.Join("; ", minimalIntegrity.Errors.Take(20))
+					};
+				}
+				return new PatchApplyResult
+				{
+					Success = true,
+					AppliedCount = minimalAppliedCount,
+					FailedCount = minimalFailedCount,
+					Warnings = [.. warningsQueue]
+				};
+			}
+			if (logDetailedCodeImport)
+			{
+				LogService.Progress(5, 100);
+			}
+			preparation = PreparePatchApply(data, pfs, resourceTypesToProcess, applyPlan, hasCodeEntries, scriptOrderOnly);
+			(var appliedCount, var failedCount) = ImportPatchResources(data, pfs, manifest, resourceTypesToProcess, preparation, hasCodeEntries, dataPath, outputPath, nonCodeImportSw, codeImportSw, phaseSw, preCodeReorderSw, postSpriteReorderSw, logDetailedCodeImport, progress);
+			finalizeSw.Start();
+			appliedCount += ApplyFinalAssetOrder(preparation.NeedsFinalAssetReorder, data, pfs, resourceTypesToProcess, preparation.Helpers, preparation.StagedEmbeddedTexturesDir, scriptOrderOnly, finalReorderSw) ? 1 : 0;
+			if (preparation.VariablesFunctionsContent != null && preparation.OriginalGmlForCodeRemap.Count > 0)
+			{
+				preparation.GmlCompilationRan |= RecompileUntouchedCodeForAssetOrderShifts(data, preparation.AssetNamesAtCodeImportStart, preparation.OriginalGmlForCodeRemap, preparation.PatchCodeEntryNames, preparation.Helpers.HelpersDir, preparation.VariablesFunctionsContent);
+			}
+			RepairImportedResourceStructures(data, preparation.UntouchedEmbeddedTextureSnapshot, resourceTypesToProcess, manifest, repairDuplicatesSw);
+			ApplyCapturedObjectEvents(data, resourceTypesToProcess, manifest, preparation.Helpers.ObjectEventsBytes, applyEventsSw);
+			if (!preparation.GmlCompilationRan)
+			{
+				PruneCodeEntriesOutsideTargetMetadata(data, preparation.CodeMetadataForFinalCleanup ?? ReadCodeMetadataContent(pfs, preparation.Helpers.HelpersDir));
+			}
+			PruneDeletedScriptOrphans(data, manifest);
+			PruneMissingScriptCodeOrphans(data);
+			var integrity = RepairAndValidateImportedData(data, resourceTypesToProcess, preparation.NeedsHeavyFinalize, repairDanglingCodeSw, ensureScriptsSw, integritySw);
+			if (integrity != null && !integrity.Success)
+			{
+				finalizeSw.Stop();
+				return new PatchApplyResult
+				{
+					Success = false,
+					AppliedCount = appliedCount,
+					FailedCount = failedCount,
+					Warnings = [.. warningsQueue],
+					Error = "Integrity validation failed: " + string.Join("; ", integrity.Errors.Take(20))
+				};
+			}
+			RepairLocalChildFunctionReferencesFinal(data);
+			finalizeSw.Stop();
+			if (failedCount > 0)
+			{
+				return new PatchApplyResult
+				{
+					Success = false,
+					AppliedCount = appliedCount,
+					FailedCount = failedCount,
+					Warnings = [.. warningsQueue],
+					Error = $"Patch apply failed: {failedCount} resource type(s) failed during import; output was not written"
+				};
+			}
+			if (appliedCount == 0)
+			{
+				return new PatchApplyResult
+				{
+					Success = false,
+					AppliedCount = 0,
+					FailedCount = 0,
+					Warnings = [.. warningsQueue],
+					Error = "No resources were applied successfully"
+				};
+			}
+			var handler3 = new LogInterpolatedStringHandler(211, 12, out shouldAppend);
+			if (shouldAppend)
+			{
+				handler3.AppendLiteral("[Timing] Apply in-memory breakdown: patchLoad=");
+				handler3.AppendFormatted(patchLoadSw.Elapsed.TotalSeconds, "F2");
+				handler3.AppendLiteral("s, nonCode=");
+				handler3.AppendFormatted(nonCodeImportSw.Elapsed.TotalSeconds, "F2");
+				handler3.AppendLiteral("s, code=");
+				handler3.AppendFormatted(codeImportSw.Elapsed.TotalSeconds, "F2");
+				handler3.AppendLiteral("s, finalize=");
+				handler3.AppendFormatted(finalizeSw.Elapsed.TotalSeconds, "F2");
+				handler3.AppendLiteral("s, reorderPreCode=");
+				handler3.AppendFormatted(preCodeReorderSw.Elapsed.TotalSeconds, "F2");
+				handler3.AppendLiteral("s, reorderPostSprite=");
+				handler3.AppendFormatted(postSpriteReorderSw.Elapsed.TotalSeconds, "F2");
+				handler3.AppendLiteral("s, reorderFinal=");
+				handler3.AppendFormatted(finalReorderSw.Elapsed.TotalSeconds, "F2");
+				handler3.AppendLiteral("s, repairDupes=");
+				handler3.AppendFormatted(repairDuplicatesSw.Elapsed.TotalSeconds, "F2");
+				handler3.AppendLiteral("s, applyEvents=");
+				handler3.AppendFormatted(applyEventsSw.Elapsed.TotalSeconds, "F2");
+				handler3.AppendLiteral("s, repairDangling=");
+				handler3.AppendFormatted(repairDanglingCodeSw.Elapsed.TotalSeconds, "F2");
+				handler3.AppendLiteral("s, ensureScripts=");
+				handler3.AppendFormatted(ensureScriptsSw.Elapsed.TotalSeconds, "F2");
+				handler3.AppendLiteral("s, integrity=");
+				handler3.AppendFormatted(integritySw.Elapsed.TotalSeconds, "F2");
+				handler3.AppendLiteral("s");
+			}
+			LogService.Log(ref handler3);
+			return new PatchApplyResult
+			{
+				Success = true,
+				AppliedCount = appliedCount,
+				FailedCount = failedCount,
+				Warnings = [.. warningsQueue]
+			};
+		}
+		finally
+		{
+			ResourceImportService.SetPatchFileSystem(null);
+			if (preparation?.StagedEmbeddedTexturesDir != null && Directory.Exists(preparation.StagedEmbeddedTexturesDir))
+			{
+				try
+				{
+					Directory.Delete(preparation.StagedEmbeddedTexturesDir, recursive: true);
+				}
+				catch
+				{
+				}
+			}
+		}
+	}
+
 	private static async Task<PatchApplyResult> ApplyPatchCoreAsync(string dataPath, string patchPath, string outputPath, bool allowXdeltaFallback, bool verifyModifiedHash)
 	{
 		if (!File.Exists(dataPath))
@@ -2019,19 +2429,8 @@ public partial class PatchService
 			var phaseSw = new Stopwatch();
 			var patchLoadSw = new Stopwatch();
 			var dataLoadSw = new Stopwatch();
-			var nonCodeImportSw = new Stopwatch();
-			var codeImportSw = new Stopwatch();
-			var finalizeSw = new Stopwatch();
 			var saveSw = new Stopwatch();
 			var verifyHashSw = new Stopwatch();
-			var preCodeReorderSw = new Stopwatch();
-			var postSpriteReorderSw = new Stopwatch();
-			var finalReorderSw = new Stopwatch();
-			var repairDuplicatesSw = new Stopwatch();
-			var applyEventsSw = new Stopwatch();
-			var repairDanglingCodeSw = new Stopwatch();
-			var ensureScriptsSw = new Stopwatch();
-			var integritySw = new Stopwatch();
 			LogService.SetOperation("Applying patch");
 			LogService.Progress(0, 100);
 			patchLoadSw.Start();
@@ -2056,7 +2455,6 @@ public partial class PatchService
 					Success = true
 				};
 			}
-			var applyPlan = manifest?.ApplyPlan ?? BuildPatchApplyPlan(manifest?.Resources ?? new Dictionary<string, ResourceTypeChanges>(StringComparer.OrdinalIgnoreCase));
 			dataLoadSw.Start();
 			phaseSw.Restart();
 			LogService.Log("[PatchService] Loading data file for .g3mpatch apply...");
@@ -2084,23 +2482,21 @@ public partial class PatchService
 				handler2.AppendFormatted(data.GeneralInfo?.DisplayName?.Content ?? "Unknown");
 			}
 			LogService.Log(ref handler2);
-			ResourceImportService.SetPatchFileSystem(pfs);
 			try
 			{
-				var resourceTypesToProcess = BuildResourceTypesToProcess(pfs, manifest);
-				var scriptOrderOnly = resourceTypesToProcess.Count == 0 && HasScriptOrderOnlyAssetPayload(pfs);
-				if (scriptOrderOnly)
-				{
-					resourceTypesToProcess.Add("Scripts");
-				}
-				var handler3 = new LogInterpolatedStringHandler(37, 1, out shouldAppend);
-				if (shouldAppend)
-				{
-					handler3.AppendLiteral("[PatchService] Resources to process: ");
-					handler3.AppendFormatted(string.Join(", ", resourceTypesToProcess));
-				}
-				LogService.Log(ref handler3);
-				if (resourceTypesToProcess.Count == 0)
+				var inMemoryResult = ApplyPatchToDataCore(
+					data,
+					pfs,
+					dataPath,
+					outputPath,
+					logDetailedCodeImport: true,
+					validateBeforeApply: false,
+					progress: null,
+					totalSw: totalSw,
+					patchLoadSw: patchLoadSw,
+					out var noOp,
+					out var usedMinimalApply);
+				if (noOp)
 				{
 					LogService.Log("[PatchService] No resources to apply");
 					var noOpOutDir = Path.GetDirectoryName(outputPath);
@@ -2111,127 +2507,18 @@ public partial class PatchService
 					File.Copy(dataPath, outputPath, overwrite: true);
 					LogService.Progress(100, 100);
 					LogService.ProgressComplete();
-					return new PatchApplyResult
-					{
-						Success = true
-					};
+					return inMemoryResult;
 				}
-				if (!scriptOrderOnly && CanUseMinimalStandardApply(applyPlan, resourceTypesToProcess))
+				if (!inMemoryResult.Success)
 				{
-					var handler4 = new LogInterpolatedStringHandler(58, 1, out shouldAppend);
-					if (shouldAppend)
-					{
-						handler4.AppendLiteral("[PatchService] Applying only required resource functions: ");
-						handler4.AppendFormatted(string.Join(", ", resourceTypesToProcess));
-					}
-					LogService.Log(ref handler4);
-					(var minimalAppliedCount, var minimalFailedCount) = ImportMinimalResources(data, pfs, resourceTypesToProcess, dataPath, outputPath);
-					if (minimalFailedCount > 0 || minimalAppliedCount == 0)
-					{
-						return new PatchApplyResult
-						{
-							Success = false,
-							Error = (minimalFailedCount > 0) ? $"Patch apply failed: {minimalFailedCount} resource type(s) failed during import; output was not written" : "No resources were applied successfully"
-						};
-					}
-					var minimalIntegrity = DataIntegrityService.ValidateOnly(data);
-					if (!minimalIntegrity.Success)
-					{
-						return new PatchApplyResult
-						{
-							Success = false,
-							Error = "Integrity validation failed: " + string.Join("; ", minimalIntegrity.Errors.Take(20))
-						};
-					}
-					phaseSw.Restart();
-					LogService.Log("[PatchService] Saving modified data file...");
-					saveSw.Start();
-					var minimalOutDir = Path.GetDirectoryName(outputPath);
-					if (!string.IsNullOrEmpty(minimalOutDir) && !Directory.Exists(minimalOutDir))
-					{
-						Directory.CreateDirectory(minimalOutDir);
-					}
-					using (var outStream = OpenDataWriteStream(outputPath))
-					{
-						await GameMakerIO.WriteAsync(outStream, data).ConfigureAwait(false);
-					}
-					saveSw.Stop();
-					var minimalValidationError = ValidateSavedDataFile(outputPath);
-					if (minimalValidationError != null)
-					{
-						DeleteInvalidOutput(outputPath);
-						return new PatchApplyResult
-						{
-							Success = false,
-							Error = "Saved data validation failed: " + minimalValidationError
-						};
-					}
-					totalSw.Stop();
-					var handler5 = new LogInterpolatedStringHandler(31, 1, out shouldAppend);
-					if (shouldAppend)
-					{
-						handler5.AppendLiteral("[Timing] Minimal apply total: ");
-						handler5.AppendFormatted(totalSw.Elapsed.TotalSeconds, "F1");
-						handler5.AppendLiteral("s");
-					}
-					LogService.Log(ref handler5);
-					return new PatchApplyResult
-					{
-						Success = true
-					};
-				}
-				var hasCodeEntries = CreateImportProgressState(resourceTypesToProcess).HasCodeEntries;
-				LogService.Progress(5, 100);
-				var preparation = PreparePatchApply(data, pfs, resourceTypesToProcess, applyPlan, hasCodeEntries, scriptOrderOnly);
-				int failedCount;
-				int appliedCount;
-				(appliedCount, failedCount) = ImportPatchResources(data, pfs, manifest, resourceTypesToProcess, preparation, hasCodeEntries, dataPath, outputPath, nonCodeImportSw, codeImportSw, phaseSw, preCodeReorderSw, postSpriteReorderSw, logDetailedCodeImport: true);
-				finalizeSw.Start();
-				appliedCount += ApplyFinalAssetOrder(preparation.NeedsFinalAssetReorder, data, pfs, resourceTypesToProcess, preparation.Helpers, preparation.StagedEmbeddedTexturesDir, scriptOrderOnly, finalReorderSw) ? 1 : 0;
-				if (preparation.VariablesFunctionsContent != null && preparation.OriginalGmlForCodeRemap.Count > 0)
-				{
-					preparation.GmlCompilationRan |= RecompileUntouchedCodeForAssetOrderShifts(data, preparation.AssetNamesAtCodeImportStart, preparation.OriginalGmlForCodeRemap, preparation.PatchCodeEntryNames, preparation.Helpers.HelpersDir, preparation.VariablesFunctionsContent);
-				}
-				RepairImportedResourceStructures(data, preparation.UntouchedEmbeddedTextureSnapshot, resourceTypesToProcess, manifest, repairDuplicatesSw);
-				ApplyCapturedObjectEvents(data, resourceTypesToProcess, manifest, preparation.Helpers.ObjectEventsBytes, applyEventsSw);
-				if (!preparation.GmlCompilationRan)
-				{
-					PruneCodeEntriesOutsideTargetMetadata(data, preparation.CodeMetadataForFinalCleanup ?? ReadCodeMetadataContent(pfs, preparation.Helpers.HelpersDir));
-				}
-				PruneDeletedScriptOrphans(data, manifest);
-				PruneMissingScriptCodeOrphans(data);
-				var integrity = RepairAndValidateImportedData(data, resourceTypesToProcess, preparation.NeedsHeavyFinalize, repairDanglingCodeSw, ensureScriptsSw, integritySw);
-				if (integrity != null && !integrity.Success)
-				{
-					if (await TryApplyXdeltaFallbackFromPatchAsync(dataPath, outputPath, patchPath, pfs, manifest).ConfigureAwait(false))
+					if (!usedMinimalApply && await TryApplyXdeltaFallbackFromPatchAsync(dataPath, outputPath, patchPath, pfs, manifest).ConfigureAwait(false))
 					{
 						return new PatchApplyResult
 						{
 							Success = true
 						};
 					}
-					return new PatchApplyResult
-					{
-						Success = false,
-						Error = "Integrity validation failed: " + string.Join("; ", integrity.Errors.Take(20))
-					};
-				}
-				RepairLocalChildFunctionReferencesFinal(data);
-				if (failedCount > 0)
-				{
-					finalizeSw.Stop();
-					if (await TryApplyXdeltaFallbackFromPatchAsync(dataPath, outputPath, patchPath, pfs, manifest).ConfigureAwait(false))
-					{
-						return new PatchApplyResult
-						{
-							Success = true
-						};
-					}
-					return new PatchApplyResult
-					{
-						Success = false,
-						Error = $"Patch apply failed: {failedCount} resource type(s) failed during import; output was not written"
-					};
+					return inMemoryResult;
 				}
 				phaseSw.Restart();
 				LogService.Log("[PatchService] Saving modified data file...");
@@ -2241,17 +2528,16 @@ public partial class PatchService
 				{
 					Directory.CreateDirectory(outDir);
 				}
-				using (var outStream2 = OpenDataWriteStream(outputPath))
+				using (var outStream = OpenDataWriteStream(outputPath))
 				{
-					await GameMakerIO.WriteAsync(outStream2, data).ConfigureAwait(false);
+					await GameMakerIO.WriteAsync(outStream, data).ConfigureAwait(false);
 				}
 				saveSw.Stop();
 				var savedValidationError = ValidateSavedDataFile(outputPath);
 				if (savedValidationError != null)
 				{
 					DeleteInvalidOutput(outputPath);
-					finalizeSw.Stop();
-					if (await TryApplyXdeltaFallbackFromPatchAsync(dataPath, outputPath, patchPath, pfs, manifest).ConfigureAwait(false))
+					if (!usedMinimalApply && await TryApplyXdeltaFallbackFromPatchAsync(dataPath, outputPath, patchPath, pfs, manifest).ConfigureAwait(false))
 					{
 						return new PatchApplyResult
 						{
@@ -2261,10 +2547,25 @@ public partial class PatchService
 					return new PatchApplyResult
 					{
 						Success = false,
+						AppliedCount = inMemoryResult.AppliedCount,
+						FailedCount = inMemoryResult.FailedCount,
+						Warnings = inMemoryResult.Warnings,
 						Error = "Saved data validation failed: " + savedValidationError
 					};
 				}
-				finalizeSw.Stop();
+				if (usedMinimalApply)
+				{
+					totalSw.Stop();
+					var handler5 = new LogInterpolatedStringHandler(31, 1, out shouldAppend);
+					if (shouldAppend)
+					{
+						handler5.AppendLiteral("[Timing] Minimal apply total: ");
+						handler5.AppendFormatted(totalSw.Elapsed.TotalSeconds, "F1");
+						handler5.AppendLiteral("s");
+					}
+					LogService.Log(ref handler5);
+					return inMemoryResult;
+				}
 				var handler6 = new LogInterpolatedStringHandler(31, 2, out shouldAppend);
 				if (shouldAppend)
 				{
@@ -2306,73 +2607,8 @@ public partial class PatchService
 						}
 					}
 				}
-				if (appliedCount == 0)
-				{
-					if (await TryApplyXdeltaFallbackFromPatchAsync(dataPath, outputPath, patchPath, pfs, manifest).ConfigureAwait(false))
-					{
-						return new PatchApplyResult
-						{
-							Success = true
-						};
-					}
-					return new PatchApplyResult
-					{
-						Success = false,
-						Error = "No resources were applied successfully"
-					};
-				}
-				if (failedCount > 0)
-				{
-					LogService.Warning($"Patch applied with warnings: {appliedCount} succeeded, {failedCount} failed");
-				}
-				var handler8 = new LogInterpolatedStringHandler(235, 15, out shouldAppend);
-				if (shouldAppend)
-				{
-					handler8.AppendLiteral("[Timing] Apply breakdown: patchLoad=");
-					handler8.AppendFormatted(patchLoadSw.Elapsed.TotalSeconds, "F2");
-					handler8.AppendLiteral("s, ");
-					handler8.AppendLiteral("dataLoad=");
-					handler8.AppendFormatted(dataLoadSw.Elapsed.TotalSeconds, "F2");
-					handler8.AppendLiteral("s, nonCode=");
-					handler8.AppendFormatted(nonCodeImportSw.Elapsed.TotalSeconds, "F2");
-					handler8.AppendLiteral("s, ");
-					handler8.AppendLiteral("code=");
-					handler8.AppendFormatted(codeImportSw.Elapsed.TotalSeconds, "F2");
-					handler8.AppendLiteral("s, finalize=");
-					handler8.AppendFormatted(finalizeSw.Elapsed.TotalSeconds, "F2");
-					handler8.AppendLiteral("s, ");
-					handler8.AppendLiteral("save=");
-					handler8.AppendFormatted(saveSw.Elapsed.TotalSeconds, "F2");
-					handler8.AppendLiteral("s, verifyHash=");
-					handler8.AppendFormatted(verifyHashSw.Elapsed.TotalSeconds, "F2");
-					handler8.AppendLiteral("s, ");
-					handler8.AppendLiteral("reorderPreCode=");
-					handler8.AppendFormatted(preCodeReorderSw.Elapsed.TotalSeconds, "F2");
-					handler8.AppendLiteral("s, reorderPostSprite=");
-					handler8.AppendFormatted(postSpriteReorderSw.Elapsed.TotalSeconds, "F2");
-					handler8.AppendLiteral("s, ");
-					handler8.AppendLiteral("reorderFinal=");
-					handler8.AppendFormatted(finalReorderSw.Elapsed.TotalSeconds, "F2");
-					handler8.AppendLiteral("s, repairDupes=");
-					handler8.AppendFormatted(repairDuplicatesSw.Elapsed.TotalSeconds, "F2");
-					handler8.AppendLiteral("s, ");
-					handler8.AppendLiteral("applyEvents=");
-					handler8.AppendFormatted(applyEventsSw.Elapsed.TotalSeconds, "F2");
-					handler8.AppendLiteral("s, repairDangling=");
-					handler8.AppendFormatted(repairDanglingCodeSw.Elapsed.TotalSeconds, "F2");
-					handler8.AppendLiteral("s, ");
-					handler8.AppendLiteral("ensureScripts=");
-					handler8.AppendFormatted(ensureScriptsSw.Elapsed.TotalSeconds, "F2");
-					handler8.AppendLiteral("s, integrity=");
-					handler8.AppendFormatted(integritySw.Elapsed.TotalSeconds, "F2");
-					handler8.AppendLiteral("s");
-				}
-				LogService.Log(ref handler8);
 				LogService.Log("[PatchService] Patch applied successfully");
-				return new PatchApplyResult
-				{
-					Success = true
-				};
+				return inMemoryResult;
 			}
 			finally
 			{
@@ -2432,182 +2668,29 @@ public partial class PatchService
 		try
 		{
 			var totalSw = Stopwatch.StartNew();
-			var phaseSw = new Stopwatch();
-			var patchLoadSw = new Stopwatch();
-			var nonCodeImportSw = new Stopwatch();
-			var codeImportSw = new Stopwatch();
-			var finalizeSw = new Stopwatch();
-			var preCodeReorderSw = new Stopwatch();
-			var postSpriteReorderSw = new Stopwatch();
-			var finalReorderSw = new Stopwatch();
-			var repairDuplicatesSw = new Stopwatch();
-			var applyEventsSw = new Stopwatch();
-			var repairDanglingCodeSw = new Stopwatch();
-			var ensureScriptsSw = new Stopwatch();
-			var integritySw = new Stopwatch();
-			patchLoadSw.Start();
-			phaseSw.Restart();
+			var patchLoadSw = Stopwatch.StartNew();
 			LogService.Log("[PatchService] Loading .g3mpatch file into memory for in-memory apply...");
 			var pfs = await Task.Run(() => PatchFileSystem.LoadFromZip(patchPath, loadExactPayloads: false)).ConfigureAwait(false);
-			var manifest = pfs.Manifest;
-			var applyPlan = manifest?.ApplyPlan ?? BuildPatchApplyPlan(manifest?.Resources ?? new Dictionary<string, ResourceTypeChanges>(StringComparer.OrdinalIgnoreCase));
 			patchLoadSw.Stop();
-			ResourceImportService.SetPatchFileSystem(pfs);
 			try
 			{
-				var resourceTypesToProcess = BuildResourceTypesToProcess(pfs, manifest);
-				var scriptOrderOnly = resourceTypesToProcess.Count == 0 && HasScriptOrderOnlyAssetPayload(pfs);
-				if (scriptOrderOnly)
-				{
-					resourceTypesToProcess.Add("Scripts");
-				}
-				var handler = new LogInterpolatedStringHandler(49, 1, out var shouldAppend);
-				if (shouldAppend)
-				{
-					handler.AppendLiteral("[PatchService] Resources to process (in-memory): ");
-					handler.AppendFormatted(string.Join(", ", resourceTypesToProcess));
-				}
-				LogService.Log(ref handler);
-				if (resourceTypesToProcess.Count == 0)
-				{
-					return new PatchApplyResult
-					{
-						Success = true
-					};
-				}
-				if (!scriptOrderOnly && CanUseMinimalStandardApply(applyPlan, resourceTypesToProcess))
-				{
-					var handler2 = new LogInterpolatedStringHandler(70, 1, out shouldAppend);
-					if (shouldAppend)
-					{
-						handler2.AppendLiteral("[PatchService] Applying only required resource functions (in-memory): ");
-						handler2.AppendFormatted(string.Join(", ", resourceTypesToProcess));
-					}
-					LogService.Log(ref handler2);
-					(var minimalAppliedCount, var minimalFailedCount) = ImportMinimalResources(data, pfs, resourceTypesToProcess, workingDataPath, workingDataPath);
-					if (minimalFailedCount > 0 || minimalAppliedCount == 0)
-					{
-						return new PatchApplyResult
-						{
-							Success = false,
-							Error = (minimalFailedCount > 0) ? $"Patch apply failed: {minimalFailedCount} resource type(s) failed during import; in-memory output was not committed" : "No resources were applied successfully"
-						};
-					}
-					var minimalIntegrity = DataIntegrityService.ValidateOnly(data);
-					if (!minimalIntegrity.Success)
-					{
-						return new PatchApplyResult
-						{
-							Success = false,
-							Error = "Integrity validation failed: " + string.Join("; ", minimalIntegrity.Errors.Take(20))
-						};
-					}
-					totalSw.Stop();
-					var handler3 = new LogInterpolatedStringHandler(41, 1, out shouldAppend);
-					if (shouldAppend)
-					{
-						handler3.AppendLiteral("[Timing] Minimal apply in-memory total: ");
-						handler3.AppendFormatted(totalSw.Elapsed.TotalSeconds, "F1");
-						handler3.AppendLiteral("s");
-					}
-					LogService.Log(ref handler3);
-					return new PatchApplyResult
-					{
-						Success = true
-					};
-				}
-				var hasCodeEntries = CreateImportProgressState(resourceTypesToProcess).HasCodeEntries;
-				var preparation = PreparePatchApply(data, pfs, resourceTypesToProcess, applyPlan, hasCodeEntries, scriptOrderOnly);
-				var failedCount = ImportPatchResources(data, pfs, manifest, resourceTypesToProcess, preparation, hasCodeEntries, workingDataPath, workingDataPath, nonCodeImportSw, codeImportSw, phaseSw, preCodeReorderSw, postSpriteReorderSw, logDetailedCodeImport: false).FailedCount;
-				finalizeSw.Start();
-				ApplyFinalAssetOrder(preparation.NeedsFinalAssetReorder, data, pfs, resourceTypesToProcess, preparation.Helpers, preparation.StagedEmbeddedTexturesDir, scriptOrderOnly, finalReorderSw);
-				RepairImportedResourceStructures(data, preparation.UntouchedEmbeddedTextureSnapshot, resourceTypesToProcess, manifest, repairDuplicatesSw);
-				ApplyCapturedObjectEvents(data, resourceTypesToProcess, manifest, preparation.Helpers.ObjectEventsBytes, applyEventsSw);
-				if (preparation.VariablesFunctionsContent != null && preparation.OriginalGmlForCodeRemap.Count > 0)
-				{
-					preparation.GmlCompilationRan |= RecompileUntouchedCodeForAssetOrderShifts(data, preparation.AssetNamesAtCodeImportStart, preparation.OriginalGmlForCodeRemap, preparation.PatchCodeEntryNames, preparation.Helpers.HelpersDir, preparation.VariablesFunctionsContent);
-				}
-				if (!preparation.GmlCompilationRan)
-				{
-					PruneCodeEntriesOutsideTargetMetadata(data, preparation.CodeMetadataForFinalCleanup ?? ReadCodeMetadataContent(pfs, preparation.Helpers.HelpersDir));
-				}
-				PruneDeletedScriptOrphans(data, manifest);
-				PruneMissingScriptCodeOrphans(data);
-				var integrity = RepairAndValidateImportedData(data, resourceTypesToProcess, preparation.NeedsHeavyFinalize, repairDanglingCodeSw, ensureScriptsSw, integritySw);
-				if (integrity != null && !integrity.Success)
-				{
-					finalizeSw.Stop();
-					return new PatchApplyResult
-					{
-						Success = false,
-						Error = "Integrity validation failed: " + string.Join("; ", integrity.Errors.Take(20))
-					};
-				}
-				RepairLocalChildFunctionReferencesFinal(data);
-				finalizeSw.Stop();
-				if (failedCount > 0)
-				{
-					return new PatchApplyResult
-					{
-						Success = false,
-						Error = $"Patch apply failed: {failedCount} resource type(s) failed during import; in-memory output was not committed"
-					};
-				}
-				totalSw.Stop();
-				var handler4 = new LogInterpolatedStringHandler(55, 2, out shouldAppend);
-				if (shouldAppend)
-				{
-					handler4.AppendLiteral("[Timing] === PATCH APPLY IN-MEMORY TOTAL: ");
-					handler4.AppendFormatted(totalSw.Elapsed.TotalSeconds, "F1");
-					handler4.AppendLiteral("s === RAM: ");
-					handler4.AppendFormatted(Process.GetCurrentProcess().WorkingSet64 / 1024 / 1024);
-					handler4.AppendLiteral("MB");
-				}
-				LogService.Log(ref handler4);
-				var handler5 = new LogInterpolatedStringHandler(211, 12, out shouldAppend);
-				if (shouldAppend)
-				{
-					handler5.AppendLiteral("[Timing] Apply in-memory breakdown: patchLoad=");
-					handler5.AppendFormatted(patchLoadSw.Elapsed.TotalSeconds, "F2");
-					handler5.AppendLiteral("s, ");
-					handler5.AppendLiteral("nonCode=");
-					handler5.AppendFormatted(nonCodeImportSw.Elapsed.TotalSeconds, "F2");
-					handler5.AppendLiteral("s, code=");
-					handler5.AppendFormatted(codeImportSw.Elapsed.TotalSeconds, "F2");
-					handler5.AppendLiteral("s, ");
-					handler5.AppendLiteral("finalize=");
-					handler5.AppendFormatted(finalizeSw.Elapsed.TotalSeconds, "F2");
-					handler5.AppendLiteral("s, reorderPreCode=");
-					handler5.AppendFormatted(preCodeReorderSw.Elapsed.TotalSeconds, "F2");
-					handler5.AppendLiteral("s, ");
-					handler5.AppendLiteral("reorderPostSprite=");
-					handler5.AppendFormatted(postSpriteReorderSw.Elapsed.TotalSeconds, "F2");
-					handler5.AppendLiteral("s, reorderFinal=");
-					handler5.AppendFormatted(finalReorderSw.Elapsed.TotalSeconds, "F2");
-					handler5.AppendLiteral("s, ");
-					handler5.AppendLiteral("repairDupes=");
-					handler5.AppendFormatted(repairDuplicatesSw.Elapsed.TotalSeconds, "F2");
-					handler5.AppendLiteral("s, applyEvents=");
-					handler5.AppendFormatted(applyEventsSw.Elapsed.TotalSeconds, "F2");
-					handler5.AppendLiteral("s, ");
-					handler5.AppendLiteral("repairDangling=");
-					handler5.AppendFormatted(repairDanglingCodeSw.Elapsed.TotalSeconds, "F2");
-					handler5.AppendLiteral("s, ensureScripts=");
-					handler5.AppendFormatted(ensureScriptsSw.Elapsed.TotalSeconds, "F2");
-					handler5.AppendLiteral("s, ");
-					handler5.AppendLiteral("integrity=");
-					handler5.AppendFormatted(integritySw.Elapsed.TotalSeconds, "F2");
-					handler5.AppendLiteral("s");
-				}
-				LogService.Log(ref handler5);
-				return new PatchApplyResult
-				{
-					Success = true
-				};
+				return ApplyPatchToDataCore(
+					data,
+					pfs,
+					workingDataPath,
+					workingDataPath,
+					logDetailedCodeImport: false,
+					validateBeforeApply: false,
+					progress: null,
+					totalSw: totalSw,
+					patchLoadSw: patchLoadSw,
+					out _,
+					out _);
 			}
 			finally
 			{
-				ResourceImportService.SetPatchFileSystem(null);
+				pfs.ReleaseFileData();
+				pfs.ReleaseCodeEntries();
 			}
 		}
 		catch (Exception ex2) when (ModdingCancellation.IsCancellation(ex2))

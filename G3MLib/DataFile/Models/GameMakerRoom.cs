@@ -1,7 +1,6 @@
 using System.Globalization;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Runtime.CompilerServices;
@@ -446,9 +445,8 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
                         var firstLayerInstID = instancesData.InstanceIds.Min();
                         if (firstLayerInstID > maxGameObjectInstanceId)
                         {
-                            // Should this throw a warning instead?
-                            Debug.WriteLine($"The first instance ID ({firstLayerInstID}) " +
-                                            $"of layer (ID {layer.LayerId}) is greater than the last game object ID ({maxGameObjectInstanceId}) ?");
+                            reader.SubmitWarning($"The first instance ID ({firstLayerInstID}) " +
+                                                 $"of layer (ID {layer.LayerId}) is greater than the last game object ID ({maxGameObjectInstanceId})", false, true);
                             continue;
                         }
                     }

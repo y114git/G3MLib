@@ -219,4 +219,108 @@ public class ReferenceIndexTests
 
         Assert.Equal([1, 2], AudioIndex.Unreferenced(data, 1, 4));
     }
+
+    [Fact]
+    public void FindTileUsesMatchesLow19BitTileIndexAcrossLayers()
+    {
+        using var data = GameMakerData.CreateNew2026LTS();
+        GameMakerBackground tileSet = new() { Name = data.Strings.MakeString("ts_main") };
+        GameMakerBackground otherTileSet = new() { Name = data.Strings.MakeString("ts_other") };
+        data.Backgrounds.Add(tileSet);
+        data.Backgrounds.Add(otherTileSet);
+
+        GameMakerRoom room = new() { Name = data.Strings.MakeString("rm_tiles") };
+        GameMakerRoom.Layer matchingLayer = new()
+        {
+            LayerName = data.Strings.MakeString("Tiles_1"),
+            LayerType = GameMakerRoom.LayerType.Tiles,
+            LayerId = 1,
+            Data = new GameMakerRoom.Layer.LayerTilesData
+            {
+                Background = tileSet,
+                TilesX = 3,
+                TilesY = 2,
+                TileData =
+                [
+                    [0u, 7u, (1u << 28) | 7u],
+                    [5u, (3u << 20) | 7u, 0x7FFFFu]
+                ]
+            }
+        };
+        GameMakerRoom.Layer otherSetLayer = new()
+        {
+            LayerName = data.Strings.MakeString("Tiles_2"),
+            LayerType = GameMakerRoom.LayerType.Tiles,
+            LayerId = 2,
+            Data = new GameMakerRoom.Layer.LayerTilesData
+            {
+                Background = otherTileSet,
+                TilesX = 1,
+                TilesY = 1,
+                TileData = [[7u]]
+            }
+        };
+        room.Layers.Add(matchingLayer);
+        room.Layers.Add(otherSetLayer);
+        data.Rooms.Add(room);
+
+        var uses = ReferenceIndex.FindTileUses(data, tileSet, 7);
+
+        Assert.Equal(
+            [
+                new TileUse(room, matchingLayer, 1, 0),
+                new TileUse(room, matchingLayer, 2, 0),
+                new TileUse(room, matchingLayer, 1, 1)
+            ],
+            uses);
+        Assert.Equal([new TileUse(room, matchingLayer, 2, 1)], ReferenceIndex.FindTileUses(data, tileSet, 0x7FFFF));
+        Assert.Empty(ReferenceIndex.FindTileUses(data, tileSet, 99));
+        Assert.Empty(ReferenceIndex.FindTileUses(data, tileSet, -1));
+    }
+
+    [Fact]
+    public void ClassifyStringDistinguishesResourceCodeVariableFunctionOtherAndUnused()
+    {
+        using var data = Load("data-2026.win");
+        var unusedString = data.Strings.MakeString("classify_probe_unused");
+        var otherString = data.Strings.MakeString("classify_probe_room_caption");
+        var variableString = data.Strings.MakeString("classify_probe_var");
+        var functionString = data.Strings.MakeString("classify_probe_func");
+        var codeLiteralString = data.Strings.MakeString("classify_probe_literal");
+        var resourceString = data.Strings.MakeString("classify_probe_sprite");
+
+        data.Rooms[0].Caption = otherString;
+        data.Variables.Add(new GameMakerVariable { Name = variableString });
+        data.Functions.Add(new GameMakerFunction { Name = functionString });
+        data.Sprites.Add(new GameMakerSprite { Name = resourceString });
+
+        var code = GameMakerCode.CreateEmptyEntry(data, "gml_Script_classify_probe");
+        code.Instructions.Add(new GameMakerInstruction
+        {
+            Kind = GameMakerInstruction.Opcode.Push,
+            Type1 = GameMakerInstruction.DataType.String,
+            ValueString = new GameMakerResourceById<GameMakerString, GameMakerChunkSTRG>(codeLiteralString, data.Strings.IndexOf(codeLiteralString))
+        });
+        code.Instructions.Add(new GameMakerInstruction
+        {
+            Kind = GameMakerInstruction.Opcode.Popz,
+            Type1 = GameMakerInstruction.DataType.Variable
+        });
+        code.UpdateLength();
+
+        var index = ReferenceIndex.Build(data, TestContext.Current.CancellationToken);
+
+        Assert.Equal(StringUse.Unused, index.ClassifyString(unusedString));
+        Assert.Equal(StringUse.Other, index.ClassifyString(otherString));
+        Assert.Equal(StringUse.VariableName, index.ClassifyString(variableString));
+        Assert.Equal(StringUse.FunctionName, index.ClassifyString(functionString));
+        Assert.Equal(StringUse.CodeLiteral, index.ClassifyString(codeLiteralString));
+        Assert.Equal(StringUse.ResourceName, index.ClassifyString(resourceString));
+        Assert.Equal(StringUse.ResourceName, index.ClassifyString(data.GameObjects[0].Name));
+
+        // When a string is shared, ResourceName takes precedence over CodeLiteral and Other.
+        data.Rooms[0].Caption = resourceString;
+        index.Update([data.Rooms[0]], TestContext.Current.CancellationToken);
+        Assert.Equal(StringUse.ResourceName, index.ClassifyString(resourceString));
+    }
 }

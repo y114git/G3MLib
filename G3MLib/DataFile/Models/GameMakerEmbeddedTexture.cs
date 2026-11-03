@@ -465,6 +465,8 @@ public class GameMakerEmbeddedTexture : GameMakerNamedResource, IDisposable
         {
             ArgumentNullException.ThrowIfNull(reader);
             Unserialize(reader, _maxEndOfStreamPosition, reader.gameMakerData.IsVersionAtLeast(2022, 5));
+            if (Image?.Format == GMImage.ImageFormat.Unknown)
+                reader.SubmitWarning("Unknown texture image format, texture data is kept as raw bytes", false, true);
         }
 
         /// <summary>

@@ -180,6 +180,54 @@ public sealed class ReferenceIndex
         return [.. (Data.Functions ?? []).Where(f => f?.Name?.Content == name).SelectMany(FindUsages)];
     }
 
+    private const uint TileIndexMask = 0x7FFFFu;
+
+    /// <summary>
+    /// Returns every tile-layer cell in <paramref name="data"/> that uses <paramref name="tileIndex"/> from <paramref name="tileSet"/>.
+    /// </summary>
+    public static IReadOnlyList<TileUse> FindTileUses(GameMakerData data, GameMakerBackground tileSet, int tileIndex)
+    {
+        ArgumentNullException.ThrowIfNull(data);
+        ArgumentNullException.ThrowIfNull(tileSet);
+        if (tileIndex is < 0 or > (int)TileIndexMask)
+        {
+            return [];
+        }
+
+        var target = (uint)tileIndex;
+        List<TileUse> uses = [];
+        foreach (var room in data.Rooms ?? [])
+        {
+            if (room?.Layers is null)
+            {
+                continue;
+            }
+            foreach (var layer in room.Layers)
+            {
+                if (layer?.TilesData is not { } tiles || !ReferenceEquals(tiles.Background, tileSet) || tiles.TileData is not { } grid)
+                {
+                    continue;
+                }
+                for (var y = 0; y < grid.Length; y++)
+                {
+                    var row = grid[y];
+                    if (row is null)
+                    {
+                        continue;
+                    }
+                    for (var x = 0; x < row.Length; x++)
+                    {
+                        if ((row[x] & TileIndexMask) == target)
+                        {
+                            uses.Add(new TileUse(room, layer, x, y));
+                        }
+                    }
+                }
+            }
+        }
+        return uses;
+    }
+
     /// <summary>
     /// Returns assets that nothing uses. A use by the asset itself does not count. Without arguments it checks
     /// objects, sprites, sounds, rooms, backgrounds, paths, scripts, fonts, timelines, shaders, sequences,
@@ -282,6 +330,69 @@ public sealed class ReferenceIndex
             }
             yield return use;
         }
+    }
+
+    /// <summary>
+    /// Classifies how <paramref name="s"/> is used in the indexed data file from its recorded reverse references.
+    /// </summary>
+    /// <remarks>
+    /// Each kind is decided from <see cref="FindUsages(object)"/> for <paramref name="s"/> in the following priority order:
+    /// <list type="bullet">
+    /// <item><description><see cref="StringUse.Unused"/> when the index holds no references to <paramref name="s"/>.</description></item>
+    /// <item><description><see cref="StringUse.ResourceName"/> when any reference is the <c>Name</c> property of a <see cref="GameMakerNamedResource"/> other than <see cref="GameMakerVariable"/> or <see cref="GameMakerFunction"/>.</description></item>
+    /// <item><description><see cref="StringUse.CodeLiteral"/> when any reference is a string operand of a <see cref="GameMakerInstruction"/> (<see cref="Reference.Member"/> is <c>String</c>).</description></item>
+    /// <item><description><see cref="StringUse.VariableName"/> when any reference is the <c>Name</c> property of a <see cref="GameMakerVariable"/> or <see cref="GameMakerCodeLocals.LocalVar"/>.</description></item>
+    /// <item><description><see cref="StringUse.FunctionName"/> when any reference is the <c>Name</c> or <c>ExtName</c> property of a <see cref="GameMakerFunction"/> or <see cref="GameMakerExtensionFunction"/>.</description></item>
+    /// <item><description><see cref="StringUse.Other"/> when <paramref name="s"/> has at least one reference that does not match the kinds above (such as room captions, general info strings, shader sources or option constants).</description></item>
+    /// </list>
+    /// </remarks>
+    public StringUse ClassifyString(GameMakerString s)
+    {
+        ArgumentNullException.ThrowIfNull(s);
+        if (!_usages.TryGetValue(s, out var uses) || uses.Count == 0)
+        {
+            return StringUse.Unused;
+        }
+
+        var hasCodeLiteral = false;
+        var hasVariableName = false;
+        var hasFunctionName = false;
+        foreach (var use in uses)
+        {
+            if (use.Holder is GameMakerNamedResource and not (GameMakerVariable or GameMakerFunction) &&
+                use.Member == nameof(GameMakerNamedResource.Name))
+            {
+                return StringUse.ResourceName;
+            }
+            if (use.Holder is GameMakerInstruction && use.Member == "String")
+            {
+                hasCodeLiteral = true;
+            }
+            else if (use.Holder is GameMakerVariable or GameMakerCodeLocals.LocalVar &&
+                     use.Member == nameof(GameMakerVariable.Name))
+            {
+                hasVariableName = true;
+            }
+            else if ((use.Holder is GameMakerFunction && use.Member == nameof(GameMakerFunction.Name)) ||
+                     (use.Holder is GameMakerExtensionFunction && use.Member is nameof(GameMakerExtensionFunction.Name) or nameof(GameMakerExtensionFunction.ExtName)))
+            {
+                hasFunctionName = true;
+            }
+        }
+
+        if (hasCodeLiteral)
+        {
+            return StringUse.CodeLiteral;
+        }
+        if (hasVariableName)
+        {
+            return StringUse.VariableName;
+        }
+        if (hasFunctionName)
+        {
+            return StringUse.FunctionName;
+        }
+        return StringUse.Other;
     }
 
     /// <summary>Name of a named resource or string, otherwise <see langword="null"/>.</summary>
@@ -685,6 +796,30 @@ internal sealed class ModelWalker(GameMakerData data, HashSet<object> registry)
     }
 }
 
+/// <summary>
+/// Primary kind of use a <see cref="GameMakerString"/> has in a <see cref="ReferenceIndex"/>.
+/// </summary>
+public enum StringUse
+{
+    /// <summary>The string is the <c>Name</c> of a <see cref="GameMakerNamedResource"/> other than a variable or function entry.</summary>
+    ResourceName,
+
+    /// <summary>The string is referenced as a string literal operand by a bytecode instruction (<c>String</c> member on <see cref="GameMakerInstruction"/>).</summary>
+    CodeLiteral,
+
+    /// <summary>The string is the <c>Name</c> of a <see cref="GameMakerVariable"/> or <see cref="GameMakerCodeLocals.LocalVar"/>.</summary>
+    VariableName,
+
+    /// <summary>The string is the <c>Name</c> or <c>ExtName</c> of a <see cref="GameMakerFunction"/> or <see cref="GameMakerExtensionFunction"/>.</summary>
+    FunctionName,
+
+    /// <summary>The string is referenced only by other model properties (such as general info strings, room captions, layer names or shader sources).</summary>
+    Other,
+
+    /// <summary>Nothing in the indexed data file references the string.</summary>
+    Unused
+}
+
 /// <summary>Kinds of objects <see cref="ReferenceIndex.FindUnreferenced(UnreferencedKind, bool)"/> can look for.</summary>
 [Flags]
 public enum UnreferencedKind
@@ -697,6 +832,13 @@ public enum UnreferencedKind
     TexturePageItems = 32,
     EmptyPages = 64
 }
+
+/// <summary>One cell in a room tile layer that uses a tile from a tileset.</summary>
+/// <param name="Room">The room that contains the tile use.</param>
+/// <param name="Layer">The room layer that contains the tile cell, when the use is on a layer.</param>
+/// <param name="X">Column coordinate in the tile layer grid.</param>
+/// <param name="Y">Row coordinate in the tile layer grid.</param>
+public sealed record TileUse(GameMakerRoom Room, GameMakerRoom.Layer? Layer, int X, int Y);
 
 /// <summary>What one code entry uses.</summary>
 public sealed record CodeScanResult(IReadOnlyList<GameMakerVariable> Variables, IReadOnlyList<GameMakerFunction> Functions, IReadOnlyList<GameMakerString> Strings, IReadOnlyList<object> Assets);

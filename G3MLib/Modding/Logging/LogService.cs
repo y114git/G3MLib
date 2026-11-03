@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 
 namespace G3MLib.Modding.Logging;
@@ -22,6 +23,7 @@ public static class LogService
 {
 	private static readonly AsyncLocal<string?> CurrentOperation = new();
 	private static readonly AsyncLocal<Scope?> CurrentScope = new();
+	private static readonly AsyncLocal<WarningCollector?> CurrentWarningCollector = new();
 
 	public static event Action<ModdingLogMessage>? MessageLogged;
 	public static event Action<ModdingProgress>? ProgressReported;
@@ -48,6 +50,25 @@ public static class LogService
 		public void Dispose()
 		{
 			if (ReferenceEquals(CurrentScope.Value, this)) CurrentScope.Value = previous;
+		}
+	}
+
+	internal static IDisposable CollectWarnings(out ConcurrentQueue<string> warnings)
+	{
+		var queue = new ConcurrentQueue<string>();
+		warnings = queue;
+		var collector = new WarningCollector(CurrentWarningCollector.Value, queue);
+		CurrentWarningCollector.Value = collector;
+		return collector;
+	}
+
+	private sealed class WarningCollector(WarningCollector? previous, ConcurrentQueue<string> warnings) : IDisposable
+	{
+		public WarningCollector? Previous { get; } = previous;
+		public ConcurrentQueue<string> Warnings { get; } = warnings;
+		public void Dispose()
+		{
+			if (ReferenceEquals(CurrentWarningCollector.Value, this)) CurrentWarningCollector.Value = Previous;
 		}
 	}
 
@@ -86,6 +107,11 @@ public static class LogService
 
 	private static void Write(ModdingLogLevel level, string message)
 	{
+		if (level == ModdingLogLevel.Warning)
+		{
+			for (var collector = CurrentWarningCollector.Value; collector is not null; collector = collector.Previous)
+				collector.Warnings.Enqueue(message);
+		}
 		var sink = CurrentScope.Value is { } scope ? scope.Message : MessageLogged;
 		if (level != ModdingLogLevel.Trace || Verbose || sink is not null)
 			sink?.Invoke(new ModdingLogMessage { Level = level, Message = message });

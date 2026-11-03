@@ -63,10 +63,50 @@ public sealed class PatchFileSystem
 
 	public static PatchFileSystem LoadFromZip(string zipPath, bool loadExactPayloads = true, bool skipAsmBackedGml = false)
 	{
+		var fileInfo = new FileInfo(zipPath);
+		if (fileInfo.Length > ModConfig.MaxPayloadBytes)
+		{
+			throw new InvalidDataException($"Payload file exceeds maximum allowed size of {ModConfig.MaxPayloadBytes} bytes.");
+		}
 		var sw = Stopwatch.StartNew();
-		var zipLength = new FileInfo(zipPath).Length;
-		using var zipStream = new FileStream(zipPath, FileMode.Open, FileAccess.Read, FileShare.Read, 1048576, FileOptions.SequentialScan);
-		using var archive = new ZipArchive(zipStream, ZipArchiveMode.Read);
+		using var fileStream = new FileStream(zipPath, FileMode.Open, FileAccess.Read, FileShare.Read, 1048576, FileOptions.SequentialScan);
+		return LoadFromSeekableZipStream(fileStream, loadExactPayloads, skipAsmBackedGml, sw);
+	}
+
+	public static PatchFileSystem LoadFromZip(Stream zipStream, bool loadExactPayloads = true, bool skipAsmBackedGml = false)
+	{
+		ArgumentNullException.ThrowIfNull(zipStream);
+		var sw = Stopwatch.StartNew();
+		if (!zipStream.CanSeek)
+		{
+			using var bufferedStream = new MemoryStream();
+			var buffer = new byte[65536];
+			long totalRead = 0;
+			int bytesRead;
+			while ((bytesRead = zipStream.Read(buffer, 0, buffer.Length)) > 0)
+			{
+				totalRead += bytesRead;
+				if (totalRead > ModConfig.MaxPayloadBytes)
+				{
+					throw new InvalidDataException($"Payload stream exceeds maximum allowed size of {ModConfig.MaxPayloadBytes} bytes.");
+				}
+				bufferedStream.Write(buffer, 0, bytesRead);
+			}
+			bufferedStream.Position = 0;
+			return LoadFromSeekableZipStream(bufferedStream, loadExactPayloads, skipAsmBackedGml, sw);
+		}
+		if (zipStream.Length - zipStream.Position > ModConfig.MaxPayloadBytes)
+		{
+			throw new InvalidDataException($"Payload stream exceeds maximum allowed size of {ModConfig.MaxPayloadBytes} bytes.");
+		}
+		return LoadFromSeekableZipStream(zipStream, loadExactPayloads, skipAsmBackedGml, sw);
+	}
+
+	private static PatchFileSystem LoadFromSeekableZipStream(Stream archiveStream, bool loadExactPayloads, bool skipAsmBackedGml, Stopwatch sw)
+	{
+		var zipLength = archiveStream.Length;
+		var zipStream = archiveStream;
+		using var archive = new ZipArchive(zipStream, ZipArchiveMode.Read, leaveOpen: true);
 		var pfs = new PatchFileSystem(archive.Entries.Count);
 		HashSet<string>? asmBackedCodeKeys = null;
 		if (skipAsmBackedGml)
@@ -92,6 +132,10 @@ public sealed class PatchFileSystem
 				continue;
 			}
 			byte[] bytes;
+			if (entry2.Length > ModConfig.MaxPayloadBytes)
+			{
+				throw new InvalidDataException($"Archive entry '{entry2.FullName}' exceeds maximum allowed size.");
+			}
 			using (var stream = entry2.Open())
 			{
 				if (entry2.Length > 0)
@@ -102,7 +146,18 @@ public sealed class PatchFileSystem
 				else
 				{
 					using var buf = new MemoryStream();
-					stream.CopyTo(buf);
+					var buffer = new byte[65536];
+					long totalRead = 0;
+					int bytesRead;
+					while ((bytesRead = stream.Read(buffer, 0, buffer.Length)) > 0)
+					{
+						totalRead += bytesRead;
+						if (totalRead > ModConfig.MaxPayloadBytes)
+						{
+							throw new InvalidDataException($"Archive entry '{entry2.FullName}' exceeds maximum allowed size.");
+						}
+						buf.Write(buffer, 0, bytesRead);
+					}
 					bytes = buf.ToArray();
 				}
 			}
@@ -110,7 +165,7 @@ public sealed class PatchFileSystem
 			{
 				try
 				{
-					pfs.Manifest = JsonSerializer.Deserialize<G3MPatchManifest>(bytes);
+					pfs.Manifest = JsonSerializer.Deserialize<G3MPatchManifest>(DecodeUtf8(bytes));
 				}
 				catch
 				{

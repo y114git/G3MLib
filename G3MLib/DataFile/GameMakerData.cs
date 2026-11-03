@@ -317,6 +317,40 @@ public class GameMakerData : IDisposable
     public IList<GameMakerParticleSystemEmitter> ParticleSystemEmitters => FORM.PSEM?.List;
 
 
+    private readonly List<LoadWarning> _loadWarnings = [];
+    private readonly object _loadWarningsLock = new();
+
+    /// <summary>
+    /// The warnings the reader raised while this data file was read, in the order they were raised.
+    /// The list is complete only after the read finishes; returns a snapshot copy so concurrent access mid-read does not race.
+    /// Empty for a new data file and for a file that read cleanly.
+    /// </summary>
+    public IReadOnlyList<LoadWarning> LoadWarnings
+    {
+        get
+        {
+            lock (_loadWarningsLock)
+            {
+                return _loadWarnings.ToArray();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Whether the reader skipped or could not model data (an unknown chunk, an unknown or skipped object, an unsupported bytecode version, or an important warning),
+    /// so that writing the data file may not reproduce everything that was read.
+    /// </summary>
+    public bool MayLoseDataOnSave { get; private set; }
+
+    internal void AddLoadWarning(LoadWarning warning, bool mayLoseData)
+    {
+        lock (_loadWarningsLock)
+        {
+            _loadWarnings.Add(warning);
+            MayLoseDataOnSave |= mayLoseData;
+        }
+    }
+
     /// <summary>
     /// Whether this is an unsupported bytecode version.
     /// </summary>

@@ -10,6 +10,11 @@ public abstract class GameMakerChunk
     public abstract string Name { get; }
     public uint Length { get; internal set; }
 
+    /// <summary>
+    /// The absolute offset of the start of the chunk header (its name) in the file the chunk was read from. Zero for chunks that were not read.
+    /// </summary>
+    public long Offset { get; internal set; }
+
     internal abstract void SerializeChunk(GameMakerWriter writer);
     internal abstract void UnserializeChunk(GameMakerReader reader);
     internal abstract uint UnserializeObjectCount(GameMakerReader reader);
@@ -71,6 +76,7 @@ public abstract class GameMakerChunk
         try
         {
             // Read name and length
+            var offset = reader.AbsPosition;
             name = reader.ReadChars(4);
             var length = reader.ReadUInt32();
 
@@ -85,6 +91,7 @@ public abstract class GameMakerChunk
             Util.DebugUtil.Assert(chunk.Name == name,
                                   $"Chunk name mismatch: expected \"{name}\", got \"{chunk.Name}\".");
             chunk.Length = length;
+            chunk.Offset = offset;
 
             // Read chunk contents
             reader.SubmitMessage("Reading chunk " + chunk.Name);
@@ -93,6 +100,8 @@ public abstract class GameMakerChunk
             reader.gameMakerData.ReadingChunkName = name;
             try
             {
+                if (chunk is GameMakerRawChunk)
+                    reader.SubmitWarning($"Unknown chunk \"{name}\" is kept as raw data and not modelled", false, true);
                 chunk.UnserializeChunk(reader);
             }
             finally
@@ -149,6 +158,7 @@ public abstract class GameMakerChunk
         try
         {
             // Read name and length
+            var offset = reader.AbsPosition;
             name = reader.ReadChars(4);
             var length = reader.ReadUInt32();
 
@@ -159,6 +169,7 @@ public abstract class GameMakerChunk
             Util.DebugUtil.Assert(chunk.Name == name,
                                   $"Chunk name mismatch: expected \"{name}\", got \"{chunk.Name}\".");
             chunk.Length = length;
+            chunk.Offset = offset;
 
             // Count objects in chunk
             var chunkStart = reader.Position;

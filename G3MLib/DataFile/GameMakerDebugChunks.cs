@@ -68,6 +68,7 @@ public class GameMakerDebugFORM : GameMakerChunk
         var name = "(unknown)";
         try
         {
+            var offset = reader.AbsPosition;
             name = reader.ReadChars(4);
             var length = reader.ReadUInt32();
             if (length > formEnd - reader.Position)
@@ -75,6 +76,7 @@ public class GameMakerDebugFORM : GameMakerChunk
 
             var chunk = CreateChunk(name);
             chunk.Length = length;
+            chunk.Offset = offset;
 
             reader.CopyChunkToBuffer(length);
             var lengthReader = reader.EnsureLengthFromHere(length);
@@ -91,12 +93,14 @@ public class GameMakerDebugFORM : GameMakerChunk
 
     private static (uint, GameMakerChunk) CountDebugChunkChildObjects(GameMakerReader reader, long formEnd)
     {
+        var offset = reader.AbsPosition;
         var name = reader.ReadChars(4);
         var length = reader.ReadUInt32();
         if (length > formEnd - reader.Position)
             throw new IOException("Debug chunk exceeds FORM bounds.");
 
         var chunk = CreateChunk(name);
+        chunk.Offset = offset;
         chunk.Length = length;
         var startPos = reader.Position;
 

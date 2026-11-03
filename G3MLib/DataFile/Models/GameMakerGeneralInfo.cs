@@ -640,6 +640,8 @@ public class GameMakerGeneralInfo : GameMakerObject, IDisposable
         }
         reader.gameMakerData.UnsupportedBytecodeVersion = BytecodeVersion is < 13 or > 17;
         reader.Bytecode14OrLower = BytecodeVersion <= 14;
+        if (reader.gameMakerData.UnsupportedBytecodeVersion)
+            reader.SubmitWarning($"Unsupported bytecode version {BytecodeVersion}, the instructions of every code entry are kept as raw data", false, true);
     }
 
     /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>

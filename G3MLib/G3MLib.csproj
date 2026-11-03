@@ -8,7 +8,7 @@
     <AssemblyTitle>G3MLib</AssemblyTitle>
     <ProductName>G3MLib</ProductName>
     <PackageId>G3MLib</PackageId>
-    <Version>1.1.0</Version>
+    <Version>1.1.1</Version>
     <Authors>Y114</Authors>
     <Copyright>Copyright © 2026 Y114</Copyright>
     <Description>.NET library for reading, writing, analyzing, decompiling, patching, and merging GameMaker data files and more.</Description>
