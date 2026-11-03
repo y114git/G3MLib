@@ -948,7 +948,6 @@ public static partial class MergeService
 				var patchProgressStart = 15 + pi * 50 / patchFileSystems.Length;
 				var patchProgressEnd = 15 + (pi + 1) * 50 / patchFileSystems.Length;
 
-				// ─── Merge regular files ───
 				var allFiles = pfs.GetAllFiles();
 				var fileIdx = 0;
 				var totalFiles = allFiles.Count;
@@ -1040,7 +1039,6 @@ public static partial class MergeService
 				var midProgress = (patchProgressStart + patchProgressEnd) / 2;
 				LogService.Progress(midProgress, 100);
 
-				// ─── Merge code entries (GML + ASM) ───
 				var codeIdx = 0;
 				var totalCode = pfs.GmlEntries.Count;
 				int codeAdded = 0, codeConflict = 0, codeMerged = 0;
@@ -4773,15 +4771,16 @@ public static partial class MergeService
 	private static string RefPattern(string identifier) =>
 		Regex.Escape(NormalizeGmlReference(identifier));
 
-	// Game scripts are untrusted text: the scan cannot backtrack, and one that still times out counts as no match instead of hanging the merge
+	// Game scripts are untrusted text: a scan that times out counts as no match instead of hanging the merge, and is logged
 	private static bool SafeIsMatch(string input, string pattern, RegexOptions options)
 	{
 		try
 		{
-			return Regex.IsMatch(input, pattern, options | RegexOptions.NonBacktracking, TimeSpan.FromSeconds(2));
+			return Regex.IsMatch(input, pattern, options, TimeSpan.FromSeconds(2));
 		}
 		catch (RegexMatchTimeoutException)
 		{
+			LogService.Warning("A script scan timed out and was counted as no match.");
 			return false;
 		}
 	}
