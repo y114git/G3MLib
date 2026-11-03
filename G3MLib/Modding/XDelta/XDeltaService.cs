@@ -54,7 +54,7 @@ public class XDeltaService
 
 		if (TryEnsureOutputDirectory(outputPath) is { } failure)
 			return failure;
-		return await ExecuteXDeltaAsync(["-e", "-s", originalPath, modifiedPath, outputPath]).ConfigureAwait(false);
+		return await ExecuteXDeltaAsync(["-e", "-s", Path.GetFullPath(originalPath), Path.GetFullPath(modifiedPath), Path.GetFullPath(outputPath)]).ConfigureAwait(false);
 	}
 
 	public async Task<XDeltaResult> ApplyPatchAsync(string originalPath, string patchPath, string outputPath)
@@ -68,7 +68,7 @@ public class XDeltaService
 
 		if (TryEnsureOutputDirectory(outputPath) is { } failure)
 			return failure;
-		return await ExecuteXDeltaAsync(["-d", "-s", originalPath, patchPath, outputPath]).ConfigureAwait(false);
+		return await ExecuteXDeltaAsync(["-d", "-s", Path.GetFullPath(originalPath), Path.GetFullPath(patchPath), Path.GetFullPath(outputPath)]).ConfigureAwait(false);
 	}
 
 	public Task<XDeltaResult> ExecuteRawAsync(string[] args)

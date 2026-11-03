@@ -240,4 +240,12 @@ public sealed class ProjectContextTests
             }
         }
     }
+
+    [Fact]
+    public void ScriptsAreNotAllowedUntilTheHostTurnsThemOn()
+    {
+        var context = ProjectContext.CreateWithDataFilePaths("input.win", "output.win", "project.json");
+
+        Assert.False(context.AllowScripts);
+    }
 }

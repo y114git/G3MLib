@@ -19,8 +19,9 @@ internal static class MurmurHash
     /// </remarks>
     public static uint Hash(ReadOnlySpan<char> chars, uint seed = 0)
     {
-        // Allocate (probably) enough space on stack - it's fine if there isn't enough in edge cases
-        Span<byte> utf8 = stackalloc byte[chars.Length * 2];
+        // Short text is encoded on the stack, long text (a name from a data file has no length limit) on the heap
+        var byteCount = Encoding.UTF8.GetByteCount(chars);
+        Span<byte> utf8 = byteCount <= 512 ? stackalloc byte[512] : new byte[byteCount];
 
         // Decode UTF8 into stack memory and hash it
         var numBytes = Encoding.UTF8.GetBytes(chars, utf8);

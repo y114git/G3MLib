@@ -20,6 +20,8 @@ internal static class Statements
     /// </summary>
     public static IASTNode? ParseStatement(ParseContext context)
     {
+        // Deeply nested input throws a catchable exception here instead of overflowing the stack.
+        System.Runtime.CompilerServices.RuntimeHelpers.EnsureSufficientExecutionStack();
         if (context.EndOfCode)
         {
             context.CompileContext.PushError("Unexpected end of code");

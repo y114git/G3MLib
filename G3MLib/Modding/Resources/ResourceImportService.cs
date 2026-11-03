@@ -1177,6 +1177,12 @@ public static partial class ResourceImportService
 
 	private static string ResolveTypeDir(string inputDir, string resourceType)
 	{
+		// A folder that is already the type folder stays as it is, even when one of its entries has the name of the type.
+		if (Path.GetFileName(Path.TrimEndingDirectorySeparator(inputDir)).Equals(resourceType, StringComparison.OrdinalIgnoreCase))
+		{
+			return inputDir;
+		}
+
 		var typeDir = Path.Combine(inputDir, resourceType);
 		return DirExists(typeDir) ? typeDir : inputDir;
 	}
@@ -1403,6 +1409,13 @@ public static partial class ResourceImportService
 	{
 		ArgumentNullException.ThrowIfNull(data);
 		ArgumentNullException.ThrowIfNull(only);
+		foreach (var pair in only)
+		{
+			if (pair.Value is not null && IsFilterUnsupported(pair.Key))
+			{
+				throw new NotSupportedException($"Resource type '{pair.Key}' does not support filtering.");
+			}
+		}
 		return BatchRun.RunImport(progress, cancellationToken, delegate
 		{
 			HashSet<string> ran = new(StringComparer.Ordinal);
@@ -1614,7 +1627,8 @@ public static partial class ResourceImportService
 		foreach (var file in files)
 		{
 			var name = Path.GetFileNameWithoutExtension(file);
-			if (!name.Equals("config", StringComparison.OrdinalIgnoreCase))
+			// A resource stored both as a folder and as a loose file is imported once, from its folder.
+			if (!name.Equals("config", StringComparison.OrdinalIgnoreCase) && !entries.Exists(e => e.Name.Equals(name, StringComparison.Ordinal)))
 			{
 				entries.Add((name, file));
 			}

@@ -461,10 +461,10 @@ public class GMImage
     // Either retrieves the known uncompressed data size, or makes a lowball guess as to what it could be
     private int GetInitialUncompressedBufferCapacity()
     {
-        if (_bz2UncompressedSize != -1)
+        if (_bz2UncompressedSize >= 0)
         {
-            // We already know the uncompressed size, so use it
-            return _bz2UncompressedSize;
+            // The size comes from the file, so it is only a hint: a wrong or hostile value must not force a huge allocation up front
+            return Math.Min(_bz2UncompressedSize, 64 * 1024 * 1024);
         }
         else
         {

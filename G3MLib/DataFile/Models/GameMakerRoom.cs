@@ -1879,10 +1879,13 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
                 return count;
             }
 
+            // Rows are allocated before the data is read, and compressed data can describe about 100 times its own size, so the count is capped at 2^28 tiles (1 GiB of tile ids).
+            private const ulong MaxTilesPerLayer = 1UL << 28;
+
             private static long GetTileCount(uint tilesX, uint tilesY)
             {
                 if (tilesX > int.MaxValue || tilesY > int.MaxValue ||
-                    (ulong)tilesX * tilesY > int.MaxValue)
+                    (ulong)tilesX * tilesY > MaxTilesPerLayer)
                     throw new IOException("Tile layer is too large to deserialize.");
 
                 return (long)tilesX * tilesY;

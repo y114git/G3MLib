@@ -57,6 +57,12 @@ public class ReturnNode(IExpressionNode value) : IStatementNode, IBlockCleanupNo
         ArgumentNullException.ThrowIfNull(printer);
         printer.Write("return ");
         printer.PrintNode(Value);
+
+        if (!printer.Context.Settings.UseSemicolon)
+        {
+            // Without this, a following statement that starts with ( or [ would read as part of the return value
+            printer.Write(';');
+        }
     }
 
     /// <inheritdoc/>

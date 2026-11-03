@@ -31,9 +31,9 @@ public sealed partial class ProjectContext
     /// Whether script importing should be allowed on this project context.
     /// </summary>
     /// <remarks>
-    /// This can be disabled as one layer of a security measure, but projects should already be trusted/audited before importing.
+    /// Off by default: a project folder can name C# scripts that run with the rights of the process during import, so the host turns this on only for projects the user trusts.
     /// </remarks>
-    public bool AllowScripts { get; } = true;
+    public bool AllowScripts { get; set; }
 
     /// <summary>
     /// Current directory associated with loading data for this project. Must always be set.

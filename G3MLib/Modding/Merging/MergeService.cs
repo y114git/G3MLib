@@ -4780,21 +4780,34 @@ public static partial class MergeService
 	private static string RefPattern(string identifier) =>
 		Regex.Escape(NormalizeGmlReference(identifier));
 
-	private static bool IsIdentifierUsedAsObjectArgument(string gml, string identifier)
+		// Game scripts are untrusted text: a timed-out scan counts as no match instead of hanging the merge
+	private static bool SafeIsMatch(string input, string pattern, RegexOptions options)
+	{
+		try
+		{
+			return Regex.IsMatch(input, pattern, options, TimeSpan.FromSeconds(2));
+		}
+		catch (RegexMatchTimeoutException)
+		{
+			return false;
+		}
+	}
+
+private static bool IsIdentifierUsedAsObjectArgument(string gml, string identifier)
 	{
 		var escaped = RefPattern(identifier);
-		return Regex.IsMatch(gml, $@"\b(?:i_ex|instance_number|instance_exists|instance_find)\s*\(\s*{escaped}\b", RegexOptions.IgnoreCase) ||
-			   Regex.IsMatch(gml, $@"\b{escaped}\s*\.\s*[A-Za-z_]\w*", RegexOptions.IgnoreCase) ||
-			   Regex.IsMatch(gml, $@"\b(?:instance_create|instance_create_depth|instance_create_layer|instance_place|place_meeting|position_meeting|collision_point)\s*\((?:[^,\r\n]*,\s*){{2}}{escaped}\b", RegexOptions.IgnoreCase) ||
-			   Regex.IsMatch(gml, $@"\bcollision_circle\s*\((?:[^,\r\n]*,\s*){{3}}{escaped}\b", RegexOptions.IgnoreCase) ||
-			   Regex.IsMatch(gml, $@"\b(?:collision_rectangle|collision_line)\s*\((?:[^,\r\n]*,\s*){{4}}{escaped}\b", RegexOptions.IgnoreCase) ||
-			   Regex.IsMatch(gml, $@"\bwith\s*\(\s*{escaped}\s*\)", RegexOptions.IgnoreCase);
+		return SafeIsMatch(gml, $@"\b(?:i_ex|instance_number|instance_exists|instance_find)\s*\(\s*{escaped}\b", RegexOptions.IgnoreCase) ||
+			   SafeIsMatch(gml, $@"\b{escaped}\s*\.\s*[A-Za-z_]\w*", RegexOptions.IgnoreCase) ||
+			   SafeIsMatch(gml, $@"\b(?:instance_create|instance_create_depth|instance_create_layer|instance_place|place_meeting|position_meeting|collision_point)\s*\((?:[^,\r\n]*,\s*){{2}}{escaped}\b", RegexOptions.IgnoreCase) ||
+			   SafeIsMatch(gml, $@"\bcollision_circle\s*\((?:[^,\r\n]*,\s*){{3}}{escaped}\b", RegexOptions.IgnoreCase) ||
+			   SafeIsMatch(gml, $@"\b(?:collision_rectangle|collision_line)\s*\((?:[^,\r\n]*,\s*){{4}}{escaped}\b", RegexOptions.IgnoreCase) ||
+			   SafeIsMatch(gml, $@"\bwith\s*\(\s*{escaped}\s*\)", RegexOptions.IgnoreCase);
 	}
 
 	private static bool IsIdentifierUsedAsSoundArgument(string gml, string identifier)
 	{
 		var escaped = RefPattern(identifier);
-		return Regex.IsMatch(
+		return SafeIsMatch(
 			gml,
 			$@"\b(?:audio_play_sound|sound_play|snd_play|snd_play_volume|audio_stop_sound|audio_pause_sound|audio_resume_sound|audio_is_playing)\s*\(\s*{escaped}\b",
 			RegexOptions.IgnoreCase);
@@ -4805,15 +4818,15 @@ public static partial class MergeService
 		var escaped = RefPattern(identifier);
 		if (IsLikelySpriteVariableName(identifier))
 			return true;
-		return Regex.IsMatch(
+		return SafeIsMatch(
 				   gml,
 				   $@"\b(?:draw_sprite|draw_sprite_ext|draw_sprite_part|draw_sprite_part_ext|sprite_get_width|sprite_get_height|sprite_get_number|c_sprite)\s*\(\s*{escaped}\b",
 				   RegexOptions.IgnoreCase) ||
-			   Regex.IsMatch(
+			   SafeIsMatch(
 				   gml,
 				   $@"\b(?:scr_marker|scr_dark_marker)\s*\((?:[^,\r\n]*,\s*){{2}}{escaped}\b",
 				   RegexOptions.IgnoreCase) ||
-			   Regex.IsMatch(
+			   SafeIsMatch(
 				   gml,
 				   $@"\b(?:sprite_index|mask_index)\s*=\s*{escaped}\b",
 				   RegexOptions.IgnoreCase);
@@ -4823,60 +4836,60 @@ public static partial class MergeService
 	{
 		var escaped = RefPattern(identifier);
 		return IsLikelyResourceVariableName(identifier, "font", "fnt") ||
-			   Regex.IsMatch(gml, $@"\b(?:draw_set_font|font_get_name|font_get_size)\s*\(\s*{escaped}\b", RegexOptions.IgnoreCase);
+			   SafeIsMatch(gml, $@"\b(?:draw_set_font|font_get_name|font_get_size)\s*\(\s*{escaped}\b", RegexOptions.IgnoreCase);
 	}
 
 	private static bool IsIdentifierUsedAsBackgroundArgument(string gml, string identifier)
 	{
 		var escaped = RefPattern(identifier);
 		return IsLikelyResourceVariableName(identifier, "background", "bg", "bkg") ||
-			   Regex.IsMatch(gml, $@"\b(?:background_get_width|background_get_height|draw_background|draw_background_ext)\s*\(\s*{escaped}\b", RegexOptions.IgnoreCase) ||
-			   Regex.IsMatch(gml, $@"\bbackground_index\s*=\s*{escaped}\b", RegexOptions.IgnoreCase);
+			   SafeIsMatch(gml, $@"\b(?:background_get_width|background_get_height|draw_background|draw_background_ext)\s*\(\s*{escaped}\b", RegexOptions.IgnoreCase) ||
+			   SafeIsMatch(gml, $@"\bbackground_index\s*=\s*{escaped}\b", RegexOptions.IgnoreCase);
 	}
 
 	private static bool IsIdentifierUsedAsPathArgument(string gml, string identifier)
 	{
 		var escaped = RefPattern(identifier);
 		return IsLikelyResourceVariableName(identifier, "path", "pth") ||
-			   Regex.IsMatch(gml, $@"\bpath_\w+\s*\(\s*{escaped}\b", RegexOptions.IgnoreCase) ||
-			   Regex.IsMatch(gml, $@"\bpath_index\s*=\s*{escaped}\b", RegexOptions.IgnoreCase);
+			   SafeIsMatch(gml, $@"\bpath_\w+\s*\(\s*{escaped}\b", RegexOptions.IgnoreCase) ||
+			   SafeIsMatch(gml, $@"\bpath_index\s*=\s*{escaped}\b", RegexOptions.IgnoreCase);
 	}
 
 	private static bool IsIdentifierUsedAsScriptArgument(string gml, string identifier)
 	{
 		var escaped = RefPattern(identifier);
 		return IsLikelyResourceVariableName(identifier, "script", "scr") ||
-			   Regex.IsMatch(gml, $@"\bscript_execute\s*\(\s*{escaped}\b", RegexOptions.IgnoreCase);
+			   SafeIsMatch(gml, $@"\bscript_execute\s*\(\s*{escaped}\b", RegexOptions.IgnoreCase);
 	}
 
 	private static bool IsIdentifierUsedAsTimelineArgument(string gml, string identifier)
 	{
 		var escaped = RefPattern(identifier);
 		return IsLikelyResourceVariableName(identifier, "timeline", "tl") ||
-			   Regex.IsMatch(gml, $@"\btimeline_\w+\s*\(\s*{escaped}\b", RegexOptions.IgnoreCase) ||
-			   Regex.IsMatch(gml, $@"\btimeline_index\s*=\s*{escaped}\b", RegexOptions.IgnoreCase);
+			   SafeIsMatch(gml, $@"\btimeline_\w+\s*\(\s*{escaped}\b", RegexOptions.IgnoreCase) ||
+			   SafeIsMatch(gml, $@"\btimeline_index\s*=\s*{escaped}\b", RegexOptions.IgnoreCase);
 	}
 
 	private static bool IsIdentifierUsedAsRoomArgument(string gml, string identifier)
 	{
 		var escaped = RefPattern(identifier);
 		return IsLikelyResourceVariableName(identifier, "room", "rm") ||
-			   Regex.IsMatch(gml, $@"\b(?:room_goto|room_goto_next|room_goto_previous|room_exists)\s*\(\s*{escaped}\b", RegexOptions.IgnoreCase) ||
-			   Regex.IsMatch(gml, $@"\broom\s*=\s*{escaped}\b", RegexOptions.IgnoreCase);
+			   SafeIsMatch(gml, $@"\b(?:room_goto|room_goto_next|room_goto_previous|room_exists)\s*\(\s*{escaped}\b", RegexOptions.IgnoreCase) ||
+			   SafeIsMatch(gml, $@"\broom\s*=\s*{escaped}\b", RegexOptions.IgnoreCase);
 	}
 
 	private static bool IsIdentifierUsedAsShaderArgument(string gml, string identifier)
 	{
 		var escaped = RefPattern(identifier);
 		return IsLikelyResourceVariableName(identifier, "shader", "shd") ||
-			   Regex.IsMatch(gml, $@"\bshader_\w+\s*\(\s*{escaped}\b", RegexOptions.IgnoreCase);
+			   SafeIsMatch(gml, $@"\bshader_\w+\s*\(\s*{escaped}\b", RegexOptions.IgnoreCase);
 	}
 
 	private static bool IsIdentifierUsedAsAudioGroupArgument(string gml, string identifier)
 	{
 		var escaped = RefPattern(identifier);
 		return IsLikelyResourceVariableName(identifier, "audiogroup", "audio_group") ||
-			   Regex.IsMatch(gml, $@"\baudio_group_\w+\s*\(\s*{escaped}\b", RegexOptions.IgnoreCase);
+			   SafeIsMatch(gml, $@"\baudio_group_\w+\s*\(\s*{escaped}\b", RegexOptions.IgnoreCase);
 	}
 
 	private static bool IsLikelySpriteVariableName(string identifier) =>

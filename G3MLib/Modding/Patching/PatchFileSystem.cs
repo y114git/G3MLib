@@ -8,6 +8,9 @@ namespace G3MLib.Modding.Patching;
 
 public sealed class PatchFileSystem
 {
+	/// <summary>The largest payload a patch archive may hold or read, in bytes: the most one array can hold.</summary>
+	public const long MaxPayloadBytes = 0x7FFFFFC7;
+
 
 	private readonly Dictionary<string, byte[]> _files;
 
@@ -47,6 +50,18 @@ public sealed class PatchFileSystem
 		_childFiles = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
 	}
 
+	/// <summary>The total size, in bytes, of all entries a patch archive may declare; a zip can declare far more than it stores.</summary>
+	public const long MaxTotalPayloadBytes = 4L * 1024 * 1024 * 1024;
+
+	/// <summary>An entry name must stay inside the archive: no rooted or drive paths, no stream or UNC names, no <c>..</c> segment. Later code joins these names onto folders.</summary>
+	private static void RejectUnsafeEntryName(string fullName)
+	{
+		if (fullName.StartsWith('/') || fullName.Contains(':', StringComparison.Ordinal) || fullName.Split('/').Contains(".."))
+		{
+			throw new InvalidDataException($"Archive entry '{fullName}' has an unsafe name.");
+		}
+	}
+
 	private static string Norm(string path)
 	{
 		return path.Replace('\\', '/').TrimEnd('/');
@@ -64,9 +79,9 @@ public sealed class PatchFileSystem
 	public static PatchFileSystem LoadFromZip(string zipPath, bool loadExactPayloads = true, bool skipAsmBackedGml = false)
 	{
 		var fileInfo = new FileInfo(zipPath);
-		if (fileInfo.Length > ModConfig.MaxPayloadBytes)
+		if (fileInfo.Length > MaxPayloadBytes)
 		{
-			throw new InvalidDataException($"Payload file exceeds maximum allowed size of {ModConfig.MaxPayloadBytes} bytes.");
+			throw new InvalidDataException($"Payload file exceeds maximum allowed size of {MaxPayloadBytes} bytes.");
 		}
 		var sw = Stopwatch.StartNew();
 		using var fileStream = new FileStream(zipPath, FileMode.Open, FileAccess.Read, FileShare.Read, 1048576, FileOptions.SequentialScan);
@@ -86,18 +101,18 @@ public sealed class PatchFileSystem
 			while ((bytesRead = zipStream.Read(buffer, 0, buffer.Length)) > 0)
 			{
 				totalRead += bytesRead;
-				if (totalRead > ModConfig.MaxPayloadBytes)
+				if (totalRead > MaxPayloadBytes)
 				{
-					throw new InvalidDataException($"Payload stream exceeds maximum allowed size of {ModConfig.MaxPayloadBytes} bytes.");
+					throw new InvalidDataException($"Payload stream exceeds maximum allowed size of {MaxPayloadBytes} bytes.");
 				}
 				bufferedStream.Write(buffer, 0, bytesRead);
 			}
 			bufferedStream.Position = 0;
 			return LoadFromSeekableZipStream(bufferedStream, loadExactPayloads, skipAsmBackedGml, sw);
 		}
-		if (zipStream.Length - zipStream.Position > ModConfig.MaxPayloadBytes)
+		if (zipStream.Length - zipStream.Position > MaxPayloadBytes)
 		{
-			throw new InvalidDataException($"Payload stream exceeds maximum allowed size of {ModConfig.MaxPayloadBytes} bytes.");
+			throw new InvalidDataException($"Payload stream exceeds maximum allowed size of {MaxPayloadBytes} bytes.");
 		}
 		return LoadFromSeekableZipStream(zipStream, loadExactPayloads, skipAsmBackedGml, sw);
 	}
@@ -120,6 +135,7 @@ public sealed class PatchFileSystem
 				}
 			}
 		}
+		long declaredTotal = 0;
 		foreach (var entry2 in archive.Entries)
 		{
 			if (string.IsNullOrEmpty(entry2.Name))
@@ -127,12 +143,18 @@ public sealed class PatchFileSystem
 				continue;
 			}
 			var fullName = Norm(entry2.FullName);
+			RejectUnsafeEntryName(fullName);
 			if (!loadExactPayloads && (fullName.StartsWith("Xdelta/", StringComparison.OrdinalIgnoreCase) || fullName.StartsWith("Exact/", StringComparison.OrdinalIgnoreCase)) || asmBackedCodeKeys != null && TryGetCodeEntryInfo(fullName, entry2.Name, out var earlyCodeKey, out var earlyExtension) && earlyExtension.Equals(".gml", StringComparison.OrdinalIgnoreCase) && asmBackedCodeKeys.Contains(earlyCodeKey))
 			{
 				continue;
 			}
 			byte[] bytes;
-			if (entry2.Length > ModConfig.MaxPayloadBytes)
+			declaredTotal += entry2.Length;
+			if (declaredTotal > MaxTotalPayloadBytes)
+			{
+				throw new InvalidDataException("Archive entries declare more than the maximum allowed total size.");
+			}
+			if (entry2.Length > MaxPayloadBytes)
 			{
 				throw new InvalidDataException($"Archive entry '{entry2.FullName}' exceeds maximum allowed size.");
 			}
@@ -152,7 +174,7 @@ public sealed class PatchFileSystem
 					while ((bytesRead = stream.Read(buffer, 0, buffer.Length)) > 0)
 					{
 						totalRead += bytesRead;
-						if (totalRead > ModConfig.MaxPayloadBytes)
+						if (totalRead > MaxPayloadBytes)
 						{
 							throw new InvalidDataException($"Archive entry '{entry2.FullName}' exceeds maximum allowed size.");
 						}

@@ -2116,7 +2116,7 @@ public partial class PatchService
 				data,
 				pfs,
 				dataFilePath,
-				dataFilePath,
+				null, // in memory: nothing is written to disk, so audio groups stored outside the data file are skipped
 				logDetailedCodeImport: true,
 				validateBeforeApply: validateBeforeApply,
 				progress: progress,
@@ -2139,25 +2139,46 @@ public partial class PatchService
 		}
 	}
 
+	private static string? FirstJsonError(ReadOnlySpan<byte> json)
+	{
+		try
+		{
+			var reader = new Utf8JsonReader(json);
+			while (reader.Read())
+			{
+			}
+
+			return null;
+		}
+		catch (JsonException ex)
+		{
+			return ex.Message;
+		}
+	}
+
 	private static string? ValidatePatchBeforeApply(PatchFileSystem pfs, List<string> resourceTypesToProcess, bool hasCodeEntries)
 	{
 		if (!pfs.FileExists("g3mpatch.json") || pfs.Manifest == null)
 		{
 			return "Invalid patch: g3mpatch.json not found or failed to parse manifest";
 		}
-		foreach (var (filePath, bytes) in pfs.GetAllFiles())
+		foreach (var filePath in pfs.GetAllFiles().Keys)
 		{
 			if (!filePath.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
 			{
 				continue;
 			}
-			try
+			// A reader pass checks the syntax without building a document, so the check costs no allocation.
+			var json = pfs.ReadAllBytes(filePath).AsSpan();
+			if (json.Length >= 3 && json[0] == 0xEF && json[1] == 0xBB && json[2] == 0xBF)
 			{
-				using var doc = JsonDocument.Parse(pfs.ReadAllText(filePath));
+				json = json[3..];
 			}
-			catch (JsonException ex)
+
+			var error = FirstJsonError(json);
+			if (error is not null)
 			{
-				return $"Invalid patch JSON in '{filePath}': {ex.Message}";
+				return $"Invalid patch JSON in '{filePath}': {error}";
 			}
 		}
 		foreach (var resourceType in resourceTypesToProcess)
@@ -7037,6 +7058,14 @@ public partial class PatchService
 					Error = "Invalid patch: g3mpatch.json not found"
 				};
 			}
+			if (manifestEntry.Length > 64 * 1024 * 1024)
+			{
+				return new PatchValidateResult
+				{
+					Success = false,
+					Error = "Invalid patch: g3mpatch.json is too large"
+				};
+			}
 			using var reader = new StreamReader(await manifestEntry.OpenAsync(cancellationToken).ConfigureAwait(false));
 			var manifest = JsonSerializer.Deserialize<G3MPatchManifest>(await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false));
 			if (manifest == null)
@@ -7655,7 +7684,7 @@ public partial class PatchService
 			var relative = path[sourcePrefix.Length..].Replace('/', Path.DirectorySeparatorChar);
 			if (!string.IsNullOrWhiteSpace(relative))
 			{
-				var path2 = Path.Combine(embeddedDir, relative);
+				var path2 = Paths.JoinVerifyWithinDirectory(embeddedDir, relative);
 				var outputDir = Path.GetDirectoryName(path2);
 				if (!string.IsNullOrEmpty(outputDir))
 				{

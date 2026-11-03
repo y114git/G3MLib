@@ -26,7 +26,7 @@ public sealed class AnalyzerRoundTripTests
     }
 
     [Fact]
-    public void UseSemicolonFalseOmitsTrailingSemicolonsOnSimpleStatements()
+    public void UseSemicolonFalseOmitsTrailingSemicolonsExceptAfterReturn()
     {
         const string source = "var x = 1;\nx += 2;\nreturn x;";
         GameContextMock gameContext = new();
@@ -43,7 +43,7 @@ public sealed class AnalyzerRoundTripTests
         var withoutSemicolons = new DecompileContext(gameContext, code, new DecompileSettings { UseSemicolon = false }).DecompileToString();
 
         Assert.Equal("var x = 1;\nx += 2;\nreturn x;", withSemicolons.Trim().ReplaceLineEndings("\n"));
-        Assert.Equal("var x = 1\nx += 2\nreturn x", withoutSemicolons.Trim().ReplaceLineEndings("\n"));
+        Assert.Equal("var x = 1\nx += 2\nreturn x;", withoutSemicolons.Trim().ReplaceLineEndings("\n"));
     }
 
     [Theory]
@@ -80,7 +80,7 @@ public sealed class AnalyzerRoundTripTests
     [Theory]
     [InlineData("return 1;", "return 1")]
     [InlineData("{\n    return 42;\n}", "return 42")]
-    public void ReturnStatementOmitsSemicolonWithUseSemicolonFalse(string source, string expectedReturn)
+    public void ReturnStatementKeepsSemicolonWithUseSemicolonFalse(string source, string expectedReturn)
     {
         GameContextMock gameContext = new();
         CompileContext compileContext = new(source, CompileScriptKind.ObjectEvent, null, gameContext);
@@ -93,7 +93,18 @@ public sealed class AnalyzerRoundTripTests
         };
 
         var withoutSemicolons = new DecompileContext(gameContext, code, new DecompileSettings { UseSemicolon = false }).DecompileToString();
-        Assert.Contains(expectedReturn, withoutSemicolons, StringComparison.Ordinal);
-        Assert.DoesNotContain(expectedReturn + ";", withoutSemicolons, StringComparison.Ordinal);
+        Assert.Contains(expectedReturn + ";", withoutSemicolons, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DeeplyNestedParenthesesFailWithoutOverflowingTheStack()
+    {
+        var source = "x = " + new string('(', 200_000) + "1" + new string(')', 200_000) + ";";
+        GameContextMock gameContext = new();
+        CompileContext compileContext = new(source, CompileScriptKind.ObjectEvent, null, gameContext);
+
+        // Either the compiler reports the nesting as an error or it throws a catchable exception; the process must survive.
+        var outcome = Record.Exception(() => compileContext.Compile());
+        Assert.True(outcome is null ? compileContext.HasErrors : outcome is InsufficientExecutionStackException);
     }
 }

@@ -60,6 +60,8 @@ public class GameMakerUINode : GameMakerObject
     public void Unserialize(GameMakerReader reader)
     {
         ArgumentNullException.ThrowIfNull(reader);
+        // Deeply nested input throws a catchable exception here instead of overflowing the stack.
+        System.Runtime.CompilerServices.RuntimeHelpers.EnsureSufficientExecutionStack();
         // Handle type discriminator
         var typeId = reader.ReadInt32();
         Node = typeId switch

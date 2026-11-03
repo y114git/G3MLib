@@ -20,6 +20,8 @@ internal static class Expressions
     /// </summary>
     public static IASTNode? ParseExpression(ParseContext context)
     {
+        // Deeply nested input throws a catchable exception here instead of overflowing the stack.
+        System.Runtime.CompilerServices.RuntimeHelpers.EnsureSufficientExecutionStack();
         return ParseConditional(context);
     }
 

@@ -605,6 +605,7 @@ public class GameMakerSequence : GameMakerNamedResource, IProjectAsset, INotifyP
         /// <inheritdoc />
         public void Unserialize(GameMakerReader reader)
         {
+            System.Runtime.CompilerServices.RuntimeHelpers.EnsureSufficientExecutionStack(); // nested tracks are read recursively
             ArgumentNullException.ThrowIfNull(reader);
             // This reads the string content immediately, if necessary (which it should be)
             GameMakerString ForceReadString()

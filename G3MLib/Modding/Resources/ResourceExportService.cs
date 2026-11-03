@@ -53,7 +53,13 @@ public static partial class ResourceExportService
 		{
 			sb.Append(s_invalidChars.Contains(ch) ? '_' : ch);
 		}
-		var safe = sb.ToString();
+		var safe = sb.ToString().TrimEnd('.', ' ');
+		// "." and ".." would name the folder itself or its parent, and a device name such as CON cannot be a file on Windows
+		if (safe.Length == 0 || IsReservedDeviceName(safe))
+		{
+			safe = "_" + safe;
+		}
+
 		if (safe.Length <= 96)
 		{
 			return safe;
@@ -61,6 +67,14 @@ public static partial class ResourceExportService
 		var hash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(name)))[..12];
 		var prefixLength = 96 - hash.Length - 2;
 		return safe[..prefixLength] + "__" + hash;
+	}
+
+	private static bool IsReservedDeviceName(string name)
+	{
+		var stem = name.Contains('.', StringComparison.Ordinal) ? name[..name.IndexOf('.', StringComparison.Ordinal)] : name;
+		return stem.ToUpperInvariant() is "CON" or "PRN" or "AUX" or "NUL" or "CONIN$" or "CONOUT$"
+			or "COM1" or "COM2" or "COM3" or "COM4" or "COM5" or "COM6" or "COM7" or "COM8" or "COM9"
+			or "LPT1" or "LPT2" or "LPT3" or "LPT4" or "LPT5" or "LPT6" or "LPT7" or "LPT8" or "LPT9";
 	}
 
 	private static string EnsureDir(string outputDir, string typeName)

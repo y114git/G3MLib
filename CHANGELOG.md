@@ -1,10 +1,29 @@
 # Changelog
 
-## [Unreleased]
+## [1.1.2] - 2026-11-03
+
+### Removed
+
+- `ModConfig` and `ModPatchOperation`, added in 1.1.1. They read the manifest of one mod manager, which does not belong in a general library; an application that needs it reads the manifest itself.
+
+### Security
+
+- Patch archives are refused when an entry name is rooted, holds a drive or stream colon, or has a `..` segment, or when the entries declare more than 4 GiB in total (`PatchFileSystem.MaxTotalPayloadBytes`). Embedded texture paths are joined with a containment check. `g3mpatch.json` larger than 64 MiB is refused.
+- Resource names `.`, `..`, trailing dots or spaces and Windows device names are made safe when files are written.
+- Recursion guards in the GML parser, UI node and sequence readers, so deeply nested input raises an error instead of a stack overflow.
+- Allocation caps: image decompression size hint, tile layer size; `MurmurHash` no longer stack-allocates by input length.
+- Patch JSON is validated with a streaming reader instead of a DOM. Merge reference scans stop after 2 seconds per pattern. Absolute paths are passed to xdelta.
 
 ### Fixed
 
-- `ModConfig` no longer reads `dataFilePath` from a mod config: it decides where external audio group files are written, so only the host sets `PatchApplyOptions.DataFilePath`.
+- `return` is terminated with a semicolon again when `DecompileSettings.UseSemicolon` is off, as the setting documents, so a following statement that starts with `(` or `[` is not read as part of the returned value.
+
+### Changed
+
+- `PatchFileSystem.MaxPayloadBytes` now holds the payload size cap that `ModConfig` carried, lowered from 4 GiB to the 2 GiB an array can hold, so a larger payload is refused with a clear error.
+- `ProjectContext.AllowScripts` defaults to false; a host must turn on script globals itself.
+- An in-memory patch apply writes no files: audio groups stored outside the data file are skipped, where 1.1.1 rewrote the group files next to the data file.
+- `ResourceImportService.Import` with a dictionary of names checks every type before importing, so an unsupported type no longer leaves a half-applied import.
 
 ## [1.1.1] - 2026-11-03
 

@@ -268,4 +268,19 @@ public sealed class BatchExportTests : IDisposable
         Assert.Equal("scr_second", dictWritten.Name);
         Assert.NotNull(targetDict.Scripts.ByName("scr_second"));
     }
+
+    [Fact]
+    public void ImportByNamesRefusesAnUnsupportedTypeBeforeChangingAnything()
+    {
+        using var data = GameMakerData.CreateNew2026LTS();
+        var before = data.Scripts.Count;
+
+        Assert.Throws<NotSupportedException>(() => ResourceImportService.Import(data, _root, new Dictionary<string, IReadOnlySet<string>>
+        {
+            ["Scripts"] = new HashSet<string> { "scr_x" },
+            ["Options"] = new HashSet<string> { "x" },
+        }));
+
+        Assert.Equal(before, data.Scripts.Count);
+    }
 }

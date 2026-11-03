@@ -11,10 +11,10 @@ public sealed class PatchApplyResult
 
 public sealed class PatchApplyOptions
 {
-	/// <summary>When <see langword="true"/>, validates the patch archive and prepares required helpers before mutating the target <see cref="G3MLib.DataFile.GameMakerData"/>.</summary>
+	/// <summary>When <see langword="true"/>, validates the patch archive (every JSON file parses, the manifest exists, and code entries come with their code metadata) and prepares required helpers before mutating the target <see cref="G3MLib.DataFile.GameMakerData"/>.</summary>
 	public bool ValidateBeforeApply { get; set; } = true;
 
-	/// <summary>Optional path to the source data file on disk when external audio group files should be resolved relative to its directory.</summary>
+	/// <summary>Path of the data file on disk. An in-memory apply writes no files, so audio groups stored outside the data file are skipped whatever this holds.</summary>
 	public string? DataFilePath { get; set; }
 }
 

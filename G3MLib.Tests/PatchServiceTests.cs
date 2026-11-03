@@ -919,7 +919,7 @@ public class PatchServiceTests
     }
 
     [Fact]
-    public async Task ApplyPatchInMemoryFromZipEntryStreamWithModConfigWorksWithoutTempFile()
+    public async Task ApplyPatchInMemoryFromZipEntryStreamWorksWithoutTempFile()
     {
         var directory = Path.Combine(Path.GetTempPath(), $"G3MLibTests-{Guid.NewGuid():N}");
         Directory.CreateDirectory(directory);
@@ -939,51 +939,16 @@ public class PatchServiceTests
 
             Assert.True((await PatchService.CreatePatchAsync(originalPath, modifiedPath, patchPath, cancellationToken: TestContext.Current.CancellationToken)).Success);
 
-            const string modConfigJson = """
-                {
-                  "configVersion": "2.0.0",
-                  "name": "Widescreen Mod",
-                  "version": "1.2.0",
-                  "game": "TestGame",
-                  "files": [
-                    {
-                      "Core": [
-                        {
-                          "type": "patch",
-                          "source": "${mod_path}/patches/mod.g3mpatch",
-                          "target": "${game_path}/data.win"
-                        }
-                      ]
-                    }
-                  ]
-                }
-                """;
-
             using (var zipStream = File.Create(modZipPath))
             using (var archive = new ZipArchive(zipStream, ZipArchiveMode.Create))
             {
-                using (var configWriter = new StreamWriter(archive.CreateEntry("mod_config.json").Open(), Encoding.UTF8))
-                {
-                    configWriter.Write(modConfigJson);
-                }
                 archive.CreateEntryFromFile(patchPath, "patches/mod.g3mpatch");
             }
 
             using var modZip = ZipFile.OpenRead(modZipPath);
-            ModConfig config;
-            using (var configStream = modZip.GetEntry("mod_config.json")!.Open())
-            {
-                config = ModConfig.Parse(configStream);
-            }
-
-            var matching = config.ForDataFile(originalPath);
-            var patchOp = Assert.Single(matching);
-            Assert.True(patchOp.Supported);
-            Assert.Equal("patches/mod.g3mpatch", patchOp.PatchFile);
-
             using var data = Read(originalPath);
-            using var entryStream = modZip.GetEntry(patchOp.Member!)!.Open();
-            var applyResult = await PatchService.ApplyPatchAsync(data, entryStream, patchOp.Options, cancellationToken: TestContext.Current.CancellationToken);
+            using var entryStream = modZip.GetEntry("patches/mod.g3mpatch")!.Open();
+            var applyResult = await PatchService.ApplyPatchAsync(data, entryStream, null, cancellationToken: TestContext.Current.CancellationToken);
 
             Assert.True(applyResult.Success, applyResult.Error);
             Assert.Equal(1920u, data.Rooms[0].Width);
@@ -1045,129 +1010,6 @@ public class PatchServiceTests
         Assert.Equal(beforeBytes, afterBytes);
     }
 
-    [Fact]
-    public void ModConfigParseFlattensGroupsFiltersOperationsAndEnforcesCaps()
-    {
-        const string json = """
-            {
-              "configVersion": "2.0.0",
-              "name": "Sample Mod",
-              "version": "2.1.0",
-              "game": "SampleGame",
-              "files": [
-                {
-                  "type": "copy",
-                  "source": "${mod_path}/readme.txt",
-                  "target": "${game_path}/readme.txt"
-                },
-                {
-                  "type": "patch",
-                  "source": "${mod_path}/base.g3mpatch",
-                  "target": "${game_path}/data.win",
-                  "options": {
-                    "validateBeforeApply": false,
-                    "dataFilePath": "C:/game/data.win"
-                  }
-                },
-                {
-                  "GroupA": [
-                    {
-                      "NestedGroup": [
-                        {
-                          "type": "patch",
-                          "source": "${mod_path}/nested.g3mpatch",
-                          "target": "${game_path}/sub/DATA.WIN"
-                        },
-                        {
-                          "type": "patch",
-                          "source": "${mod_path}/other.g3mpatch",
-                          "target": "${game_path}/other.ios"
-                        }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            }
-            """;
-
-        var config = ModConfig.Parse(json);
-        Assert.Equal("Sample Mod", config.Name);
-        Assert.Equal("2.1.0", config.Version);
-        Assert.Equal("SampleGame", config.Game);
-        Assert.Equal(3, config.Patches.Count);
-
-        Assert.Equal("data.win", config.Patches[0].TargetFileName);
-        Assert.Equal("base.g3mpatch", config.Patches[0].PatchFile);
-        Assert.True(config.Patches[0].Supported);
-        Assert.Null(config.Patches[0].Group);
-        Assert.NotNull(config.Patches[0].Options);
-        Assert.False(config.Patches[0].Options!.ValidateBeforeApply);
-        Assert.Null(config.Patches[0].Options!.DataFilePath); // a mod cannot choose where external files are written
-
-        Assert.Equal("DATA.WIN", config.Patches[1].TargetFileName);
-        Assert.Equal("nested.g3mpatch", config.Patches[1].PatchFile);
-        Assert.Equal("NestedGroup", config.Patches[1].Group);
-        Assert.Null(config.Patches[1].Options);
-
-        var forDataWin = config.ForDataFile("C:/Steam/SampleGame/data.win");
-        Assert.Equal(2, forDataWin.Count);
-        Assert.Equal(["base.g3mpatch", "nested.g3mpatch"], forDataWin.Select(p => p.PatchFile));
-
-        var oversized = "{\"name\":\"" + new string('a', (int)ModConfig.MaxConfigBytes + 16) + "\"}";
-        Assert.Throws<InvalidDataException>(() => ModConfig.Parse(oversized));
-
-        var deepBuilder = new StringBuilder("{\"files\":");
-        for (var i = 0; i < 70; i++)
-            deepBuilder.Append('[');
-        for (var i = 0; i < 70; i++)
-            deepBuilder.Append(']');
-        deepBuilder.Append('}');
-        Assert.ThrowsAny<JsonException>(() => ModConfig.Parse(deepBuilder.ToString()));
-
-        var groupBuilder = new StringBuilder("{\"files\":[");
-        for (var i = 0; i < 20; i++)
-            groupBuilder.Append("{\"g\":[");
-        groupBuilder.Append("{\"type\":\"patch\",\"source\":\"${mod_path}/too_deep.g3mpatch\",\"target\":\"data.win\"}");
-        for (var i = 0; i < 20; i++)
-            groupBuilder.Append("]}");
-        groupBuilder.Append("]}");
-        var deepGroupConfig = ModConfig.Parse(groupBuilder.ToString());
-        Assert.Single(deepGroupConfig.Patches);
-    }
-
-    [Fact]
-    public void ModConfigCollectThrowsInvalidDataExceptionWhenGroupDepthExceedsMaxGroupDepth()
-    {
-        using var doc = JsonDocument.Parse("[]");
-        List<ModPatchOperation> operations = [];
-        Assert.Throws<InvalidDataException>(() =>
-            ModConfig.Collect(doc.RootElement, operations, depth: ModConfig.MaxGroupDepth + 1, groupName: null));
-    }
-
-    [Theory]
-    [InlineData("${mod_path}/../secret.g3mpatch", false)]
-    [InlineData("${mod_path}/foo/../../secret.g3mpatch", false)]
-    [InlineData("${mod_path}//root/secret.g3mpatch", false)]
-    [InlineData("${mod_path}/C:/secret.g3mpatch", false)]
-    [InlineData("${mod_path}/sub\\patch.g3mpatch", false)]
-    [InlineData("${mod_path}/valid/patch.g3mpatch", true)]
-    [InlineData("${mod_path}/patch.g3mpatch", true)]
-    public void ModPatchOperationValidatesMemberSecurity(string source, bool expectedSupported)
-    {
-        ModPatchOperation op = new(source, "data.win");
-        if (expectedSupported)
-        {
-            Assert.NotNull(op.Member);
-            Assert.True(op.Supported);
-        }
-        else
-        {
-            Assert.Null(op.Member);
-            Assert.False(op.Supported);
-        }
-    }
-
     private sealed class MockOversizedSeekableStream(long length) : MemoryStream
     {
         public override long Length => length;
@@ -1176,9 +1018,28 @@ public class PatchServiceTests
     [Fact]
     public void PatchFileSystemLoadFromZipThrowsWhenStreamExceedsMaxPayloadBytes()
     {
-        using var stream = new MockOversizedSeekableStream(ModConfig.MaxPayloadBytes + 1024);
+        using var stream = new MockOversizedSeekableStream(PatchFileSystem.MaxPayloadBytes + 1024);
         var ex = Assert.Throws<InvalidDataException>(() => PatchFileSystem.LoadFromZip(stream));
         Assert.Contains("maximum allowed size", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData("EmbeddedTextures/../../escape.png")]
+    [InlineData("EmbeddedTextures/C:/escape.png")]
+    [InlineData("/rooted/escape.png")]
+    [InlineData("EmbeddedTextures\\..\\escape.png")]
+    public void PatchArchiveWithAnUnsafeEntryNameIsRefused(string entryName)
+    {
+        using MemoryStream stream = new();
+        using (var archive = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            using var writer = new StreamWriter(archive.CreateEntry(entryName).Open(), Encoding.UTF8);
+            writer.Write("x");
+        }
+
+        stream.Position = 0;
+        var error = Assert.Throws<InvalidDataException>(() => PatchFileSystem.LoadFromZip(stream));
+        Assert.Contains("unsafe name", error.Message, StringComparison.Ordinal);
     }
 
     private static void Write(string path, GameMakerData data)

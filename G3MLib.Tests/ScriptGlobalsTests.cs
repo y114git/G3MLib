@@ -112,6 +112,7 @@ public sealed class ScriptGlobalsTests : IDisposable
     {
         var script = WriteScript("project.csx", "UndertaleData d = null;\nScriptMessage(\"ran\" + (d is null));");
         var context = ProjectContext.CreateWithDataFilePaths("input.win", "output.win", Path.Combine(_dir, "project.json"));
+        context.AllowScripts = true;
         List<string> messages = [];
         context.ScriptMessageHandler = messages.Add;
 
