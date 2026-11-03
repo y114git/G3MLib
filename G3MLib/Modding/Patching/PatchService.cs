@@ -7058,7 +7058,7 @@ public partial class PatchService
 					Error = "Invalid patch: g3mpatch.json not found"
 				};
 			}
-			if (manifestEntry.Length > 64 * 1024 * 1024)
+			if (manifestEntry.Length > PatchFileSystem.MaxManifestBytes)
 			{
 				return new PatchValidateResult
 				{
@@ -7067,7 +7067,19 @@ public partial class PatchService
 				};
 			}
 			using var reader = new StreamReader(await manifestEntry.OpenAsync(cancellationToken).ConfigureAwait(false));
-			var manifest = JsonSerializer.Deserialize<G3MPatchManifest>(await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false));
+			// The header length can lie, so the cap is enforced on what is actually read
+			var manifestText = new StringBuilder();
+			var chars = new char[8192];
+			int charsRead;
+			while ((charsRead = await reader.ReadAsync(chars.AsMemory(), cancellationToken).ConfigureAwait(false)) > 0)
+			{
+				manifestText.Append(chars, 0, charsRead);
+				if (manifestText.Length > PatchFileSystem.MaxManifestBytes)
+				{
+					return new PatchValidateResult { Success = false, Error = "Invalid patch: g3mpatch.json is too large" };
+				}
+			}
+			var manifest = JsonSerializer.Deserialize<G3MPatchManifest>(manifestText.ToString());
 			if (manifest == null)
 			{
 				return new PatchValidateResult

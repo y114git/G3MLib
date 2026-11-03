@@ -51,6 +51,12 @@ public sealed class PatchFileSystem
 	}
 
 	/// <summary>The total size, in bytes, of all entries a patch archive may declare; a zip can declare far more than it stores.</summary>
+	/// <summary>The largest <c>g3mpatch.json</c> a patch archive may hold.</summary>
+	public const long MaxManifestBytes = 64L * 1024 * 1024;
+
+	/// <summary>Entries up to this size are read into an array sized from the header; larger ones are read in chunks so a false size in the header cannot force the allocation.</summary>
+	private const long ExactReadLimit = 64L * 1024 * 1024;
+
 	public static long MaxTotalPayloadBytes { get; set; } = 4L * 1024 * 1024 * 1024;
 
 	/// <summary>An entry name must stay inside the archive: no rooted or drive paths, no stream or UNC names, no <c>..</c> segment. Later code joins these names onto folders.</summary>
@@ -154,13 +160,17 @@ public sealed class PatchFileSystem
 			{
 				throw new InvalidDataException("Archive entries declare more than the maximum allowed total size.");
 			}
+			if (fullName.Equals("g3mpatch.json", StringComparison.OrdinalIgnoreCase) && entry2.Length > MaxManifestBytes)
+			{
+				throw new InvalidDataException("g3mpatch.json is too large.");
+			}
 			if (entry2.Length > MaxPayloadBytes)
 			{
 				throw new InvalidDataException($"Archive entry '{entry2.FullName}' exceeds maximum allowed size.");
 			}
 			using (var stream = entry2.Open())
 			{
-				if (entry2.Length > 0)
+				if (entry2.Length is > 0 and <= ExactReadLimit)
 				{
 					bytes = new byte[entry2.Length];
 					stream.ReadExactly(bytes);

@@ -840,7 +840,6 @@ public static partial class MergeService
 
 		try
 		{
-			// Phase 1: Load original
 			stepSw.Restart();
 			LogService.Progress(1, 100);
 
@@ -868,7 +867,6 @@ public static partial class MergeService
 			LogService.Log($"[Bench] Load original: {stepSw.Elapsed.TotalSeconds:F2}s " +
 				$"(prep hash: {origHashSw.Elapsed.TotalSeconds:F2}s, convert inputs: {needsPatchConversion}, {originalData.GeneralInfo?.DisplayName?.Content ?? "?"})");
 			LogService.Progress(5, 100);
-			// Phase 2: Normalize patches to PFS (parallel)
 			stepSw.Restart();
 			var patchFileSystems = new PatchFileSystem[patchPaths.Count];
 
@@ -932,7 +930,6 @@ public static partial class MergeService
 			var patchAssetOrders = LoadPatchAssetOrders(patchFileSystems);
 			var patchAssetRemaps = BuildPatchAssetRemaps(originalAssetOrder, patchAssetOrders, patchNames);
 			var originalAssetRemap = BuildOriginalAssetRemap(originalAssetOrder, patchAssetOrders);
-			// Phase 3: Merge loop (low priority → high priority)
 			stepSw.Restart();
 			var finalPfs = new PatchFileSystem();
 			// Track which patch last wrote each file/code entry (for report)
@@ -1209,7 +1206,6 @@ public static partial class MergeService
 				finalPfs);
 			if (addedBaseAssetRecompile > 0)
 				LogService.Log($"[MergeService] Added {addedBaseAssetRecompile} unchanged code entries for asset-index recompilation");
-			// Phase 4: Merge helper files
 			stepSw.Restart();
 
 			var includeTexturePageHelpers = HasEmbeddedTexturePayload(patchFileSystems);
@@ -1304,7 +1300,6 @@ public static partial class MergeService
 			decompileCache.Clear();
 			GC.Collect(2, GCCollectionMode.Aggressive, true, true);
 			LogService.Progress(75, 100);
-			// Phase 5: Build manifest + save
 			stepSw.Restart();
 
 			var manifest = BuildMergedManifest(patchFileSystems);
@@ -1319,7 +1314,6 @@ public static partial class MergeService
 				LogService.Log($"[Bench] Save patch: {stepSw.Elapsed.TotalSeconds:F2}s ({zipOutputPath})");
 			}
 			LogService.Progress(88, 100);
-			// Phase 6: Apply if requested
 			if (applyData)
 			{
 				stepSw.Restart();
@@ -1348,7 +1342,6 @@ public static partial class MergeService
 			using var committing = ModdingCancellation.Uncancellable();
 			if (saveZip) File.Move(stagedZipPath, zipOutputPath, overwrite: true);
 			LogService.Progress(98, 100);
-			// Phase 7: Conflict report
 			var logPath = options.ReportPath;
 			if (logPath != null || conflicts.Count > 0)
 			{
@@ -4780,12 +4773,12 @@ public static partial class MergeService
 	private static string RefPattern(string identifier) =>
 		Regex.Escape(NormalizeGmlReference(identifier));
 
-		// Game scripts are untrusted text: a timed-out scan counts as no match instead of hanging the merge
+	// Game scripts are untrusted text: the scan cannot backtrack, and one that still times out counts as no match instead of hanging the merge
 	private static bool SafeIsMatch(string input, string pattern, RegexOptions options)
 	{
 		try
 		{
-			return Regex.IsMatch(input, pattern, options, TimeSpan.FromSeconds(2));
+			return Regex.IsMatch(input, pattern, options | RegexOptions.NonBacktracking, TimeSpan.FromSeconds(2));
 		}
 		catch (RegexMatchTimeoutException)
 		{
@@ -4793,7 +4786,7 @@ public static partial class MergeService
 		}
 	}
 
-private static bool IsIdentifierUsedAsObjectArgument(string gml, string identifier)
+	private static bool IsIdentifierUsedAsObjectArgument(string gml, string identifier)
 	{
 		var escaped = RefPattern(identifier);
 		return SafeIsMatch(gml, $@"\b(?:i_ex|instance_number|instance_exists|instance_find)\s*\(\s*{escaped}\b", RegexOptions.IgnoreCase) ||

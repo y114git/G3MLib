@@ -391,8 +391,6 @@ public class GMImage
             else
                 size += (int)(pitchOrLinearSize * height);
 
-            // Awaiting official Underminers resolution: cubemap, volume-texture, and DX10-array layouts are not used by GameMaker texture pages.
-
             // Add mipmap data size
             if (mipMapCount > 0)
             {

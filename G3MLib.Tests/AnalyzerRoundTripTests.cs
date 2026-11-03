@@ -107,4 +107,18 @@ public sealed class AnalyzerRoundTripTests
         var outcome = Record.Exception(() => compileContext.Compile());
         Assert.True(outcome is null ? compileContext.HasErrors : outcome is InsufficientExecutionStackException);
     }
+
+    [Theory]
+    [InlineData("!")]
+    [InlineData("-")]
+    [InlineData("~")]
+    public void DeeplyChainedPrefixOperatorsFailWithoutOverflowingTheStack(string op)
+    {
+        var source = "x = " + string.Concat(Enumerable.Repeat(op, 200_000)) + "1;";
+        GameContextMock gameContext = new();
+        CompileContext compileContext = new(source, CompileScriptKind.ObjectEvent, null, gameContext);
+
+        var outcome = Record.Exception(() => compileContext.Compile());
+        Assert.True(outcome is null ? compileContext.HasErrors : outcome is InsufficientExecutionStackException);
+    }
 }

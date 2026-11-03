@@ -105,6 +105,7 @@ public class GameMakerUINode : GameMakerObject
     /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
     public static uint UnserializeChildObjectCount(GameMakerReader reader)
     {
+        System.Runtime.CompilerServices.RuntimeHelpers.EnsureSufficientExecutionStack();
         ArgumentNullException.ThrowIfNull(reader);
         uint count = 0;
 

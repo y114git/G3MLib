@@ -51,13 +51,15 @@ public static partial class ResourceExportService
 		var sb = new StringBuilder(name.Length);
 		foreach (var ch in name)
 		{
-			sb.Append(s_invalidChars.Contains(ch) ? '_' : ch);
+			sb.Append(ch == ':' || s_invalidChars.Contains(ch) ? '_' : ch);
 		}
-		var safe = sb.ToString().TrimEnd('.', ' ');
-		// "." and ".." would name the folder itself or its parent, and a device name such as CON cannot be a file on Windows
-		if (safe.Length == 0 || IsReservedDeviceName(safe))
+		var safe = sb.ToString();
+		var trimmed = safe.TrimEnd('.', ' ');
+		// "." and ".." would name the folder itself or its parent, and a device name such as CON cannot be a file on Windows.
+		// Such a name gets a hash suffix so it cannot collide with a real resource that has the fixed-up name.
+		if (trimmed.Length != safe.Length || trimmed.Length == 0 || IsReservedDeviceName(trimmed))
 		{
-			safe = "_" + safe;
+			return "_" + trimmed + "__" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(name)))[..12];
 		}
 
 		if (safe.Length <= 96)

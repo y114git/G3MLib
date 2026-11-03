@@ -1177,8 +1177,10 @@ public static partial class ResourceImportService
 
 	private static string ResolveTypeDir(string inputDir, string resourceType)
 	{
-		// A folder that is already the type folder stays as it is, even when one of its entries has the name of the type.
-		if (Path.GetFileName(Path.TrimEndingDirectorySeparator(inputDir)).Equals(resourceType, StringComparison.OrdinalIgnoreCase))
+		// A folder that is already the type folder stays as it is, even when one of its entries has the name of the type,
+		// unless that entry is its only content: then it is an outer folder that holds the real type folder (export writes outputDir/Type).
+		if (Path.GetFileName(Path.TrimEndingDirectorySeparator(inputDir)).Equals(resourceType, StringComparison.OrdinalIgnoreCase)
+			&& !(DirExists(Path.Combine(inputDir, resourceType)) && GetDirs(inputDir).Length == 1))
 		{
 			return inputDir;
 		}
@@ -1624,11 +1626,12 @@ public static partial class ResourceImportService
 				BatchRun.Item(name, ResultKind.Skipped, "Missing json file");
 			}
 		}
+		var known = new HashSet<string>(entries.Select(e => e.Name), StringComparer.OrdinalIgnoreCase);
 		foreach (var file in files)
 		{
 			var name = Path.GetFileNameWithoutExtension(file);
 			// A resource stored both as a folder and as a loose file is imported once, from its folder.
-			if (!name.Equals("config", StringComparison.OrdinalIgnoreCase) && !entries.Exists(e => e.Name.Equals(name, StringComparison.Ordinal)))
+			if (!name.Equals("config", StringComparison.OrdinalIgnoreCase) && known.Add(name))
 			{
 				entries.Add((name, file));
 			}

@@ -33,11 +33,9 @@ internal static class MurmurHash
     /// </summary>
     public static uint Hash(ReadOnlySpan<byte> bytes, uint seed = 0)
     {
-        // Initialize hash based on seed
         var hash = seed;
         var len = bytes.Length;
 
-        // Process each group of 4 bytes
         var position = 0;
         for (var i = len >> 2; i > 0; i--)
         {

@@ -36,19 +36,15 @@ internal static class Expressions
             return null;
         }
 
-        // Check for "?"
         if (!context.EndOfCode &&
             context.Tokens[context.Position] is TokenOperator { Kind: OperatorKind.Conditional } tokenConditional)
         {
             context.Position++;
 
-            // Parse true expression
             if (ParseOrExpression(context) is IASTNode trueExpr)
             {
-                // Check for ":"
                 context.EnsureToken(SeparatorKind.Colon);
 
-                // Parse false expression
                 if (ParseOrExpression(context) is IASTNode falseExpr)
                 {
                     // Replace left side with new node
@@ -71,7 +67,6 @@ internal static class Expressions
             return null;
         }
 
-        // Check for "??"
         if (!context.EndOfCode &&
             context.Tokens[context.Position] is TokenOperator { Kind: OperatorKind.NullishCoalesce } tokenNullishCoalesce)
         {
@@ -83,7 +78,6 @@ internal static class Expressions
                 context.CompileContext.PushError("Nullish coalesce operator (??) is not supported in this GameMaker version (must be 2.3.7+)", tokenNullishCoalesce);
             }
 
-            // Parse right expression
             if (ParseOrExpression(context) is IASTNode rightExpr)
             {
                 // Replace left side with new node
@@ -105,7 +99,6 @@ internal static class Expressions
             return null;
         }
 
-        // Check for "||"
         if (!context.EndOfCode &&
             (context.Tokens[context.Position] is TokenOperator { Kind: OperatorKind.LogicalOr } ||
              context.Tokens[context.Position] is TokenKeyword { Kind: KeywordKind.Or }))
@@ -113,14 +106,12 @@ internal static class Expressions
             var token = context.Tokens[context.Position];
             context.Position++;
 
-            // Parse right side of binary operation
             if (ParseAndExpression(context) is IASTNode rightExpr)
             {
                 // Start accumulating additional arguments in binary operation chain
                 List<IASTNode> arguments = new(4) { lhs, rightExpr };
                 List<BinaryOperation> operations = new(4) { OperationKindFromToken(token) };
 
-                // Check for "||" to continue finding arguments
                 while (!context.EndOfCode &&
                        (context.Tokens[context.Position] is TokenOperator { Kind: OperatorKind.LogicalOr } ||
                         context.Tokens[context.Position] is TokenKeyword { Kind: KeywordKind.Or }))
@@ -128,7 +119,6 @@ internal static class Expressions
                     var tokenNext = context.Tokens[context.Position];
                     context.Position++;
 
-                    // Parse right side of current binary operation
                     if (ParseAndExpression(context) is IASTNode nextRightExpr)
                     {
                         arguments.Add(nextRightExpr);
@@ -159,7 +149,6 @@ internal static class Expressions
             return null;
         }
 
-        // Check for "&&"
         if (!context.EndOfCode &&
             (context.Tokens[context.Position] is TokenOperator { Kind: OperatorKind.LogicalAnd } ||
              context.Tokens[context.Position] is TokenKeyword { Kind: KeywordKind.And }))
@@ -167,14 +156,12 @@ internal static class Expressions
             var token = context.Tokens[context.Position];
             context.Position++;
 
-            // Parse right side of binary operation
             if (ParseXorExpression(context) is IASTNode rightExpr)
             {
                 // Start accumulating additional arguments in binary operation chain
                 List<IASTNode> arguments = new(4) { lhs, rightExpr };
                 List<BinaryOperation> operations = new(4) { OperationKindFromToken(token) };
 
-                // Check for "&&" to continue finding arguments
                 while (!context.EndOfCode &&
                        (context.Tokens[context.Position] is TokenOperator { Kind: OperatorKind.LogicalAnd } ||
                         context.Tokens[context.Position] is TokenKeyword { Kind: KeywordKind.And }))
@@ -182,7 +169,6 @@ internal static class Expressions
                     var tokenNext = context.Tokens[context.Position];
                     context.Position++;
 
-                    // Parse right side of current binary operation
                     if (ParseXorExpression(context) is IASTNode nextRightExpr)
                     {
                         arguments.Add(nextRightExpr);
@@ -213,7 +199,6 @@ internal static class Expressions
             return null;
         }
 
-        // Check for "^^"
         if (!context.EndOfCode &&
             (context.Tokens[context.Position] is TokenOperator { Kind: OperatorKind.LogicalXor } ||
              context.Tokens[context.Position] is TokenKeyword { Kind: KeywordKind.Xor }))
@@ -221,14 +206,12 @@ internal static class Expressions
             var token = context.Tokens[context.Position];
             context.Position++;
 
-            // Parse right side of binary operation
             if (ParseCompareExpression(context) is IASTNode rightExpr)
             {
                 // Start accumulating additional arguments in binary operation chain
                 List<IASTNode> arguments = new(4) { lhs, rightExpr };
                 List<BinaryOperation> operations = new(4) { OperationKindFromToken(token) };
 
-                // Check for "&&" to continue finding arguments
                 while (!context.EndOfCode &&
                        (context.Tokens[context.Position] is TokenOperator { Kind: OperatorKind.LogicalXor } ||
                         context.Tokens[context.Position] is TokenKeyword { Kind: KeywordKind.Xor }))
@@ -236,7 +219,6 @@ internal static class Expressions
                     var tokenNext = context.Tokens[context.Position];
                     context.Position++;
 
-                    // Parse right side of current binary operation
                     if (ParseCompareExpression(context) is IASTNode nextRightExpr)
                     {
                         arguments.Add(nextRightExpr);
@@ -280,7 +262,6 @@ internal static class Expressions
         {
             context.Position++;
 
-            // Parse right side of binary operation
             if (ParseBitwiseExpression(context) is IASTNode rightExpr)
             {
                 // Start accumulating additional arguments in binary operation chain
@@ -300,7 +281,6 @@ internal static class Expressions
                 {
                     context.Position++;
 
-                    // Parse right side of current binary operation
                     if (ParseBitwiseExpression(context) is IASTNode nextRightExpr)
                     {
                         arguments.Add(nextRightExpr);
@@ -331,7 +311,6 @@ internal static class Expressions
             return null;
         }
 
-        // Check for "&", "|", "^"
         if (!context.EndOfCode &&
             context.Tokens[context.Position] is TokenOperator
             {
@@ -341,14 +320,12 @@ internal static class Expressions
         {
             context.Position++;
 
-            // Parse right side of binary operation
             if (ParseBitwiseShiftExpression(context) is IASTNode rightExpr)
             {
                 // Start accumulating additional arguments in binary operation chain
                 List<IASTNode> arguments = new(4) { lhs, rightExpr };
                 List<BinaryOperation> operations = new(4) { OperationKindFromToken(tokenOperator) };
 
-                // Check for "&", "|", "^" to continue finding arguments
                 while (!context.EndOfCode &&
                        context.Tokens[context.Position] is TokenOperator
                        {
@@ -358,7 +335,6 @@ internal static class Expressions
                 {
                     context.Position++;
 
-                    // Parse right side of current binary operation
                     if (ParseBitwiseShiftExpression(context) is IASTNode nextRightExpr)
                     {
                         arguments.Add(nextRightExpr);
@@ -399,7 +375,6 @@ internal static class Expressions
         {
             context.Position++;
 
-            // Parse right side of binary operation
             if (ParseAddSubtractExpression(context) is IASTNode rightExpr)
             {
                 // Start accumulating additional arguments in binary operation chain
@@ -416,7 +391,6 @@ internal static class Expressions
                 {
                     context.Position++;
 
-                    // Parse right side of current binary operation
                     if (ParseAddSubtractExpression(context) is IASTNode nextRightExpr)
                     {
                         arguments.Add(nextRightExpr);
@@ -447,7 +421,6 @@ internal static class Expressions
             return null;
         }
 
-        // Check for "+", "-"
         if (!context.EndOfCode &&
             context.Tokens[context.Position] is TokenOperator
             {
@@ -457,14 +430,12 @@ internal static class Expressions
         {
             context.Position++;
 
-            // Parse right side of binary operation
             if (ParseMultiplyDivideExpression(context) is IASTNode rightExpr)
             {
                 // Start accumulating additional arguments in binary operation chain
                 List<IASTNode> arguments = new(4) { lhs, rightExpr };
                 List<BinaryOperation> operations = new(4) { OperationKindFromToken(tokenOperator) };
 
-                // Check for "+", "-" to continue finding arguments
                 while (!context.EndOfCode &&
                        context.Tokens[context.Position] is TokenOperator
                        {
@@ -474,7 +445,6 @@ internal static class Expressions
                 {
                     context.Position++;
 
-                    // Parse right side of current binary operation
                     if (ParseMultiplyDivideExpression(context) is IASTNode nextRightExpr)
                     {
                         arguments.Add(nextRightExpr);
@@ -505,7 +475,6 @@ internal static class Expressions
             return null;
         }
 
-        // Check for "*", "/", "%", "mod", "div"
         if (!context.EndOfCode &&
             context.Tokens[context.Position] is
             TokenOperator { Kind: OperatorKind.Times or OperatorKind.Divide or OperatorKind.Mod } or
@@ -514,7 +483,6 @@ internal static class Expressions
             var tokenOperator = context.Tokens[context.Position];
             context.Position++;
 
-            // Parse right side of binary operation
             if (ParseChainExpression(context) is IASTNode rightExpr)
             {
                 // Start accumulating additional arguments in binary operation chain
@@ -530,7 +498,6 @@ internal static class Expressions
                     var tokenNextOperator = context.Tokens[context.Position];
                     context.Position++;
 
-                    // Parse right side of current binary operation
                     if (ParseChainExpression(context) is IASTNode nextRightExpr)
                     {
                         arguments.Add(nextRightExpr);
@@ -559,7 +526,6 @@ internal static class Expressions
         // Before checking leftmost expression, check if it's grouped
         var lhsGrouped = context.IsCurrentToken(SeparatorKind.GroupOpen);
 
-        // Parse leftmost expression
         var lhs = ParseLeftmostExpression(context);
         if (lhs is null)
         {
@@ -571,7 +537,6 @@ internal static class Expressions
         {
             var currentToken = context.Tokens[context.Position];
 
-            // Check for an accessor
             if (currentToken is TokenSeparator
                 {
                     Kind: SeparatorKind.ArrayOpen or SeparatorKind.ArrayOpenList or
@@ -582,7 +547,6 @@ internal static class Expressions
             {
                 context.Position++;
 
-                // Parse accessor
                 var accessor = AccessorNode.Parse(context, tokenArrayOpen, lhs, tokenArrayOpen.Kind switch
                 {
                     SeparatorKind.ArrayOpen => AccessorNode.AccessorKind.Array,
@@ -620,13 +584,11 @@ internal static class Expressions
             if (!stopAtFunctionCall &&
                 currentToken is TokenSeparator { Kind: SeparatorKind.GroupOpen } tokenOpen)
             {
-                // Parse function call, which becomes left side of chain
                 lhs = new FunctionCallNode(context, tokenOpen, lhs);
                 lhsGrouped = false;
                 continue;
             }
 
-            // Check for dot access
             if (currentToken is TokenSeparator { Kind: SeparatorKind.Dot } tokenDot)
             {
                 context.Position++;
@@ -661,7 +623,6 @@ internal static class Expressions
 
                     if (!stopAtFunctionCall)
                     {
-                        // Parse function call here as well
                         if (!context.EndOfCode && context.Tokens[context.Position] is TokenSeparator { Kind: SeparatorKind.GroupOpen } tokenDotOpen)
                         {
                             lhs = new FunctionCallNode(context, tokenDotOpen, lhs);
@@ -687,7 +648,6 @@ internal static class Expressions
             break;
         }
 
-        // Handle builtin automatic arrays
         if (lhs is SimpleVariableNode { BuiltinVariable.IsAutomaticArray: true } simpleVariable)
         {
             lhs = new AccessorNode(
@@ -698,7 +658,6 @@ internal static class Expressions
             );
         }
 
-        // Check for and parse postfix
         if (!context.EndOfCode && lhs is IAssignableASTNode lhsAssignable &&
             context.Tokens[context.Position] is TokenOperator
             {
@@ -718,13 +677,13 @@ internal static class Expressions
     /// </summary>
     public static IASTNode? ParseLeftmostExpression(ParseContext context)
     {
+        System.Runtime.CompilerServices.RuntimeHelpers.EnsureSufficientExecutionStack();
         if (context.EndOfCode)
         {
             context.CompileContext.PushError("Unexpected end of code");
             return null;
         }
 
-        // Check type of expression based on first token
         var token = context.Tokens[context.Position];
         switch (token)
         {

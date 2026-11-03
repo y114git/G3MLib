@@ -9,10 +9,10 @@
 ### Security
 
 - Patch archives are refused when an entry name is rooted, holds a drive or stream colon, or has a `..` segment, or when the entries declare more than 4 GiB in total (`PatchFileSystem.MaxTotalPayloadBytes`, settable, `long.MaxValue` removes the limit). Embedded texture paths are joined with a containment check. `g3mpatch.json` larger than 64 MiB is refused.
-- Resource names `.`, `..`, trailing dots or spaces and Windows device names are made safe when files are written.
-- Recursion guards in the GML parser, UI node and sequence readers, so deeply nested input raises an error instead of a stack overflow.
+- Resource names `.`, `..`, trailing dots or spaces and Windows device names are made safe when files are written, with a hash suffix so they cannot collide with another resource. A colon is replaced on every platform.
+- Recursion guards in the GML parser (including chained prefix operators), and in the UI node and sequence readers (including their child count pass), so deeply nested input raises an error instead of a stack overflow.
 - Allocation caps: image decompression size hint, tile layer size; `MurmurHash` no longer stack-allocates by input length.
-- Patch JSON is validated with a streaming reader instead of a DOM. Merge reference scans stop after 2 seconds per pattern. Absolute paths are passed to xdelta.
+- Patch JSON is validated with a streaming reader instead of a DOM. Merge reference scans cannot backtrack and stop after 2 seconds per pattern. `g3mpatch.json` is capped in every load path. Archive entries over 64 MiB are read in chunks. Absolute paths are passed to xdelta.
 
 ### Fixed
 

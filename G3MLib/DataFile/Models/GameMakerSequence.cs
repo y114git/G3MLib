@@ -710,6 +710,7 @@ public class GameMakerSequence : GameMakerNamedResource, IProjectAsset, INotifyP
         /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
         public static uint UnserializeChildObjectCount(GameMakerReader reader)
         {
+            System.Runtime.CompilerServices.RuntimeHelpers.EnsureSufficientExecutionStack();
             ArgumentNullException.ThrowIfNull(reader);
             uint count = 0;
 

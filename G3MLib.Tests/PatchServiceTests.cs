@@ -1042,6 +1042,40 @@ public class PatchServiceTests
         Assert.Contains("unsafe name", error.Message, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void PatchArchiveWithAnOversizedManifestIsRefused()
+    {
+        using MemoryStream stream = new();
+        using (var archive = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            using var entryStream = archive.CreateEntry("g3mpatch.json", CompressionLevel.Optimal).Open();
+            var zeros = new byte[1024 * 1024];
+            for (var i = 0; i < 65; i++)
+                entryStream.Write(zeros);
+        }
+
+        stream.Position = 0;
+        var error = Assert.Throws<InvalidDataException>(() => PatchFileSystem.LoadFromZip(stream));
+        Assert.Contains("too large", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void LargeArchiveEntriesAreReadInChunks()
+    {
+        using MemoryStream stream = new();
+        using (var archive = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            using var entryStream = archive.CreateEntry("Exact/big.bin", CompressionLevel.Optimal).Open();
+            var zeros = new byte[1024 * 1024];
+            for (var i = 0; i < 70; i++)
+                entryStream.Write(zeros);
+        }
+
+        stream.Position = 0;
+        var pfs = PatchFileSystem.LoadFromZip(stream, loadExactPayloads: true);
+        Assert.NotNull(pfs);
+    }
+
     private static void Write(string path, GameMakerData data)
     {
         using var stream = File.Create(path);
