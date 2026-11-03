@@ -51,7 +51,7 @@ public sealed class PatchFileSystem
 	}
 
 	/// <summary>The total size, in bytes, of all entries a patch archive may declare; a zip can declare far more than it stores.</summary>
-	public const long MaxTotalPayloadBytes = 4L * 1024 * 1024 * 1024;
+	public static long MaxTotalPayloadBytes { get; set; } = 4L * 1024 * 1024 * 1024;
 
 	/// <summary>An entry name must stay inside the archive: no rooted or drive paths, no stream or UNC names, no <c>..</c> segment. Later code joins these names onto folders.</summary>
 	private static void RejectUnsafeEntryName(string fullName)

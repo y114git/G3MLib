@@ -242,10 +242,12 @@ public sealed class ProjectContextTests
     }
 
     [Fact]
-    public void ScriptsAreNotAllowedUntilTheHostTurnsThemOn()
+    public void ScriptsAreAllowedUnlessTheHostTurnsThemOff()
     {
         var context = ProjectContext.CreateWithDataFilePaths("input.win", "output.win", "project.json");
 
+        Assert.True(context.AllowScripts);
+        context.AllowScripts = false;
         Assert.False(context.AllowScripts);
     }
 }

@@ -8,7 +8,7 @@
 
 ### Security
 
-- Patch archives are refused when an entry name is rooted, holds a drive or stream colon, or has a `..` segment, or when the entries declare more than 4 GiB in total (`PatchFileSystem.MaxTotalPayloadBytes`). Embedded texture paths are joined with a containment check. `g3mpatch.json` larger than 64 MiB is refused.
+- Patch archives are refused when an entry name is rooted, holds a drive or stream colon, or has a `..` segment, or when the entries declare more than 4 GiB in total (`PatchFileSystem.MaxTotalPayloadBytes`, settable, `long.MaxValue` removes the limit). Embedded texture paths are joined with a containment check. `g3mpatch.json` larger than 64 MiB is refused.
 - Resource names `.`, `..`, trailing dots or spaces and Windows device names are made safe when files are written.
 - Recursion guards in the GML parser, UI node and sequence readers, so deeply nested input raises an error instead of a stack overflow.
 - Allocation caps: image decompression size hint, tile layer size; `MurmurHash` no longer stack-allocates by input length.
@@ -21,7 +21,7 @@
 ### Changed
 
 - `PatchFileSystem.MaxPayloadBytes` now holds the payload size cap that `ModConfig` carried, lowered from 4 GiB to the 2 GiB an array can hold, so a larger payload is refused with a clear error.
-- `ProjectContext.AllowScripts` defaults to false; a host must turn on script globals itself.
+- `ProjectContext.AllowScripts` can be set to false by a host that opens untrusted projects; it stays true by default.
 - An in-memory patch apply writes no files: audio groups stored outside the data file are skipped, where 1.1.1 rewrote the group files next to the data file.
 - `ResourceImportService.Import` with a dictionary of names checks every type before importing, so an unsupported type no longer leaves a half-applied import.
 
