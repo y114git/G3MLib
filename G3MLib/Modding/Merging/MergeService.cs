@@ -3545,6 +3545,9 @@ public static partial class MergeService
 		if (filePath.Equals("Options/options.json", StringComparison.OrdinalIgnoreCase))
 			return TryThreeWayOptionsMerge(originalData, existingBytes, incomingBytes);
 
+		if (filePath.Equals("GlobalScripts/global_scripts.json", StringComparison.OrdinalIgnoreCase))
+			return TryThreeWayGlobalScriptsMerge(originalData, existingBytes, incomingBytes);
+
 		if (!filePath.Equals("GeneralInfo/GeneralInfo.json", StringComparison.OrdinalIgnoreCase))
 			return null;
 
@@ -3633,6 +3636,97 @@ public static partial class MergeService
 		{
 			try { if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true); } catch { }
 		}
+	}
+
+	// Patches that each append their own global scripts produce lists of the same length, so an index-wise
+	// merge would let the higher-priority patch replace the other patch's entries and its scripts would never run.
+	private static byte[]? TryThreeWayGlobalScriptsMerge(
+		GameMakerData originalData,
+		byte[] existingBytes,
+		byte[] incomingBytes)
+	{
+		var tempDir = Path.Combine(TempRoot.Path, $"g3m_base_global_scripts_{Guid.NewGuid():N}");
+		try
+		{
+			ResourceExportService.ExportGlobalScripts(originalData, tempDir);
+			var basePath = Path.Combine(tempDir, "GlobalScripts", "global_scripts.json");
+			if (!File.Exists(basePath))
+				return null;
+
+			var baseNode = ParseJsonObject(File.ReadAllBytes(basePath));
+			var existingNode = ParseJsonObject(existingBytes);
+			var incomingNode = ParseJsonObject(incomingBytes);
+			if (baseNode == null || existingNode == null || incomingNode == null)
+				return null;
+
+			var merged = ThreeWayMergeJsonObjects(baseNode, existingNode, incomingNode);
+			foreach (var key in new[] { "globalInitScripts", "gameEndScripts" })
+			{
+				if (TryReadNameList(baseNode[key], out var baseNames) &&
+					TryReadNameList(existingNode[key], out var oursNames) &&
+					TryReadNameList(incomingNode[key], out var theirsNames))
+				{
+					merged[key] = new JsonArray([.. MergeOrderedNameLists(baseNames, oursNames, theirsNames).Select(n => JsonValue.Create(n))]);
+				}
+			}
+			return Encoding.UTF8.GetBytes(merged.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+		}
+		finally
+		{
+			try { if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true); } catch { }
+		}
+	}
+
+	private static bool TryReadNameList(JsonNode? node, out List<string> names)
+	{
+		names = [];
+		if (node is not JsonArray array)
+			return false;
+		foreach (var item in array)
+		{
+			if (item is not JsonValue value || !value.TryGetValue<string>(out var name))
+				return false;
+			names.Add(name);
+		}
+		return true;
+	}
+
+	/// <summary>
+	/// Three-way merge of an ordered list of names. Keeps <paramref name="ours"/> in order, drops original
+	/// entries that <paramref name="theirs"/> removed, and inserts entries <paramref name="theirs"/> added
+	/// after their preceding neighbour, past entries only <paramref name="ours"/> added there.
+	/// </summary>
+	internal static List<string> MergeOrderedNameLists(
+		IReadOnlyList<string> baseList,
+		IReadOnlyList<string> ours,
+		IReadOnlyList<string> theirs)
+	{
+		var inBase = new HashSet<string>(baseList, StringComparer.Ordinal);
+		var inTheirs = new HashSet<string>(theirs, StringComparer.Ordinal);
+		var result = ours.Where(n => !inBase.Contains(n) || inTheirs.Contains(n)).ToList();
+		var present = new HashSet<string>(result, StringComparer.Ordinal);
+		var onlyOurs = new HashSet<string>(result.Where(n => !inBase.Contains(n) && !inTheirs.Contains(n)), StringComparer.Ordinal);
+
+		var anchor = -1;
+		foreach (var name in theirs)
+		{
+			if (present.Contains(name))
+			{
+				anchor = result.IndexOf(name);
+				continue;
+			}
+			// An original entry missing from ours was removed there; keep it removed.
+			if (inBase.Contains(name))
+				continue;
+
+			var at = anchor + 1;
+			while (at < result.Count && onlyOurs.Contains(result[at]))
+				at++;
+			result.Insert(at, name);
+			present.Add(name);
+			anchor = at;
+		}
+		return result;
 	}
 
 	private static JsonArray MergeOptionsConstants(JsonArray? baseArray, JsonArray? oursArray, JsonArray? theirsArray)
