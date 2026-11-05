@@ -5,6 +5,7 @@ using System.Text.Json;
 using G3MLib.Modding.Hashing;
 using G3MLib.Modding.Resources;
 using G3MLib.DataFile;
+using G3MLib.DataFile.Compiler;
 using G3MLib.DataFile.Models;
 using G3MLib.Modding.Diffing;
 using G3MLib.Modding.Merging;
@@ -732,6 +733,74 @@ public class PatchServiceTests
                 Directory.Delete(directory, recursive: true);
             }
         }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task MergeKeepsGlobalInitScriptsThatEachPatchAppended(bool usePropertyMerge)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"G3MLibTests-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var originalPath = Path.Combine(directory, "original.win");
+            var firstPath = Path.Combine(directory, "first.win");
+            var secondPath = Path.Combine(directory, "second.win");
+            var firstPatch = Path.Combine(directory, "first.g3mpatch");
+            var secondPatch = Path.Combine(directory, "second.g3mpatch");
+            var outputPath = Path.Combine(directory, "merged.win");
+            using (var original = GameMakerData.CreateNew2026LTS())
+            {
+                var group = new CodeImportGroup(original);
+                group.QueueReplace("gml_GlobalScript_base_a", "return 1;");
+                group.QueueReplace("gml_GlobalScript_base_b", "return 2;");
+                group.Import();
+                Write(originalPath, original);
+            }
+            // Both patches append two scripts, so their global script lists have the same length.
+            foreach (var (path, prefix) in new[] { (firstPath, "first"), (secondPath, "second") })
+            {
+                using var modded = Read(originalPath);
+                var group = new CodeImportGroup(modded);
+                group.QueueReplace($"gml_GlobalScript_{prefix}_catalog", "return 3;");
+                group.QueueReplace($"gml_GlobalScript_{prefix}_main", "return 4;");
+                group.Import();
+                Write(path, modded);
+            }
+            Assert.True((await PatchService.CreatePatchAsync(originalPath, firstPath, firstPatch, cancellationToken: TestContext.Current.CancellationToken)).Success);
+            Assert.True((await PatchService.CreatePatchAsync(originalPath, secondPath, secondPatch, cancellationToken: TestContext.Current.CancellationToken)).Success);
+            Assert.True((await MergeService.MergePatchesAsync(originalPath, [firstPatch, secondPatch], new MergeOptions
+            {
+                ApplyPath = outputPath,
+                UsePropertyMerge = usePropertyMerge
+            }, TestContext.Current.CancellationToken)).Success);
+
+            using var output = Read(outputPath);
+            Assert.Equal(
+                ["gml_GlobalScript_base_a", "gml_GlobalScript_base_b",
+                 "gml_GlobalScript_first_catalog", "gml_GlobalScript_first_main",
+                 "gml_GlobalScript_second_catalog", "gml_GlobalScript_second_main"],
+                output.GlobalInitScripts.Select(s => s.Code.Name.Content).ToArray());
+        }
+        finally
+        {
+            if (Directory.Exists(directory))
+            {
+                Directory.Delete(directory, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public void OrderedNameListMergeKeepsBothSidesAdditionsAndRemovals()
+    {
+        string[] original = ["a", "b", "c", "d"];
+        // ours removed b and appended x; theirs removed d, inserted y after a and appended z.
+        string[] ours = ["a", "c", "d", "x"];
+        string[] theirs = ["a", "y", "b", "c", "z"];
+        Assert.Equal(["a", "y", "c", "x", "z"], MergeService.MergeOrderedNameLists(original, ours, theirs));
+        Assert.Equal(["a", "b"], MergeService.MergeOrderedNameLists(["a", "b"], ["a", "b"], ["a", "b"]));
     }
 
     private static GameMakerData Read(string source)
