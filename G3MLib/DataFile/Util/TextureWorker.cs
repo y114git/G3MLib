@@ -35,8 +35,15 @@ public class TextureWorker : IDisposable
     /// <returns><see cref="MagickImage"/> with the contents of the given texture's image.</returns>
     public MagickImage GetEmbeddedTexture(GameMakerEmbeddedTexture embeddedTexture)
     {
+        ArgumentNullException.ThrowIfNull(embeddedTexture);
         // The lazy value keeps the decode out of any shared lock, so different pages decode in parallel.
         return embeddedDictionary.GetOrAdd(embeddedTexture, static t => new Lazy<MagickImage>(() => t.TextureData.Image.GetMagickImage())).Value;
+    }
+
+    // An item without a page (damaged files) fails with a message that names the image instead of a null key.
+    private static GameMakerEmbeddedTexture RequirePage(GameMakerTexturePageItem item, string imageName)
+    {
+        return item.TexturePage ?? throw new InvalidDataException($"{imageName} has no texture page.");
     }
 
     private RawPage GetRawPage(GameMakerEmbeddedTexture embeddedTexture)
@@ -91,7 +98,7 @@ public class TextureWorker : IDisposable
     public ReadOnlyMemory<byte> CutBgra(GameMakerTexturePageItem item, bool padding, out int width, out int height)
     {
         ArgumentNullException.ThrowIfNull(item);
-        var page = GetRawPage(item.TexturePage);
+        var page = GetRawPage(RequirePage(item, "frame"));
         int boundingWidth = item.BoundingWidth;
         int boundingHeight = item.BoundingHeight;
         var plain = page is not null && item.SourceWidth == item.TargetWidth && item.SourceHeight == item.TargetHeight
@@ -149,6 +156,8 @@ public class TextureWorker : IDisposable
     public void ExportAsPNG(GameMakerTexturePageItem texPageItem, string filePath, string? imageName = null, bool includePadding = false)
     {
         ArgumentNullException.ThrowIfNull(texPageItem);
+        // Checked before the cache, so a failure is not stored under the geometry of an unrelated damaged item.
+        RequirePage(texPageItem, imageName ?? Path.GetFileNameWithoutExtension(filePath));
         FrameKey key = new(texPageItem.TexturePage, texPageItem.SourceX, texPageItem.SourceY, texPageItem.SourceWidth, texPageItem.SourceHeight,
             texPageItem.TargetX, texPageItem.TargetY, texPageItem.TargetWidth, texPageItem.TargetHeight,
             texPageItem.BoundingWidth, texPageItem.BoundingHeight, includePadding);
@@ -182,7 +191,7 @@ public class TextureWorker : IDisposable
 
         // Create an image cropped from the item's part of the texture page
         IMagickImage<byte> image;
-        var raw = GetRawPage(texPageItem.TexturePage);
+        var raw = GetRawPage(RequirePage(texPageItem, imageName));
         if (raw is not null && texPageItem.SourceWidth > 0 && texPageItem.SourceHeight > 0
             && texPageItem.SourceX >= 0 && texPageItem.SourceY >= 0
             && texPageItem.SourceX + texPageItem.SourceWidth <= raw.Width && texPageItem.SourceY + texPageItem.SourceHeight <= raw.Height)

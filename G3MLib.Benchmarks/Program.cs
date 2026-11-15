@@ -98,12 +98,13 @@ foreach (var inputPath in paths)
             G3MLib.DataFile.References.RenameService.Apply(plan).Undo();
         });
         Measure("repack_plan", () => new G3MLib.DataFile.Util.TexturePageRepacker(data).Plan(new G3MLib.DataFile.Util.RepackOptions()));
-        Measure("import_sprites", () =>
-        {
-            using var target = GameMakerData.CreateNew2026LTS();
-            Check(ResourceImportService.Import("Sprites", target, Path.Combine(Output("sprites"), "Sprites")), "Sprite import failed");
-            Check(target.Sprites.Count > 0, "No sprite was imported");
-        });
+        if (data.Sprites.Count > 0)
+            Measure("import_sprites", () =>
+            {
+                using var target = GameMakerData.CreateNew2026LTS();
+                Check(ResourceImportService.Import("Sprites", target, Path.Combine(Output("sprites"), "Sprites")), "Sprite import failed");
+                Check(target.Sprites.Count > 0, "No sprite was imported");
+            });
         if (data.Rooms.Count < 8) throw new InvalidOperationException("Full patch benchmarks require at least eight rooms.");
         var patches = new List<string>();
         for (var i = 0; i < 8; i++)

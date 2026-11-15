@@ -201,10 +201,17 @@ public partial class PatchService
 	{
 		try
 		{
+			if (ValidatedDataFiles.TryGet(path, out _))
+				return null;
+
 			using var stream = OpenDataReadStream(path);
 			using var savedData = GameMakerIO.Read(stream);
 			var integrity = DataIntegrityService.ValidateOnly(savedData);
-			return integrity.Success ? null : string.Join("; ", integrity.Errors.Take(20));
+			if (!integrity.Success)
+				return string.Join("; ", integrity.Errors.Take(20));
+
+			ValidatedDataFiles.Remember(path, savedData);
+			return null;
 		}
 		catch (Exception ex)
 		{
@@ -1969,6 +1976,7 @@ public partial class PatchService
 	public static async Task<PatchApplyResult> ApplyPatchAsync(string dataPath, string patchPath, string outputPath, bool allowXdeltaFallback = false, bool verifyModifiedHash = true, CancellationToken cancellationToken = default)
 	{
 		using var cancellationScope = ModdingCancellation.Begin(cancellationToken);
+		using var validatedFiles = ValidatedDataFiles.Begin();
 		cancellationToken.ThrowIfCancellationRequested();
 		string? temporaryDirectory = null;
 		try

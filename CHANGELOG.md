@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.1.3] - 2026-11-15
+
+### Fixed
+
+- Merging patches that each add entries to the same list no longer loses the entries of all but the last patch. With property merge on, global init scripts, game end scripts, feature flags, tags and the room order are merged by name against the original list: additions and removals from every patch are kept, and the earlier patch's additions come first at a shared spot. A list with repeated names is merged as before.
+- A texture page item without a texture page now fails with `InvalidDataException` (`TextureWorker.GetTextureFor` and `ExportAsPNG` name the image, `CutBgra`) or `InvalidOperationException` (`ReplaceTexture`), where a null key escaped from the page cache. `GetEmbeddedTexture(null)` throws `ArgumentNullException`.
+
+### Changed
+
+- Data files are built in memory and copied to a seekable file stream in one write, about four times faster than writing to the file while the writer seeks back for lengths and pointers. A file too large for one buffer is still written directly.
+- A data file that was just saved and validated is not parsed again to copy its audio groups, commit it or validate it a second time. Applying a patch to a 12 MB file takes 1.7 s instead of 4.3 s, applying eight merged patches 2.7 s instead of 5.4 s.
+- Updated `Microsoft.CodeAnalysis` packages to 5.12.0.
+
 ## [1.1.2] - 2026-11-04
 
 ### Removed

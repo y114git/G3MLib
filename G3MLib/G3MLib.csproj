@@ -8,7 +8,7 @@
     <AssemblyTitle>G3MLib</AssemblyTitle>
     <ProductName>G3MLib</ProductName>
     <PackageId>G3MLib</PackageId>
-    <Version>1.1.2</Version>
+    <Version>1.1.3</Version>
     <Authors>Y114</Authors>
     <Copyright>Copyright © 2026 Y114</Copyright>
     <Description>.NET library for reading, writing, analyzing, decompiling, patching, and merging GameMaker data files and more.</Description>
@@ -33,9 +33,9 @@
   <ItemGroup>
     <PackageReference Include="Fody" Version="6.9.3" PrivateAssets="all" />
     <PackageReference Include="Magick.NET-Q8-AnyCPU" Version="14.17.2" />
-    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="5.9.0" PrivateAssets="all" />
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="5.9.0" />
-    <PackageReference Include="Microsoft.CodeAnalysis.Scripting.Common" Version="5.9.0" />
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="5.12.0" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="5.12.0" />
+    <PackageReference Include="Microsoft.CodeAnalysis.Scripting.Common" Version="5.12.0" />
     <PackageReference Include="PropertyChanged.Fody" Version="4.1.0" PrivateAssets="all" />
     <PackageReference Include="SharpZipLib" Version="1.4.2" />
   </ItemGroup>

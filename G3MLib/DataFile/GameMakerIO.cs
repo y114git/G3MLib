@@ -1112,10 +1112,7 @@ public static class GameMakerIO
         ArgumentNullException.ThrowIfNull(stream);
         ArgumentNullException.ThrowIfNull(data);
         ArgumentNullException.ThrowIfNull(data.FORM);
-        GameMakerWriter writer = new(stream, messageHandler);
-        writer.WriteGameMakerData(data);
-        writer.ThrowIfUnwrittenObjects();
-        writer.Flush(data);
+        WriteCore(stream, data, null, CancellationToken.None, messageHandler, reportDone: false);
     }
 
     /// <summary>
@@ -1220,6 +1217,13 @@ public static class GameMakerIO
     {
         ArgumentNullException.ThrowIfNull(data.FORM);
         cancellationToken.ThrowIfCancellationRequested();
+        if (stream is not MemoryStream && stream.CanSeek && stream.CanWrite && stream.Position == 0 && TryWriteBuffered(stream, data, progress, cancellationToken, messageHandler))
+        {
+            if (reportDone)
+                progress?.Report(new GameMakerProgress(1.0, "Done"));
+            return;
+        }
+
         GameMakerWriter writer = new(stream, messageHandler)
         {
             CancellationToken = cancellationToken,
@@ -1230,6 +1234,40 @@ public static class GameMakerIO
         writer.Flush(data);
         if (reportDone)
             progress?.Report(new GameMakerProgress(1.0, "Done"));
+    }
+
+    // The writer seeks back to fill in lengths and pointers, and a file stream drops its buffer on every seek (about four times slower).
+    // Building the file in memory first and copying it once avoids that; a file too big for one buffer is written directly instead.
+    private static bool TryWriteBuffered(Stream stream, GameMakerData data, IProgress<GameMakerProgress> progress, CancellationToken cancellationToken,
+                                         GameMakerWriter.MessageHandlerDelegate messageHandler)
+    {
+        using MemoryStream buffer = new();
+        try
+        {
+            WriteCore(buffer, data, progress, cancellationToken, messageHandler, reportDone: false);
+        }
+        catch (Exception ex) when (buffer.Length > MinBufferLimit && IsBufferLimit(ex))
+        {
+            return false;
+        }
+
+        stream.Write(buffer.GetBuffer(), 0, (int)buffer.Length);
+        stream.Flush();
+        return true;
+    }
+
+    // Below this size a failure is a real write error, not the buffer running out of room.
+    private const long MinBufferLimit = 1L << 30;
+
+    // The in-memory buffer ends with an IOException ("stream was too long") or an out-of-memory error, possibly wrapped by the writer.
+    private static bool IsBufferLimit(Exception exception)
+    {
+        for (var current = exception; current is not null; current = current.InnerException)
+        {
+            if (current is IOException or OutOfMemoryException)
+                return true;
+        }
+        return false;
     }
 
     public static Dictionary<uint, GameMakerObject> GenerateOffsetMap(Stream stream)

@@ -782,6 +782,7 @@ public static partial class MergeService
 		ArgumentNullException.ThrowIfNull(patchPaths);
 		ArgumentNullException.ThrowIfNull(options);
 		using var cancellationScope = ModdingCancellation.Begin(cancellationToken);
+		using var validatedFiles = ValidatedDataFiles.Begin();
 		cancellationToken.ThrowIfCancellationRequested();
 		if (options.UseSequentialMerge)
 		{
@@ -1001,7 +1002,7 @@ public static partial class MergeService
 					{
 						try
 						{
-							var merged = TryThreeWayJsonMerge(filePath, originalData, existingData, fileData);
+							var merged = TryThreeWayJsonMerge(filePath, originalData, existingData, fileData, options.UsePropertyMerge);
 							if (merged != null || options.UsePropertyMerge)
 							{
 								merged ??= JsonDeepMerge(existingData, fileData);
@@ -3523,7 +3524,8 @@ public static partial class MergeService
 		string filePath,
 		GameMakerData originalData,
 		byte[] existingBytes,
-		byte[] incomingBytes)
+		byte[] incomingBytes,
+		bool propertyMerge)
 	{
 		if (IsGameObjectJsonPath(filePath) &&
 			(TryGetExportedJsonName(existingBytes, out var objectName) || TryGetExportedJsonName(incomingBytes, out objectName)))
@@ -3541,6 +3543,9 @@ public static partial class MergeService
 				incomingBytes,
 				tempDir => ResourceExportService.ExportSprites(originalData, tempDir, new HashSet<string>(StringComparer.Ordinal) { spriteName }),
 				tempDir => Path.Combine(tempDir, "Sprites", SafeFileName(spriteName), SafeFileName(spriteName) + ".json"));
+
+		if (propertyMerge && TryNameListMerge(filePath, originalData, existingBytes, incomingBytes) is { } nameLists)
+			return nameLists;
 
 		if (filePath.Equals("Options/options.json", StringComparison.OrdinalIgnoreCase))
 			return TryThreeWayOptionsMerge(originalData, existingBytes, incomingBytes);
@@ -3563,6 +3568,8 @@ public static partial class MergeService
 				return null;
 
 			var merged = ThreeWayMergeJsonObjects(baseNode, existingNode, incomingNode);
+			if (propertyMerge)
+				MergeNameListField(baseNode, existingNode, incomingNode, merged, "roomOrder");
 			return Encoding.UTF8.GetBytes(merged.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
 		}
 		finally

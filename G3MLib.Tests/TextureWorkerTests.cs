@@ -27,6 +27,18 @@ public sealed class TextureWorkerTests
     }
 
     [Fact]
+    public void ItemWithoutATexturePageFailsWithAnImageName()
+    {
+        using var worker = new TextureWorker();
+        var item = new GameMakerTexturePageItem { SourceWidth = 4, SourceHeight = 4, TargetWidth = 4, TargetHeight = 4, BoundingWidth = 4, BoundingHeight = 4 };
+        Assert.Contains("spr_lost", Assert.Throws<InvalidDataException>(() => worker.GetTextureFor(item, "spr_lost")).Message);
+        Assert.Throws<InvalidDataException>(() => worker.CutBgra(item, false, out _, out _));
+        Assert.Throws<InvalidDataException>(() => worker.ExportAsPNG(item, Path.Combine(Path.GetTempPath(), "never.png"), "spr_lost"));
+        Assert.Throws<ArgumentNullException>(() => worker.GetEmbeddedTexture(null));
+        Assert.Throws<InvalidOperationException>(() => item.ReplaceTexture(new MagickImage(MagickColors.Red, 4, 4)));
+    }
+
+    [Fact]
     public void ExportedPngMatchesDirectEncodeAndRepeatedFramesAreIdentical()
     {
         using var input = File.OpenRead(Path.Combine(AppContext.BaseDirectory, "Fixtures", "data-2026.win"));

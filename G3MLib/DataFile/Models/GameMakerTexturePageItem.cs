@@ -140,6 +140,10 @@ public class GameMakerTexturePageItem : GameMakerNamedResource, INotifyPropertyC
     public void ReplaceTexture(MagickImage replaceImage)
     {
         ArgumentNullException.ThrowIfNull(replaceImage);
+        if (TexturePage?.TextureData is null)
+        {
+            throw new InvalidOperationException("The texture page item has no texture page to replace.");
+        }
         // Resize image to bounds on texture page
         using var finalImage = TextureWorker.ResizeImage(replaceImage, SourceWidth, SourceHeight);
 

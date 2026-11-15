@@ -22,8 +22,9 @@ public static class PatchInputService
 				GameMakerIO.Write(stream, data);
 				stream.Flush(flushToDisk: true);
 			}
-			CopyExternalAudioGroups(outputPath, staged, data);
-			if (sourcePath is not null) CopyExternalAudioGroups(sourcePath, staged, data);
+			var audioGroups = ExternalAudioGroupPaths(data).ToArray();
+			CopyExternalAudioGroups(outputPath, staged, audioGroups);
+			if (sourcePath is not null) CopyExternalAudioGroups(sourcePath, staged, audioGroups);
 		});
 
 	private static void WriteOutput(string outputPath, Action<string> write)
@@ -46,21 +47,29 @@ public static class PatchInputService
 	{
 		var sourceDirectory = Path.GetDirectoryName(Path.GetFullPath(stagedPath));
 		var destinationDirectory = Path.GetDirectoryName(Path.GetFullPath(outputPath));
-		using var stream = File.OpenRead(stagedPath);
-		using var data = GameMakerIO.Read(stream);
 		var files = new List<(string Source, string Destination)>();
-		foreach (var relativePath in ExternalAudioGroupPaths(data))
+		foreach (var relativePath in AudioGroupPathsOf(stagedPath))
 		{
 			var source = GetSafeAudioGroupPath(sourceDirectory, relativePath) ?? throw new InvalidDataException("Audio group path escapes the data directory.");
 			var destination = GetSafeAudioGroupPath(destinationDirectory, relativePath) ?? throw new InvalidDataException("Audio group path escapes the output directory.");
 			if (File.Exists(source)) files.Add((source, destination));
 		}
-		stream.Dispose();
 		files.Add((stagedPath, outputPath));
 		OutputFileCommit.Commit(files);
 	}
 
-	private static IEnumerable<string> ExternalAudioGroupPaths(GameMakerData data) =>
+	/// <summary>The external audio group paths of a data file, without parsing it again when it was just validated.</summary>
+	private static string[] AudioGroupPathsOf(string dataPath)
+	{
+		if (ValidatedDataFiles.TryGet(dataPath, out var known))
+			return known;
+
+		using var stream = File.OpenRead(dataPath);
+		using var data = GameMakerIO.Read(stream);
+		return [.. ExternalAudioGroupPaths(data)];
+	}
+
+	internal static IEnumerable<string> ExternalAudioGroupPaths(GameMakerData data) =>
 		data.AudioGroups?.Select((group, index) => (Group: group, Index: index))
 			.Where(item => item.Index > 0)
 			.Select(item => string.IsNullOrWhiteSpace(item.Group?.Path?.Content) ? $"audiogroup{item.Index}.dat" : item.Group.Path.Content)
@@ -74,6 +83,7 @@ public static class PatchInputService
 
 	public static async Task<string> MaterializeDataAsync(string originalPath, string inputPath, string tempDir)
 	{
+		using var validatedFiles = ValidatedDataFiles.Begin();
 		if (!File.Exists(originalPath))
 		{
 			throw new FileNotFoundException("Original data file not found", originalPath);
@@ -124,6 +134,9 @@ public static class PatchInputService
 	{
 		try
 		{
+			if (ValidatedDataFiles.TryGet(dataPath, out _))
+				return;
+
 			using var stream = new FileStream(dataPath, FileMode.Open, FileAccess.Read, FileShare.Read);
 			using (GameMakerIO.Read(stream))
 			{
@@ -148,12 +161,10 @@ public static class PatchInputService
 	/// <summary>Copies missing external audio groups beside a materialized data file, preserving groups already written there.</summary>
 	public static void CopyExternalAudioGroups(string sourceDataPath, string materializedDataPath)
 	{
-		using var stream = File.OpenRead(materializedDataPath);
-		using var data = GameMakerIO.Read(stream);
-		CopyExternalAudioGroups(sourceDataPath, materializedDataPath, data);
+		CopyExternalAudioGroups(sourceDataPath, materializedDataPath, AudioGroupPathsOf(materializedDataPath));
 	}
 
-	private static void CopyExternalAudioGroups(string sourceDataPath, string materializedDataPath, GameMakerData data)
+	private static void CopyExternalAudioGroups(string sourceDataPath, string materializedDataPath, IEnumerable<string> audioGroupPaths)
 	{
 		var sourceDir = Path.GetDirectoryName(Path.GetFullPath(sourceDataPath));
 		var materializedDir = Path.GetDirectoryName(Path.GetFullPath(materializedDataPath));
@@ -161,7 +172,7 @@ public static class PatchInputService
 		{
 			return;
 		}
-		foreach (var relativePath in ExternalAudioGroupPaths(data))
+		foreach (var relativePath in audioGroupPaths)
 		{
 			var sourcePath = GetSafeAudioGroupPath(sourceDir, relativePath) ?? throw new InvalidDataException("Audio group path escapes the data directory.");
 			var destinationPath = GetSafeAudioGroupPath(materializedDir, relativePath) ?? throw new InvalidDataException("Audio group path escapes the output directory.");
