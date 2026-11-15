@@ -20,12 +20,12 @@ the MPL-2.0 text is in `licenses/MPL-2.0.txt`.
 
 ### Microsoft.CodeAnalysis.CSharp.Scripting
 
-- Version: `5.9.0`
+- Version: `5.12.0`
 - License: MIT
 
 ### Microsoft.CodeAnalysis.Scripting.Common
 
-- Version: `5.9.0`
+- Version: `5.12.0`
 - License: MIT
 
 License texts are in `licenses/Apache-2.0.txt` and `licenses/MIT.txt`.
