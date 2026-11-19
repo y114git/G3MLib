@@ -11,7 +11,7 @@ public class GameMakerEmbeddedAudio : GameMakerNamedResource, PaddedObject, IDis
     /// <summary>
     /// The name of the embedded audio entry.
     /// </summary>
-    /// <remarks>This is a UTMT only attribute. GameMaker does not store names for them.</remarks>
+    /// <remarks>This is an editor-only attribute. GameMaker does not store names for them.</remarks>
     public GameMakerString Name { get; set; }
 
     /// <summary>

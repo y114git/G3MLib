@@ -130,7 +130,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
     /// The width of the room grid in pixels.
     /// </summary>
     /// <remarks>
-    /// This is an UndertaleModTool-only property; it doesn't exist in game data.
+    /// This is an editor-only property; it doesn't exist in game data.
     /// </remarks>
     public double GridWidth { get; set { if (value >= 0) field = value; } } = 16.0;
 
@@ -138,7 +138,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
     /// The height of the room grid in pixels.
     /// </summary>
     /// <remarks>
-    /// This is an UndertaleModTool-only property; it doesn't exist in game data.
+    /// This is an editor-only property; it doesn't exist in game data.
     /// </remarks>
     public double GridHeight { get; set { if (value >= 0) field = value; } } = 16.0;
 
@@ -146,7 +146,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
     /// The thickness of the room grid in pixels.
     /// </summary>
     /// <remarks>
-    /// This is an UndertaleModTool-only property; it doesn't exist in game data.
+    /// This is an editor-only property; it doesn't exist in game data.
     /// </remarks>
     public double GridThicknessPx { get; set; } = 1d;
 
@@ -261,7 +261,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
     /// </summary>
     /// <remarks>
     /// Used by "BGColorConverter" of the UndertaleModTool room editor.
-    /// This attribute is UMT-only and does not exist in GameMaker.
+    /// This attribute is editor-only and does not exist in GameMaker.
     /// </remarks>
     public Layer BGColorLayer => (_layers?.Where(l => l?.LayerType is LayerType.Background
                                                                       && l.BackgroundData?.Sprite is null
@@ -704,7 +704,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// The room parent this <see cref="Background"/> belongs to.
         /// </summary>
         /// <remarks>
-        /// This attribute is UMT-only and does not exist in GameMaker.
+        /// This attribute is editor-only and does not exist in GameMaker.
         /// </remarks>
         public GameMakerRoom ParentRoom { get => _parentRoom; set { _parentRoom = value; OnPropertyChanged(); UpdateStretch(); } }
 
@@ -713,7 +713,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// </summary>
         /// <remarks>
         /// Used in the room editor.<br/>
-        /// This attribute is UMT-only and does not exist in GameMaker.
+        /// This attribute is editor-only and does not exist in GameMaker.
         /// </remarks>
         public float CalcScaleX { get; set; } = 1;
 
@@ -722,7 +722,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// </summary>
         /// <remarks>
         /// Used in the room editor.<br/>
-        /// This attribute is UMT-only and does not exist in GameMaker.
+        /// This attribute is editor-only and does not exist in GameMaker.
         /// </remarks>
         public float CalcScaleY { get; set; } = 1;
 
@@ -792,7 +792,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// A horizontal offset used for proper background display in the room editor.
         /// </summary>
         /// <remarks>
-        /// This attribute is UMT-only and does not exist in GameMaker.
+        /// This attribute is editor-only and does not exist in GameMaker.
         /// </remarks>
         public int XOffset => X + (BackgroundDefinition?.Texture?.TargetX ?? 0);
 
@@ -800,7 +800,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// A vertical offset used for proper background display in the room editor.
         /// </summary>
         /// <remarks>
-        /// This attribute is UMT-only and does not exist in GameMaker.
+        /// This attribute is editor-only and does not exist in GameMaker.
         /// </remarks>
         public int YOffset => Y + (BackgroundDefinition?.Texture?.TargetY ?? 0);
 
@@ -1077,7 +1077,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// For example, if this sprite has 3 frames, and the index is 5, then this will return 2.
         /// </summary>
         /// <remarks>
-        /// This attribute is UMT-only and does not exist in GameMaker.
+        /// This attribute is editor-only and does not exist in GameMaker.
         /// </remarks>
         public int WrappedImageIndex
         {
@@ -1105,7 +1105,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// The opposite angle of the current rotation.
         /// </summary>
         /// <remarks>
-        /// This attribute is UMT-only and does not exist in GameMaker.
+        /// This attribute is editor-only and does not exist in GameMaker.
         /// </remarks>
         public float OppositeRotation => 360F - Rotation % 360;
 
@@ -1114,7 +1114,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// </summary>
         /// <remarks>
         /// Used for proper game object rotation display in the room editor and for determining <see cref="XOffset"/>.<br/>
-        /// This attribute is UMT-only and does not exist in GameMaker.
+        /// This attribute is editor-only and does not exist in GameMaker.
         /// </remarks>
         public int SpriteXOffset => ObjectDefinition?.Sprite != null
             ? -1 * ObjectDefinition.Sprite.OriginXWrapper + (ObjectDefinition.Sprite.Textures.ElementAtOrDefault(ImageIndex)?.Texture?.TargetX ?? 0)
@@ -1125,7 +1125,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// </summary>
         /// <remarks>
         /// Used for proper game object rotation display in the room editor and for determining <see cref="YOffset"/>.<br/>
-        /// This attribute is UMT-only and does not exist in GameMaker.
+        /// This attribute is editor-only and does not exist in GameMaker.
         /// </remarks>
         public int SpriteYOffset => ObjectDefinition?.Sprite != null
             ? -1 * ObjectDefinition.Sprite.OriginYWrapper + (ObjectDefinition.Sprite.Textures.ElementAtOrDefault(ImageIndex)?.Texture?.TargetY ?? 0)
@@ -1134,7 +1134,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// A horizontal offset used for proper game object position display in the room editor.
         /// </summary>
         /// <remarks>
-        /// This attribute is UMT-only and does not exist in GameMaker.
+        /// This attribute is editor-only and does not exist in GameMaker.
         /// </remarks>
         public int XOffset => X + SpriteXOffset;
 
@@ -1142,7 +1142,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// A vertical offset used for proper game object display in the room editor.
         /// </summary>
         /// <remarks>
-        /// This attribute is UMT-only and does not exist in GameMaker.
+        /// This attribute is editor-only and does not exist in GameMaker.
         /// </remarks>
         public int YOffset => Y + SpriteYOffset;
 
@@ -1239,7 +1239,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// <see langword="true"/> for GameMaker Studio: 2 games, otherwise <see langword="false"/>.
         /// </summary>
         /// <remarks>
-        /// This attribute is UMT-only and does not exist in GameMaker.
+        /// This attribute is editor-only and does not exist in GameMaker.
         /// </remarks>
         public bool spriteMode { get; set; }
 
@@ -1348,7 +1348,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// Returns the texture page item of the tile.
         /// </summary>
         /// <remarks>
-        /// This attribute is UMT-only and does not exist in GameMaker.
+        /// This attribute is editor-only and does not exist in GameMaker.
         /// </remarks>
         public GameMakerTexturePageItem Tpag => spriteMode ? SpriteDefinition?.Textures.FirstOrDefault()?.Texture : BackgroundDefinition?.Texture;
 
@@ -1475,7 +1475,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// The room this layer belongs to.
         /// </summary>
         /// <remarks>
-        /// This is an UndertaleModTool-only property; it doesn't exist in game data.
+        /// This is an editor-only property; it doesn't exist in game data.
         /// </remarks>
         public GameMakerRoom ParentRoom { get => _parentRoom; set { _parentRoom = value; OnPropertyChanged(); UpdateParentRoom(); } }
 
@@ -2555,7 +2555,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// The opposite angle of the current rotation.
         /// </summary>
         /// <remarks>
-        /// This attribute is UMT-only and does not exist in GameMaker.
+        /// This attribute is editor-only and does not exist in GameMaker.
         /// </remarks>
         public float OppositeRotation => 360F - Rotation;
 
@@ -2564,7 +2564,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// </summary>
         /// <remarks>
         /// Used for proper sprite instance rotation display in the room editor and for determining <see cref="XOffset"/>.<br/>
-        /// This attribute is UMT-only and does not exist in GameMaker.
+        /// This attribute is editor-only and does not exist in GameMaker.
         /// </remarks>
         public int SpriteXOffset => Sprite != null
             ? -1 * Sprite.OriginXWrapper + (Sprite.Textures.ElementAtOrDefault(WrappedFrameIndex)?.Texture?.TargetX ?? 0)
@@ -2575,7 +2575,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// </summary>
         /// <remarks>
         /// Used for proper sprite instance rotation display in the room editor and for determining <see cref="YOffset"/>.<br/>
-        /// This attribute is UMT-only and does not exist in GameMaker.
+        /// This attribute is editor-only and does not exist in GameMaker.
         /// </remarks>
         public int SpriteYOffset => Sprite != null
             ? -1 * Sprite.OriginYWrapper + (Sprite.Textures.ElementAtOrDefault(WrappedFrameIndex)?.Texture?.TargetY ?? 0)
@@ -2585,7 +2585,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// A horizontal offset used for proper sprite instance position display in the room editor.
         /// </summary>
         /// <remarks>
-        /// This attribute is UMT-only and does not exist in GameMaker.
+        /// This attribute is editor-only and does not exist in GameMaker.
         /// </remarks>
         public int XOffset => X + SpriteXOffset;
 
@@ -2593,7 +2593,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// A vertical offset used for proper sprite instance display in the room editor.
         /// </summary>
         /// <remarks>
-        /// This attribute is UMT-only and does not exist in GameMaker.
+        /// This attribute is editor-only and does not exist in GameMaker.
         /// </remarks>
         public int YOffset => Y + SpriteYOffset;
 
@@ -2767,7 +2767,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// The opposite angle of the current rotation.
         /// </summary>
         /// <remarks>
-        /// This attribute is UMT-only and does not exist in GameMaker.
+        /// This attribute is editor-only and does not exist in GameMaker.
         /// </remarks>
         public float OppositeRotation => 360F - Rotation;
 

@@ -15,7 +15,7 @@ public class GameMakerEmbeddedTexture : GameMakerNamedResource, IDisposable
     /// The name of the embedded texture entry.
     /// </summary>
     /// <remarks>
-    /// This is UTMT specific. The data file does not contain names for embedded textures.
+    /// This is an editor-only attribute. The data file does not contain names for embedded textures.
     /// </remarks>
     public GameMakerString Name { get; set; }
 

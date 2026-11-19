@@ -121,7 +121,7 @@ public class GameMakerSound : GameMakerNamedResource, IProjectAsset, INotifyProp
     /// <summary>
     /// The reference to the <see cref="GameMakerEmbeddedAudio"/> audio file.
     /// </summary>
-    /// <remarks>This is a UTMT-specific attribute. <br/>
+    /// <remarks>This is an editor-only attribute: the data file stores only its id (<see cref="AudioID"/>). <br/>
     /// All sound entries always have to have a reference to an <see cref="GameMakerEmbeddedAudio"/> entry.
     /// Even if the sound entry is not embedded, it is still necessary. For that case, you can just link to any embedded sound.
     /// </remarks>

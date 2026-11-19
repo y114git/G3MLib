@@ -94,7 +94,7 @@ public class GameMakerSprite : GameMakerNamedResource, IProjectAsset, PrePaddedO
     /// A <see cref="OriginX"/> wrapper that also sets <see cref="V2Sequence"/> accordingly.
     /// </summary>
     /// <remarks>
-    /// This attribute is used only in UndertaleModTool and doesn't exist in GameMaker.
+    /// This attribute is used only by editors and doesn't exist in GameMaker.
     /// </remarks>
     public int OriginXWrapper
     {
@@ -112,7 +112,7 @@ public class GameMakerSprite : GameMakerNamedResource, IProjectAsset, PrePaddedO
     /// A <see cref="OriginY"/> wrapper that also sets <see cref="V2Sequence"/> accordingly.
     /// </summary>
     /// <remarks>
-    /// This attribute is used only in UndertaleModTool and doesn't exist in GameMaker.
+    /// This attribute is used only by editors and doesn't exist in GameMaker.
     /// </remarks>
     public int OriginYWrapper
     {
@@ -343,11 +343,11 @@ public class GameMakerSprite : GameMakerNamedResource, IProjectAsset, PrePaddedO
         public byte[] Data { get; set; }
 
         /// <summary>
-        /// Width of this sprite mask. UTMT only.
+        /// Width of this sprite mask. Editor only.
         /// </summary>
         public int Width { get; set; }
         /// <summary>
-        /// Height of this sprite mask. UTMT only.
+        /// Height of this sprite mask. Editor only.
         /// </summary>
         public int Height { get; set; }
 
