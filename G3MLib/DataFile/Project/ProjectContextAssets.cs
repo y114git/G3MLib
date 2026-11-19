@@ -4,6 +4,7 @@ using G3MLib.DataFile.Compiler;
 using G3MLib.DataFile.Models;
 using G3MLib.DataFile.Project.SerializableAssets;
 using G3MLib.DataFile.Util;
+using G3MLib.Modding.Internal;
 
 namespace G3MLib.DataFile.Project;
 
@@ -204,15 +205,9 @@ public partial class ProjectContext
                 }
                 var fullAudioGroupPath = Paths.JoinVerifyWithinDirectory(SaveDirectory, relativeAudioGroupPath);
                 FileBackup.BackupFile(fullAudioGroupPath);
-                using FileStream stream = new(fullAudioGroupPath, FileMode.Create, FileAccess.Write);
-                GameMakerIO.Write(stream, group);
+                AtomicFile.Write(fullAudioGroupPath, stream => GameMakerIO.Write(stream, group));
             }
-            catch (ProjectException)
-            {
-                // Propagate project-specific exceptions up
-                throw;
-            }
-            catch (Exception e)
+            catch (Exception e) when (e is not ProjectException)
             {
                 // Wrap all other exceptions
                 throw new ProjectException($"Error occurred when saving audio group {groupId} during import: {e}", e);

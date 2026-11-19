@@ -23,7 +23,7 @@ public enum RenameFailure
 /// <summary>Thrown when a rename is refused. Nothing has been changed when this is thrown.</summary>
 public sealed class RenameException(RenameFailure reason, string message) : ArgumentException(message)
 {
-    /// <summary>The kind of refusal.</summary>
+    /// <summary>Why the rename was refused.</summary>
     public RenameFailure Reason { get; } = reason;
 }
 
@@ -113,7 +113,8 @@ public static partial class RenameService
         "begin", "end", "and", "or", "not", "xor", "div", "mod", "true", "false", "undefined", "self", "other", "all", "noone", "global"
     };
 
-    [GeneratedRegex("^[A-Za-z_][A-Za-z0-9_]*$")]
+    // \z, because $ also matches before a final newline
+    [GeneratedRegex("^[A-Za-z_][A-Za-z0-9_]*\\z")]
     private static partial Regex IdentifierPattern();
 
     /// <summary>
@@ -397,6 +398,21 @@ public static partial class RenameService
         }
     }
 
+    /// <summary>True when the text can name an asset or code entry: letters, digits and underscores, not starting with a digit, and not a GML keyword. Names of built-in functions and variables are not checked.</summary>
+    public static bool IsValidName(string? name) => !string.IsNullOrEmpty(name) && IdentifierPattern().IsMatch(name) && !Reserved.Contains(name);
+
+    /// <summary>True when an asset or a code entry of the data file already has the name. GameMaker wants one name for every asset and code entry, and treats names that differ only in case as one, so the comparison ignores case.</summary>
+    public static bool IsNameInUse(GameMakerData data, string name)
+    {
+        ArgumentNullException.ThrowIfNull(data);
+        return AllNames(data).Any(used => string.Equals(used, name, StringComparison.OrdinalIgnoreCase));
+    }
+
+    // The names IsNameInUse compares with, so a caller that asks many times can build one set
+    internal static IEnumerable<string> AllNames(GameMakerData data) =>
+        AssetLists(data).SelectMany(list => list.OfType<GameMakerNamedResource>()).Select(resource => resource.Name?.Content)
+            .Concat((data.Code ?? []).Select(code => code?.Name?.Content)).OfType<string>();
+
     private static void RequireIdentifier(string name)
     {
         if (string.IsNullOrEmpty(name) || !IdentifierPattern().IsMatch(name))
@@ -425,7 +441,7 @@ public static partial class RenameService
     }
 
     // Names GameMaker derives from a resource name: lookbehind and lookahead keep a longer name (obj_a_b) from matching obj_a
-    private static Regex[] EmbeddedPatterns(GameMakerNamedResource resource, string name)
+    internal static Regex[] EmbeddedPatterns(GameMakerNamedResource resource, string name)
     {
         var old = Regex.Escape(name);
         return resource switch

@@ -268,7 +268,7 @@ internal sealed class SerializableSound : ISerializableProjectAsset
                 if (GroupID != projectContext.Data.GetBuiltinSoundGroupID())
                 {
                     // If sound is in an audio group, request it
-                    var groupData = projectContext.RequestAudiogroup(_dataAsset.GroupID, true, this);
+                    var groupData = projectContext.RequestAudiogroup(GroupID, true, this);
 
                     // If the existing sound has the same group ID and an audio ID, reuse it
                     if (sound.GroupID == GroupID && sound.AudioID != -1)
@@ -277,7 +277,7 @@ internal sealed class SerializableSound : ISerializableProjectAsset
                         var audioId = sound.AudioID;
                         if (audioId >= (groupData.EmbeddedAudio?.Count ?? 0))
                         {
-                            throw new ProjectException($"Failed to find embedded audio at index {audioId} in group {_dataAsset.GroupID} for \"{DataName}\"");
+                            throw new ProjectException($"Failed to find embedded audio at index {audioId} in group {GroupID} for \"{DataName}\"");
                         }
                         audio = groupData.EmbeddedAudio[audioId];
                     }

@@ -150,8 +150,9 @@ public static class PatchInputService
 				{
 					File.Delete(dataPath);
 				}
-				catch
+				catch (Exception cleanupEx) when (cleanupEx is IOException or UnauthorizedAccessException)
 				{
+					LogService.Warning(cleanupEx.Message);
 				}
 			}
 			throw new InvalidDataException("Validation failed for materialized input '" + Path.GetFileName(inputPath) + "': " + ex.Message, ex);

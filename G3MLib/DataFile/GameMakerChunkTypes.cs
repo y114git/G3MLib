@@ -273,6 +273,11 @@ public abstract class GameMakerListChunk<T> : GameMakerChunk, IGameMakerListChun
     public IList GetList() => List;
     public void GenerateIndexDict()
     {
+        if (List is null) // empty YYC CODE chunk
+        {
+            IndexDict = null;
+            return;
+        }
         IndexDict = new(List.Count);
         for (var i = 0; i < List.Count; i++)
         {

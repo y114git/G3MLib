@@ -41,11 +41,11 @@ internal static class Expressions
         {
             context.Position++;
 
-            if (ParseOrExpression(context) is IASTNode trueExpr)
+            if (ParseConditional(context) is IASTNode trueExpr)
             {
                 context.EnsureToken(SeparatorKind.Colon);
 
-                if (ParseOrExpression(context) is IASTNode falseExpr)
+                if (ParseConditional(context) is IASTNode falseExpr)
                 {
                     // Replace left side with new node
                     lhs = new ConditionalNode(tokenConditional, lhs, trueExpr, falseExpr);
@@ -78,7 +78,8 @@ internal static class Expressions
                 context.CompileContext.PushError("Nullish coalesce operator (??) is not supported in this GameMaker version (must be 2.3.7+)", tokenNullishCoalesce);
             }
 
-            if (ParseOrExpression(context) is IASTNode rightExpr)
+            // Right associative: a ?? b ?? c is a ?? (b ?? c)
+            if (ParseNullishExpression(context) is IASTNode rightExpr)
             {
                 // Replace left side with new node
                 lhs = new NullishCoalesceNode(tokenNullishCoalesce, lhs, rightExpr);
@@ -713,6 +714,11 @@ internal static class Expressions
             case TokenFunction tokenFunction:
                 context.Position++;
                 return new SimpleFunctionCallNode(context, tokenFunction);
+            case TokenVariable tokenVariable when !context.CurrentScope.IsLocalDeclared(tokenVariable.Text) &&
+                                                  context.CompileContext.ExpandExternalMacro(tokenVariable) is { } expansion:
+                context.Tokens.RemoveAt(context.Position);
+                context.Tokens.InsertRange(context.Position, expansion);
+                return ParseLeftmostExpression(context);
             case TokenVariable tokenVariable:
                 context.Position++;
                 return new SimpleVariableNode(tokenVariable);

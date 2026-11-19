@@ -1,11 +1,11 @@
 using System.Globalization;
 using System.Buffers;
-using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using G3MLib.DataFile.Compiler;
 using G3MLib.DataFile.Models;
 using G3MLib.DataFile.Util;
+using G3MLib.Modding.Internal;
 
 namespace G3MLib.DataFile;
 
@@ -264,7 +264,7 @@ public class GameMakerReader : AdaptiveBinaryReader
         if (_messageHandler != null)
             _messageHandler.Invoke(message);
         else
-            Debug.WriteLine(message);
+            LogService.Log(message);
     }
 
     public GameMakerChunk ReadGameMakerChunk()
@@ -315,7 +315,7 @@ public class GameMakerReader : AdaptiveBinaryReader
             catch (Exception e)
             {
                 countUnserializeExc = e;
-                Debug.WriteLine(e);
+                LogService.Log(e.ToString());
 
                 ResetToFilePosition(startPos);
             }
@@ -507,7 +507,7 @@ public class GameMakerReader : AdaptiveBinaryReader
 
                 if (Delegate.CreateDelegate(DelegateType, mi) is not Func<GameMakerReader, uint> func)
                 {
-                    Debug.WriteLine($"Can't create a delegate from MethodInfo of type \"{t.FullName}\"");
+                    LogService.Log($"Can't create a delegate from MethodInfo of type \"{t.FullName}\"");
                     continue;
                 }
 
@@ -529,14 +529,14 @@ public class GameMakerReader : AdaptiveBinaryReader
                     fi = t.GetField("ChildObjectCount", PublicStaticFlags);
                     if (fi is null)
                     {
-                        Debug.WriteLine($"Can't get \"ChildObjectCount\" field of \"{t.FullName}\"");
+                        LogService.Log($"Can't get \"ChildObjectCount\" field of \"{t.FullName}\"");
                         continue;
                     }
 
                     res = fi.GetValue(null);
                     if (res is null)
                     {
-                        Debug.WriteLine($"Can't get value of \"ChildObjectCount\" of \"{t.FullName}\"");
+                        LogService.Log($"Can't get value of \"ChildObjectCount\" of \"{t.FullName}\"");
                         continue;
                     }
 
@@ -548,14 +548,14 @@ public class GameMakerReader : AdaptiveBinaryReader
                     fi = t.GetField("ChildObjectsSize", PublicStaticFlags);
                     if (fi is null)
                     {
-                        Debug.WriteLine($"Can't get \"ChildObjectsSize\" field of \"{t.FullName}\"");
+                        LogService.Log($"Can't get \"ChildObjectsSize\" field of \"{t.FullName}\"");
                         continue;
                     }
 
                     res = fi.GetValue(null);
                     if (res is null)
                     {
-                        Debug.WriteLine($"Can't get value of \"ChildObjectsSize\" of \"{t.FullName}\"");
+                        LogService.Log($"Can't get value of \"ChildObjectsSize\" of \"{t.FullName}\"");
                         continue;
                     }
 
@@ -566,7 +566,7 @@ public class GameMakerReader : AdaptiveBinaryReader
         }
         catch (Exception exception)
         {
-            Debug.WriteLine(exception);
+            LogService.Log(exception.ToString());
             return new ReaderMetadata(unserializeFunctions, staticObjectCounts, staticObjectSizes, exception);
         }
     }
@@ -578,13 +578,13 @@ public class GameMakerReader : AdaptiveBinaryReader
             var mi = objType.GetMethod("UnserializeChildObjectCount", PublicStaticFlags, ReaderArgType);
             if (mi is null)
             {
-                Debug.WriteLine($"\"GameMakerReader.unserializeFuncDict\" doesn't contain a method for \"{objType.FullName}\".");
+                LogService.Log($"\"GameMakerReader.unserializeFuncDict\" doesn't contain a method for \"{objType.FullName}\".");
                 return BlankCountFunc;
             }
 
             if (Delegate.CreateDelegate(DelegateType, mi) is not Func<GameMakerReader, uint> func)
             {
-                Debug.WriteLine($"Can't create a delegate from MethodInfo of type \"{objType.FullName}\"");
+                LogService.Log($"Can't create a delegate from MethodInfo of type \"{objType.FullName}\"");
                 return BlankCountFunc;
             }
 
@@ -600,7 +600,7 @@ public class GameMakerReader : AdaptiveBinaryReader
         ArgumentNullException.ThrowIfNull(objType);
         if (!staticObjCountDict.TryGetValue(objType, out var res))
         {
-            Debug.WriteLine($"\"GameMakerReader.staticObjCountDict\" doesn't contain type \"{objType.FullName}\".");
+            LogService.Log($"\"GameMakerReader.staticObjCountDict\" doesn't contain type \"{objType.FullName}\".");
             return 0;
         }
 
@@ -611,7 +611,7 @@ public class GameMakerReader : AdaptiveBinaryReader
         ArgumentNullException.ThrowIfNull(objType);
         if (!staticObjSizeDict.TryGetValue(objType, out var res))
         {
-            Debug.WriteLine($"\"GameMakerReader.staticObjSizeDict\" doesn't contain type \"{objType.FullName}\".");
+            LogService.Log($"\"GameMakerReader.staticObjSizeDict\" doesn't contain type \"{objType.FullName}\".");
             return 0;
         }
 
@@ -859,7 +859,7 @@ public class GameMakerWriter : FileBinaryWriter
         if (MessageHandler != null)
             MessageHandler.Invoke(message);
         else
-            Debug.WriteLine(message);
+            LogService.Log(message);
     }
 
     public void Write(GameMakerChunk obj)
@@ -883,10 +883,12 @@ public class GameMakerWriter : FileBinaryWriter
 
         // Figure out the last chunk by iterating identically as it does when serializing,
         // and generate the object index dictionaries for acceleration of "GameMakerResourceById.SerializeById()"
+        if (data.FORM.ChunkOrder.Count > 0)
+        {
+            LastChunkName = data.FORM.ChunkOrder[^1];
+        }
         foreach (var chunk in data.FORM.Chunks)
         {
-            LastChunkName = chunk.Key;
-
             if (chunk.Value is IGameMakerListChunk listChunk)
             {
                 listChunk.GenerateIndexDict();
@@ -1190,24 +1192,14 @@ public static class GameMakerIO
     {
         ArgumentException.ThrowIfNullOrEmpty(path);
         ArgumentNullException.ThrowIfNull(data);
-        return Task.Run(() =>
+        return Task.Run(async () =>
         {
-            var temp = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
-            try
+            await AtomicFile.WriteAsync(path, stream =>
             {
-                using (FileStream stream = new(temp, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None))
-                {
-                    WriteCore(stream, data, progress, cancellationToken, messageHandler, reportDone: false);
-                    stream.Flush(true);
-                }
+                WriteCore(stream, data, progress, cancellationToken, messageHandler, reportDone: false);
                 cancellationToken.ThrowIfCancellationRequested();
-                File.Move(temp, path, overwrite: true);
-            }
-            catch
-            {
-                File.Delete(temp);
-                throw;
-            }
+                return Task.CompletedTask;
+            }).ConfigureAwait(false);
             progress?.Report(new GameMakerProgress(1.0, "Done"));
         }, cancellationToken);
     }
@@ -1216,6 +1208,7 @@ public static class GameMakerIO
                                   GameMakerWriter.MessageHandlerDelegate messageHandler, bool reportDone = true)
     {
         ArgumentNullException.ThrowIfNull(data.FORM);
+        using var gate = data.Gate.BeginRead(cancellationToken: cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
         if (stream is not MemoryStream && stream.CanSeek && stream.CanWrite && stream.Position == 0 && TryWriteBuffered(stream, data, progress, cancellationToken, messageHandler))
         {

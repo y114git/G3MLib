@@ -5,8 +5,6 @@ namespace G3MLib.Tests;
 public class SafeNameTests
 {
 	[Theory]
-	[InlineData("a/b", "a_b")]
-	[InlineData("a:b", "a_b")]
 	[InlineData("spr_player", "spr_player")]
 	public void OrdinaryNamesKeepTheirShape(string name, string expected)
 	{
@@ -33,5 +31,14 @@ public class SafeNameTests
 	public void NamesThatDifferOnlyByTrailingDotsDoNotCollide()
 	{
 		Assert.NotEqual(ResourceExportService.SafeName("spr_a"), ResourceExportService.SafeName("spr_a."));
+	}
+
+	[Fact]
+	public void NamesWithReplacedCharactersDoNotCollideWithTheReplacement()
+	{
+		var colon = ResourceExportService.SafeName("a:b");
+		Assert.StartsWith("a_b__", colon);
+		Assert.NotEqual("a_b", colon);
+		Assert.NotEqual(colon, ResourceExportService.SafeName("a/b"));
 	}
 }

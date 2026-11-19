@@ -217,8 +217,9 @@ public static class G3MCacheService
 				{
 					File.Delete(tempPath);
 				}
-				catch
+				catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
 				{
+					LogService.Warning(ex.Message);
 				}
 			}
 		}

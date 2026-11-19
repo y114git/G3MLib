@@ -50,7 +50,7 @@ public sealed class ReferenceIndex
     // The properties of the data file that hold a list of model objects or a single section; found once per process.
     private static readonly Lazy<PropertyInfo[]> DataProperties = new(() => [.. typeof(GameMakerData).GetProperties(BindingFlags.Public | BindingFlags.Instance).Where(p => p.GetIndexParameters().Length == 0)]);
 
-    /// <summary>The data file this index describes.</summary>
+    /// <summary>Game file the index was built from.</summary>
     public GameMakerData Data { get; }
 
     /// <summary>Total number of recorded uses.</summary>
@@ -127,6 +127,18 @@ public sealed class ReferenceIndex
             return direct is null ? NoReferences : direct;
         }
         return [.. EnumerateUsages(target)];
+    }
+
+    /// <summary>
+    /// Takes every use of the target that is not in code out of the data model: a property that points at it is set to none, and a list that holds it (a texture group, the room order) loses the entry.
+    /// That makes the target safe to remove from its own list. Uses in code are left alone and returned in <see cref="ClearedReferences.Skipped"/>.
+    /// If a use cannot be cleared, the ones already cleared are put back and <see cref="InvalidOperationException"/> is thrown. The index is updated for the changed owners.
+    /// </summary>
+    public ClearedReferences ClearUsages(object target)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        using var gate = Data.Gate.BeginWrite();
+        return ClearedReferences.Clear(this, target);
     }
 
     private IEnumerable<Reference> EnumerateUsages(object target)
@@ -450,16 +462,43 @@ public sealed class ReferenceIndex
         return owners;
     }
 
-    private object? ReadProperty(PropertyInfo property)
+    private object? ReadProperty(PropertyInfo property) => ReadProperty(Data, property);
+
+    private static object? ReadProperty(GameMakerData data, PropertyInfo property)
     {
         try
         {
-            return property.GetValue(Data);
+            return property.GetValue(data);
         }
         catch (Exception)
         {
             return null;
         }
+    }
+
+    // Every item of the data file lists and every single section: the objects a copy of one resource must share, not duplicate.
+    internal static HashSet<object> CollectRegistry(GameMakerData data)
+    {
+        HashSet<object> registry = new(ReferenceEqualityComparer.Instance);
+        foreach (var property in DataProperties.Value)
+        {
+            var value = ReadProperty(data, property);
+            if (value is IList list && IsModelList(property.PropertyType))
+            {
+                foreach (var item in list)
+                {
+                    if (item is not null)
+                    {
+                        registry.Add(item);
+                    }
+                }
+            }
+            else if (IsSection(property, value))
+            {
+                registry.Add(value!);
+            }
+        }
+        return registry;
     }
 
     private static bool IsSection(PropertyInfo property, object? value) =>

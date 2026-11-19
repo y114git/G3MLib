@@ -86,4 +86,33 @@ public sealed class ChunkOrderTests
 
         Assert.Equal(data.FORM.ChunkOrder, GameMakerChunkFORM.CanonicalOrder.Where(n => data.FORM.Chunks.ContainsKey(n)));
     }
+
+    [Fact]
+    public void PaddingSkipsOnlyTheLastWrittenChunk()
+    {
+        using var data = Load();
+        data.FORM.AddChunk(new GameMakerRawChunk("ZZZZ") { RawData = new byte[5] });
+        data.FORM.SetChunkOrder(["GEN8", "ZZZZ"]);
+
+        using MemoryStream output = new();
+        GameMakerIO.Write(output, data);
+        var bytes = output.ToArray();
+        var pos = 8;
+        while (pos < bytes.Length - 8)
+        {
+            pos += 8 + BitConverter.ToInt32(bytes, pos + 4);
+            if (pos < bytes.Length)
+                Assert.Equal(0, pos % 16);
+        }
+    }
+
+    [Fact]
+    public void GenerateIndexDictAcceptsAnEmptyYycCodeChunk()
+    {
+        GameMakerChunkCODE chunk = new() { List = null };
+
+        chunk.GenerateIndexDict();
+
+        Assert.Null(chunk.IndexDict);
+    }
 }

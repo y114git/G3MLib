@@ -45,6 +45,9 @@ public static partial class ResourceExportService
 	public static IReadOnlyList<ItemResult> ExportExtensions(GameMakerData data, string outputDir, IProgress<BatchProgress>? progress, CancellationToken cancellationToken) =>
 		BatchRun.Run(outputDir, progress, cancellationToken, () => ExportExtensions(data, outputDir));
 
+	public static IReadOnlyList<ItemResult> ExportExtensions(GameMakerData data, string outputDir, ISet<string>? filter, IProgress<BatchProgress>? progress, CancellationToken cancellationToken) =>
+		BatchRun.Run(outputDir, progress, cancellationToken, () => ExportExtensions(data, outputDir, AsSet(filter)));
+
 	public static IReadOnlyList<ItemResult> ExportScripts(GameMakerData data, string outputDir, ISet<string>? filter, IProgress<BatchProgress>? progress, CancellationToken cancellationToken) =>
 		BatchRun.Run(outputDir, progress, cancellationToken, () => ExportScripts(data, outputDir, AsSet(filter)));
 
@@ -69,7 +72,7 @@ public static partial class ResourceExportService
 	public static IReadOnlyList<ItemResult> ExportFonts(GameMakerData data, string outputDir, ISet<string>? filter, IProgress<BatchProgress>? progress, CancellationToken cancellationToken) =>
 		BatchRun.Run(outputDir, progress, cancellationToken, () => ExportFonts(data, outputDir, AsSet(filter)));
 
-	public static IReadOnlyList<ItemResult> ExportSounds(GameMakerData data, string outputDir, string dataFilePath, ISet<string>? filter, IProgress<BatchProgress>? progress, CancellationToken cancellationToken) =>
+	public static IReadOnlyList<ItemResult> ExportSounds(GameMakerData data, string outputDir, string? dataFilePath, ISet<string>? filter, IProgress<BatchProgress>? progress, CancellationToken cancellationToken) =>
 		BatchRun.Run(outputDir, progress, cancellationToken, () => ExportSounds(data, outputDir, dataFilePath, AsSet(filter)));
 
 	public static IReadOnlyList<ItemResult> ExportEmbeddedAudio(GameMakerData data, string outputDir, ISet<string>? filter, IProgress<BatchProgress>? progress, CancellationToken cancellationToken) =>

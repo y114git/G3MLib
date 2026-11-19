@@ -54,7 +54,7 @@ public static class DataIntegrityService
 		if (gi != null && gi.BytecodeVersion == 17 && gi.Major == 2023 && gi.Minor == 6 && gi.Release == 0 && gi.Build == 0 && gi.Branch != GameMakerGeneralInfo.BranchType.LTS2022_0)
 		{
 			gi.Branch = GameMakerGeneralInfo.BranchType.LTS2022_0;
-			result.Repairs.Add("restored GeneralInfo branch to LTS2022_0 for 2023.6.0.0 bytecode-17 data");
+			result.Repair("GEN8.Branch", "GEN8", "restored GeneralInfo branch to LTS2022_0 for 2023.6.0.0 bytecode-17 data");
 		}
 	}
 
@@ -95,15 +95,15 @@ public static class DataIntegrityService
 		}
 		if (relinkedBuiltin > 0)
 		{
-			result.Repairs.Add($"relinked {relinkedBuiltin} builtin Sound audio reference(s)");
+			result.Repair("SOND.RelinkedBuiltinAudio", "SOND", $"relinked {relinkedBuiltin} builtin Sound audio reference(s)");
 		}
 		if (clearedExternal > 0)
 		{
-			result.Repairs.Add($"cleared {clearedExternal} external Sound audio pointer(s)");
+			result.Repair("SOND.ClearedExternalAudio", "SOND", $"cleared {clearedExternal} external Sound audio pointer(s)");
 		}
 		if (clearedEmptyTypes > 0)
 		{
-			result.Repairs.Add($"cleared {clearedEmptyTypes} empty Sound type reference(s)");
+			result.Repair("SOND.ClearedEmptyType", "SOND", $"cleared {clearedEmptyTypes} empty Sound type reference(s)");
 		}
 	}
 
@@ -179,15 +179,15 @@ public static class DataIntegrityService
 		}
 		if (restored > 0)
 		{
-			result.Repairs.Add($"restored {restored} missing Function entries referenced by CodeEntries");
+			result.Repair("FUNC.RestoredMissing", "FUNC", $"restored {restored} missing Function entries referenced by CodeEntries");
 		}
 		if (relinked > 0)
 		{
-			result.Repairs.Add($"relinked {relinked} CodeEntry instruction Function references");
+			result.Repair("CODE.RelinkedFunctionRefs", "CODE", $"relinked {relinked} CodeEntry instruction Function references");
 		}
 		if (removedInvalidFunctions > 0)
 		{
-			result.Repairs.Add($"removed {removedInvalidFunctions} invalid or orphan Script Function entries");
+			result.Repair("FUNC.RemovedInvalid", "FUNC", $"removed {removedInvalidFunctions} invalid or orphan Script Function entries");
 		}
 	}
 
@@ -319,7 +319,7 @@ public static class DataIntegrityService
 		}
 		if (repaired > 0)
 		{
-			result.Repairs.Add($"relinked {repaired} local child Function references to their owning CodeEntry");
+			result.Repair("CODE.RelinkedLocalChildFunctions", "CODE", $"relinked {repaired} local child Function references to their owning CodeEntry");
 		}
 		Dictionary<string, GameMakerFunction?> GetLocalChildMap(GameMakerCode parent)
 		{
@@ -382,11 +382,11 @@ public static class DataIntegrityService
 		}
 		if (relinkedParents > 0)
 		{
-			result.Repairs.Add($"relinked {relinkedParents} CodeEntry ParentEntry references by name");
+			result.Repair("CODE.RelinkedParent", "CODE", $"relinked {relinkedParents} CodeEntry ParentEntry references by name");
 		}
 		if (addedChildren > 0)
 		{
-			result.Repairs.Add($"restored {addedChildren} missing CodeEntry parent child links");
+			result.Repair("CODE.RestoredChildLinks", "CODE", $"restored {addedChildren} missing CodeEntry parent child links");
 		}
 	}
 
@@ -424,7 +424,7 @@ public static class DataIntegrityService
 		{
 			data.Code.Add(code3);
 		}
-		result.Repairs.Add("restored parent-before-child CodeEntry serialization order");
+		result.Repair("CODE.ReorderedSerialization", "CODE", "restored parent-before-child CodeEntry serialization order");
 		void AddTree(GameMakerCode gameMakerCode)
 		{
 			if (!visited.Add(gameMakerCode))
@@ -495,7 +495,7 @@ public static class DataIntegrityService
 		}
 		if (relinked > 0)
 		{
-			result.Repairs.Add($"relinked {relinked} Room CodeEntry references by name");
+			result.Repair("ROOM.RelinkedCode", "ROOM", $"relinked {relinked} Room CodeEntry references by name");
 		}
 	}
 
@@ -563,11 +563,11 @@ public static class DataIntegrityService
 		}
 		if (relinked > 0)
 		{
-			result.Repairs.Add($"relinked {relinked} Script entries to live CodeEntries");
+			result.Repair("SCPT.RelinkedCode", "SCPT", $"relinked {relinked} Script entries to live CodeEntries");
 		}
 		if (created > 0)
 		{
-			result.Repairs.Add($"created {created} Script entries for live gml_Script CodeEntries");
+			result.Repair("SCPT.CreatedForCode", "SCPT", $"created {created} Script entries for live gml_Script CodeEntries");
 		}
 	}
 
@@ -603,7 +603,7 @@ public static class DataIntegrityService
 			}
 			if (script?.Code != null && !codeSet.Contains(script.Code))
 			{
-				result.Errors.Add($"Script '{script.Name?.Content ?? "<null>"}' references missing CodeEntry '{script.Code.Name?.Content ?? "<null>"}'");
+				result.Error("SCPT.MissingCode", "SCPT", script.Name?.Content, $"Script '{script.Name?.Content ?? "<null>"}' references missing CodeEntry '{script.Code.Name?.Content ?? "<null>"}'");
 			}
 		}
 		foreach (var code in data.Code)
@@ -617,29 +617,29 @@ public static class DataIntegrityService
 			{
 				if (child == null || !codeSet.Contains(child))
 				{
-					result.Errors.Add("CodeEntry '" + codeName + "' has child missing from Code list");
+					result.Error("CODE.ChildMissingFromList", "CODE", codeName, "CodeEntry '" + codeName + "' has child missing from Code list");
 				}
 				else if (child.ParentEntry != code)
 				{
-					result.Errors.Add($"CodeEntry '{codeName}' child '{child.Name?.Content ?? "<null>"}' has incorrect ParentEntry");
+					result.Error("CODE.ChildWrongParent", "CODE", codeName, $"CodeEntry '{codeName}' child '{child.Name?.Content ?? "<null>"}' has incorrect ParentEntry");
 				}
 			}
 			if (code.ParentEntry != null)
 			{
 				if (!codeSet.Contains(code.ParentEntry))
 				{
-					result.Errors.Add($"CodeEntry '{codeName}' references missing ParentEntry '{code.ParentEntry.Name?.Content ?? "<null>"}'");
+					result.Error("CODE.MissingParent", "CODE", codeName, $"CodeEntry '{codeName}' references missing ParentEntry '{code.ParentEntry.Name?.Content ?? "<null>"}'");
 				}
 				else if (!code.ParentEntry.ChildEntries.Contains(code))
 				{
-					result.Errors.Add("CodeEntry '" + codeName + "' ParentEntry does not contain this child");
+					result.Error("CODE.ParentLacksChild", "CODE", codeName, "CodeEntry '" + codeName + "' ParentEntry does not contain this child");
 				}
 			}
 			foreach (var instruction in code.Instructions ?? [])
 			{
 				if (instruction.ValueFunction != null && !functionSet.Contains(instruction.ValueFunction))
 				{
-					result.Errors.Add($"CodeEntry '{codeName}' references missing Function '{instruction.ValueFunction.Name?.Content ?? "<null>"}'");
+					result.Error("CODE.MissingFunction", "CODE", codeName, $"CodeEntry '{codeName}' references missing Function '{instruction.ValueFunction.Name?.Content ?? "<null>"}'");
 				}
 			}
 		}
@@ -647,7 +647,7 @@ public static class DataIntegrityService
 		{
 			if (global?.Code != null && !codeSet.Contains(global.Code))
 			{
-				result.Errors.Add("GlobalInitScript references missing CodeEntry '" + (global.Code.Name?.Content ?? "<null>") + "'");
+				result.Error("GLOB.MissingCode", "GLOB", global.Code.Name?.Content, "GlobalInitScript references missing CodeEntry '" + (global.Code.Name?.Content ?? "<null>") + "'");
 			}
 		}
 	}
@@ -663,23 +663,23 @@ public static class DataIntegrityService
 			var name = obj.Name?.Content ?? "<unnamed object>";
 			if (obj.Sprite != null && !spriteSet.Contains(obj.Sprite))
 			{
-				result.Errors.Add($"Object '{name}' references missing Sprite '{obj.Sprite.Name?.Content ?? "<null>"}'");
+				result.Error("OBJT.MissingSprite", "OBJT", obj.Name?.Content, $"Object '{name}' references missing Sprite '{obj.Sprite.Name?.Content ?? "<null>"}'");
 			}
 			if (obj.TextureMaskId != null && !spriteSet.Contains(obj.TextureMaskId))
 			{
-				result.Errors.Add($"Object '{name}' references missing TextureMask Sprite '{obj.TextureMaskId.Name?.Content ?? "<null>"}'");
+				result.Error("OBJT.MissingTextureMask", "OBJT", obj.Name?.Content, $"Object '{name}' references missing TextureMask Sprite '{obj.TextureMaskId.Name?.Content ?? "<null>"}'");
 			}
 			if (obj.ParentId != null && !objectSet.Contains(obj.ParentId))
 			{
-				result.Errors.Add($"Object '{name}' references missing parent Object '{obj.ParentId.Name?.Content ?? "<null>"}'");
+				result.Error("OBJT.MissingParent", "OBJT", obj.Name?.Content, $"Object '{name}' references missing parent Object '{obj.ParentId.Name?.Content ?? "<null>"}'");
 			}
 			if (HasParentCycle(obj))
 			{
-				result.Errors.Add("Object '" + name + "' has parent cycle");
+				result.Error("OBJT.ParentCycle", "OBJT", obj.Name?.Content, "Object '" + name + "' has parent cycle");
 			}
 			if (obj.Events.Count <= 4)
 			{
-				result.Errors.Add($"Object '{name}' has too few event lists: {obj.Events.Count}");
+				result.Error("OBJT.TooFewEventLists", "OBJT", obj.Name?.Content, $"Object '{name}' has too few event lists: {obj.Events.Count}");
 			}
 			for (var eventType = 0; eventType < obj.Events.Count; eventType++)
 			{
@@ -687,13 +687,13 @@ public static class DataIntegrityService
 				{
 					if (eventType == 4 && (evt.EventSubtype >= data.GameObjects.Count || data.GameObjects[(int)evt.EventSubtype] == null || !objectSet.Contains(data.GameObjects[(int)evt.EventSubtype])))
 					{
-						result.Errors.Add($"Object '{name}' collision event references missing Object index {evt.EventSubtype}");
+						result.Error("OBJT.MissingCollisionObject", "OBJT", obj.Name?.Content, $"Object '{name}' collision event references missing Object index {evt.EventSubtype}");
 					}
 					foreach (var action in evt.Actions ?? [])
 					{
 						if (action?.CodeId != null && !codeSet.Contains(action.CodeId))
 						{
-							result.Errors.Add($"Object '{name}' event {eventType}/{evt.EventSubtype} references missing CodeEntry '{action.CodeId.Name?.Content ?? "<null>"}'");
+							result.Error("OBJT.MissingCode", "OBJT", obj.Name?.Content, $"Object '{name}' event {eventType}/{evt.EventSubtype} references missing CodeEntry '{action.CodeId.Name?.Content ?? "<null>"}'");
 						}
 					}
 				}
@@ -720,7 +720,7 @@ public static class DataIntegrityService
 		{
 			if (tpi?.TexturePage != null && !embeddedTextureSet.Contains(tpi.TexturePage))
 			{
-				result.Errors.Add("TexturePageItem '" + (tpi.Name?.Content ?? "<unnamed>") + "' references missing EmbeddedTexture");
+				result.Error("TPAG.MissingTexture", "TPAG", tpi.Name?.Content, "TexturePageItem '" + (tpi.Name?.Content ?? "<unnamed>") + "' references missing EmbeddedTexture");
 			}
 		}
 		foreach (var sprite in data.Sprites)
@@ -733,7 +733,7 @@ public static class DataIntegrityService
 			{
 				if (texture?.Texture != null && !texturePageItemSet.Contains(texture.Texture))
 				{
-					result.Errors.Add("Sprite '" + (sprite.Name?.Content ?? "<unnamed>") + "' references missing TexturePageItem");
+					result.Error("SPRT.MissingTexturePageItem", "SPRT", sprite.Name?.Content, "Sprite '" + (sprite.Name?.Content ?? "<unnamed>") + "' references missing TexturePageItem");
 				}
 			}
 		}
@@ -741,18 +741,18 @@ public static class DataIntegrityService
 		{
 			if (background?.Texture != null && !texturePageItemSet.Contains(background.Texture))
 			{
-				result.Errors.Add("Background '" + (background.Name?.Content ?? "<unnamed>") + "' references missing TexturePageItem");
+				result.Error("BGND.MissingTexturePageItem", "BGND", background.Name?.Content, "Background '" + (background.Name?.Content ?? "<unnamed>") + "' references missing TexturePageItem");
 			}
 			if (background?.GMS2ExportedSprite != null && !spriteSet.Contains(background.GMS2ExportedSprite))
 			{
-				result.Errors.Add("Background '" + (background.Name?.Content ?? "<unnamed>") + "' references missing exported Sprite");
+				result.Error("BGND.MissingSprite", "BGND", background.Name?.Content, "Background '" + (background.Name?.Content ?? "<unnamed>") + "' references missing exported Sprite");
 			}
 		}
 		foreach (var font in data.Fonts)
 		{
 			if (font?.Texture != null && !texturePageItemSet.Contains(font.Texture))
 			{
-				result.Errors.Add("Font '" + (font.Name?.Content ?? "<unnamed>") + "' references missing TexturePageItem");
+				result.Error("FONT.MissingTexturePageItem", "FONT", font.Name?.Content, "Font '" + (font.Name?.Content ?? "<unnamed>") + "' references missing TexturePageItem");
 			}
 		}
 	}
@@ -763,11 +763,11 @@ public static class DataIntegrityService
 		{
 			if (sound?.AudioGroup != null && !audioGroupSet.Contains(sound.AudioGroup))
 			{
-				result.Errors.Add($"Sound '{sound.Name?.Content ?? "<unnamed>"}' references missing AudioGroup '{sound.AudioGroup.Name?.Content ?? "<null>"}'");
+				result.Error("SOND.MissingAudioGroup", "SOND", sound.Name?.Content, $"Sound '{sound.Name?.Content ?? "<unnamed>"}' references missing AudioGroup '{sound.AudioGroup.Name?.Content ?? "<null>"}'");
 			}
 			if (sound != null && data.AudioGroups != null && data.AudioGroups.Count > 0 && sound.GroupID >= data.AudioGroups.Count)
 			{
-				result.Errors.Add($"Sound '{sound.Name?.Content ?? "<unnamed>"}' has out-of-range GroupID {sound.GroupID}");
+				result.Error("SOND.GroupIdOutOfRange", "SOND", sound.Name?.Content, $"Sound '{sound.Name?.Content ?? "<unnamed>"}' has out-of-range GroupID {sound.GroupID}");
 			}
 		}
 	}
@@ -783,7 +783,7 @@ public static class DataIntegrityService
 			var name = room.Name?.Content ?? "<unnamed room>";
 			if (room.CreationCodeId != null && !codeSet.Contains(room.CreationCodeId))
 			{
-				result.Errors.Add($"Room '{name}' references missing CreationCode '{room.CreationCodeId.Name?.Content ?? "<null>"}'");
+				result.Error("ROOM.MissingCreationCode", "ROOM", room.Name?.Content, $"Room '{name}' references missing CreationCode '{room.CreationCodeId.Name?.Content ?? "<null>"}'");
 			}
 			if (data.GeneralInfo?.RoomOrder != null)
 			{
@@ -791,7 +791,7 @@ public static class DataIntegrityService
 				{
 					if (roomRef?.Resource != null && !data.Rooms.Contains(roomRef.Resource))
 					{
-						result.Errors.Add("GeneralInfo room order references missing Room '" + (roomRef.Resource.Name?.Content ?? "<null>") + "'");
+						result.Error("GEN8.RoomOrderMissingRoom", "GEN8", roomRef.Resource.Name?.Content, "GeneralInfo room order references missing Room '" + (roomRef.Resource.Name?.Content ?? "<null>") + "'");
 					}
 				}
 			}
@@ -799,7 +799,7 @@ public static class DataIntegrityService
 			{
 				if (view?.ObjectId != null && !objectSet.Contains(view.ObjectId))
 				{
-					result.Errors.Add($"Room '{name}' view references missing Object '{view.ObjectId.Name?.Content ?? "<null>"}'");
+					result.Error("ROOM.MissingViewObject", "ROOM", room.Name?.Content, $"Room '{name}' view references missing Object '{view.ObjectId.Name?.Content ?? "<null>"}'");
 				}
 			}
 			foreach (var instance in room.GameObjects ?? [])
@@ -829,15 +829,15 @@ public static class DataIntegrityService
 				}
 				if (layer.TilesData?.Background != null && !backgroundSet.Contains(layer.TilesData.Background))
 				{
-					result.Errors.Add($"Room '{name}' tile layer references missing Background '{layer.TilesData.Background.Name?.Content ?? "<null>"}'");
+					result.Error("ROOM.MissingTileBackground", "ROOM", room.Name?.Content, $"Room '{name}' tile layer references missing Background '{layer.TilesData.Background.Name?.Content ?? "<null>"}'");
 				}
 				if (layer.TilesData?.TileData != null && (layer.TilesData.TileData.Length != layer.TilesData.TilesY || layer.TilesData.TileData.Any(row => row == null || row.Length != layer.TilesData.TilesX)))
 				{
-					result.Errors.Add("Room '" + name + "' tile layer has invalid TileData dimensions");
+					result.Error("ROOM.InvalidTileData", "ROOM", room.Name?.Content, "Room '" + name + "' tile layer has invalid TileData dimensions");
 				}
 				if (layer.BackgroundData?.Sprite != null && !spriteSet.Contains(layer.BackgroundData.Sprite))
 				{
-					result.Errors.Add($"Room '{name}' layer background references missing Sprite '{layer.BackgroundData.Sprite.Name?.Content ?? "<null>"}'");
+					result.Error("ROOM.MissingLayerSprite", "ROOM", room.Name?.Content, $"Room '{name}' layer background references missing Sprite '{layer.BackgroundData.Sprite.Name?.Content ?? "<null>"}'");
 				}
 				if (layer.AssetsData?.Sprites != null)
 				{
@@ -845,7 +845,7 @@ public static class DataIntegrityService
 					{
 						if (spriteInstance?.Sprite != null && !spriteSet.Contains(spriteInstance.Sprite))
 						{
-							result.Errors.Add($"Room '{name}' asset layer references missing Sprite '{spriteInstance.Sprite.Name?.Content ?? "<null>"}'");
+							result.Error("ROOM.MissingSprite", "ROOM", room.Name?.Content, $"Room '{name}' asset layer references missing Sprite '{spriteInstance.Sprite.Name?.Content ?? "<null>"}'");
 						}
 					}
 				}
@@ -855,7 +855,7 @@ public static class DataIntegrityService
 					{
 						if (sequenceInstance?.Sequence != null && !sequenceSet.Contains(sequenceInstance.Sequence))
 						{
-							result.Errors.Add($"Room '{name}' asset layer references missing Sequence '{sequenceInstance.Sequence.Name?.Content ?? "<null>"}'");
+							result.Error("ROOM.MissingSequence", "ROOM", room.Name?.Content, $"Room '{name}' asset layer references missing Sequence '{sequenceInstance.Sequence.Name?.Content ?? "<null>"}'");
 						}
 					}
 				}
@@ -867,7 +867,7 @@ public static class DataIntegrityService
 				{
 					if (particleInstance?.ParticleSystem != null && !particleSystemSet.Contains(particleInstance.ParticleSystem))
 					{
-						result.Errors.Add($"Room '{name}' asset layer references missing ParticleSystem '{particleInstance.ParticleSystem.Name?.Content ?? "<null>"}'");
+						result.Error("ROOM.MissingParticleSystem", "ROOM", room.Name?.Content, $"Room '{name}' asset layer references missing ParticleSystem '{particleInstance.ParticleSystem.Name?.Content ?? "<null>"}'");
 					}
 				}
 			}
@@ -880,15 +880,15 @@ public static class DataIntegrityService
 		{
 			if (instance.ObjectDefinition != null && !objectSet.Contains(instance.ObjectDefinition))
 			{
-				result.Errors.Add($"Room '{roomName}' instance {instance.InstanceID} references missing Object '{instance.ObjectDefinition.Name?.Content ?? "<null>"}'");
+				result.Error("ROOM.MissingInstanceObject", "ROOM", roomName, $"Room '{roomName}' instance {instance.InstanceID} references missing Object '{instance.ObjectDefinition.Name?.Content ?? "<null>"}'");
 			}
 			if (instance.CreationCode != null && !codeSet.Contains(instance.CreationCode))
 			{
-				result.Errors.Add($"Room '{roomName}' instance {instance.InstanceID} references missing CreationCode '{instance.CreationCode.Name?.Content ?? "<null>"}'");
+				result.Error("ROOM.MissingCreationCode", "ROOM", roomName, $"Room '{roomName}' instance {instance.InstanceID} references missing CreationCode '{instance.CreationCode.Name?.Content ?? "<null>"}'");
 			}
 			if (instance.PreCreateCode != null && !codeSet.Contains(instance.PreCreateCode))
 			{
-				result.Errors.Add($"Room '{roomName}' instance {instance.InstanceID} references missing PreCreateCode '{instance.PreCreateCode.Name?.Content ?? "<null>"}'");
+				result.Error("ROOM.MissingPreCreateCode", "ROOM", roomName, $"Room '{roomName}' instance {instance.InstanceID} references missing PreCreateCode '{instance.PreCreateCode.Name?.Content ?? "<null>"}'");
 			}
 		}
 	}
@@ -903,12 +903,12 @@ public static class DataIntegrityService
 		{
 			if (tile.SpriteDefinition != null && !spriteSet.Contains(tile.SpriteDefinition))
 			{
-				result.Errors.Add($"Room '{roomName}' tile {tile.InstanceID} references missing Sprite '{tile.SpriteDefinition.Name?.Content ?? "<null>"}'");
+				result.Error("ROOM.MissingTileSprite", "ROOM", roomName, $"Room '{roomName}' tile {tile.InstanceID} references missing Sprite '{tile.SpriteDefinition.Name?.Content ?? "<null>"}'");
 			}
 		}
 		else if (tile.BackgroundDefinition != null && !backgroundSet.Contains(tile.BackgroundDefinition))
 		{
-			result.Errors.Add($"Room '{roomName}' tile {tile.InstanceID} references missing Background '{tile.BackgroundDefinition.Name?.Content ?? "<null>"}'");
+			result.Error("ROOM.MissingTileBackground", "ROOM", roomName, $"Room '{roomName}' tile {tile.InstanceID} references missing Background '{tile.BackgroundDefinition.Name?.Content ?? "<null>"}'");
 		}
 	}
 
@@ -921,24 +921,57 @@ public static class DataIntegrityService
 				var name = emitter.Name?.Content ?? "<unnamed emitter>";
 				if (emitter.Sprite != null && !spriteSet.Contains(emitter.Sprite))
 				{
-					result.Errors.Add($"ParticleEmitter '{name}' references missing Sprite '{emitter.Sprite.Name?.Content ?? "<null>"}'");
+					result.Error("PSEM.MissingSprite", "PSEM", emitter.Name?.Content, $"ParticleEmitter '{name}' references missing Sprite '{emitter.Sprite.Name?.Content ?? "<null>"}'");
 				}
 				if (emitter.SpawnOnDeath != null && !particleEmitterSet.Contains(emitter.SpawnOnDeath))
 				{
-					result.Errors.Add($"ParticleEmitter '{name}' references missing SpawnOnDeath emitter '{emitter.SpawnOnDeath.Name?.Content ?? "<null>"}'");
+					result.Error("PSEM.MissingSpawnOnDeath", "PSEM", emitter.Name?.Content, $"ParticleEmitter '{name}' references missing SpawnOnDeath emitter '{emitter.SpawnOnDeath.Name?.Content ?? "<null>"}'");
 				}
 				if (emitter.SpawnOnUpdate != null && !particleEmitterSet.Contains(emitter.SpawnOnUpdate))
 				{
-					result.Errors.Add($"ParticleEmitter '{name}' references missing SpawnOnUpdate emitter '{emitter.SpawnOnUpdate.Name?.Content ?? "<null>"}'");
+					result.Error("PSEM.MissingSpawnOnUpdate", "PSEM", emitter.Name?.Content, $"ParticleEmitter '{name}' references missing SpawnOnUpdate emitter '{emitter.SpawnOnUpdate.Name?.Content ?? "<null>"}'");
 				}
 			}
 		}
 	}
 }
 
+/// <summary>Whether an <see cref="IntegrityIssue"/> is a problem that remains or a fix that was applied.</summary>
+public enum IntegritySeverity
+{
+	/// <summary>A fix the check applied.</summary>
+	Repair,
+
+	/// <summary>A problem the check found and did not fix.</summary>
+	Error
+}
+
+/// <summary>One finding of the integrity check.</summary>
+/// <param name="Severity">Error or repair.</param>
+/// <param name="Code">Stable id such as ROOM.MissingSprite.</param>
+/// <param name="Chunk">Four letter name of the chunk the finding belongs to.</param>
+/// <param name="Resource">Name of the owning resource, or null when there is none (repairs count many items).</param>
+/// <param name="Message">Same text as in <see cref="DataIntegrityResult.Errors"/> or <see cref="DataIntegrityResult.Repairs"/>.</param>
+public sealed record IntegrityIssue(IntegritySeverity Severity, string Code, string Chunk, string? Resource, string Message);
+
 public sealed class DataIntegrityResult
 {
 	public List<string> Errors { get; } = [];
 	public List<string> Repairs { get; } = [];
+
+	/// <summary>Every error and repair as structured data, in the order found.</summary>
+	public List<IntegrityIssue> Issues { get; } = [];
 	public bool Success => Errors.Count == 0;
+
+	internal void Error(string code, string chunk, string? resource, string message)
+	{
+		Errors.Add(message);
+		Issues.Add(new IntegrityIssue(IntegritySeverity.Error, code, chunk, resource, message));
+	}
+
+	internal void Repair(string code, string chunk, string message)
+	{
+		Repairs.Add(message);
+		Issues.Add(new IntegrityIssue(IntegritySeverity.Repair, code, chunk, null, message));
+	}
 }

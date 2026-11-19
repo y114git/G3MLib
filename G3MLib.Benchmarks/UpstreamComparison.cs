@@ -1,5 +1,6 @@
 #if UPSTREAM
 using System.Diagnostics;
+using System.Globalization;
 using System.Text.Json;
 using G3MLib.Analyzer.Compiler;
 using G3MLib.Analyzer.Decompiler;
@@ -10,7 +11,7 @@ using UndertaleModLib;
 
 internal static class UpstreamComparison
 {
-    public static void Run(string path, GameMakerData data)
+    public static void Run(string path, GameMakerData data, bool markdown)
     {
         var operations = new List<(string Name, Action Action)>();
         void measure(string name, Action action) => operations.Add((name, action));
@@ -67,6 +68,7 @@ internal static class UpstreamComparison
         measure("g3mlib_decompile", () => new DecompileContext(new GlobalDecompileContext(data), largest).DecompileToString());
         measure("upstream_decompile", () => new Underanalyzer.Decompiler.DecompileContext(new UndertaleModLib.Decompiler.GlobalDecompileContext(upstream), upstreamLargest).DecompileToString());
         }
+        var results = new Dictionary<string, Result>();
         for (int pair = 0; pair < operations.Count; pair += 2)
         {
             var left = operations[pair];
@@ -93,10 +95,40 @@ internal static class UpstreamComparison
             for (int side = 0; side < 2; side++)
             {
                 Array.Sort(times[side]); Array.Sort(allocations[side]);
+                results[side == 0 ? left.Name : right.Name] = new Result(times[side][3], times[side][0], times[side][6], allocations[side][3] / 1048576d);
                 Console.WriteLine(JsonSerializer.Serialize(new { operation = side == 0 ? left.Name : right.Name,
                     medianMs = times[side][3], minMs = times[side][0], maxMs = times[side][6],
                     allocatedMiB = allocations[side][3] / 1048576d, batch, runs = 7 }));
             }
+        }
+        if (markdown) WriteMarkdown(results, data.Code.Count > 0 ? data.Code.Max(code => code.Instructions.Count) : 0);
+    }
+
+    sealed record Result(double Median, double Min, double Max, double MiB);
+
+    // One rule for every row: ratio = other median / G3MLib median, printed with two decimals.
+    // The verdict is "no clear difference" when the min-max ranges overlap, else the library with the lower range.
+    static void WriteMarkdown(Dictionary<string, Result> results, int largestInstructions)
+    {
+        Console.OutputEncoding = new System.Text.UTF8Encoding(false);
+        var rows = new[]
+        {
+            ("read", "Read complete data file", "UndertaleModLib"),
+            ("read_general", "Read general information only", "UndertaleModLib"),
+            ("write", "Write complete data file to memory", "UndertaleModLib"),
+            ("parse_gml", "Parse 200-line GML source", "Underanalyzer"),
+            ("compile_gml", "Compile 200-line GML source", "Underanalyzer"),
+            ("decompile", $"Decompile largest code entry ({largestInstructions.ToString("N0", CultureInfo.InvariantCulture)} instructions)", "Underanalyzer"),
+        };
+        static string N(double value) => value.ToString("N3", CultureInfo.InvariantCulture);
+        static string Range(Result r) => $"{N(r.Median)} ({N(r.Min)}–{N(r.Max)})";
+        foreach (var (key, label, other) in rows)
+        {
+            if (!results.TryGetValue("g3mlib_" + key, out var g3m) || !results.TryGetValue("upstream_" + key, out var up)) continue;
+            var verdict = g3m.Max >= up.Min && up.Max >= g3m.Min ? "no clear difference" : g3m.Max < up.Min ? "G3MLib faster" : $"{other} faster";
+            var ratio = (up.Median / g3m.Median).ToString("0.00", CultureInfo.InvariantCulture);
+            var utml = other == "UndertaleModLib";
+            Console.WriteLine($"| {label} | {Range(g3m)} | {(utml ? Range(up) : "—")} | {(utml ? "—" : Range(up))} | {ratio}× | {verdict} | {N(g3m.MiB)} | {(utml ? N(up.MiB) : "—")} | {(utml ? "—" : N(up.MiB))} |");
         }
     }
 }

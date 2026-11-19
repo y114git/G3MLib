@@ -653,6 +653,53 @@ public class LexContext_Tokenize
     }
 
     [Fact]
+    public void TestEmptyMacroDoesNotSwallowNextLine()
+    {
+        var context = TestUtil.Lex(
+            """
+            #macro DEBUG
+            a = 1;
+            """
+        );
+
+        Assert.Empty(context.CompileContext.Errors);
+        TestUtil.AssertTokens([
+            ("a", typeof(TokenVariable)),
+            ("=", typeof(TokenOperator)),
+            ("1", typeof(TokenNumber)),
+            (";", typeof(TokenSeparator)),
+        ], context.Tokens);
+    }
+
+    [Fact]
+    public void TestMacroWithExtraSpaceBeforeName()
+    {
+        var context = TestUtil.Lex(
+            """
+            #macro   TEST 5
+            TEST
+            """
+        );
+
+        Assert.Empty(context.CompileContext.Errors);
+        TestUtil.AssertTokens([("5", typeof(TokenNumber))], context.Tokens);
+    }
+
+    [Fact]
+    public void TestEmptyMacroExpansionKeepsPostProcessingNextToken()
+    {
+        var context = TestUtil.Lex(
+            """
+            #macro EMPTY
+            EMPTY show_debug_message(1);
+            """
+        );
+
+        Assert.Empty(context.CompileContext.Errors);
+        Assert.IsType<TokenFunction>(context.Tokens[0]);
+    }
+
+    [Fact]
     public void TestDuplicateMacro()
     {
         var context = TestUtil.Lex(

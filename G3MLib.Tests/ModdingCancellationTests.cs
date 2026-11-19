@@ -87,6 +87,21 @@ public sealed class ModdingCancellationTests : IDisposable
     }
 
     [Fact]
+    public async Task FailedMergeDoesNotLeaveLoggingSuppressed()
+    {
+        CreateInputs();
+        var bad1 = Path.Combine(_dir, "bad1.xdelta");
+        var bad2 = Path.Combine(_dir, "bad2.xdelta");
+        await File.WriteAllTextAsync(bad1, "not a patch", TestContext.Current.CancellationToken);
+        await File.WriteAllTextAsync(bad2, "not a patch", TestContext.Current.CancellationToken);
+
+        var result = await MergeService.MergePatchesAsync(Original, [bad1, bad2], new MergeOptions { OutputPath = Path.Combine(_dir, "out.g3mpatch") }, TestContext.Current.CancellationToken);
+
+        Assert.False(result.Success);
+        Assert.False(LogService.Suppress);
+    }
+
+    [Fact]
     public async Task TempRootIsRedirectedInsideTests()
     {
         await Task.Yield();

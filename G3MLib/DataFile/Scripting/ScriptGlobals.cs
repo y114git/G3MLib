@@ -37,6 +37,11 @@ public class ScriptGlobals : IScriptInterface
     public string ExePath { get; set; } = AppContext.BaseDirectory;
     public string ScriptErrorType { get; private set; } = string.Empty;
     public bool IsAppClosed { get; set; }
+    /// <summary>
+    /// Ends when the host cancels the run or its timeout passes (see <see cref="ScriptRunner.RunAsync"/>). A long script checks it in its loops; the members of this class check it too.
+    /// </summary>
+    public CancellationToken CancellationToken { get; internal set; }
+
     public Action<Action> MainThreadAction { get; set; } = static action => action();
 
     /// <summary>Receives <see cref="ScriptMessage"/>, <see cref="SetUMTConsoleText"/> and <see cref="SimpleTextOutput"/> text.</summary>
@@ -62,6 +67,7 @@ public class ScriptGlobals : IScriptInterface
 
     public void EnsureDataLoaded()
     {
+        CancellationToken.ThrowIfCancellationRequested();
         if (Data is null)
         {
             throw new ScriptException("No data file is currently loaded!");
@@ -79,7 +85,11 @@ public class ScriptGlobals : IScriptInterface
         return true;
     }
 
-    public virtual void ScriptMessage(string message) => MessageHandler?.Invoke(message);
+    public virtual void ScriptMessage(string message)
+    {
+        CancellationToken.ThrowIfCancellationRequested();
+        MessageHandler?.Invoke(message);
+    }
     public virtual void ScriptWarning(string message) => WarningHandler?.Invoke(message);
     public virtual void SetUMTConsoleText(string message) => ScriptMessage(message);
     public virtual bool ScriptQuestion(string message) => false;
@@ -182,6 +192,13 @@ public class ScriptGlobals : IScriptInterface
     }
 
     public virtual string ScriptInputDialog(string title, string label, string defaultInput, string cancelText, string submitText, bool isMultiline, bool preventClose) => throw UiUnavailable();
+
+    /// <summary>
+    /// Short form of <see cref="ScriptInputDialog(string, string, string, string, string, bool, bool)"/> kept for scripts written for earlier G3MLib hosts:
+    /// returns <paramref name="defaultInput"/> without asking when <paramref name="showDialog"/> is false.
+    /// </summary>
+    public string ScriptInputDialog(string title, string label, string defaultInput, bool allowMultiline, bool showDialog) =>
+        showDialog ? ScriptInputDialog(title, label, defaultInput, "Cancel", "OK", allowMultiline, false) : defaultInput;
     public virtual string SimpleTextInput(string title, string label, string defaultValue, bool allowMultiline, bool showDialog = true) => throw UiUnavailable();
     public virtual void SimpleTextOutput(string title, string label, string message, bool allowMultiline) => ScriptMessage(message);
 
@@ -215,6 +232,7 @@ public class ScriptGlobals : IScriptInterface
 
     public void SetProgressBar(string message, string status, double progressValue, double maxValue)
     {
+        CancellationToken.ThrowIfCancellationRequested();
         _progressStatus = status ?? string.Empty;
         Volatile.Write(ref _progressMaximum, maxValue);
         Interlocked.Exchange(ref _progress, ToProgress(progressValue));
@@ -233,6 +251,7 @@ public class ScriptGlobals : IScriptInterface
 
     public void AddProgress(int amount)
     {
+        CancellationToken.ThrowIfCancellationRequested();
         var value = Interlocked.Add(ref _progress, amount);
         ReportProgress(null, _progressStatus, value, Volatile.Read(ref _progressMaximum));
     }
@@ -244,6 +263,7 @@ public class ScriptGlobals : IScriptInterface
 
     public void SetProgress(int value)
     {
+        CancellationToken.ThrowIfCancellationRequested();
         Interlocked.Exchange(ref _progress, value);
         ReportProgress(null, _progressStatus, value, Volatile.Read(ref _progressMaximum));
     }

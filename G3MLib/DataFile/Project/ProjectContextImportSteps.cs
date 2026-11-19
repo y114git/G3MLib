@@ -1,5 +1,6 @@
 using System.IO;
 using G3MLib.DataFile.Util;
+using G3MLib.Modding.Internal;
 
 namespace G3MLib.DataFile.Project;
 
@@ -230,14 +231,12 @@ public partial class ProjectContext
             {
                 var baseFileBytes = File.ReadAllBytes(baseFileFullPath);
                 using MemoryStream baseStream = new(baseFileBytes);
-                using FileStream outputStream = new(outputFileFullPath, FileMode.Create, FileAccess.ReadWrite, FileShare.Read, bufferSize);
-                BPS.ApplyPatch(baseStream, patchStream, outputStream);
+                AtomicFile.Write(outputFileFullPath, outputStream => BPS.ApplyPatch(baseStream, patchStream, outputStream), bufferSize);
             }
             else
             {
                 using FileStream baseStream = new(baseFileFullPath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize);
-                using FileStream outputStream = new(outputFileFullPath, FileMode.Create, FileAccess.ReadWrite, FileShare.Read, bufferSize);
-                BPS.ApplyPatch(baseStream, patchStream, outputStream);
+                AtomicFile.Write(outputFileFullPath, outputStream => BPS.ApplyPatch(baseStream, patchStream, outputStream), bufferSize);
             }
         }
     }

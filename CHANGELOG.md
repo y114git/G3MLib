@@ -1,5 +1,52 @@
 # Changelog
 
+## [1.1.4] - 2026-11-19
+
+### Security
+
+- Patch archives extracted for a diff are checked for entry names and total size like the ones loaded for an apply, and unsafe manifest paths are skipped. Extraction can be cancelled between entries and chunks.
+- `PatchFileSystem` refuses a corrupt `g3mpatch.json`, a JSON `null` manifest included, with the patch path in the message. Export, import and patch paths stay inside their folder.
+
+### Added
+
+- `ScriptGlobals.ScriptInputDialog(title, label, defaultInput, allowMultiline, showDialog)`, the short form that earlier G3MLib hosts offered to scripts; it maps to the seven-argument form and returns the default without asking when `showDialog` is false.
+- Macros declared in other code entries, or given in `CompileGroup.Macros` (also filled by `CompileGroup.AddMacros`), are expanded when an entry is compiled. `CompileContext.ExternalMacros` takes the same table. A macro that names itself or grows without end is reported as an error.
+- Data files, patch archives and project files are written to a temporary file and then swapped in (`AtomicFile`), so a failed write keeps the old file. Each write uses its own temp file name, a symlinked target keeps its link, and temp files older than a day left by a crash are removed at the next write of the same target.
+- `ScriptRunner.RunAsync` takes a `CancellationToken` and a `timeout` (`Timeout.InfiniteTimeSpan` for no limit). A script run without data holds no gate, and a data object the script creates is not gated. Scripts read the token as `ScriptGlobals.CancellationToken`; `ScriptGlobals` members and the library's bulk operations stop at the next call once it is cancelled. `ScriptRunResult.Cancelled` tells a cancelled run from a failed one.
+- `GameMakerData.Gate` (`DataAccessGate`) is a reader/writer gate with `BeginRead` and `BeginWrite` scopes, a timeout and a token. Hosts take it to keep a save from racing with a script or an import. The scope of a running script is bound to the thread that runs it, so a host must not save or import from a callback that runs on that thread while the script waits, such as a click handler during a script dialog. Scripts, resource import, `ResourceImportService.ImportAssetOrder`, `ReferenceIndex.ClearUsages` and `G3MProjectService.Build` take it as a writer; data file writes, `ExportTypes`, `ExportSelectiveExceptCode` and `G3MProjectService.Export` and `Update` take it as a reader.
+- `GameMakerGeneralInfo.BranchSource` names the chunk that decided the LTS branch while reading. `SetLTS` takes an optional `source`.
+- `ReferenceIndex.ClearUsages(target)` sets every model reference to the target to none and removes it from lists that hold it, so it can be deleted. It returns `ClearedReferences` with `Undo()`; uses in code are listed in `Skipped`.
+- `RenameService.IsValidName` and `RenameService.IsNameInUse` expose the name rules that renames already apply.
+- `ResourceImportService.Import("CodeEntries", ...)` compiles the `.gml` file of each exported code entry folder, with one result per entry and an optional name filter. Entries with only an `.asm` file are skipped. Project import uses it too.
+- `DataIntegrityResult.Issues` lists every error and repair as an `IntegrityIssue` with `Severity`, `Code` (such as `ROOM.MissingSprite`), `Chunk`, `Resource` and `Message`. `Errors` and `Repairs` keep the same text.
+- `ExportSounds` and `AudioGroupReader` take a null data file path: the audio held in the data file itself (group 0) is then written into the sound folder, and `ImportSounds` reads it back.
+- `ResourceCloneService.Clone(data, source, newName)` copies a resource in memory: objects, scripts, sprites, paths, animation curves, sounds, fonts, shaders, timelines, backgrounds, rooms, sequences, particle systems and extensions. The copy owns its events, layers, frames and tracks, and shares other resources, texture page items, variables and functions. Code entries and locals named after the resource are copied and renamed with the `RenameService` rules, a room gets new instance ids and joins the room order. `ResourceClone.Undo()` removes everything the copy added. Instance ids and strings that later edits depend on are kept. A room copy takes instance ids above every id in the file, even when `GeneralInfo.LastObj` is lower. The function entries of a copied script or object are copied with it, child code entries get unique names, and `ResourceClone.SharedCode` lists the code entries the copy shares with the source. `Clone` runs its checks inside the data gate and takes an optional `timeout` and `cancellationToken` for the wait. Code entries, functions, variables, locals, audio groups, texture groups, filter effects and embedded audio and textures throw `NotSupportedException`.
+- `ExportExtensions` takes an optional name filter, like the other resource types, so one extension can be exported. The import already accepted a filter.
+- `ClearedReferences.ChangedOwners` lists the owners whose references were cleared, for `ReferenceIndex.Update` after `Undo` and for refreshing a UI.
+- `GameMakerTexturePageItem.PrepareReplace` does the image work of `ReplaceTexture` and returns a `PreparedTextureReplace`; its `Commit()` only swaps the page image, so hosts can prepare outside a write lock. `Commit()` throws `InvalidOperationException` when the page image changed or the item was pointed at another page or cleared.
+- `G3MLib.Benchmarks` prints comparison rows with `--markdown`, and the README holds new benchmark numbers.
+
+### Fixed
+
+- `AudioGroupFile.Save` over the opened file throws an `IOException` that says the file was saved when reopening it fails; the instance must then be disposed. The path comparison is case sensitive on Linux.
+- Font glyph data of 2024.14 and the texture group list of LTS files are read back correctly.
+- Nested ternaries and chained `??` compile. An empty `#macro` no longer swallows the next line.
+- Saving a YYC file with an empty code chunk works. The last chunk is no longer padded when chunks are written in a different order.
+- A BPS patch whose copy starts at or past the write position stops with an error instead of hanging.
+- A room with a tile layer that has one empty dimension is refused, and 2024.4 tile padding is detected from the layer data pointer. A sprite with collision masks but no mask bytes no longer reads past the data.
+- Importing a project requests the audio group from the JSON group id. Project export keeps the folders of types that failed or were not exported.
+- Export folders keep names that differ only in an invalid character apart, and import reads the resource name from the JSON `name`, so a resource named `a:b` imports as `a:b`, not as its folder name. Old exports without a `name` still import by their folder name.
+- Merging two patches that make the same edit is a clean merge. Log suppression is reset when a merge fails, so later work keeps logging.
+- Diff reports use an LCS with context hunks and a size guard. Event names of keyboard, trigger and gesture events are parsed.
+- Merge and import filters find resources in patch archives and exports made before the hash suffix, in both folder name forms. Patched and merged data files, project files and audio group files are written through a temporary file, so a failed write keeps the old file.
+- Swallowed exceptions in temp cleanup and JSON fallbacks are logged or narrowed, and debug output goes through `LogService`.
+
+### Changed
+
+- Breaking: an export folder name gets a 12 character hash suffix when a character had to be replaced, such as `a:b` (now `a_b__<hash>`), so two names cannot share a folder. Exports made by 1.1.3 keep their folder names and still import; a new export of such a resource writes a different folder.
+- A malformed `g3mpatch.json` makes loading a patch fail with `InvalidDataException`, where 1.1.3 ignored it. Apply, diff and merge return an error result that names the patch path.
+- Macro scanning in `CompileGroup` uses the compiler's lexer, so line continuations and CRLF work, and `#macro` inside comments and strings is ignored.
+
 ## [1.1.3] - 2026-11-15
 
 ### Fixed

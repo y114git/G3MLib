@@ -206,6 +206,10 @@ public static class BPS
                             // Target copy (copy data from an arbitrary location in the data already written to the output file)
                             var targetOffsetData = DecodeNumber(patchFile);
                             targetRelativeOffset += ((targetOffsetData & 1) != 0 ? -1 : 1) * (targetOffsetData >> 1);
+                            if (targetRelativeOffset < 0 || targetRelativeOffset >= outputOffset)
+                            {
+                                throw new IOException("Target copy starts outside the data already written");
+                            }
 
                             // Copy bytes in chunks while possible
                             var possibleChunkedLength = Math.Min(length, outputOffset - targetRelativeOffset);

@@ -55,6 +55,15 @@ public sealed class CompileContext(string code, CompileScriptKind scriptKind, st
     public Dictionary<string, Macro> Macros { get; } = new(4);
 
     /// <summary>
+    /// Macros defined outside this code, such as in another code entry, mapping a name to the GML expression it stands for.
+    /// </summary>
+    /// <remarks>
+    /// A name is replaced only where it would otherwise be read as an instance variable, so a declared local of the
+    /// same name, a member access like <c>a.NAME</c>, and macros declared by this code itself all take precedence.
+    /// </remarks>
+    public IReadOnlyDictionary<string, string>? ExternalMacros { get; init; }
+
+    /// <summary>
     /// Enums declared by this code, or otherwise externally added.
     /// </summary>
     public Dictionary<string, GMEnum> Enums { get; } = new(4);
@@ -243,6 +252,60 @@ public sealed class CompileContext(string code, CompileScriptKind scriptKind, st
 
         // Remove references that we no longer need
         _compilePatches = default;
+    }
+
+    private const int MaxExpandedTokens = 100_000;
+    private readonly HashSet<string> _expanding = [];
+    private int _expandedTokens;
+
+    /// <summary>
+    /// Returns the tokens of the external macro a variable token names, wrapped in parentheses, or <see langword="null"/> if it names none.
+    /// </summary>
+    /// <remarks>
+    /// The tokens keep the lexer context of the macro text, like tokens of a macro declared in the same code, so a diagnostic
+    /// on them names the macro and points inside its text, not at the use site. Tokens are immutable records of many types, so they are not re-positioned.
+    /// </remarks>
+    internal List<IToken>? ExpandExternalMacro(TokenVariable token, int depth = 0)
+    {
+        if (ExternalMacros is null || HasErrors || !ExternalMacros.TryGetValue(token.Text, out var text))
+        {
+            return null;
+        }
+        if (depth == 0)
+        {
+            _expandedTokens = 0; // the size limit is for one use of a macro, not for the whole code
+            _expanding.Clear();
+        }
+
+        // A macro that names itself, directly or through others, never ends; a macro that names two others at each level grows exponentially.
+        if (depth >= 32 || _expanding.Contains(token.Text) || _expandedTokens > MaxExpandedTokens)
+        {
+            PushError(depth >= 32 || _expanding.Contains(token.Text) ? "Macro expansion limit exceeded or macro refers to itself" : "Macro expansion is too large", token);
+            return null;
+        }
+
+        _expanding.Add(token.Text);
+
+        LexContext lexContext = new(this, text, token.Text);
+        lexContext.Tokenize();
+        lexContext.PostProcessTokens();
+
+        List<IToken> result = new(lexContext.Tokens.Count + 2) { new TokenSeparator(lexContext, 0, SeparatorKind.GroupOpen) };
+        foreach (var inner in lexContext.Tokens)
+        {
+            if (inner is TokenVariable innerVariable && ExpandExternalMacro(innerVariable, depth + 1) is { } expansion)
+            {
+                result.AddRange(expansion);
+            }
+            else
+            {
+                result.Add(inner);
+            }
+        }
+        result.Add(new TokenSeparator(lexContext, text.Length, SeparatorKind.GroupClose));
+        _expanding.Remove(token.Text);
+        _expandedTokens += result.Count;
+        return result;
     }
 
     /// <summary>

@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Collections;
-using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Security.Cryptography;
@@ -317,6 +316,13 @@ public class GameMakerData : IDisposable
     public IList<GameMakerParticleSystemEmitter> ParticleSystemEmitters => FORM.PSEM?.List;
 
 
+    private DataAccessGate? _gate;
+
+    /// <summary>
+    /// The gate a host takes to keep a save from racing with a script or an import on this data. See <see cref="DataAccessGate"/> for what the library locks itself.
+    /// </summary>
+    public DataAccessGate Gate => LazyInitializer.EnsureInitialized(ref _gate);
+
     private readonly List<LoadWarning> _loadWarnings = [];
     private readonly object _loadWarningsLock = new();
 
@@ -586,6 +592,8 @@ public class GameMakerData : IDisposable
     public void SetGMS2Version(GameMakerGeneralInfo.RuntimeVersion version)
     {
         VerifyMajorGMS2Version(version.Major);
+        if (version.Branch != GeneralInfo.Branch)
+            GeneralInfo.BranchSource = ReadingChunkName;
         GeneralInfo.Version = version;
         GeneralInfo.VersionSource = ReadingChunkName;
         if (BuiltinList is not null)
@@ -623,8 +631,10 @@ public class GameMakerData : IDisposable
     /// Sets the branch type in GeneralInfo to the appropriate LTS or non-LTS version based on
     /// </summary>
     /// <param name="isLTS">If included, alter the data branch between LTS and non-LTS.</param>
-    public void SetLTS(bool isLTS)
+    /// <param name="source">The chunk that decided it, recorded as <see cref="GameMakerGeneralInfo.BranchSource"/>. Defaults to the chunk being read.</param>
+    public void SetLTS(bool isLTS, string source = null)
     {
+        GeneralInfo.BranchSource = source ?? ReadingChunkName;
         GeneralInfo.Branch = isLTS ? GameMakerGeneralInfo.BranchType.LTS2022_0 : GameMakerGeneralInfo.BranchType.Post2022_0;
     }
 
@@ -640,7 +650,7 @@ public class GameMakerData : IDisposable
     {
         if (GeneralInfo is null)
         {
-            Debug.WriteLine("\"GameMakerData.IsVersionAtLeast()\" error - \"GeneralInfo\" is null.");
+            LogService.Log("\"GameMakerData.IsVersionAtLeast()\" error - \"GeneralInfo\" is null.");
             return false;
         }
 
@@ -676,7 +686,7 @@ public class GameMakerData : IDisposable
     {
         if (GeneralInfo is null)
         {
-            Debug.WriteLine("\"GameMakerData.IsNonLTSVersionAtLeast()\" error - \"GeneralInfo\" is null.");
+            LogService.Log("\"GameMakerData.IsNonLTSVersionAtLeast()\" error - \"GeneralInfo\" is null.");
             return false;
         }
 
@@ -698,7 +708,7 @@ public class GameMakerData : IDisposable
     {
         if (GeneralInfo is null)
         {
-            Debug.WriteLine("\"GameMakerData.IsLTSBranch()\" error - \"GeneralInfo\" is null.");
+            LogService.Log("\"GameMakerData.IsLTSBranch()\" error - \"GeneralInfo\" is null.");
             return false;
         }
 

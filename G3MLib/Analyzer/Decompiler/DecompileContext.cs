@@ -124,11 +124,7 @@ public sealed class DecompileContext
         {
             throw new DecompilerException($"Decompiler error during control flow analysis: {ex.Message}", ex);
         }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             throw new DecompilerException($"Unexpected exception thrown in decompiler during control flow analysis: {ex.Message}", ex);
         }
@@ -146,11 +142,7 @@ public sealed class DecompileContext
         {
             throw new DecompilerException($"Decompiler error during AST building: {ex.Message}", ex);
         }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             throw new DecompilerException($"Unexpected exception thrown in decompiler during AST building: {ex.Message}", ex);
         }
@@ -175,11 +167,7 @@ public sealed class DecompileContext
         {
             throw new DecompilerException($"Decompiler error during AST cleanup: {ex.Message}", ex);
         }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             throw new DecompilerException($"Unexpected exception thrown in decompiler during AST cleanup: {ex.Message}", ex);
         }
@@ -245,11 +233,7 @@ public sealed class DecompileContext
         {
             throw new DecompilerException($"Decompiler error during AST printing: {ex.Message}", ex);
         }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             throw new DecompilerException($"Unexpected exception thrown in decompiler during AST printing: {ex.Message}", ex);
         }

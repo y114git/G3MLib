@@ -14,11 +14,12 @@ using G3MLib.Modding.Patching;
 using G3MLib.Modding.Resources;
 
 var compare = args.Contains("--compare");
+var markdown = args.Contains("--markdown");
 var full = args.Contains("--full") || compare;
-string[] paths = [.. args.Where(arg => arg is not "--full" and not "--compare")];
+string[] paths = [.. args.Where(arg => arg is not "--full" and not "--compare" and not "--markdown")];
 if (paths.Length == 0)
 {
-    Console.Error.WriteLine("Usage: G3MLib.Benchmarks [--full | --compare] <data-file> [data-file ...]");
+    Console.Error.WriteLine("Usage: G3MLib.Benchmarks [--full | --compare [--markdown]] <data-file> [data-file ...]");
     return 1;
 }
 using var logScope = LogService.BeginScope(null, null, suppress: true);
@@ -30,7 +31,7 @@ foreach (var inputPath in paths)
     if (compare)
     {
 #if UPSTREAM
-        UpstreamComparison.Run(path, data);
+        UpstreamComparison.Run(path, data, markdown);
         continue;
 #else
         throw new InvalidOperationException("Build with -p:UndertaleModToolPath=<source-directory> to compare libraries.");

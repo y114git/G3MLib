@@ -1038,8 +1038,9 @@ public static class ResourceHashService
 					result[groupId] = hashes;
 				}
 			}
-			catch
+			catch (Exception ex)
 			{
+				LogService.Log($"Audio group {groupId} hashing skipped: {ex.Message}");
 			}
 		}
 		return result;
@@ -1963,8 +1964,9 @@ public static class ResourceHashService
 					var childBytes = Encoding.UTF8.GetBytes(child.Disassemble(variables, childLocals));
 					stream.Write(childBytes, 0, childBytes.Length);
 				}
-				catch
+				catch (Exception ex)
 				{
+					LogService.Log($"Child code hashing skipped for {child.Name.Content}: {ex.Message}");
 				}
 			}
 			return HexHash(stream.GetBuffer().AsSpan(0, (int)stream.Length));

@@ -1,4 +1,5 @@
 using System.IO;
+using G3MLib.Modding.Internal;
 using System.Text;
 using System.Text.Json;
 
@@ -106,7 +107,7 @@ public partial class ProjectContext
 
     private void SaveMainOptions()
     {
-        File.WriteAllText(MainFilePath, JsonSerializer.Serialize(_mainOptions, JsonOptions));
+        AtomicFile.Write(MainFilePath, stream => stream.Write(new UTF8Encoding(false).GetBytes(JsonSerializer.Serialize(_mainOptions, JsonOptions))));
         NormalizeTextFile(MainFilePath);
     }
 

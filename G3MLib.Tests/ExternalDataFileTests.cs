@@ -8,8 +8,7 @@ public sealed class ExternalDataFileTests
     public void ReadWriteReadConfiguredExternalDataFiles()
     {
         var configuredFiles = Environment.GetEnvironmentVariable("G3MLIB_EXTERNAL_DATA_FILES");
-        if (string.IsNullOrWhiteSpace(configuredFiles))
-            return;
+        Assert.SkipWhen(string.IsNullOrWhiteSpace(configuredFiles), "G3MLIB_EXTERNAL_DATA_FILES is not set");
 
         foreach (var path in configuredFiles.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {

@@ -39,6 +39,62 @@ public sealed class TextureWorkerTests
     }
 
     [Fact]
+    public void PreparedReplaceChangesNothingUntilCommitAndCommitsOnce()
+    {
+        using var input = File.OpenRead(Path.Combine(AppContext.BaseDirectory, "Fixtures", "data-2026.win"));
+        using var data = GameMakerIO.Read(input);
+        var item = data.Sprites.Where(s => s != null).SelectMany(s => s.Textures).First(t => t?.Texture?.TexturePage != null).Texture;
+        var before = item.TexturePage.TextureData.Image;
+        var targetBefore = (item.TargetWidth, item.TargetHeight);
+        using var replacement = new MagickImage(MagickColors.Red, 3, 5);
+
+        var prepared = item.PrepareReplace(replacement);
+        Assert.Same(before, item.TexturePage.TextureData.Image);
+        Assert.Equal(targetBefore, (item.TargetWidth, item.TargetHeight));
+
+        prepared.Commit();
+        Assert.NotSame(before, item.TexturePage.TextureData.Image);
+        Assert.Equal((3, 5), (item.TargetWidth, item.TargetHeight));
+        Assert.Throws<InvalidOperationException>(prepared.Commit);
+    }
+
+    [Fact]
+    public void CommitFailsWhenThePageImageChangedSincePrepare()
+    {
+        using var input = File.OpenRead(Path.Combine(AppContext.BaseDirectory, "Fixtures", "data-2026.win"));
+        using var data = GameMakerIO.Read(input);
+        var item = data.Sprites.Where(s => s != null).SelectMany(s => s.Textures).First(t => t?.Texture?.TexturePage != null).Texture;
+        using var first = new MagickImage(MagickColors.Red, 3, 5);
+        using var second = new MagickImage(MagickColors.Blue, 3, 5);
+        var a = item.PrepareReplace(first);
+        var b = item.PrepareReplace(second);
+
+        a.Commit();
+
+        Assert.Throws<InvalidOperationException>(b.Commit);
+    }
+
+    [Fact]
+    public void CommitFailsWhenTheItemWasRepointedOrClearedSincePrepare()
+    {
+        using var input = File.OpenRead(Path.Combine(AppContext.BaseDirectory, "Fixtures", "data-2026.win"));
+        using var data = GameMakerIO.Read(input);
+        var item = data.Sprites.Where(s => s != null).SelectMany(s => s.Textures).First(t => t?.Texture?.TexturePage != null).Texture;
+        var page = item.TexturePage;
+        var other = data.EmbeddedTextures.First(t => !ReferenceEquals(t, page));
+        using var replacement = new MagickImage(MagickColors.Red, 3, 5);
+
+        var repointed = item.PrepareReplace(replacement);
+        item.TexturePage = other;
+        Assert.Throws<InvalidOperationException>(repointed.Commit);
+
+        item.TexturePage = page;
+        var cleared = item.PrepareReplace(replacement);
+        item.TexturePage = null;
+        Assert.Throws<InvalidOperationException>(cleared.Commit);
+    }
+
+    [Fact]
     public void ExportedPngMatchesDirectEncodeAndRepeatedFramesAreIdentical()
     {
         using var input = File.OpenRead(Path.Combine(AppContext.BaseDirectory, "Fixtures", "data-2026.win"));

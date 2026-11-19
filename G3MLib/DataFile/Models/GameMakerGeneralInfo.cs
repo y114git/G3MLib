@@ -299,6 +299,12 @@ public class GameMakerGeneralInfo : GameMakerObject, IDisposable
     public string VersionSource { get; set; }
 
     /// <summary>
+    /// Name of the chunk whose format decided <see cref="Branch"/> during reading, or <see langword="null"/> when the branch was not detected (a new data file, or one set by hand).
+    /// The branch (LTS or not) is not stored in the file, so this is the evidence for it.
+    /// </summary>
+    public string BranchSource { get; set; }
+
+    /// <summary>
     /// The version numbers GEN8 stored for a GameMaker 2 file, written back as they were. <see langword="null"/> writes 2.0.0.0.
     /// </summary>
     public RuntimeVersion? StoredVersion { get; set; }
@@ -578,6 +584,7 @@ public class GameMakerGeneralInfo : GameMakerObject, IDisposable
 
         Version = reader.gameMakerData.GeneralInfo.Version;
         VersionSource = reader.gameMakerData.GeneralInfo.VersionSource;
+        BranchSource = reader.gameMakerData.GeneralInfo.BranchSource;
 
         DefaultWindowWidth = reader.ReadUInt32();
         DefaultWindowHeight = reader.ReadUInt32();

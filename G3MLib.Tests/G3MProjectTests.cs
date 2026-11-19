@@ -335,6 +335,25 @@ public sealed class G3MProjectTests : IDisposable
     }
 
     [Fact]
+    public void DeltaExportKeepsFoldersOfTypesItDoesNotExport()
+    {
+        var baseFile = FixtureCopy("data-2026.win");
+        var directory = Path.Combine(_root, "project");
+        Export(baseFile, directory);
+        var sprite = Path.Combine(directory, "sprites", "spr_probe", "spr_probe.json");
+        Assert.True(File.Exists(sprite));
+        using var input = File.OpenRead(baseFile);
+        using var data = GameMakerIO.Read(input);
+        G3MProjectService.Export(data, directory, baseFile, new G3MProjectOptions
+        {
+            Name = "Test",
+            Mode = ProjectExportMode.Delta,
+            Only = new Dictionary<string, IReadOnlySet<string>> { ["Rooms"] = new HashSet<string> { "rm_probe" } }
+        }, cancellationToken: TestContext.Current.CancellationToken);
+        Assert.True(File.Exists(sprite));
+    }
+
+    [Fact]
     public void ExportingAgainKeepsRecordedDeletions()
     {
         var baseFile = FixtureCopy("data-2026.win");
@@ -492,5 +511,37 @@ public sealed class G3MProjectTests : IDisposable
             Name = "Test",
             Only = new Dictionary<string, IReadOnlySet<string>>()
         }, cancellationToken: TestContext.Current.CancellationToken));
+    }
+
+    private string ExportWithEditedCode(string gml)
+    {
+        var baseFile = FixtureCopy("data-2026.win");
+        var exported = Export(baseFile, Path.Combine(_root, "project"));
+        var entry = Directory.EnumerateDirectories(Path.Combine(_root, "project", "code")).First(d => File.Exists(Path.Combine(d, Path.GetFileName(d) + ".gml")));
+        File.WriteAllText(Path.Combine(entry, Path.GetFileName(entry) + ".gml"), gml);
+        return baseFile + "|" + exported.Path;
+    }
+
+    [Fact]
+    public void BuildCountsAnEditedCodeEntry()
+    {
+        var both = ExportWithEditedCode("var edited_probe = 1;").Split('|');
+        var built = G3MProjectService.Build(both[1], both[0], Path.Combine(_root, "rebuilt.win"));
+        Assert.Equal(1, built.Resources);
+    }
+
+    [Fact]
+    public void BuildSurfacesACompileErrorInCodeAsProjectException()
+    {
+        var both = ExportWithEditedCode("var broken = (;").Split('|');
+        Assert.Throws<ProjectException>(() => G3MProjectService.Build(both[1], both[0], Path.Combine(_root, "rebuilt.win")));
+    }
+
+    [Fact]
+    public void BuildInsideABatchRunStillFailsOnACompileError()
+    {
+        var both = ExportWithEditedCode("var broken = (;").Split('|');
+        Assert.Throws<ProjectException>(() => BatchRun.RunImport(null, TestContext.Current.CancellationToken,
+            () => G3MProjectService.Build(both[1], both[0], Path.Combine(_root, "rebuilt.win"))));
     }
 }

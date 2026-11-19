@@ -192,9 +192,9 @@ public partial class PatchService
 		return new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 1048576, FileOptions.SequentialScan);
 	}
 
-	private static FileStream OpenDataWriteStream(string path)
+	private static Task WriteDataFileAsync(string path, GameMakerData data)
 	{
-		return new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None, 1048576);
+		return AtomicFile.WriteAsync(path, stream => GameMakerIO.WriteAsync(stream, data), 1048576);
 	}
 
 	internal static string? ValidateSavedDataFile(string path)
@@ -600,23 +600,13 @@ public partial class PatchService
 			ResourceImportService.SetPatchFileSystem(pfs);
 			if (reorderDir != null)
 			{
-				try
-				{
-					Directory.Delete(reorderDir, recursive: true);
-				}
-				catch
-				{
-				}
+				try { Directory.Delete(reorderDir, recursive: true); }
+				catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { LogService.Warning(ex.Message); }
 			}
 			if (stagedEmbeddedTexturesDir != null)
 			{
-				try
-				{
-					Directory.Delete(stagedEmbeddedTexturesDir, recursive: true);
-				}
-				catch
-				{
-				}
+				try { Directory.Delete(stagedEmbeddedTexturesDir, recursive: true); }
+				catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { LogService.Warning(ex.Message); }
 			}
 		}
 	}
@@ -661,8 +651,9 @@ public partial class PatchService
 			{
 				Directory.Delete(reorderDir, recursive: true);
 			}
-			catch
+			catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
 			{
+				LogService.Warning(ex.Message);
 			}
 		}
 	}
@@ -773,8 +764,9 @@ public partial class PatchService
 			{
 				Directory.Delete(reorderDir, recursive: true);
 			}
-			catch
+			catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
 			{
+				LogService.Warning(ex.Message);
 			}
 		}
 	}
@@ -1345,8 +1337,9 @@ public partial class PatchService
 					Directory.Delete(tempDir2, recursive: true);
 					if (tempOutputPath is not null) File.Delete(tempOutputPath);
 				}
-				catch
+				catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
 				{
+					LogService.Warning(ex.Message);
 				}
 				if (tempExactPatch != null)
 				{
@@ -1354,8 +1347,9 @@ public partial class PatchService
 					{
 						File.Delete(tempExactPatch);
 					}
-					catch
+					catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
 					{
+						LogService.Warning(ex.Message);
 					}
 				}
 			}
@@ -1365,7 +1359,7 @@ public partial class PatchService
 			if (tempExactPatch != null)
 			{
 				try { File.Delete(tempExactPatch); }
-				catch { }
+				catch (Exception cleanupEx) when (cleanupEx is IOException or UnauthorizedAccessException) { LogService.Warning(cleanupEx.Message); }
 			}
 			ModdingCancellation.Rethrow(ex, cancellationToken);
 			throw;
@@ -1378,8 +1372,9 @@ public partial class PatchService
 				{
 					File.Delete(tempExactPatch);
 				}
-				catch
+				catch (Exception cleanupEx) when (cleanupEx is IOException or UnauthorizedAccessException)
 				{
+					LogService.Warning(cleanupEx.Message);
 				}
 			}
 			return new PatchCreateResult
@@ -2010,8 +2005,7 @@ public partial class PatchService
 			if (temporaryDirectory is not null)
 			{
 				try { Directory.Delete(temporaryDirectory, recursive: true); }
-				catch (IOException) { }
-				catch (UnauthorizedAccessException) { }
+				catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { LogService.Warning(ex.Message); }
 			}
 		}
 	}
@@ -2424,8 +2418,9 @@ public partial class PatchService
 				{
 					Directory.Delete(preparation.StagedEmbeddedTexturesDir, recursive: true);
 				}
-				catch
+				catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
 				{
+					LogService.Warning(ex.Message);
 				}
 			}
 		}
@@ -2557,10 +2552,7 @@ public partial class PatchService
 				{
 					Directory.CreateDirectory(outDir);
 				}
-				using (var outStream = OpenDataWriteStream(outputPath))
-				{
-					await GameMakerIO.WriteAsync(outStream, data).ConfigureAwait(false);
-				}
+				await WriteDataFileAsync(outputPath, data).ConfigureAwait(false);
 				saveSw.Stop();
 				var savedValidationError = ValidateSavedDataFile(outputPath);
 				if (savedValidationError != null)
@@ -2673,8 +2665,9 @@ public partial class PatchService
 					File.Delete(outputPath);
 				}
 			}
-			catch
+			catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
 			{
+				LogService.Warning(ex.Message);
 			}
 			return new PatchApplyResult
 			{
@@ -3746,8 +3739,9 @@ public partial class PatchService
 					File.Delete(outputPath);
 				}
 			}
-			catch
+			catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
 			{
+				LogService.Warning(ex.Message);
 			}
 			var exactResult = await new XDeltaService().ApplyPatchAsync(dataPath, tempExactPatch, outputPath).ConfigureAwait(false);
 			if (!exactResult.Success)
@@ -3763,8 +3757,9 @@ public partial class PatchService
 				{
 					File.Delete(outputPath);
 				}
-				catch
+				catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
 				{
+					LogService.Warning(ex.Message);
 				}
 				return false;
 			}
@@ -3777,8 +3772,9 @@ public partial class PatchService
 			{
 				File.Delete(tempExactPatch);
 			}
-			catch
+			catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
 			{
+				LogService.Warning(ex.Message);
 			}
 		}
 	}
@@ -3817,8 +3813,9 @@ public partial class PatchService
 			{
 				Directory.Delete(tempDir, recursive: true);
 			}
-			catch
+			catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
 			{
+				LogService.Warning(ex.Message);
 			}
 		}
 	}
@@ -4187,8 +4184,9 @@ public partial class PatchService
 				{
 					result[i] = image.ToSpan(gm2022_5).ToArray();
 				}
-				catch
+				catch (Exception ex)
 				{
+					LogService.Log($"Skipped texture snapshot {i}: {ex.Message}");
 				}
 			}
 		}
@@ -4234,8 +4232,9 @@ public partial class PatchService
 				data.EmbeddedTextures[index].TextureData.Image = GMImage.FromBinaryReader(reader, stream.Length, gm2022_5);
 				restored++;
 			}
-			catch
+			catch (Exception ex)
 			{
+				LogService.Log($"Skipped texture restore {index}: {ex.Message}");
 			}
 		}
 		if (restored > 0)
@@ -4602,8 +4601,9 @@ public partial class PatchService
 				{
 					result[codeName] = new DecompileContext(ctx, code, data.ToolInfo.DecompilerSettings).DecompileToString();
 				}
-				catch
+				catch (Exception ex)
 				{
+					LogService.Log($"Skipped code remap source {codeName}: {ex.Message}");
 				}
 			}
 		}
@@ -6856,7 +6856,7 @@ public partial class PatchService
 		return data.GameObjects.ByName(objectName);
 	}
 
-	private static bool TryParseObjectEventCodeName(string codeName, out string objectName, out int eventType, out uint eventSubtype)
+	internal static bool TryParseObjectEventCodeName(string codeName, out string objectName, out int eventType, out uint eventSubtype)
 	{
 		objectName = string.Empty;
 		eventType = -1;
@@ -6875,12 +6875,15 @@ public partial class PatchService
 			("_Destroy_", 1),
 			("_Alarm_", 2),
 			("_Step_", 3),
+			("_Keyboard_", 5),
 			("_Mouse_", 6),
 			("_Other_", 7),
 			("_Draw_", 8),
 			("_KeyPress_", 9),
 			("_KeyRelease_", 10),
+			("_Trigger_", 11),
 			("_CleanUp_", 12),
+			("_Gesture_", 13),
 			("_PreCreate_", 14)
 		];
 		for (var i = 0; i < array.Length; i++)

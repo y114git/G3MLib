@@ -73,4 +73,34 @@ public sealed class DataIntegrityServiceTests
         Assert.Equal(GameMakerGeneralInfo.BranchType.LTS2022_0, data.GeneralInfo.Branch);
         Assert.Contains(result.Repairs, repair => repair.Contains("GeneralInfo branch", StringComparison.Ordinal));
     }
+
+    [Fact]
+    public void IssuesCarryCodeChunkAndResourceAndMatchTheTextLists()
+    {
+        using var data = GameMakerData.CreateNew2026LTS();
+        var code = GameMakerCode.CreateEmptyEntry(data, "gml_Script_probe");
+        code.Instructions.Add(new GameMakerInstruction { ValueFunction = new GameMakerFunction { Name = data.Strings.MakeString("orphan") } });
+        data.Code.Add(code);
+
+        var result = DataIntegrityService.ValidateOnly(data);
+
+        Assert.Equal(result.Errors.Count, result.Issues.Count);
+        var issue = result.Issues[0];
+        Assert.Equal(new IntegrityIssue(IntegritySeverity.Error, "CODE.MissingFunction", "CODE", "gml_Script_probe", result.Errors[0]), issue);
+    }
+
+    [Fact]
+    public void RepairsAppearAsIssuesWithoutAResource()
+    {
+        using var data = GameMakerData.CreateNew2026LTS();
+        var code = GameMakerCode.CreateEmptyEntry(data, "gml_Script_probe");
+        code.Instructions.Add(new GameMakerInstruction { ValueFunction = new GameMakerFunction { Name = data.Strings.MakeString("gml_Script_probe") } });
+        data.Code.Add(code);
+
+        var result = DataIntegrityService.RepairAndValidate(data);
+
+        Assert.All(result.Issues.Where(i => i.Severity == IntegritySeverity.Repair), i => Assert.Null(i.Resource));
+        Assert.Equal(result.Repairs.Count, result.Issues.Count(i => i.Severity == IntegritySeverity.Repair));
+        Assert.Contains(result.Issues, i => i.Code == "FUNC.RestoredMissing" && i.Chunk == "FUNC");
+    }
 }

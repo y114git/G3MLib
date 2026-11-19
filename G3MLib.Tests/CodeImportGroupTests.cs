@@ -95,3 +95,16 @@ public sealed class CodeImportGroupTests
         Assert.Equal(0u, @event.EventSubtype);
     }
 }
+
+public sealed class CompileGroupMacroTests
+{
+    [Fact]
+    public void AddMacrosJoinsContinuationsAndSkipsCommentsAndStrings()
+    {
+        using var data = GameMakerData.CreateNew2026LTS();
+        CompileGroup group = new(data);
+        group.AddMacros("#macro A 1 + \\\r\n 2\r\n// #macro B 3\r\ns = \"\n#macro C 4\n\";\r\n#macro D 5\r\n");
+        Assert.Equal(["A", "D"], group.Macros.Keys.Order());
+        Assert.Equal("1 +  2", group.Macros["A"].Trim());
+    }
+}

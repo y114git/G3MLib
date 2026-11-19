@@ -36,11 +36,19 @@ internal static class Tags
                         break;
                     }
 
-                    // Parse macro name
-                    pos = ContiguousTextReader.ReadUntilWhitespace(text, pos + 1, out var macroName);
+                    // Parse macro name (skipping spaces, but never past the end of the line)
+                    while (pos < text.Length && text[pos] != '\n' && char.IsWhiteSpace(text[pos]))
+                    {
+                        pos++;
+                    }
+                    pos = ContiguousTextReader.ReadUntilWhitespace(text, pos, out var macroName);
+                    if (macroName.IsEmpty)
+                    {
+                        context.CompileContext.PushError("Invalid #macro syntax found", context, startPosition);
+                        break;
+                    }
 
                     // Parse macro content until newline (allowing for escapes to get multiple lines)
-                    pos++;
                     StringBuilder macroContent = new(64);
                     while (pos < text.Length && text[pos] != '\n')
                     {

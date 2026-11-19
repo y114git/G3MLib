@@ -85,4 +85,21 @@ public sealed class GameMakerRoomTests
         Assert.Equal(Enumerable.Repeat(3u, 130), tiles.TileData[0]);
         Assert.Equal(Enumerable.Range(0, 130).Select(static value => (uint)value), tiles.TileData[1]);
     }
+
+    [Fact]
+    public void TileLayerWithOnlyOneEmptyDimensionIsRejected()
+    {
+        using var data = GameMakerData.CreateNew2026LTS();
+        data.Rooms.Single().Layers.Add(new GameMakerRoom.Layer
+        {
+            LayerName = data.Strings.MakeString("tiles"),
+            LayerType = GameMakerRoom.LayerType.Tiles,
+            Data = new GameMakerRoom.Layer.LayerTilesData { TilesX = 0, TilesY = 1, TileData = [[]] }
+        });
+        using MemoryStream stream = new();
+        GameMakerIO.Write(stream, data);
+        stream.Position = 0;
+
+        Assert.Throws<GameMakerSerializationException>(() => GameMakerIO.Read(stream));
+    }
 }

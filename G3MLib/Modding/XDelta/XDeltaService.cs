@@ -110,8 +110,9 @@ public class XDeltaService
 					process.Kill(entireProcessTree: true);
 					await process.WaitForExitAsync().ConfigureAwait(false);
 				}
-				catch
+				catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
 				{
+					// the process already exited, the timeout result below is still returned
 				}
 				return new XDeltaResult
 				{

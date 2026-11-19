@@ -2,6 +2,7 @@ using System.IO;
 using G3MLib.DataFile.Models;
 using G3MLib.DataFile.Project.SerializableAssets;
 using G3MLib.DataFile.Util;
+using G3MLib.Modding.Internal;
 
 namespace G3MLib.DataFile.Project;
 
@@ -97,26 +98,22 @@ public partial class ProjectContext
             text = text[..lengthLimit];
         }
 
-        // Ensure first letter is an ASCII letter or an underscore
-        var firstChar = text[0];
-        if (!char.IsAsciiLetter(firstChar) && firstChar != '_')
+        // Replace every invalid character in place, so no separators or dots survive and the length is kept
+        var chars = text.ToCharArray();
+        for (var i = 0; i < chars.Length; i++)
         {
-            // Replace first character with an underscore
-            text = "_" + text[1..];
-        }
-
-        // Replace every other invalid character
-        for (var i = 1; i < text.Length; i++)
-        {
-            var c = text[i];
-            if (!char.IsAsciiLetterOrDigit(c) && c != '_')
+            if (!char.IsAsciiLetterOrDigit(chars[i]) && chars[i] != '_')
             {
-                text = text[1..i] + "_" + text[(i + 1)..];
+                chars[i] = '_';
             }
         }
 
-        // Everything should now be valid
-        return text;
+        // First character must be an ASCII letter or an underscore
+        if (!char.IsAsciiLetter(chars[0]))
+        {
+            chars[0] = '_';
+        }
+        return new string(chars);
     }
 
     /// <summary>
@@ -153,12 +150,7 @@ public partial class ProjectContext
                     throw new ProjectException($"Warning occurred when loading audio group {index}: {warning}");
                 });
             }
-            catch (ProjectException)
-            {
-                // Propagate project-specific exceptions up
-                throw;
-            }
-            catch (Exception e)
+            catch (Exception e) when (e is not ProjectException)
             {
                 // Wrap all other exceptions
                 throw new ProjectException($"Error occurred when loading audio group {index}: {e}", e);
@@ -226,11 +218,7 @@ public partial class ProjectContext
                 }
             }, (_) => { });
         }
-        catch (ProjectException)
-        {
-            throw;
-        }
-        catch (Exception e)
+        catch (Exception e) when (e is not ProjectException)
         {
             throw new ProjectException($"Error occurred when loading data file: {e}", e);
         }
@@ -243,14 +231,9 @@ public partial class ProjectContext
     {
         try
         {
-            using FileStream fs = new(SaveDataPath, FileMode.Create, FileAccess.ReadWrite, FileShare.Read);
-            GameMakerIO.Write(fs, Data, (_) => { });
+            AtomicFile.Write(SaveDataPath, fs => GameMakerIO.Write(fs, Data, (_) => { }));
         }
-        catch (ProjectException)
-        {
-            throw;
-        }
-        catch (Exception e)
+        catch (Exception e) when (e is not ProjectException)
         {
             throw new ProjectException($"Error occurred when saving data file: {e}", e);
         }

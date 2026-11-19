@@ -290,7 +290,7 @@ public class GameMakerChunkFORM : GameMakerChunk
         if (reader.gameMakerData.IsVersionAtLeast(2023, 1) &&
             reader.gameMakerData.GeneralInfo.Branch == GameMakerGeneralInfo.BranchType.Pre2022_0)
         {
-            reader.gameMakerData.SetLTS(true);
+            reader.gameMakerData.SetLTS(true, "GEN8");
         }
     }
 
@@ -370,6 +370,7 @@ public class GameMakerChunkGEN8 : GameMakerSingleChunk<GameMakerGeneralInfo>
         storedVersion.Unserialize(reader);
         Object.Version = GameMakerGeneralInfo.TestForCommonGMSVersions(reader, storedVersion, out var source);
         Object.VersionSource = source;
+        Object.BranchSource = Object.Branch != storedVersion.Branch ? source : null;
     }
 }
 
@@ -1113,6 +1114,42 @@ public class GameMakerChunkFONT : GameMakerListChunk<GameMakerFont>
     private bool checkedFor2022_2;
     private bool checkedFor2023_6And2024_11;
     private bool checkedFor2024_14;
+    private void CheckForLTSLayout(GameMakerReader reader)
+    {
+        // UILR marks the version as non-LTS, but an LTS file can carry it too. Only non-LTS has SDFSpread, so see which layout lines up.
+        if (!reader.gameMakerData.IsNonLTSVersionAtLeast(2024, 13))
+            return;
+
+        var returnTo = reader.AbsPosition;
+        var chunkEnd = returnTo + Length;
+        var fontCount = reader.ReadUInt32();
+        List<uint> fonts = [];
+        for (uint i = 0; i < fontCount; i++)
+        {
+            var ptr = reader.ReadUInt32();
+            if (ptr != 0)
+                fonts.Add(ptr);
+        }
+        if (fonts.Count > 0)
+        {
+            var first = fonts[0];
+            var afterAscender = first + 44 + (reader.gameMakerData.GeneralInfo?.BytecodeVersion >= 17 ? 4u : 0u);
+            // The font ends at the next font, at the chunk end, or before the 512 bytes of padding (gone from 2024.14).
+            bool Fits(uint countPos)
+            {
+                reader.AbsPosition = countPos;
+                var count = reader.ReadUInt32();
+                if (count > 0)
+                    return count <= (chunkEnd - countPos) / 4 && reader.ReadUInt32() == countPos + 4 + 4 * count;
+                var end = countPos + 4;
+                return fonts.Count > 1 ? end == fonts[1] : end == chunkEnd || end + 512 == chunkEnd;
+            }
+            if (!Fits(afterAscender + 8) && Fits(afterAscender + 4))
+                reader.gameMakerData.SetLTS(true);
+        }
+        reader.AbsPosition = returnTo;
+    }
+
     private void CheckForGM2022_2(GameMakerReader reader)
     {
         /* This code performs four checks to identify GM2022.2.
@@ -1362,7 +1399,10 @@ public class GameMakerChunkFONT : GameMakerListChunk<GameMakerFont>
         // If we have a last font, advance to the end of its data (ignoring the new alignment added in 2024.14)
         if (lastFontPosition != 0)
         {
-            reader.AbsPosition = lastFontPosition + 56;
+            // Same optional fields as GameMakerFont.Serialize: AscenderOffset, SDFSpread (non-LTS only), then Ascender and LineHeight.
+            reader.AbsPosition = lastFontPosition + 48
+                + (reader.gameMakerData.GeneralInfo?.BytecodeVersion >= 17 ? 4 : 0)
+                + (reader.gameMakerData.IsNonLTSVersionAtLeast(2023, 2) ? 4 : 0);
 
             // Advance to last glyph in pointer list
             var glyphCount = reader.ReadUInt32();
@@ -1374,7 +1414,7 @@ public class GameMakerChunkFONT : GameMakerListChunk<GameMakerFont>
 
             reader.Position += ((long)glyphCount - 1) * sizeof(uint);
             reader.AbsPosition = reader.ReadUInt32() +
-                (reader.gameMakerData.IsVersionAtLeast(2024, 11) ? 18 : 16);
+                (reader.gameMakerData.IsVersionAtLeast(2024, 11) ? 16 : 14);
 
             // Advance past kerning
             var kerningCount = reader.ReadUInt16();
@@ -1413,6 +1453,7 @@ public class GameMakerChunkFONT : GameMakerListChunk<GameMakerFont>
 
     internal override void UnserializeChunk(GameMakerReader reader)
     {
+        CheckForLTSLayout(reader);
         if (!checkedFor2022_2)
             CheckForGM2022_2(reader);
         if (!checkedFor2023_6And2024_11)
@@ -1434,6 +1475,7 @@ public class GameMakerChunkFONT : GameMakerListChunk<GameMakerFont>
         checkedFor2023_6And2024_11 = false;
         checkedFor2024_14 = false;
 
+        CheckForLTSLayout(reader);
         CheckForGM2022_2(reader);
         CheckForGM2023_6AndGM2024_11(reader);
         CheckForGM2024_14(reader);
@@ -1765,16 +1807,15 @@ public class GameMakerChunkROOM : GameMakerListChunk<GameMakerRoom>
             var checkNextLayerOffset = false;
             for (var layerNum = 0; layerNum < layerCount; layerNum++)
             {
-                var layerPtr = layerListPtr + 4 * layerNum;
-                if (checkNextLayerOffset && layerPtr % 4 != 0)
+                reader.AbsPosition = layerListPtr + 4 + 4L * layerNum;
+
+                // Pointer to the individual layer data. Unaligned means the previous tile layer was not padded (pre 2024.4).
+                var layerDataPtr = reader.ReadInt32();
+                if (checkNextLayerOffset && layerDataPtr % 4 != 0)
                 {
                     foundAnyNonAlignedLayers = true;
                 }
-
-                reader.AbsPosition = layerPtr + 4;
-
-                // Get pointer into the individual layer data (plus 8 bytes)
-                var jumpOffset = reader.ReadInt32() + 8;
+                var jumpOffset = layerDataPtr + 8;
 
                 // Find the offset for the end of this layer
                 int nextOffset;
@@ -2501,8 +2542,7 @@ public class GameMakerChunkTGIN : GameMakerListChunk<GameMakerTextureGroupInfo>
     private bool checkedFor2022_9;
     private void CheckFor2022_9And2023(GameMakerReader reader)
     {
-        if (!reader.gameMakerData.IsVersionAtLeast(2, 3)
-            || reader.gameMakerData.IsNonLTSVersionAtLeast(2023, 1))
+        if (!reader.gameMakerData.IsVersionAtLeast(2, 3))
         {
             checkedFor2022_9 = true;
             return;
@@ -2513,7 +2553,11 @@ public class GameMakerChunkTGIN : GameMakerListChunk<GameMakerTextureGroupInfo>
 
         var isGM2022_9 = false;
         var tginCount = reader.ReadUInt32();
-        if (tginCount > 0)
+        if (tginCount > 0 && reader.gameMakerData.IsVersionAtLeast(2022, 9))
+        {
+            isGM2022_9 = true;
+        }
+        else if (tginCount > 0)
         {
             var tginPtr = reader.ReadUInt32();
             var secondTginPtr = (tginCount >= 2) ? reader.ReadUInt32() : (uint)(returnPosition + Length);
@@ -2548,7 +2592,15 @@ public class GameMakerChunkTGIN : GameMakerListChunk<GameMakerTextureGroupInfo>
             // (the list could be either "Tilesets" or "Fonts").
             if (reader.ReadUInt32() <= fourthPtr)
             {
-                reader.gameMakerData.SetGMS2Version(2023, 1, 0, 0, false);
+                if (reader.gameMakerData.IsVersionAtLeast(2023, 1))
+                    reader.gameMakerData.SetLTS(false);
+                else
+                    reader.gameMakerData.SetGMS2Version(2023, 1, 0, 0, false);
+            }
+            else if (reader.gameMakerData.IsNonLTSVersionAtLeast(2023, 1))
+            {
+                // A marker chunk implied non-LTS, but the spine list is still here.
+                reader.gameMakerData.SetLTS(true);
             }
         }
 

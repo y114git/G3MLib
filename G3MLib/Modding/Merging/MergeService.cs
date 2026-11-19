@@ -43,8 +43,8 @@ public static partial class MergeService
 	private static FileStream OpenDataReadStream(string path) =>
 		new(path, FileMode.Open, FileAccess.Read, FileShare.Read, DataFileBufferSize, FileOptions.SequentialScan);
 
-	private static FileStream OpenDataWriteStream(string path) =>
-		new(path, FileMode.Create, FileAccess.Write, FileShare.None, DataFileBufferSize);
+	private static Task WriteDataFileAsync(string path, GameMakerData data) =>
+		AtomicFile.WriteAsync(path, stream => GameMakerIO.WriteAsync(stream, data), DataFileBufferSize);
 
 	private static int GetNormalizationConcurrency(bool lowMemory)
 	{
@@ -364,8 +364,7 @@ public static partial class MergeService
 			if (!string.IsNullOrWhiteSpace(mergedDir))
 				Directory.CreateDirectory(mergedDir);
 
-			using (var outStream = OpenDataWriteStream(mergedDataPath))
-				await GameMakerIO.WriteAsync(outStream, baseData).ConfigureAwait(false);
+			await WriteDataFileAsync(mergedDataPath, baseData).ConfigureAwait(false);
 
 			var savedValidationError = PatchService.ValidateSavedDataFile(mergedDataPath);
 			if (savedValidationError != null)
@@ -419,8 +418,9 @@ public static partial class MergeService
 				if (Directory.Exists(tempRoot))
 					Directory.Delete(tempRoot, recursive: true);
 			}
-			catch
+			catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
 			{
+				LogService.Warning(ex.Message);
 			}
 		}
 	}
@@ -1388,8 +1388,9 @@ public static partial class MergeService
 		}
 		finally
 		{
+			LogService.Suppress = false;
 			foreach (var temp in tempFiles)
-				try { File.Delete(temp); } catch { }
+				try { File.Delete(temp); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { LogService.Warning(ex.Message); }
 		}
 	}
 
@@ -1597,10 +1598,7 @@ public static partial class MergeService
 
 				if (report != null)
 				{
-					using (var outStream = OpenDataWriteStream(currentDataPath))
-					{
-						await GameMakerIO.WriteAsync(outStream, currentData).ConfigureAwait(false);
-					}
+					await WriteDataFileAsync(currentDataPath, currentData).ConfigureAwait(false);
 					var outputMd5 = await HashService.ComputeFileHashAsync(currentDataPath).ConfigureAwait(false);
 					report.AppendLine(CultureInfo.InvariantCulture, $"| {i + 1} | `{patchNames[i]}` | {applySw.Elapsed.TotalSeconds:F2} | `{outputMd5}` |");
 				}
@@ -1609,10 +1607,7 @@ public static partial class MergeService
 
 			LogService.Progress(78, 100);
 
-			using (var outStream = OpenDataWriteStream(currentDataPath))
-			{
-				await GameMakerIO.WriteAsync(outStream, currentData).ConfigureAwait(false);
-			}
+			await WriteDataFileAsync(currentDataPath, currentData).ConfigureAwait(false);
 
 			var validationError = PatchService.ValidateSavedDataFile(currentDataPath);
 			if (validationError is not null)
@@ -1699,7 +1694,7 @@ public static partial class MergeService
 			if (dataDirectory is not null)
 				try { Directory.Delete(dataDirectory, recursive: true); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { LogService.Warning(ex.Message); }
 			foreach (var temp in tempFiles)
-				try { File.Delete(temp); } catch { }
+				try { File.Delete(temp); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { LogService.Warning(ex.Message); }
 		}
 	}
 	// Asset Order Merge (union approach - preserves original indices)
@@ -1879,8 +1874,9 @@ public static partial class MergeService
 				if (!string.IsNullOrWhiteSpace(name))
 					pathsBySoundName[name] = path;
 			}
-			catch
+			catch (Exception ex) when (ex is JsonException or InvalidOperationException or FormatException or IOException)
 			{
+				// a sound entry with unreadable json gets no path mapping
 			}
 		}
 
@@ -2160,8 +2156,9 @@ public static partial class MergeService
 
 				result[soundName] = new MergedSoundPayload(audioId, groupId, extension, audioBytes);
 			}
-			catch
+			catch (Exception ex)
 			{
+				LogService.Log($"Skipped merged sound payload: {ex.Message}");
 			}
 		}
 
@@ -2195,8 +2192,9 @@ public static partial class MergeService
 						bytes = Encoding.UTF8.GetBytes(node.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
 					}
 				}
-				catch
+				catch (Exception ex) when (ex is JsonException or InvalidOperationException)
 				{
+					// the original json bytes are kept when the index cannot be rewritten
 				}
 			}
 
@@ -3066,10 +3064,11 @@ public static partial class MergeService
 		return true;
 	}
 
-	private static bool PatchHasResourcePayload(PatchFileSystem pfs, string resourceRoot, string resourceName)
+	internal static bool PatchHasResourcePayload(PatchFileSystem pfs, string resourceRoot, string resourceName)
 	{
 		var prefix = $"{resourceRoot}/{ResourceExportService.SafeName(resourceName)}/";
-		return pfs.GetAllFilePaths().Any(path => path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
+		var legacyPrefix = $"{resourceRoot}/{ResourceExportService.LegacySafeName(resourceName)}/";
+		return pfs.GetAllFilePaths().Any(path => path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) || path.StartsWith(legacyPrefix, StringComparison.OrdinalIgnoreCase));
 	}
 
 	private static bool PatchHasAnyResourcePayload(PatchFileSystem pfs, string resourceName, params string[] resourceRoots)
@@ -3126,8 +3125,9 @@ public static partial class MergeService
 				}
 			}
 		}
-		catch
+		catch (Exception ex) when (ex is JsonException or InvalidOperationException or FormatException or IOException)
 		{
+			// an unreadable patch json yields the indexes collected so far
 		}
 
 		return result;
@@ -3262,7 +3262,7 @@ public static partial class MergeService
 	/// relative to the base (original). On conflict, theirs (higher priority) wins.
 	/// Returns (mergedText, hasConflicts). Null mergedText = total failure.
 	/// </summary>
-	private static (string? merged, bool hasConflicts) ThreeWayMerge(
+	internal static (string? merged, bool hasConflicts) ThreeWayMerge(
 		string baseText, string oursText, string theirsText)
 	{
 		// Trivial cases
@@ -3337,6 +3337,11 @@ public static partial class MergeService
 
 			if (cluster.Count == 1)
 			{
+				result.AddRange(cluster[0].Replacement);
+			}
+			else if (cluster.All(e => e.BaseStart == cluster[0].BaseStart && e.BaseEnd == cluster[0].BaseEnd && e.Replacement.SequenceEqual(cluster[0].Replacement)))
+			{
+				// Both sides made the same edit: take it once, no conflict
 				result.AddRange(cluster[0].Replacement);
 			}
 			else
@@ -3574,7 +3579,7 @@ public static partial class MergeService
 		}
 		finally
 		{
-			try { if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true); } catch { }
+			try { if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { LogService.Warning(ex.Message); }
 		}
 	}
 
@@ -3603,7 +3608,7 @@ public static partial class MergeService
 		}
 		finally
 		{
-			try { if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true); } catch { }
+			try { if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { LogService.Warning(ex.Message); }
 		}
 	}
 
@@ -3638,7 +3643,7 @@ public static partial class MergeService
 		}
 		finally
 		{
-			try { if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true); } catch { }
+			try { if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { LogService.Warning(ex.Message); }
 		}
 	}
 
@@ -4308,7 +4313,7 @@ public static partial class MergeService
 		}
 		finally
 		{
-			try { if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true); } catch { }
+			try { if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { LogService.Warning(ex.Message); }
 		}
 	}
 
@@ -4323,7 +4328,7 @@ public static partial class MergeService
 		}
 		finally
 		{
-			try { if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true); } catch { }
+			try { if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { LogService.Warning(ex.Message); }
 		}
 	}
 

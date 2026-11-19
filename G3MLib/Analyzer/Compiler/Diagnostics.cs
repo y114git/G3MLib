@@ -103,10 +103,10 @@ public sealed record GmlDiagnostic(DiagnosticSeverity Severity, string Code, str
     /// <summary>Meaning error such as a duplicate declaration or an invalid assignment.</summary>
     public const string SemanticErrorCode = "GML3002";
 
-    /// <summary>The syntax is not available in the GameMaker version of the file.</summary>
+    /// <summary>Raised when the syntax needs a different GameMaker version than the file has.</summary>
     public const string UnsupportedByVersionCode = "GML4001";
 
-    /// <summary>The compiler threw an exception.</summary>
+    /// <summary>Raised when the compiler itself fails with an exception.</summary>
     public const string InternalErrorCode = "GML9001";
 
     internal static string ClassifyParserMessage(string message)

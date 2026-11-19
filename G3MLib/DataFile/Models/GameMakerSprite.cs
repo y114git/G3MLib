@@ -1007,6 +1007,8 @@ public class GameMakerSprite : GameMakerNamedResource, IProjectAsset, PrePaddedO
         if (maskDataSize > reader.Length - reader.Position)
             throw new IOException("Collision mask data exceeds the available input.");
         var len = checked((int)(((long)width + 7) / 8 * height));
+        if (len == 0 && maskCount > reader.Length - reader.Position)
+            throw new IOException("Collision mask count exceeds the available input.");
         long total = 0;
         for (uint i = 0; i < maskCount; i++)
         {

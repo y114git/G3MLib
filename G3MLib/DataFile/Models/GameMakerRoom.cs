@@ -1888,6 +1888,10 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
                     (ulong)tilesX * tilesY > MaxTilesPerLayer)
                     throw new IOException("Tile layer is too large to deserialize.");
 
+                // Rows without columns (or the reverse) carry no data, so a huge count would only force allocations
+                if ((tilesX == 0) != (tilesY == 0))
+                    throw new IOException("Tile layer has an empty dimension.");
+
                 return (long)tilesX * tilesY;
             }
 

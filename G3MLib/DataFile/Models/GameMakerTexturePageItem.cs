@@ -139,28 +139,38 @@ public class GameMakerTexturePageItem : GameMakerNamedResource, INotifyPropertyC
     /// <param name="replaceImage">The new image that shall be applied to this texture page item.</param>
     public void ReplaceTexture(MagickImage replaceImage)
     {
+        PrepareReplace(replaceImage).Commit();
+    }
+
+    /// <summary>
+    /// Does the image work of <see cref="ReplaceTexture"/> without changing the data file, so it can run outside a write lock.
+    /// </summary>
+    /// <param name="replaceImage">The new image that shall be applied to this texture page item.</param>
+    /// <returns>A replacement whose <see cref="PreparedTextureReplace.Commit"/> swaps the page image.</returns>
+    public PreparedTextureReplace PrepareReplace(MagickImage replaceImage)
+    {
         ArgumentNullException.ThrowIfNull(replaceImage);
-        if (TexturePage?.TextureData is null)
+        var page = TexturePage;
+        if (page?.TextureData is null)
         {
             throw new InvalidOperationException("The texture page item has no texture page to replace.");
         }
         // Resize image to bounds on texture page
         using var finalImage = TextureWorker.ResizeImage(replaceImage, SourceWidth, SourceHeight);
 
-        // Apply the image to the texture page
-        lock (TexturePage.TextureData)
+        GMImage baseImage, pageImage;
+        lock (page.TextureData)
         {
+            baseImage = page.TextureData.Image;
             using TextureWorker worker = new();
-            var embImage = worker.GetEmbeddedTexture(TexturePage);
+            var embImage = worker.GetEmbeddedTexture(page);
 
             embImage.Composite(finalImage, SourceX, SourceY, CompositeOperator.Copy);
 
             // Replace original texture with the new version, in the original texture format
-            TexturePage.TextureData.Image = GMImage.FromMagickImage(embImage)
-                                                   .ConvertToFormat(TexturePage.TextureData.Image.Format);
+            pageImage = GMImage.FromMagickImage(embImage).ConvertToFormat(page.TextureData.Image.Format);
         }
 
-        TargetWidth = (ushort)replaceImage.Width;
-        TargetHeight = (ushort)replaceImage.Height;
+        return new PreparedTextureReplace(this, page, baseImage, pageImage, (ushort)replaceImage.Width, (ushort)replaceImage.Height);
     }
 }

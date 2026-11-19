@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using G3MLib.Analyzer;
 using G3MLib.Analyzer.Decompiler;
 using G3MLib.Analyzer.Decompiler.GameSpecific;
@@ -132,7 +131,7 @@ public class GlobalDecompileContext : IGameContext
             }
             catch (Exception ex)
             {
-                Debug.WriteLine(ex.ToString());
+                LogService.Log(ex.ToString());
 
                 // If an error occurs, just default to empty
                 globalFunctions = new GlobalFunctions();

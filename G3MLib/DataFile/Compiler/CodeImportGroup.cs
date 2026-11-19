@@ -71,6 +71,16 @@ public sealed class CodeImportGroup
     public Action<Action> MainThreadAction { get; set; } = static (f) => f();
 
     /// <summary>
+    /// Macros available to every queued code entry, mapping a name to the GML expression it stands for.
+    /// Macros declared with <c>#macro</c> in the queued code are added automatically and do not override these.
+    /// </summary>
+    /// <remarks>
+    /// A macro is applied only where the name would otherwise be read as an instance variable, so a declared local
+    /// of the same name wins. Use this for macros declared in code that is not part of the import.
+    /// </remarks>
+    public Dictionary<string, string> Macros { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>
     /// Compile group being used by this context, if not null.
     /// </summary>
     internal CompileGroup CompileGroup { get; private set; }
@@ -678,6 +688,10 @@ public sealed class CodeImportGroup
                 PersistLinkingLookups = true,
                 MainThreadAction = MainThreadAction
             };
+            foreach (var macro in Macros)
+            {
+                CompileGroup.Macros[macro.Key] = macro.Value;
+            }
             for (var i = 0; i < operations.Count; i++)
             {
                 cancellationToken.ThrowIfCancellationRequested();

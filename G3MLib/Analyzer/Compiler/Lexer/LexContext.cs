@@ -212,18 +212,18 @@ internal sealed class LexContext : ISubCompileContext
                     Tokens.RemoveAt(i);
                     Tokens.InsertRange(i, tokensToInsert);
 
+                    // Make sure to post-process the contents of the macro itself (or, for an empty macro, the token that moved into this slot)
+                    i--;
+
+                    // Push existing macro expansion endings back by however many tokens we just added
+                    for (var j = 0; j < macroExpansionEnd.Count; j++)
+                    {
+                        macroExpansionEnd[j] += tokensToInsert.Count - 1;
+                    }
+
+                    // Create a new macro expansion ending
                     if (tokensToInsert.Count > 0)
                     {
-                        // Make sure to post-process the contents of the macro itself, now
-                        i--;
-
-                        // Push existing macro expansion endings back by however many tokens we just added
-                        for (var j = 0; j < macroExpansionEnd.Count; j++)
-                        {
-                            macroExpansionEnd[j] += tokensToInsert.Count - 1;
-                        }
-
-                        // Create a new macro expansion ending
                         macroExpansionEnd.Add(i + tokensToInsert.Count + 1);
                     }
 

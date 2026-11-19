@@ -44,6 +44,35 @@ public sealed class AudioGroupFileTests : IDisposable
     }
 
     [Fact]
+    public void FailedInPlaceSaveLeavesTheInstanceUsable()
+    {
+        var path = WriteGroup(Bytes(1, 5), Bytes(2, 8));
+        // A folder where the backup file should go makes the step after the stream was released fail
+        Directory.CreateDirectory(path + ".bak");
+        using var file = AudioGroupFile.Open(path, TestContext.Current.CancellationToken);
+
+        Assert.ThrowsAny<Exception>(() => file.Save(path, backup: true, cancellationToken: TestContext.Current.CancellationToken));
+
+        Assert.Equal(2, file.Count);
+        Assert.Equal(Bytes(2, 8), file.GetEntry(1).ToArray());
+        Assert.Equal([Bytes(1, 5), Bytes(2, 8)], ReadEntries(path));
+    }
+
+    [Fact]
+    public void SaveRemovesAStaleTempFileOfACrashedWrite()
+    {
+        var path = WriteGroup(Bytes(1, 5));
+        var stale = path + ".0123.g3mtmp";
+        File.WriteAllText(stale, "left by a crash");
+        File.SetLastWriteTimeUtc(stale, DateTime.UtcNow.AddDays(-2));
+        using (var file = AudioGroupFile.Open(path, TestContext.Current.CancellationToken))
+            file.Save(path, backup: false, cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.False(File.Exists(stale));
+        Assert.Equal([Bytes(1, 5)], ReadEntries(path));
+    }
+
+    [Fact]
     public void AddReplaceRemoveAndCompactProduceAReadableFile()
     {
         var path = WriteGroup(Bytes(1, 5), Bytes(2, 8), Bytes(3, 3));
@@ -78,6 +107,31 @@ public sealed class AudioGroupFileTests : IDisposable
         SoundIdRemap.Apply(data, 1, new Dictionary<int, int> { [2] = 1 });
 
         Assert.Equal((1, -1, 2), (kept.AudioID, dropped.AudioID, other.AudioID));
+    }
+
+    [Fact]
+    public void ExportWithoutADataFileWritesEmbeddedAudioAndImportReadsItBack()
+    {
+        using var data = GameMakerData.CreateNew2026LTS();
+        data.AudioGroups.Add(new GameMakerAudioGroup { Name = data.Strings.MakeString("default") });
+        var embedded = new GameMakerEmbeddedAudio { Data = Bytes(7, 9) };
+        data.EmbeddedAudio.Add(embedded);
+        data.Sounds.Add(new GameMakerSound { Name = data.Strings.MakeString("snd_a"), Type = data.Strings.MakeString(".ogg"), GroupID = 0, AudioID = 0, AudioFile = embedded });
+        var output = Path.Combine(_root, "out");
+
+        ResourceExportService.ExportSounds(data, output, null);
+        var written = Path.Combine(output, "Sounds", "snd_a", "snd_a.ogg");
+        Assert.Equal(Bytes(7, 9), File.ReadAllBytes(written));
+
+        using var target = GameMakerData.CreateNew2026LTS();
+        target.AudioGroups.Add(new GameMakerAudioGroup { Name = target.Strings.MakeString("default") });
+        ResourceImportService.Import("Sounds", target, Path.Combine(output, "Sounds"));
+        Assert.Equal(Bytes(7, 9), target.Sounds.ByName("snd_a").AudioFile.Data);
+
+        // With a data file path the main group stays out, as before.
+        var second = Path.Combine(_root, "out2");
+        ResourceExportService.ExportSounds(data, second, Path.Combine(_root, "data.win"));
+        Assert.False(File.Exists(Path.Combine(second, "Sounds", "snd_a", "snd_a.ogg")));
     }
 
     [Fact]

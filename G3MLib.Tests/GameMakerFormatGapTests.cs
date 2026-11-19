@@ -343,6 +343,73 @@ public sealed class GameMakerFormatGapTests
         Assert.Equal($" ({label})", info.ToString());
     }
 
+    private static GameMakerData FreshDataFor(uint major, uint minor, bool lts)
+    {
+        var data = GameMakerData.CreateNew2026LTS();
+        if (major < 2024 || major == 2024 && minor < 13)
+            data.FORM.Chunks.Remove("UILR");
+        if (major < 2023 || major == 2023 && minor < 2)
+            foreach (var marker in new[] { "PSEM", "PSYS", "EMBI" })
+                data.FORM.Chunks.Remove(marker);
+        data.SetGMS2Version(major, minor, 0, 0, isLTS: lts);
+        data.GeneralInfo.Timestamp = 1;
+        data.GeneralInfo.GameID = 1;
+        data.GeneralInfo.GMS2GameGUID = new byte[16];
+        return data;
+    }
+
+    public static TheoryData<uint, uint, bool> CreatableVersions() => new()
+    {
+        { 2022, 8, false }, { 2022, 8, true },
+        { 2023, 2, false }, { 2023, 6, true },
+        { 2024, 13, false }, { 2024, 13, true },
+        { 2024, 14, false }, { 2024, 14, true },
+        { 2025, 1, false }, { 2025, 1, true },
+        { 2026, 1, false }, { 2026, 1, true },
+    };
+
+    private static void AssertRoundTripsStable(GameMakerData data, Action<GameMakerData> check)
+    {
+        using MemoryStream first = new();
+        GameMakerIO.Write(first, data);
+        using MemoryStream input = new(first.ToArray());
+        using var read = GameMakerIO.Read(input);
+        check(read);
+        using MemoryStream second = new();
+        GameMakerIO.Write(second, read);
+        Assert.Equal(first.ToArray(), second.ToArray());
+    }
+
+    [Theory]
+    [MemberData(nameof(CreatableVersions))]
+    public void TextureGroupRoundTripsForEveryVersionAndBranch(uint major, uint minor, bool lts)
+    {
+        using var data = FreshDataFor(major, minor, lts);
+        data.TextureGroupInfo.Add(new GameMakerTextureGroupInfo { Name = data.Strings.MakeString("group_probe") });
+        AssertRoundTripsStable(data, read => Assert.Equal("group_probe", Assert.Single(read.TextureGroupInfo).Name.Content));
+    }
+
+    [Theory]
+    [MemberData(nameof(CreatableVersions))]
+    public void FontGlyphsRoundTripForEveryVersionAndBranch(uint major, uint minor, bool lts)
+    {
+        using var data = FreshDataFor(major, minor, lts);
+        GameMakerFont font = new() { Name = data.Strings.MakeString("fnt_probe"), DisplayName = data.Strings.MakeString("Arial") };
+        for (ushort c = 65; c < 67; c++)
+        {
+            GameMakerFont.Glyph glyph = new() { Character = c, SourceWidth = 5, SourceHeight = 7, Shift = 6 };
+            glyph.Kerning.Add(new GameMakerFont.Glyph.GlyphKerning { Character = 66, ShiftModifier = -1 });
+            font.Glyphs.Add(glyph);
+        }
+        data.Fonts.Add(font);
+        AssertRoundTripsStable(data, read =>
+        {
+            var readFont = Assert.Single(read.Fonts);
+            Assert.Equal([(ushort)65, (ushort)66], readFont.Glyphs.Select(g => g.Character));
+            Assert.All(readFont.Glyphs, g => Assert.Single(g.Kerning));
+        });
+    }
+
     [Fact]
     public void FreshLtsDataWithItsDefaultRoomIsStableAcrossWriteAndRead()
     {

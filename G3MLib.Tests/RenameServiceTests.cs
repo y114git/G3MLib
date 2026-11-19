@@ -274,4 +274,30 @@ public class RenameServiceTests
         Assert.True(renamed > 0);
         Assert.Equal(before, Save(data));
     }
+
+    [Theory]
+    [InlineData("obj_a", true)]
+    [InlineData("_x1", true)]
+    [InlineData("1abc", false)]
+    [InlineData("a b", false)]
+    [InlineData("", false)]
+    [InlineData("self", false)]
+    [InlineData("obj_a\n", false)]
+    public void IsValidNameFollowsTheRenameRules(string name, bool valid)
+    {
+        Assert.Equal(valid, RenameService.IsValidName(name));
+    }
+
+    [Fact]
+    public void IsNameInUseSeesAssetsAndCodeEntries()
+    {
+        using var data = GameMakerData.CreateNew2026LTS();
+        data.Sprites.Add(new GameMakerSprite { Name = data.Strings.MakeString("spr_a") });
+        data.Code.Add(new GameMakerCode { Name = data.Strings.MakeString("gml_Script_b") });
+        Assert.True(RenameService.IsNameInUse(data, "spr_a"));
+        Assert.True(RenameService.IsNameInUse(data, "gml_Script_b"));
+        Assert.False(RenameService.IsNameInUse(data, "spr_free"));
+        Assert.True(RenameService.IsNameInUse(data, "SPR_A"));
+        Assert.True(RenameService.IsNameInUse(data, "GML_script_B"));
+    }
 }

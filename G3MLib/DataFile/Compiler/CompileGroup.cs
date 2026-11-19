@@ -1,6 +1,7 @@
 using G3MLib.Analyzer;
 using G3MLib.Analyzer.Compiler;
 using G3MLib.Analyzer.Compiler.Bytecode;
+using G3MLib.Analyzer.Compiler.Lexer;
 using G3MLib.DataFile.Decompiler;
 using G3MLib.DataFile.Models;
 using G3MLib.DataFile.Util;
@@ -30,6 +31,16 @@ public sealed class CompileGroup
     /// That is, the action must return only after the argument callback has completed execution.
     /// </remarks>
     public Action<Action> MainThreadAction { get; set; } = static (f) => f();
+
+    /// <summary>
+    /// Macros available to every code entry compiled by this group, mapping a name to the GML expression it stands for.
+    /// Macros declared with <c>#macro</c> in code queued with <see cref="QueueCodeReplace(GameMakerCode, string)"/> are added automatically and do not override these.
+    /// </summary>
+    /// <remarks>
+    /// GameMaker expands macros while compiling, so the data file keeps no record of them. Use this table, or
+    /// <see cref="AddMacros(string)"/>, for macros declared in code that is not part of the same compile.
+    /// </remarks>
+    public Dictionary<string, string> Macros { get; } = new(StringComparer.Ordinal);
 
     /// <summary>
     /// Whether certain linking lookups (for strings, assets, etc.) should persist between multiple compiles.
@@ -112,6 +123,27 @@ public sealed class CompileGroup
     }
 
     /// <summary>
+    /// Adds the <c>#macro NAME value</c> declarations found in GML source to <see cref="Macros"/>.
+    /// A name that is already present is kept.
+    /// </summary>
+    /// <remarks>
+    /// The source is read with the compiler's own lexer, so line continuations are joined and
+    /// declarations inside comments and strings are ignored.
+    /// </remarks>
+    /// <param name="gmlSource">GML source code to scan.</param>
+    public void AddMacros(string gmlSource)
+    {
+        ArgumentNullException.ThrowIfNull(gmlSource);
+
+        CompileContext scan = new(gmlSource, CompileScriptKind.Script, null, GlobalContext);
+        new LexContext(scan, gmlSource).Tokenize();
+        foreach (var (name, macro) in scan.Macros)
+        {
+            Macros.TryAdd(name, macro.LexContext.Text);
+        }
+    }
+
+    /// <summary>
     /// Queues a code replace operation on this compile context.
     /// </summary>
     /// <param name="codeToModify">Existing (root) code entry to modify.</param>
@@ -120,6 +152,9 @@ public sealed class CompileGroup
     {
         ArgumentNullException.ThrowIfNull(codeToModify);
         ArgumentNullException.ThrowIfNull(gmlCode);
+
+        // Scan first so a failure leaves nothing half-queued
+        AddMacros(gmlCode);
 
         _queuedCodeReplacements ??= [];
         _queuedCodeReplacements.Add(new(codeToModify, gmlCode));
@@ -428,7 +463,7 @@ public sealed class CompileGroup
             }
 
             // Create a compile context early
-            CompileContext context = new(operation.Code, scriptKind, globalScriptName, GlobalContext);
+            CompileContext context = new(operation.Code, scriptKind, globalScriptName, GlobalContext) { ExternalMacros = Macros };
 
             // Perform parse
             try
@@ -525,7 +560,7 @@ public sealed class CompileGroup
             if (scriptKind is not CompileScriptKind.GlobalScript)
             {
                 // Create a brand new compile context
-                context = new(operation.Code, scriptKind, globalScriptName, GlobalContext);
+                context = new(operation.Code, scriptKind, globalScriptName, GlobalContext) { ExternalMacros = Macros };
             }
             else
             {

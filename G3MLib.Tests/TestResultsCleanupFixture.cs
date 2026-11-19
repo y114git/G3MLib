@@ -26,7 +26,7 @@ public sealed class TestResultsCleanupFixture : IDisposable
 
     private static void DeleteDefaultTestResults()
     {
-        var path = Path.Combine(Environment.CurrentDirectory, "TestResults");
+        var path = Path.Combine(AppContext.BaseDirectory, "TestResults");
         if (Directory.Exists(path))
             Directory.Delete(path, recursive: true);
     }

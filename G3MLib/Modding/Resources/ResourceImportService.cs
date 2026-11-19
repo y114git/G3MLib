@@ -1329,6 +1329,31 @@ public static partial class ResourceImportService
 		return ResourceExportService.SafeName(name);
 	}
 
+	private static string ReadMetaName(string metaFile, string folderName)
+	{
+		if (!FExists(metaFile))
+		{
+			return folderName;
+		}
+		try
+		{
+			using var doc = JsonDocument.Parse(FReadText(metaFile));
+			return ResourceName(doc.RootElement, folderName);
+		}
+		catch (JsonException)
+		{
+			return folderName;
+		}
+	}
+
+	/// <summary>The resource name an exported folder holds: the JSON "name", because the folder name is only a file-system safe form of it.</summary>
+	private static string ResourceName(JsonElement root, string folderName)
+	{
+		return root.ValueKind == JsonValueKind.Object && root.TryGetProperty("name", out var nameElm)
+			&& nameElm.ValueKind == JsonValueKind.String && !string.IsNullOrEmpty(nameElm.GetString())
+			? nameElm.GetString()! : folderName;
+	}
+
 	/// <summary>Cancelling throws <see cref="OperationCanceledException"/>. The input folder is never changed; <paramref name="data"/> may hold part of the import, so discard it.</summary>
 	public static bool Import(string resourceType, GameMakerData data, string inputDir, CancellationToken cancellationToken)
 	{
@@ -1380,7 +1405,7 @@ public static partial class ResourceImportService
 		}
 		var targetDir = ResolveTypeDir(inputDir, resourceType);
 		var names = new HashSet<string>(only, StringComparer.Ordinal);
-		var safeNames = new HashSet<string>(names.Select(SafeName), StringComparer.Ordinal);
+		var safeNames = new HashSet<string>(names.Select(SafeName).Concat(names.Select(ResourceExportService.LegacySafeName)), StringComparer.Ordinal);
 		return BatchRun.RunImport(progress, cancellationToken, delegate
 		{
 			var previous = _only;
@@ -1446,7 +1471,7 @@ public static partial class ResourceImportService
 		if (only is not null)
 		{
 			var names = new HashSet<string>(only, StringComparer.Ordinal);
-			var safeNames = new HashSet<string>(names.Select(SafeName), StringComparer.Ordinal);
+			var safeNames = new HashSet<string>(names.Select(SafeName).Concat(names.Select(ResourceExportService.LegacySafeName)), StringComparer.Ordinal);
 			_only = new OnlyFilter(names, safeNames);
 		}
 		else
@@ -1473,6 +1498,7 @@ public static partial class ResourceImportService
 	public static bool Import(string resourceType, GameMakerData data, string inputDir)
 	{
 		ArgumentNullException.ThrowIfNull(data);
+		using var gate = data.Gate.BeginWrite(cancellationToken: ModdingCancellation.Token);
 		switch (resourceType)
 		{
 			case "Language":
@@ -1576,6 +1602,9 @@ public static partial class ResourceImportService
 					throw new NotSupportedException($"Resource type '{resourceType}' does not support filtering.");
 				ImportTexturePageItems(data, inputDir);
 				return true;
+			case "CodeEntries":
+				ImportCodeEntries(data, inputDir);
+				return true;
 			default:
 				return false;
 		}
@@ -1600,6 +1629,7 @@ public static partial class ResourceImportService
 	public static void ImportAssetOrder(GameMakerData data, string inputDir)
 	{
 		ArgumentNullException.ThrowIfNull(data);
+		using var gate = data.Gate.BeginWrite(cancellationToken: ModdingCancellation.Token);
 		ImportAssetOrderInternal(data, inputDir);
 	}
 
@@ -2371,8 +2401,9 @@ public static partial class ResourceImportService
 					return (T)(object)(elm.GetString() ?? "");
 				}
 			}
-			catch
+			catch (Exception ex) when (ex is InvalidOperationException or FormatException or OverflowException)
 			{
+				// a value of the wrong json type falls through to the default below
 			}
 		}
 		return defaultValue;
@@ -2403,6 +2434,7 @@ public static partial class ResourceImportService
 			{
 				using var jsonDoc = JsonDocument.Parse(FReadText(jsonFile));
 				var root = jsonDoc.RootElement;
+				name = ResourceName(root, name);
 				var ag = data.AudioGroups?.ByName(name);
 				var num = ag == null;
 				if (num)
@@ -2462,6 +2494,7 @@ public static partial class ResourceImportService
 			{
 				using var jsonDoc = JsonDocument.Parse(FReadText(jsonFile));
 				var root = jsonDoc.RootElement;
+				name = ResourceName(root, name);
 				var path = data.Paths?.ByName(name);
 				var isNew = path == null;
 				if (isNew)
@@ -2658,6 +2691,7 @@ public static partial class ResourceImportService
 				}
 				try
 				{
+					name = ReadMetaName(jsonPath, name);
 					var bg = data.Backgrounds.ByName(name);
 					var isNew = bg == null;
 					if (isNew)
@@ -2940,8 +2974,9 @@ public static partial class ResourceImportService
 			{
 				Directory.Delete(tempRoot, recursive: true);
 			}
-			catch
+			catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
 			{
+				LogService.Warning(ex.Message);
 			}
 		}
 	}
@@ -3212,7 +3247,7 @@ public static partial class ResourceImportService
 			var name = Path.GetFileName(dir);
 			try
 			{
-				var num = data.Shaders.ByName(name) != null;
+				var num = data.Shaders.ByName(ReadMetaName(Path.Combine(dir, name + ".json"), name)) != null;
 				ImportShaderSingle(data, dir);
 				if (num)
 				{
@@ -3240,6 +3275,7 @@ public static partial class ResourceImportService
 		{
 			return;
 		}
+		name = ReadMetaName(Path.Combine(shaderDir, name + ".json"), name);
 		var shader = data.Shaders.ByName(name);
 		if (shader == null)
 		{
@@ -3676,6 +3712,7 @@ public static partial class ResourceImportService
 			{
 				using var jsonDoc = JsonDocument.Parse(FReadText(jsonFile));
 				var root = jsonDoc.RootElement;
+				name = ResourceName(root, name);
 				var tg = data.TextureGroupInfo.FirstOrDefault(t => t.Name?.Content == name);
 				if (tg == null)
 				{
@@ -4033,17 +4070,18 @@ public static partial class ResourceImportService
 		var skipped = 0;
 		var metadataApplied = 0;
 		using var groupBatch = new SoundGroupBatch();
-		foreach (var soundName in soundDirs)
+		foreach (var soundFolder in soundDirs)
 		{
-			if (soundName == null)
+			if (soundFolder == null)
 			{
 				BatchRun.Item("(unnamed)", ResultKind.Skipped, "Empty folder name");
 				continue;
 			}
-			var path = Path.Combine(inputDir, soundName);
-			var oggFile = Path.Combine(path, soundName + ".ogg");
-			var wavFile = Path.Combine(path, soundName + ".wav");
-			var metaFile = Path.Combine(path, soundName + ".json");
+			var path = Path.Combine(inputDir, soundFolder);
+			var oggFile = Path.Combine(path, soundFolder + ".ogg");
+			var wavFile = Path.Combine(path, soundFolder + ".wav");
+			var metaFile = Path.Combine(path, soundFolder + ".json");
+			var soundName = ReadMetaName(metaFile, soundFolder);
 			string? audioFile = null;
 			var isOGG = false;
 			if (FExists(oggFile))
@@ -4535,17 +4573,18 @@ public static partial class ResourceImportService
 		var created = 0;
 		using (new TextureWorker())
 		{
-			foreach (var tsName in names)
+			foreach (var tsFile in names)
 			{
-				var pngPath = Path.Combine(inputDir, tsName + ".png");
-				var jsonPath = Path.Combine(inputDir, tsName + ".json");
+				var pngPath = Path.Combine(inputDir, tsFile + ".png");
+				var jsonPath = Path.Combine(inputDir, tsFile + ".json");
 				if (!FExists(pngPath) && !FExists(jsonPath))
 				{
-					BatchRun.Item(tsName, ResultKind.Skipped, "Missing png and json files");
+					BatchRun.Item(tsFile, ResultKind.Skipped, "Missing png and json files");
 					continue;
 				}
 				try
 				{
+					var tsName = ReadMetaName(jsonPath, tsFile);
 					var ts = data.Backgrounds.ByName(tsName);
 					var isNew = ts == null;
 					if (isNew)
@@ -4636,8 +4675,8 @@ public static partial class ResourceImportService
 				}
 				catch (Exception ex) when (!ModdingCancellation.IsCancellation(ex))
 				{
-					Log("[ImportTilesets] Failed: " + tsName + ": " + ex.Message);
-					BatchRun.Failed(tsName, ex);
+					Log("[ImportTilesets] Failed: " + tsFile + ": " + ex.Message);
+					BatchRun.Failed(tsFile, ex);
 				}
 			}
 			Log($"[ImportTilesets] Done. {imported} processed ({created} new).");
@@ -4898,13 +4937,15 @@ public static partial class ResourceImportService
 					}
 				}
 			}
-			catch
+			catch (Exception ex) when (ex is JsonException or InvalidOperationException or IOException)
 			{
+				// the room order is optional, the patch is applied without it
 			}
 		}
 		string[] sorted = [.. roomDirs.OrderBy(delegate (string d)
 		{
-			var num2 = patchRoomOrder.IndexOf(Path.GetFileName(d));
+			var folder = Path.GetFileName(d);
+			var num2 = patchRoomOrder.FindIndex(n => n == folder || SafeName(n) == folder || ResourceExportService.LegacySafeName(n) == folder);
 			return (num2 < 0) ? int.MaxValue : num2;
 		})];
 		var lookup = RoomImportLookup.Build(data);
@@ -4921,9 +4962,9 @@ public static partial class ResourceImportService
 			}
 			try
 			{
-				var roomName = Path.GetFileName(roomDir);
 				using var jsonDoc = JsonDocument.Parse(FReadText(roomFile));
 				var root = jsonDoc.RootElement;
+				var roomName = ResourceName(root, Path.GetFileName(roomDir));
 				if (!lookup.Rooms.TryGetValue(roomName, out var room))
 				{
 					room = new GameMakerRoom
@@ -6567,8 +6608,9 @@ public static partial class ResourceImportService
 						}
 						goto IL_02c6;
 					}
-					catch
+					catch (Exception ex)
 					{
+						LogService.Log($"Skipped unparsable sprite frame path: {ex.Message}");
 					}
 					continue;
 				IL_02c6:

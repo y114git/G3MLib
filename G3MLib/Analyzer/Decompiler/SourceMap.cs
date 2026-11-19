@@ -19,7 +19,7 @@ public sealed record DecompiledSource(string Text, SourceMap Map);
 /// </summary>
 public sealed class SourceMapEntry
 {
-    /// <summary>The AST node.</summary>
+    /// <summary>The node that was printed at <see cref="Span"/>.</summary>
     public IBaseASTNode Node { get; }
 
     /// <summary>Text range of the node, without surrounding whitespace.</summary>

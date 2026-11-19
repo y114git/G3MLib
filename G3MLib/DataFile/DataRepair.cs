@@ -2,7 +2,7 @@ using G3MLib.DataFile.Models;
 
 namespace G3MLib.DataFile;
 
-/// <summary>The three counters of the VARI chunk header.</summary>
+/// <summary>Variable counts 1 and 2 plus the highest local count, as stored in the VARI chunk header.</summary>
 public readonly record struct VariableCounters(uint VarCount1, uint VarCount2, uint MaxLocalVarCount);
 
 /// <summary>

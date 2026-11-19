@@ -13,6 +13,21 @@ public class MergeNameListTests
     private static List<string>? Merge(string[] original, string[] ours, string[] theirs) => MergeService.MergeNameLists(original, ours, theirs);
 
     [Fact]
+    public void IdenticalEditsFromBothSidesMergeWithoutConflict()
+    {
+        var (merged, conflicts) = MergeService.ThreeWayMerge("a\nb\nc", "a\nB\nc\nd", "x\na\nB\nc");
+        Assert.False(conflicts);
+        Assert.Equal("x\na\nB\nc\nd", merged);
+    }
+
+    [Fact]
+    public void DifferentEditsOfTheSameLineStillConflict()
+    {
+        var (_, conflicts) = MergeService.ThreeWayMerge("a\nb\nc", "a\nX\nc", "a\nY\nc");
+        Assert.True(conflicts);
+    }
+
+    [Fact]
     public void AdditionsFromBothSidesAreKeptWithTheExistingSideFirst()
     {
         Assert.Equal(["a", "b", "x1", "x2", "y1", "y2"], Merge(["a", "b"], ["a", "b", "x1", "x2"], ["a", "b", "y1", "y2"]));
@@ -232,4 +247,47 @@ public class MergeNameListTests
         using var stream = File.Create(path);
         GameMakerIO.Write(stream, data);
     }
+}
+
+public class OldStyleArchiveNameTests
+{
+    private static PatchFileSystem ZipWith(params string[] entries)
+    {
+        var stream = new MemoryStream();
+        using (var archive = new System.IO.Compression.ZipArchive(stream, System.IO.Compression.ZipArchiveMode.Create, leaveOpen: true))
+        {
+            foreach (var name in entries)
+            {
+                using var writer = new StreamWriter(archive.CreateEntry(name).Open());
+                writer.Write("{}");
+            }
+        }
+        stream.Position = 0;
+        return PatchFileSystem.LoadFromZip(stream);
+    }
+
+    [Fact]
+    public void LegacySafeNameDropsTheHashSuffixOfAReplacedCharacter()
+    {
+        Assert.Equal("spr_a_b", ResourceExportServiceNames.Legacy("spr:a:b"));
+        Assert.NotEqual("spr_a_b", ResourceExportServiceNames.Current("spr:a:b"));
+        Assert.Equal("plain", ResourceExportServiceNames.Legacy("plain"));
+        Assert.Equal(ResourceExportServiceNames.Current("CON"), ResourceExportServiceNames.Legacy("CON"));
+    }
+
+    [Fact]
+    public void MergeFindsResourcesInOldAndNewStyleArchives()
+    {
+        var oldStyle = ZipWith("Sprites/spr_a_b/spr_a_b.json");
+        var newStyle = ZipWith($"Sprites/{ResourceExportServiceNames.Current("spr:a:b")}/spr_a_b.json");
+        Assert.True(MergeService.PatchHasResourcePayload(oldStyle, "Sprites", "spr:a:b"));
+        Assert.True(MergeService.PatchHasResourcePayload(newStyle, "Sprites", "spr:a:b"));
+        Assert.False(MergeService.PatchHasResourcePayload(oldStyle, "Sprites", "spr:other"));
+    }
+}
+
+internal static class ResourceExportServiceNames
+{
+    public static string Current(string name) => G3MLib.Modding.Resources.ResourceExportService.SafeName(name);
+    public static string Legacy(string name) => G3MLib.Modding.Resources.ResourceExportService.LegacySafeName(name);
 }

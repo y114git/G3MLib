@@ -1010,6 +1010,31 @@ public class PatchServiceTests
         Assert.Equal(beforeBytes, afterBytes);
     }
 
+    [Theory]
+    [InlineData("{not-json")]
+    [InlineData("null")]
+    public async Task ApplyPatchWithMalformedManifestReturnsErrorNamingThePatchPath(string manifest)
+    {
+        var patchPath = Path.Combine(Path.GetTempPath(), $"g3mlib_badmanifest_{Guid.NewGuid():N}.g3mpatch");
+        try
+        {
+            using (var archive = ZipFile.Open(patchPath, ZipArchiveMode.Create))
+            using (var writer = new StreamWriter(archive.CreateEntry("g3mpatch.json").Open(), Encoding.UTF8))
+            {
+                writer.Write(manifest);
+            }
+
+            using var data = GameMakerData.CreateNew2026LTS();
+            var result = await PatchService.ApplyPatchAsync(data, patchPath, cancellationToken: TestContext.Current.CancellationToken);
+            Assert.False(result.Success);
+            Assert.Contains(patchPath, result.Error, StringComparison.Ordinal);
+        }
+        finally
+        {
+            File.Delete(patchPath);
+        }
+    }
+
     private sealed class MockOversizedSeekableStream(long length) : MemoryStream
     {
         public override long Length => length;
@@ -1057,6 +1082,97 @@ public class PatchServiceTests
         stream.Position = 0;
         var error = Assert.Throws<InvalidDataException>(() => PatchFileSystem.LoadFromZip(stream));
         Assert.Contains("too large", error.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("gml_Object_obj_a_Keyboard_37", 5, 37u)]
+    [InlineData("gml_Object_obj_a_Trigger_0", 11, 0u)]
+    [InlineData("gml_Object_obj_a_Gesture_4", 13, 4u)]
+    [InlineData("gml_Object_obj_a_Draw_64", 8, 64u)]
+    public void ObjectEventCodeNamesOfAllEventTypesAreParsed(string codeName, int type, uint subtype)
+    {
+        Assert.True(PatchService.TryParseObjectEventCodeName(codeName, out var objectName, out var eventType, out var eventSubtype));
+        Assert.Equal("obj_a", objectName);
+        Assert.Equal(type, eventType);
+        Assert.Equal(subtype, eventSubtype);
+    }
+
+    [Fact]
+    public void PatchArchiveWithACorruptManifestIsRefused()
+    {
+        using MemoryStream stream = new();
+        using (var archive = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            using var writer = new StreamWriter(archive.CreateEntry("g3mpatch.json").Open(), Encoding.UTF8);
+            writer.Write("{ not json");
+        }
+
+        stream.Position = 0;
+        var error = Assert.Throws<InvalidDataException>(() => PatchFileSystem.LoadFromZip(stream));
+        Assert.Contains("g3mpatch.json", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SaveToZipReplacesTheOutputAndLeavesNoTempFiles()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), $"G3MLibTests-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var output = Path.Combine(dir, "out.g3mpatch");
+            File.WriteAllText(output, "old");
+            var pfs = new PatchFileSystem();
+            pfs.AddTextFile("Notes/a.txt", "new");
+            pfs.SaveToZip(output);
+
+            Assert.Equal([output], Directory.GetFileSystemEntries(dir));
+            using var stream = File.OpenRead(output);
+            Assert.Equal("new", Encoding.UTF8.GetString(PatchFileSystem.LoadFromZip(stream, loadExactPayloads: true).ReadAllBytes("Notes/a.txt")));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Theory]
+    [InlineData("Sprites/a.txt", true)]
+    [InlineData("../x", false)]
+    [InlineData("..\\..\\x", false)]
+    [InlineData("C:\\Users\\x", false)]
+    [InlineData("/etc/x", false)]
+    public void IsSafeNameRejectsEscapingNames(string name, bool safe)
+    {
+        Assert.Equal(safe, PatchFileSystem.IsSafeName(name));
+    }
+
+    [Fact]
+    public void ExtractToDirectoryWritesEntriesAndRefusesUnsafeOnes()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), $"G3MLibTests-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var good = Path.Combine(dir, "good.zip");
+            using (var archive = ZipFile.Open(good, ZipArchiveMode.Create))
+                archive.CreateEntry("Sprites/a.txt").Open().Dispose();
+            var bad = Path.Combine(dir, "bad.zip");
+            using (var archive = ZipFile.Open(bad, ZipArchiveMode.Create))
+                archive.CreateEntry("../escape.txt").Open().Dispose();
+
+            PatchFileSystem.ExtractToDirectory(good, Path.Combine(dir, "out"));
+            Assert.True(File.Exists(Path.Combine(dir, "out", "Sprites", "a.txt")));
+            Assert.Throws<InvalidDataException>(() => PatchFileSystem.ExtractToDirectory(bad, Path.Combine(dir, "out2")));
+            Assert.False(File.Exists(Path.Combine(dir, "escape.txt")));
+
+            using CancellationTokenSource cancelled = new();
+            cancelled.Cancel();
+            Assert.Throws<OperationCanceledException>(() => PatchFileSystem.ExtractToDirectory(good, Path.Combine(dir, "out3"), cancelled.Token));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
     }
 
     [Fact]

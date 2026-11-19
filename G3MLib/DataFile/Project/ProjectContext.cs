@@ -549,12 +549,12 @@ public sealed partial class ProjectContext
                     if (serializableAsset.IndividualDirectory)
                     {
                         // Asset needs its own directory
-                        destinationFile = Path.Join(MainDirectory, serializableAsset.AssetType.ToFilesystemNamePlural(), friendlyName, $"{friendlyName}.json");
+                        destinationFile = Paths.JoinVerifyWithinDirectory(MainDirectory, serializableAsset.AssetType.ToFilesystemNamePlural(), friendlyName, $"{friendlyName}.json");
                     }
                     else
                     {
                         // Asset doesn't need its own directory
-                        destinationFile = Path.Join(MainDirectory, serializableAsset.AssetType.ToFilesystemNamePlural(), $"{friendlyName}.json");
+                        destinationFile = Paths.JoinVerifyWithinDirectory(MainDirectory, serializableAsset.AssetType.ToFilesystemNamePlural(), $"{friendlyName}.json");
                     }
 
                     // If file already exists, add a suffix until there is no conflict

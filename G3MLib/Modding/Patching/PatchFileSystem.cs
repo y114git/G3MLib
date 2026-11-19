@@ -1,3 +1,4 @@
+using G3MLib.Modding.Internal;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
@@ -62,9 +63,60 @@ public sealed class PatchFileSystem
 	/// <summary>An entry name must stay inside the archive: no rooted or drive paths, no stream or UNC names, no <c>..</c> segment. Later code joins these names onto folders.</summary>
 	private static void RejectUnsafeEntryName(string fullName)
 	{
-		if (fullName.StartsWith('/') || fullName.Contains(':', StringComparison.Ordinal) || fullName.Split('/').Contains(".."))
+		if (!IsSafeName(fullName))
 		{
 			throw new InvalidDataException($"Archive entry '{fullName}' has an unsafe name.");
+		}
+	}
+
+	/// <summary>True when a name from an archive or manifest is relative, has no drive or stream part and no <c>..</c> segment.</summary>
+	internal static bool IsSafeName(string name)
+	{
+		var normalized = name.Replace('\\', '/');
+		return !normalized.StartsWith('/') && !normalized.Contains(':', StringComparison.Ordinal) && !normalized.Split('/').Contains("..");
+	}
+
+	/// <summary>Entry count above which extracting an archive to disk is refused.</summary>
+	public const int MaxArchiveEntries = 500_000;
+
+	/// <summary>Extracts an archive to a folder with the same name rules and size limits as <see cref="LoadFromZip(string, bool, bool)"/>. Sizes are counted while copying, since declared sizes can be false.</summary>
+	internal static void ExtractToDirectory(string zipPath, string destination, CancellationToken cancellationToken = default)
+	{
+		using var archive = ZipFile.OpenRead(zipPath);
+		if (archive.Entries.Count > MaxArchiveEntries)
+		{
+			throw new InvalidDataException("Archive holds too many entries.");
+		}
+		var root = Path.GetFullPath(destination) + Path.DirectorySeparatorChar;
+		long total = 0;
+		var buffer = new byte[65536];
+		foreach (var entry in archive.Entries)
+		{
+			cancellationToken.ThrowIfCancellationRequested();
+			RejectUnsafeEntryName(Norm(entry.FullName));
+			if (string.IsNullOrEmpty(entry.Name))
+			{
+				continue;
+			}
+			var target = Path.GetFullPath(Path.Combine(destination, Norm(entry.FullName)));
+			if (!target.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+			{
+				throw new InvalidDataException($"Archive entry '{entry.FullName}' has an unsafe name.");
+			}
+			Directory.CreateDirectory(Path.GetDirectoryName(target));
+			using var input = entry.Open();
+			using var output = new FileStream(target, FileMode.Create, FileAccess.Write, FileShare.None);
+			int read;
+			while ((read = input.Read(buffer, 0, buffer.Length)) > 0)
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+				total += read;
+				if (total > MaxTotalPayloadBytes)
+				{
+					throw new InvalidDataException("Archive entries hold more than the maximum allowed total size.");
+				}
+				output.Write(buffer, 0, read);
+			}
 		}
 	}
 
@@ -91,7 +143,14 @@ public sealed class PatchFileSystem
 		}
 		var sw = Stopwatch.StartNew();
 		using var fileStream = new FileStream(zipPath, FileMode.Open, FileAccess.Read, FileShare.Read, 1048576, FileOptions.SequentialScan);
-		return LoadFromSeekableZipStream(fileStream, loadExactPayloads, skipAsmBackedGml, sw);
+		try
+		{
+			return LoadFromSeekableZipStream(fileStream, loadExactPayloads, skipAsmBackedGml, sw);
+		}
+		catch (InvalidDataException ex)
+		{
+			throw new InvalidDataException($"{zipPath}: {ex.Message}", ex);
+		}
 	}
 
 	public static PatchFileSystem LoadFromZip(Stream zipStream, bool loadExactPayloads = true, bool skipAsmBackedGml = false)
@@ -197,10 +256,11 @@ public sealed class PatchFileSystem
 			{
 				try
 				{
-					pfs.Manifest = JsonSerializer.Deserialize<G3MPatchManifest>(DecodeUtf8(bytes));
+					pfs.Manifest = JsonSerializer.Deserialize<G3MPatchManifest>(DecodeUtf8(bytes)) ?? throw new InvalidDataException("g3mpatch.json is empty.");
 				}
-				catch
+				catch (JsonException ex)
 				{
+					throw new InvalidDataException("g3mpatch.json is not a valid patch manifest: " + ex.Message, ex);
 				}
 				pfs._files[fullName] = bytes;
 			}
@@ -375,8 +435,9 @@ public sealed class PatchFileSystem
 				}
 			}
 		}
-		catch
+		catch (Exception ex) when (ex is JsonException or InvalidOperationException)
 		{
+			// logical names are optional, the entry keys are used without them
 		}
 	}
 
@@ -532,15 +593,12 @@ public sealed class PatchFileSystem
 		BuildDirectoryIndex();
 	}
 
-	public void SaveToZip(string outputPath, G3MPatchManifest? manifest = null)
+	public void SaveToZip(string outputPath, G3MPatchManifest? manifest = null) =>
+		AtomicFile.Write(outputPath, zipStream => WriteZip(zipStream, manifest), 1048576, FileOptions.SequentialScan, createDirectory: true);
+
+	private void WriteZip(Stream zipStream, G3MPatchManifest? manifest)
 	{
-		var outputDir = Path.GetDirectoryName(outputPath);
-		if (!string.IsNullOrEmpty(outputDir) && !Directory.Exists(outputDir))
-		{
-			Directory.CreateDirectory(outputDir);
-		}
-		using var zipStream = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.None, 1048576, FileOptions.SequentialScan);
-		using var archive = new ZipArchive(zipStream, ZipArchiveMode.Create);
+		using var archive = new ZipArchive(zipStream, ZipArchiveMode.Create, leaveOpen: true);
 		if (manifest != null)
 		{
 			using var stream = archive.CreateEntry("g3mpatch.json", ArchiveCompressionUtil.GetLevel("g3mpatch.json")).Open();

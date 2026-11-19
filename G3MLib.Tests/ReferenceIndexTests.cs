@@ -32,6 +32,43 @@ public class ReferenceIndexTests
     }
 
     [Fact]
+    public void ClearUsagesTakesAPropertyReferenceOutAndUndoPutsItBack()
+    {
+        using var data = Load("data-2026.win");
+        var owner = data.GameObjects[0];
+        var sprite = data.Sprites[0];
+        owner.Sprite = sprite;
+        var index = ReferenceIndex.Build(data, TestContext.Current.CancellationToken);
+        var before = index.FindUsages(sprite).Count(r => r.InstructionOffset < 0);
+
+        var cleared = index.ClearUsages(sprite);
+
+        Assert.Null(owner.Sprite);
+        Assert.Equal(before, cleared.Cleared.Count);
+        Assert.DoesNotContain(index.FindUsages(sprite), r => r.InstructionOffset < 0);
+        cleared.Undo();
+        Assert.Same(sprite, owner.Sprite);
+    }
+
+    [Fact]
+    public void ClearUsagesRemovesListEntriesAndReportsCodeUsesAsSkipped()
+    {
+        using var data = Load("data-2026.win");
+        var index = ReferenceIndex.Build(data, TestContext.Current.CancellationToken);
+        var room = data.Rooms.First(r => index.FindUsages(r).Any(u => u.InstructionOffset < 0));
+        var uses = index.FindUsages(room).Where(u => u.InstructionOffset < 0).ToList();
+        List<int?> Counts() => [.. uses.Select(u => (u.Holder.GetType().GetProperty(u.Member)!.GetValue(u.Holder) as System.Collections.IList)?.Count)];
+        var counts = Counts();
+
+        var cleared = index.ClearUsages(room);
+
+        Assert.DoesNotContain(index.FindUsages(room), u => u.InstructionOffset < 0);
+        Assert.All(cleared.Skipped, u => Assert.True(u.InstructionOffset >= 0));
+        cleared.Undo();
+        Assert.Equal(counts, Counts());
+    }
+
+    [Fact]
     public void FindsResourceReferencesAndMovesThemOnUpdate()
     {
         using var data = Load("data-2026.win");

@@ -29,8 +29,9 @@ public static class GitVersion
                 return lines.Length >= 2 ? $"{lines[0]} ({lines[1]})" : lines.Length == 1 ? lines[0] : UnknownVersion;
             }
         }
-        catch
+        catch (Exception ex) when (ex is IOException or ArgumentException)
         {
+         // the embedded version text is optional, UnknownVersion is returned instead
         }
 
         return UnknownVersion;

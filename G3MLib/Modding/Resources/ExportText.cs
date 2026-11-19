@@ -18,7 +18,7 @@ internal static class ExportText
 
 	private static readonly AsyncLocal<bool> normalizeForProject = new();
 
-	/// <summary>Set by the project export for the current execution context and the tasks it starts.</summary>
+	/// <summary>Switched on by the project export for the current execution context and the tasks it starts.</summary>
 	internal static bool NormalizeForProject
 	{
 		get => normalizeForProject.Value;

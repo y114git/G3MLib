@@ -2,6 +2,7 @@ using System.IO;
 using System.Text;
 using G3MLib.DataFile;
 using G3MLib.DataFile.Models;
+using G3MLib.Modding.Internal;
 
 namespace G3MLib.Modding.Resources;
 
@@ -153,15 +154,17 @@ public sealed class AudioGroupFile : IDisposable
 		return map;
 	}
 
-	/// <summary>Writes the file to a temporary file and moves it over <paramref name="path"/>. With <paramref name="backup"/> an existing file is kept as path.bak.</summary>
+	/// <summary>Writes the file to a temporary file and moves it over <paramref name="path"/>. With <paramref name="backup"/> an existing file is kept as path.bak. Saving over the opened file reopens it; if that fails after the file was written, an <see cref="IOException"/> says so and the instance must be disposed.</summary>
 	public void Save(string path, bool backup, IProgress<double>? progress = null, CancellationToken cancellationToken = default)
 	{
-		var temp = path + ".g3mtmp";
+		var comparison = OperatingSystem.IsWindows() || OperatingSystem.IsMacOS() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+		var inPlace = string.Equals(Path.GetFullPath(path), _path, comparison);
+		var released = false;
 		try
 		{
-			using (var output = new FileStream(temp, FileMode.Create, FileAccess.Write))
-			using (var writer = new BinaryWriter(output, Encoding.ASCII, leaveOpen: true))
+			AtomicFile.Write(path, output =>
 			{
+				using var writer = new BinaryWriter(output, Encoding.ASCII, leaveOpen: true);
 				writer.Write("FORM"u8);
 				writer.Write(0u);
 				for (var i = 0; i < _chunks.Count; i++)
@@ -184,24 +187,41 @@ public sealed class AudioGroupFile : IDisposable
 				writer.Write(checked((uint)(output.Length - 8)));
 				output.Position = output.Length;
 				output.Write(_trailing);
-			}
-			var inPlace = string.Equals(Path.GetFullPath(path), _path, StringComparison.OrdinalIgnoreCase);
-			if (inPlace)
-				_stream.Dispose();
-			if (backup && File.Exists(path))
-				File.Copy(path, path + ".bak", overwrite: true);
-			File.Move(temp, path, overwrite: true);
-			if (inPlace)
+			}, beforeReplace: () =>
 			{
-				_stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
-				ReadTable(cancellationToken);
-			}
+				// Windows cannot swap a file another handle holds open
+				if (inPlace)
+				{
+					_stream.Dispose();
+					released = true;
+				}
+				if (backup && File.Exists(path))
+					File.Copy(path, path + ".bak", overwrite: true);
+			});
 		}
-		catch
+		catch when (released)
 		{
-			if (File.Exists(temp))
-				File.Delete(temp);
+			// The old file is still in place, so the instance stays usable
+			try { _stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read); }
+			catch (Exception reopenError) when (reopenError is IOException or UnauthorizedAccessException) { }
 			throw;
+		}
+		if (inPlace)
+		{
+			// The file is saved at this point, so the token no longer applies
+			FileStream? reopened = null;
+			try
+			{
+				reopened = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+				_stream = reopened;
+				ReadTable(CancellationToken.None);
+			}
+			catch (Exception error)
+			{
+				// The old table no longer matches the file, so the instance is closed instead of left half read
+				reopened?.Dispose();
+				throw new IOException($"'{path}' was saved, but reopening it failed. Dispose this instance and open the file again.", error);
+			}
 		}
 	}
 
@@ -270,11 +290,15 @@ public sealed class AudioGroupReader : IDisposable
 	private readonly GameMakerData _data;
 	private readonly string _dataDirectory;
 	private readonly Dictionary<int, AudioGroupFile?> _files = [];
+	private readonly bool _includeMainGroup;
 
-	public AudioGroupReader(GameMakerData data, string dataFilePath)
+	/// <param name="data">The data file the sounds belong to.</param>
+	/// <param name="dataFilePath">Path of the data file, used to find the audio group files next to it. When null, audio held in the data file itself (group 0) is returned too.</param>
+	public AudioGroupReader(GameMakerData data, string? dataFilePath)
 	{
 		_data = data;
 		_dataDirectory = Path.GetDirectoryName(dataFilePath) ?? string.Empty;
+		_includeMainGroup = dataFilePath is null;
 	}
 
 	public ReadOnlyMemory<byte>? GetAudio(GameMakerSound sound, out AudioSource source)
@@ -282,7 +306,7 @@ public sealed class AudioGroupReader : IDisposable
 		ArgumentNullException.ThrowIfNull(sound);
 		var embedded = sound.AudioFile?.Data;
 		var hasEmbedded = embedded is { Length: > 0 };
-		if (hasEmbedded && (sound.GroupID > 0 || sound.AudioID < 0))
+		if (hasEmbedded && (sound.GroupID > 0 || sound.AudioID < 0 || _includeMainGroup))
 		{
 			source = AudioSource.Embedded;
 			return embedded;

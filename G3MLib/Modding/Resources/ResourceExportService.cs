@@ -63,13 +63,34 @@ public static partial class ResourceExportService
 			safe = "_" + trimmed;
 		}
 
-		if (!altered && safe.Length <= 96)
+		// A replaced character gets the hash too, so 'a:b' and 'a_b' do not share a folder.
+		if (!altered && safe == name && safe.Length <= 96)
 		{
 			return safe;
 		}
 		var hash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(name)))[..12];
 		var prefixLength = Math.Min(safe.Length, 96 - hash.Length - 2);
 		return safe[..prefixLength] + "__" + hash;
+	}
+
+	/// <summary>
+	/// The folder name 1.1.3 and older wrote: the same as <see cref="SafeName"/> but without the hash suffix for a replaced character or a long name.
+	/// Used to find resources in exports and patch archives made before the suffix existed.
+	/// An old folder name can equal the new safe name of another resource (legacy <c>a_b</c> for <c>a?b</c> next to a resource <c>a_b</c>); asset names are identifiers, so this needs odd source data.
+	/// </summary>
+	internal static string LegacySafeName(string name)
+	{
+		if (string.IsNullOrWhiteSpace(name))
+		{
+			return "_";
+		}
+		var sb = new StringBuilder(name.Length);
+		foreach (var ch in name)
+		{
+			sb.Append(ch == ':' || s_invalidChars.Contains(ch) ? '_' : ch);
+		}
+		var safe = sb.ToString();
+		return safe.TrimEnd('.', ' ').Length == safe.Length && safe.Length <= 96 && !IsReservedDeviceName(safe) && safe != "." && safe != ".." ? safe : SafeName(name);
 	}
 
 	private static bool IsReservedDeviceName(string name)
@@ -96,7 +117,11 @@ public static partial class ResourceExportService
 	/// <summary>Cancelling throws <see cref="OperationCanceledException"/> and removes the files this call added to the output folder.</summary>
 	public static void ExportSelectiveExceptCode(GameMakerData data, string outputDir, string dataFilePath, Dictionary<string, HashSet<string>> changedNames, CancellationToken cancellationToken)
 	{
-		ModdingCancellation.Run(outputDir, cancellationToken, () => ExportSelectiveExceptCodeCore(data, outputDir, dataFilePath, changedNames));
+		ModdingCancellation.Run(outputDir, cancellationToken, () =>
+		{
+			using var gate = data.Gate.BeginRead(cancellationToken: cancellationToken);
+			ExportSelectiveExceptCodeCore(data, outputDir, dataFilePath, changedNames);
+		});
 	}
 
 	private static void ExportSelectiveExceptCodeCore(GameMakerData data, string outputDir, string dataFilePath, Dictionary<string, HashSet<string>> changedNames)
@@ -154,7 +179,7 @@ public static partial class ResourceExportService
 		}
 		if (changedNames.ContainsKey("Extensions"))
 		{
-			ExportExtensions(data, outputDir);
+			ExportExtensions(data, outputDir, changedNames.GetValueOrDefault("Extensions"));
 		}
 		var handler = new LogInterpolatedStringHandler(30, 1, out var shouldAppend);
 		if (shouldAppend)
@@ -270,6 +295,7 @@ public static partial class ResourceExportService
 	{
 		ModdingCancellation.Run(outputDir, cancellationToken, () =>
 		{
+			using var gate = data.Gate.BeginRead(cancellationToken: cancellationToken);
 			foreach (var type in resourceTypes)
 			{
 				ModdingCancellation.Throw();
@@ -1498,7 +1524,8 @@ public static partial class ResourceExportService
 		}
 	}
 
-	public static void ExportSounds(GameMakerData data, string outputDir, string dataFilePath, HashSet<string>? filter = null)
+	/// <summary>Exports sounds with their audio. When <paramref name="dataFilePath"/> is null there is no audio group file to read, and the audio held in the data file itself is written into each sound folder.</summary>
+	public static void ExportSounds(GameMakerData data, string outputDir, string? dataFilePath, HashSet<string>? filter = null)
 	{
 		ArgumentNullException.ThrowIfNull(data);
 		if (data.Sounds == null || data.Sounds.Count == 0)
@@ -2748,15 +2775,17 @@ public static partial class ResourceExportService
 				{
 					item2 = new DecompileContext(context, gameMakerCode, decompilerSettings).DecompileToString();
 				}
-				catch
+				catch (Exception ex)
 				{
+					LogService.Log($"Decompile failed for {gameMakerCode.Name.Content}: {ex.Message}");
 				}
 				try
 				{
 					item = gameMakerCode.Disassemble(data.Variables, data.CodeLocals?.For(gameMakerCode));
 				}
-				catch
+				catch (Exception ex)
 				{
+					LogService.Log($"Disassembly failed for {gameMakerCode.Name.Content}: {ex.Message}");
 				}
 				if (gameMakerCode.ChildEntries.Count > 0 && !duplicateChildDescriptorParents.Contains(codeArchiveEntryDescriptor.ArchiveKey))
 				{
@@ -2774,16 +2803,18 @@ public static partial class ResourceExportService
 									dictionary[value2.ArchiveKey[(codeArchiveEntryDescriptor.ArchiveKey.Length + 1)..]] = (current.Name.Content, item3);
 								}
 							}
-							catch
+							catch (Exception ex)
 							{
+								LogService.Log($"Disassembly failed for {current.Name.Content}: {ex.Message}");
 							}
 						}
 					}
 				}
 				result[codeArchiveEntryDescriptor.ArchiveKey] = (gameMakerCode.Name.Content, item2, item, dictionary);
 			}
-			catch
+			catch (Exception ex)
 			{
+				LogService.Log($"Code export skipped for {gameMakerCode.Name.Content}: {ex.Message}");
 			}
 		});
 		return new Dictionary<string, (string, string, string, Dictionary<string, (string, string)>)>(result);
@@ -3137,7 +3168,7 @@ public static partial class ResourceExportService
 		return result;
 	}
 
-	public static void ExportExtensions(GameMakerData data, string outputDir)
+	public static void ExportExtensions(GameMakerData data, string outputDir, HashSet<string>? filter = null)
 	{
 		ArgumentNullException.ThrowIfNull(data);
 		var items = data.Extensions?.ToList();
@@ -3148,7 +3179,7 @@ public static partial class ResourceExportService
 		var dir = EnsureDir(outputDir, "Extensions");
 		CancellableParallel.ForEach(items, delegate (GameMakerExtension ext)
 		{
-			if (ext == null || ext.Name?.Content == null)
+			if (ext == null || ext.Name?.Content == null || filter != null && !filter.Contains(ext.Name.Content))
 			{
 				return;
 			}

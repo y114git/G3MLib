@@ -7,6 +7,25 @@ namespace G3MLib.Tests;
 
 public class DiffServiceTests
 {
+    [Fact]
+    public void UnifiedDiffKeepsMatchingLinesAfterAnInsertion()
+    {
+        var diff = DiffService.GenerateUnifiedDiff("a\nb\nc\nd", "a\nX\nb\nc\nd", "f.txt");
+        Assert.Equal("--- a/f.txt\n+++ b/f.txt\n@@ -1,4 +1,5 @@\n a\n+X\n b\n c\n d", diff.ReplaceLineEndings("\n"));
+    }
+
+    [Fact]
+    public void UnifiedDiffSplitsDistantChangesIntoHunks()
+    {
+        var lines = Enumerable.Range(0, 30).Select(i => "l" + i).ToArray();
+        var changed = lines.ToArray();
+        changed[2] = "A";
+        changed[27] = "B";
+        var diff = DiffService.GenerateUnifiedDiff(string.Join('\n', lines), string.Join('\n', changed), "f.txt");
+        Assert.Equal(2, diff.Split("@@ -").Length - 1);
+        Assert.Contains("-l2\n+A", diff.ReplaceLineEndings("\n"));
+    }
+
     [Fact("DiffServiceTests.cs", 10)]
     public async Task DiffSkipsBinaryAnalysisForGeneralInfoOnlyChange()
     {

@@ -271,7 +271,7 @@ public static class DiffService
 			Directory.CreateDirectory(patchExtractDir);
 			Directory.CreateDirectory(dataExportDir);
 			LogService.Progress(10, 100);
-			await ZipFile.ExtractToDirectoryAsync(patchPath, patchExtractDir).ConfigureAwait(false);
+			await Task.Run(() => PatchFileSystem.ExtractToDirectory(patchPath, patchExtractDir, ModdingCancellation.Token), ModdingCancellation.Token).ConfigureAwait(false);
 			LogService.Progress(20, 100);
 			var manifestPath = Path.Combine(patchExtractDir, "g3mpatch.json");
 			G3MPatchManifest? manifest = null;
@@ -321,7 +321,10 @@ public static class DiffService
 				foreach (var key2 in manifest.Resources.Keys)
 				{
 					key = key2;
-					hashSet.Add(key);
+					if (PatchFileSystem.IsSafeName(key))
+					{
+						hashSet.Add(key);
+					}
 				}
 				resourceTypesInPatch = hashSet;
 			}
@@ -361,13 +364,17 @@ public static class DiffService
 					resource.Deconstruct(out key, out var value);
 					var resourceType = key;
 					var changes = value;
+					if (!resourceTypesInPatch.Contains(resourceType))
+					{
+						continue;
+					}
 					var patchResDir = Path.Combine(patchExtractDir, resourceType);
 					var dataResDir = Path.Combine(dataExportDir, resourceType);
 					var typeChanges = new DiffResourceTypeChanges();
 					IEnumerable<ResourceChange> changed = changes.Changed;
 					foreach (var changed2 in changed ?? [])
 					{
-						if (string.IsNullOrEmpty(changed2.Name))
+						if (string.IsNullOrEmpty(changed2.Name) || !PatchFileSystem.IsSafeName(changed2.Name))
 						{
 							continue;
 						}
@@ -434,8 +441,9 @@ public static class DiffService
 			{
 				Directory.Delete(tempDir, recursive: true);
 			}
-			catch
+			catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
 			{
+				LogService.Warning(ex.Message);
 			}
 		}
 	}
@@ -471,9 +479,9 @@ public static class DiffService
 			Directory.CreateDirectory(patch1Dir);
 			Directory.CreateDirectory(patch2Dir);
 			LogService.Progress(10, 100);
-			await ZipFile.ExtractToDirectoryAsync(patch1Path, patch1Dir).ConfigureAwait(false);
+			await Task.Run(() => PatchFileSystem.ExtractToDirectory(patch1Path, patch1Dir, ModdingCancellation.Token), ModdingCancellation.Token).ConfigureAwait(false);
 			LogService.Progress(20, 100);
-			await ZipFile.ExtractToDirectoryAsync(patch2Path, patch2Dir).ConfigureAwait(false);
+			await Task.Run(() => PatchFileSystem.ExtractToDirectory(patch2Path, patch2Dir, ModdingCancellation.Token), ModdingCancellation.Token).ConfigureAwait(false);
 			LogService.Progress(30, 100);
 			var summary = new ResourceDiffSummary();
 			var typeIndex = 0;
@@ -513,8 +521,9 @@ public static class DiffService
 			{
 				Directory.Delete(tempDir, recursive: true);
 			}
-			catch
+			catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
 			{
+				LogService.Warning(ex.Message);
 			}
 		}
 	}
@@ -1212,126 +1221,123 @@ public static class DiffService
 		}
 	}
 
-	private static string GenerateUnifiedDiff(string content1, string content2, string fileName)
+	private const long MaxDiffCells = 8_000_000;
+
+	internal static string GenerateUnifiedDiff(string content1, string content2, string fileName)
 	{
-		var lines1 = content1.Split('\n');
-		var lines2 = content2.Split('\n');
+		var lines1 = content1.Split('\n').Select(line => line.TrimEnd('\r')).ToArray();
+		var lines2 = content2.Split('\n').Select(line => line.TrimEnd('\r')).ToArray();
 		var sb = new StringBuilder();
-		var stringBuilder = sb;
-		var stringBuilder2 = stringBuilder;
-		var handler = new StringBuilder.AppendInterpolatedStringHandler(6, 1, stringBuilder, CultureInfo.InvariantCulture);
-		handler.AppendLiteral("--- a/");
-		handler.AppendFormatted(fileName);
-		stringBuilder2.AppendLine(CultureInfo.InvariantCulture, ref handler);
-		stringBuilder = sb;
-		var stringBuilder3 = stringBuilder;
-		handler = new StringBuilder.AppendInterpolatedStringHandler(6, 1, stringBuilder, CultureInfo.InvariantCulture);
-		handler.AppendLiteral("+++ b/");
-		handler.AppendFormatted(fileName);
-		stringBuilder3.AppendLine(CultureInfo.InvariantCulture, ref handler);
-		var i = 0;
-		var j = 0;
-		var contextLines = 3;
-		List<(int, int, List<string>)> hunks = [];
-		List<string> currentHunk = [];
-		var hunkStart1 = 0;
-		var hunkStart2 = 0;
-		var inHunk = false;
-		while (i < lines1.Length || j < lines2.Length)
+		sb.AppendLine(CultureInfo.InvariantCulture, $"--- a/{fileName}");
+		sb.AppendLine(CultureInfo.InvariantCulture, $"+++ b/{fileName}");
+		var ops = DiffLines(lines1, lines2);
+		var changes = Enumerable.Range(0, ops.Count).Where(index => ops[index].Op != ' ').ToList();
+		if (changes.Count == 0)
 		{
-			if (i < lines1.Length && j < lines2.Length && lines1[i].TrimEnd('\r') == lines2[j].TrimEnd('\r'))
-			{
-				if (inHunk)
-				{
-					currentHunk.Add(" " + lines1[i].TrimEnd('\r'));
-				}
-				i++;
-				j++;
-			}
-			else
-			{
-				if (!inHunk)
-				{
-					inHunk = true;
-					hunkStart1 = Math.Max(0, i - contextLines);
-					hunkStart2 = Math.Max(0, j - contextLines);
-					for (var k = hunkStart1; k < i; k++)
-					{
-						currentHunk.Add(" " + lines1[k].TrimEnd('\r'));
-					}
-				}
-				if (i < lines1.Length)
-				{
-					currentHunk.Add("-" + lines1[i].TrimEnd('\r'));
-					i++;
-				}
-				if (j < lines2.Length && (i >= lines1.Length || lines1[Math.Min(i, lines1.Length - 1)].TrimEnd('\r') != lines2[j].TrimEnd('\r')))
-				{
-					currentHunk.Add("+" + lines2[j].TrimEnd('\r'));
-					j++;
-				}
-			}
-			if (!inHunk || i >= lines1.Length || j >= lines2.Length || !(lines1[i].TrimEnd('\r') == lines2[j].TrimEnd('\r')))
-			{
-				continue;
-			}
-			var matchCount = 0;
-			var ti = i;
-			var tj = j;
-			while (ti < lines1.Length && tj < lines2.Length && lines1[ti].TrimEnd('\r') == lines2[tj].TrimEnd('\r') && matchCount < contextLines * 2)
-			{
-				matchCount++;
-				ti++;
-				tj++;
-			}
-			if (matchCount < contextLines * 2 && (ti < lines1.Length || tj < lines2.Length))
-			{
-				continue;
-			}
-			for (var l = 0; l < Math.Min(contextLines, matchCount); l++)
-			{
-				if (i + l < lines1.Length)
-				{
-					currentHunk.Add(" " + lines1[i + l].TrimEnd('\r'));
-				}
-			}
-			hunks.Add((hunkStart1, hunkStart2, currentHunk.ToList()));
-			currentHunk.Clear();
-			inHunk = false;
-			i += Math.Min(contextLines, matchCount);
-			j += Math.Min(contextLines, matchCount);
+			return sb.ToString().TrimEnd();
 		}
-		if (currentHunk.Count > 0)
+
+		const int contextLines = 3;
+		var line1 = new int[ops.Count + 1];
+		var line2 = new int[ops.Count + 1];
+		for (var index = 0; index < ops.Count; index++)
 		{
-			hunks.Add((hunkStart1, hunkStart2, currentHunk));
+			line1[index + 1] = line1[index] + (ops[index].Op == '+' ? 0 : 1);
+			line2[index + 1] = line2[index] + (ops[index].Op == '-' ? 0 : 1);
 		}
-		foreach (var item2 in hunks)
+
+		for (var c = 0; c < changes.Count;)
 		{
-			var start1 = item2.Item1;
-			var start2 = item2.Item2;
-			var item = item2.Item3;
-			var removed = item.Count(text => text.StartsWith('-'));
-			var added = item.Count(text => text.StartsWith('+'));
-			var context = item.Count(text => text.StartsWith(' '));
-			stringBuilder = sb;
-			var stringBuilder4 = stringBuilder;
-			handler = new StringBuilder.AppendInterpolatedStringHandler(11, 4, stringBuilder, CultureInfo.InvariantCulture);
-			handler.AppendLiteral("@@ -");
-			handler.AppendFormatted(start1 + 1);
-			handler.AppendLiteral(",");
-			handler.AppendFormatted(removed + context);
-			handler.AppendLiteral(" +");
-			handler.AppendFormatted(start2 + 1);
-			handler.AppendLiteral(",");
-			handler.AppendFormatted(added + context);
-			handler.AppendLiteral(" @@");
-			stringBuilder4.AppendLine(CultureInfo.InvariantCulture, ref handler);
-			foreach (var line in item)
+			var last = c;
+			while (last + 1 < changes.Count && changes[last + 1] - changes[last] <= contextLines * 2 + 1)
 			{
-				sb.AppendLine(line);
+				last++;
 			}
+			var from = Math.Max(0, changes[c] - contextLines);
+			var to = Math.Min(ops.Count, changes[last] + contextLines + 1);
+			var count1 = line1[to] - line1[from];
+			var count2 = line2[to] - line2[from];
+			sb.AppendLine(CultureInfo.InvariantCulture, $"@@ -{(count1 == 0 ? line1[from] : line1[from] + 1)},{count1} +{(count2 == 0 ? line2[from] : line2[from] + 1)},{count2} @@");
+			for (var index = from; index < to; index++)
+			{
+				sb.AppendLine(ops[index].Op + ops[index].Text);
+			}
+			c = last + 1;
 		}
 		return sb.ToString().TrimEnd();
+	}
+
+	/// <summary>Line diff by longest common subsequence after trimming the shared head and tail. A middle too large for the table is reported as one replaced block.</summary>
+	private static List<(char Op, string Text)> DiffLines(string[] lines1, string[] lines2)
+	{
+		var head = 0;
+		while (head < lines1.Length && head < lines2.Length && lines1[head] == lines2[head])
+		{
+			head++;
+		}
+		var tail = 0;
+		while (tail < lines1.Length - head && tail < lines2.Length - head && lines1[^(tail + 1)] == lines2[^(tail + 1)])
+		{
+			tail++;
+		}
+
+		var n = lines1.Length - head - tail;
+		var m = lines2.Length - head - tail;
+		List<(char Op, string Text)> ops = [];
+		for (var i = 0; i < head; i++)
+		{
+			ops.Add((' ', lines1[i]));
+		}
+
+		if ((long)(n + 1) * (m + 1) > MaxDiffCells)
+		{
+			for (var i = 0; i < n; i++)
+			{
+				ops.Add(('-', lines1[head + i]));
+			}
+			for (var j = 0; j < m; j++)
+			{
+				ops.Add(('+', lines2[head + j]));
+			}
+		}
+		else
+		{
+			// lcs[i, j] is the common subsequence length of the middle parts starting at i and j
+			var lcs = new int[n + 1, m + 1];
+			for (var i = n - 1; i >= 0; i--)
+			{
+				for (var j = m - 1; j >= 0; j--)
+				{
+					lcs[i, j] = lines1[head + i] == lines2[head + j] ? lcs[i + 1, j + 1] + 1 : Math.Max(lcs[i + 1, j], lcs[i, j + 1]);
+				}
+			}
+			int x = 0, y = 0;
+			while (x < n || y < m)
+			{
+				if (x < n && y < m && lines1[head + x] == lines2[head + y])
+				{
+					ops.Add((' ', lines1[head + x]));
+					x++;
+					y++;
+				}
+				else if (y >= m || (x < n && lcs[x + 1, y] >= lcs[x, y + 1]))
+				{
+					ops.Add(('-', lines1[head + x]));
+					x++;
+				}
+				else
+				{
+					ops.Add(('+', lines2[head + y]));
+					y++;
+				}
+			}
+		}
+
+		for (var i = lines1.Length - tail; i < lines1.Length; i++)
+		{
+			ops.Add((' ', lines1[i]));
+		}
+		return ops;
 	}
 
 	private static async Task<ResourceDiffSummary> CompareWinFilesAsync(string file1Path, string file2Path, string file1Md5, string file2Md5, G3MDataAnalysisCache? cached1, G3MDataAnalysisCache? cached2, DiffReportMode reportMode, G3MCacheOptions? cacheOptions)
@@ -1587,8 +1593,9 @@ public static class DiffService
 			{
 				Directory.Delete(tempDir, recursive: true);
 			}
-			catch
+			catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
 			{
+				LogService.Warning(ex.Message);
 			}
 		}
 	}

@@ -24,7 +24,7 @@ public enum GmlTokenKind
     Unknown
 }
 
-/// <summary>A token with its kind and source range.</summary>
+/// <summary>One lexed piece of GML text: its kind and where it sits in the source.</summary>
 public readonly record struct GmlToken(GmlTokenKind Kind, SourceSpan Span);
 
 /// <summary>

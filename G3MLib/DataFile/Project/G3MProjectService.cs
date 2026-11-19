@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using G3MLib.DataFile.Compiler;
+using G3MLib.Modding.Internal;
 
 namespace G3MLib.DataFile.Project;
 
@@ -166,6 +167,7 @@ public static class G3MProjectService
     private static G3MProjectResult Write(GameMakerData data, string projectDirectory, string? baseDataFilePath, G3MProjectOptions options,
         bool update, IProgress<BatchProgress> progress, CancellationToken cancellationToken)
     {
+        using var gate = data.Gate.BeginRead(cancellationToken: cancellationToken);
         projectDirectory = Path.GetFullPath(projectDirectory);
         var projectPath = Path.Join(projectDirectory, options.Name + FileExtension);
         var existing = ReadExisting(projectPath);
@@ -244,6 +246,11 @@ public static class G3MProjectService
                     {
                         written += MergeUnits(exported, target, folder, names, touched);
                     }
+                    continue;
+                }
+                // A failed type keeps its old folder, and a delta export leaves types it did not export alone.
+                if (typeWarnings[i] is not null || (filtered && !options.Only.ContainsKey(type)))
+                {
                     continue;
                 }
                 if (Directory.Exists(target))
@@ -408,6 +415,8 @@ public static class G3MProjectService
             }
 
             using var data = ReadData(baseDataFilePath);
+            // One scope for the whole build; the importers below take the same gate again inside it
+            using var gate = data.Gate.BeginWrite();
             var imported = 0;
             foreach (var deleted in project.Deleted)
             {
@@ -440,11 +449,6 @@ public static class G3MProjectService
                 {
                     continue;
                 }
-                if (type == "CodeEntries")
-                {
-                    imported += ImportCode(data, units, warnings);
-                    continue;
-                }
                 var typeDirectory = Path.Join(staging, type);
                 Directory.CreateDirectory(typeDirectory);
                 foreach (var unit in units)
@@ -455,6 +459,11 @@ public static class G3MProjectService
                 {
                     ProjectDataTypes.Import(type, data, typeDirectory);
                     imported += units.Count;
+                    continue;
+                }
+                if (type == "CodeEntries")
+                {
+                    imported += ImportCode(data, typeDirectory, warnings);
                     continue;
                 }
                 if (!ResourceImportService.Import(type, data, typeDirectory))
@@ -473,9 +482,7 @@ public static class G3MProjectService
                 warnings.AddRange(integrity.Errors);
             }
 
-            Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outputDataFilePath)));
-            using FileStream output = new(outputDataFilePath, FileMode.Create, FileAccess.ReadWrite, FileShare.Read);
-            GameMakerIO.Write(output, data);
+            AtomicFile.Write(outputDataFilePath, output => GameMakerIO.Write(output, data), createDirectory: true);
             return new() { Path = outputDataFilePath, Resources = imported, Unchanged = unchanged, Warnings = warnings };
         }
         finally
@@ -569,41 +576,22 @@ public static class G3MProjectService
         }
     }
 
-    // Code is compiled from the .gml file of each changed entry; the .asm files are read-only companions.
-    private static int ImportCode(GameMakerData data, List<string> units, List<string> warnings)
+    // Any failure, a compile error included, stops the build as a ProjectException, also inside a batch run that would only collect it
+    private static int ImportCode(GameMakerData data, string typeDirectory, List<string> warnings)
     {
-        var byKey = CodeEntryArchiveIdentity.DescribeEntriesByKey(data);
-        CodeImportGroup group = new(data) { AutoCreateAssets = false };
-        var queued = 0;
-        foreach (var unit in units.OrderBy(Path.GetFileName, StringComparer.Ordinal))
+        try
         {
-            var key = Path.GetFileName(unit);
-            var gml = Path.Join(unit, key + ".gml");
-            if (!File.Exists(gml))
+            var failures = ResourceImportService.ImportCodeEntriesForProject(data, typeDirectory, warnings, out var imported);
+            if (failures.Count > 0)
             {
-                continue;
+                throw new ProjectException("Code entries failed to import:\n" + string.Join('\n', failures));
             }
-            var name = byKey.TryGetValue(key, out var descriptor) ? descriptor.LogicalName : key;
-            if (descriptor is { Occurrence: > 1 })
-            {
-                warnings.Add($"Code entry \"{name}\" occurs more than once and was not imported.");
-                continue;
-            }
-            group.QueueReplace(name, File.ReadAllText(gml));
-            queued++;
+            return imported;
         }
-        if (queued > 0)
+        catch (Exception e) when (e is not ProjectException && !ModdingCancellation.IsCancellation(e))
         {
-            try
-            {
-                group.Import(true);
-            }
-            catch (Exception e)
-            {
-                throw new ProjectException(e.Message, e);
-            }
+            throw new ProjectException(e.Message, e);
         }
-        return queued;
     }
 
     // A unit is one entry of a resource folder: a resource directory, or a single file for project-wide settings.
@@ -729,7 +717,7 @@ public static class G3MProjectService
 
     private static void WriteProjectFile(string path, ProjectFile project)
     {
-        File.WriteAllText(path, JsonSerializer.Serialize(project, JsonOptions) + "\n", Utf8NoBom);
+        AtomicFile.Write(path, stream => stream.Write(Utf8NoBom.GetBytes(JsonSerializer.Serialize(project, JsonOptions) + "\n")));
     }
 
     private sealed record ResourceList(string Type, Func<List<string>> Names, Action<IReadOnlyList<string>> Apply);
