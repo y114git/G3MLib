@@ -130,7 +130,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
     /// The width of the room grid in pixels.
     /// </summary>
     /// <remarks>
-    /// This is an GameMakerModTool-only property; it doesn't exist in game data.
+    /// This is an UndertaleModTool-only property; it doesn't exist in game data.
     /// </remarks>
     public double GridWidth { get; set { if (value >= 0) field = value; } } = 16.0;
 
@@ -138,7 +138,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
     /// The height of the room grid in pixels.
     /// </summary>
     /// <remarks>
-    /// This is an GameMakerModTool-only property; it doesn't exist in game data.
+    /// This is an UndertaleModTool-only property; it doesn't exist in game data.
     /// </remarks>
     public double GridHeight { get; set { if (value >= 0) field = value; } } = 16.0;
 
@@ -146,7 +146,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
     /// The thickness of the room grid in pixels.
     /// </summary>
     /// <remarks>
-    /// This is an GameMakerModTool-only property; it doesn't exist in game data.
+    /// This is an UndertaleModTool-only property; it doesn't exist in game data.
     /// </remarks>
     public double GridThicknessPx { get; set; } = 1d;
 
@@ -260,7 +260,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
     /// The layer containing the background color.<br/>
     /// </summary>
     /// <remarks>
-    /// Used by "BGColorConverter" of the GameMakerModTool room editor.
+    /// Used by "BGColorConverter" of the UndertaleModTool room editor.
     /// This attribute is UMT-only and does not exist in GameMaker.
     /// </remarks>
     public Layer BGColorLayer => (_layers?.Where(l => l?.LayerType is LayerType.Background
@@ -1475,7 +1475,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
         /// The room this layer belongs to.
         /// </summary>
         /// <remarks>
-        /// This is an GameMakerModTool-only property; it doesn't exist in game data.
+        /// This is an UndertaleModTool-only property; it doesn't exist in game data.
         /// </remarks>
         public GameMakerRoom ParentRoom { get => _parentRoom; set { _parentRoom = value; OnPropertyChanged(); UpdateParentRoom(); } }
 

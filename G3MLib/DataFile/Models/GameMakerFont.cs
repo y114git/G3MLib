@@ -192,7 +192,7 @@ public class GameMakerFont : GameMakerNamedResource, IProjectAsset, IDisposable
             SourceWidth = reader.ReadUInt16();
             SourceHeight = reader.ReadUInt16();
             Shift = reader.ReadInt16();
-            Offset = reader.ReadInt16(); // Potential assumption, see the conversation at https://github.com/UnderminersTeam/GameMakerModTool/issues/40#issuecomment-440208912
+            Offset = reader.ReadInt16(); // Potential assumption, see the conversation at https://github.com/UnderminersTeam/UndertaleModTool/issues/40#issuecomment-440208912
             if (reader.gameMakerData.IsVersionAtLeast(2024, 11))
                 UnknownAlwaysZero = reader.ReadInt16();
             else

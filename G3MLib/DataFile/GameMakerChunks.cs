@@ -2105,7 +2105,7 @@ public class GameMakerChunkFUNC : GameMakerChunk
         // is the only thing in here.
         var funcCount = reader.ReadUInt32();
         // Skip over the (Simple)List
-        // (3*4 is the size of an GameMakerFunction object)
+        // (3*4 is the size of a GameMakerFunction object)
         reader.Position += (long)funcCount * 3 * sizeof(uint);
         if (reader.Position == chunkEndPos)
         {
@@ -2509,7 +2509,7 @@ public class GameMakerChunkEMBI : GameMakerSimpleListChunk<GameMakerEmbeddedImag
     {
         if (!writer.gameMakerData.IsGameMaker2())
             throw new InvalidOperationException();
-        writer.Write((uint)1); // Apparently hardcoded 1, see https://github.com/UnderminersTeam/GameMakerModTool/issues/4#issuecomment-421844420
+        writer.Write((uint)1); // Apparently hardcoded 1, see https://github.com/UnderminersTeam/UndertaleModTool/issues/4#issuecomment-421844420
         base.SerializeChunk(writer);
     }
 

@@ -103,7 +103,7 @@ public class GameSpecificResolver
         public List<GameSpecificCondition> Conditions { get; set; }
 
         /// <summary>
-        /// Filename to be loaded as an G3MLib.Analyzer game-specific config, when this definition successfully matches.
+        /// Filename to be loaded as a G3MLib.Analyzer game-specific config, when this definition successfully matches.
         /// If empty, null, or the file is otherwise nonexistent, this will be ignored.
         /// </summary>
         public string AnalyzerFilename { get; set; }

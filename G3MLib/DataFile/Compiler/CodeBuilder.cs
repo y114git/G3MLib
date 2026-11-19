@@ -36,7 +36,7 @@ internal class CodeBuilder : ICodeBuilder
     }
 
     /// <summary>
-    /// Maps an opcode from G3MLib.Analyzer to an GameMakerInstruction opcode.
+    /// Maps an opcode from G3MLib.Analyzer to a GameMakerInstruction opcode.
     /// Also handles bytecode 14 mappings.
     /// </summary>
     private GameMakerInstruction.Opcode MapOpcode(Opcode opcode)

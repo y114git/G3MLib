@@ -75,7 +75,7 @@ public class GameMakerData : IDisposable
                 return null;
 
             if (!typeof(GameMakerResource).IsAssignableFrom(resourceType))
-                throw new NotSupportedException($"\"{resourceType.FullName}\" is not an GameMakerResource.");
+                throw new NotSupportedException($"\"{resourceType.FullName}\" is not a GameMakerResource.");
 
             var property = AllListProperties.FirstOrDefault(x => x.PropertyType.GetGenericArguments()[0] == resourceType) ?? throw new MissingMemberException($"\"GameMakerData\" doesn't contain a resource list of type \"{resourceType.FullName}\".");
             return property.GetValue(this, null) as IList;
@@ -85,7 +85,7 @@ public class GameMakerData : IDisposable
             ArgumentNullException.ThrowIfNull(resourceType);
 
             if (!typeof(GameMakerResource).IsAssignableFrom(resourceType))
-                throw new NotSupportedException($"\"{resourceType.FullName}\" is not an GameMakerResource.");
+                throw new NotSupportedException($"\"{resourceType.FullName}\" is not a GameMakerResource.");
 
             var property = AllListProperties.FirstOrDefault(x => x.PropertyType.GetGenericArguments()[0] == resourceType) ?? throw new MissingMemberException($"\"GameMakerData\" doesn't contain a resource list of type \"{resourceType.FullName}\".");
             ReplaceList(property.GetValue(this, null) as IList, value, property.PropertyType.GetGenericArguments()[0]);

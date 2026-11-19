@@ -7,7 +7,7 @@ using G3MLib.DataFile.Project;
 namespace G3MLib.DataFile.Scripting;
 
 /// <summary>
-/// An exception type that is thrown when trivial errors happen during runtime of GameMakerModTool scripts.<br/>
+/// An exception type that is thrown when trivial errors happen during runtime of UndertaleModTool scripts.<br/>
 /// This exception does not contain a stacktrace, and should more be handled like an error message that stops execution of the currently-running script.
 /// </summary>
 /// <example><code>if (Data is null) throw new ScriptException("Please load data.win first!");</code></example>
@@ -54,7 +54,7 @@ public class ScriptCancelledException : ScriptException
 
 /// <summary>
 /// Defines a generalized set of attributes and methods that a value type or class implements
-/// to be able to interact with GameMakerModTool-Scripts.
+/// to be able to interact with UndertaleModTool-Scripts.
 /// </summary>
 public interface IScriptInterface
 {

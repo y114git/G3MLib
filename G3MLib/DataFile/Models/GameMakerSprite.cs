@@ -94,7 +94,7 @@ public class GameMakerSprite : GameMakerNamedResource, IProjectAsset, PrePaddedO
     /// A <see cref="OriginX"/> wrapper that also sets <see cref="V2Sequence"/> accordingly.
     /// </summary>
     /// <remarks>
-    /// This attribute is used only in GameMakerModTool and doesn't exist in GameMaker.
+    /// This attribute is used only in UndertaleModTool and doesn't exist in GameMaker.
     /// </remarks>
     public int OriginXWrapper
     {
@@ -112,7 +112,7 @@ public class GameMakerSprite : GameMakerNamedResource, IProjectAsset, PrePaddedO
     /// A <see cref="OriginY"/> wrapper that also sets <see cref="V2Sequence"/> accordingly.
     /// </summary>
     /// <remarks>
-    /// This attribute is used only in GameMakerModTool and doesn't exist in GameMaker.
+    /// This attribute is used only in UndertaleModTool and doesn't exist in GameMaker.
     /// </remarks>
     public int OriginYWrapper
     {

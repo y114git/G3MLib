@@ -35,7 +35,7 @@ namespace G3MLib.DataFile.Models;
 ///     #5 leads here:
 ///     SimpleList&lt;int&gt; of tileset IDs the group has
 /// </code>
-/// <see href="https://github.com/UnderminersTeam/GameMakerModTool/wiki/Bytecode-17#tgin-new-chunk"/>.</remarks>
+/// <see href="https://github.com/UnderminersTeam/UndertaleModTool/wiki/Bytecode-17#tgin-new-chunk"/>.</remarks>
 [PropertyChanged.AddINotifyPropertyChangedInterface]
 public class GameMakerTextureGroupInfo : GameMakerNamedResource, IDisposable
 {
