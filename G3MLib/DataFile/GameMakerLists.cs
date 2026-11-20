@@ -540,6 +540,7 @@ public class GameMakerPointerList<T> : GameMakerObservableList<T>, GameMakerObje
         {
             var firstItem = this.First(obj => obj is not null);
             var pos = reader.GetAddressForGameMakerObject(firstItem);
+            reader.ThrowIfOutsideChunk(pos);
             if (reader.AbsPosition != pos)
             {
                 var skip = pos - reader.AbsPosition;

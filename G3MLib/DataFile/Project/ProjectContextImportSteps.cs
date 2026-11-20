@@ -85,7 +85,10 @@ public partial class ProjectContext
             }
             ProjectContext subContext = new(LoadDirectory, SaveDirectory, subProjectPath)
             {
-                _projectJsonPaths = _projectJsonPaths
+                _projectJsonPaths = _projectJsonPaths,
+                AllowScripts = AllowScripts,
+                ScriptMessageHandler = ScriptMessageHandler,
+                ScriptWarningHandler = ScriptWarningHandler
             };
             subContext.Import(null, FileBackup, MainThreadAction);
         }

@@ -112,5 +112,5 @@ public static partial class ResourceExportService
 		BatchRun.Run(outputDir, progress, cancellationToken, () => ExportCodeEntries(data, outputDir, maxDegreeOfParallelism));
 
 	public static IReadOnlyList<ItemResult> ExportCodeEntriesSelective(GameMakerData data, string outputDir, ISet<string> entryNames, IProgress<BatchProgress>? progress, CancellationToken cancellationToken) =>
-		BatchRun.Run(outputDir, progress, cancellationToken, () => ExportCodeEntriesSelective(data, outputDir, AsSet(entryNames)!));
+		BatchRun.Run(outputDir, progress, cancellationToken, () => ExportCodeEntriesSelective(data, outputDir, new HashSet<string>(entryNames)));
 }

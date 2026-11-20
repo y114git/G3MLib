@@ -74,7 +74,6 @@ internal sealed class SimpleFunctionCallNode : IMaybeStatementASTNode
 
         while (!context.EndOfCode && !context.IsCurrentToken(SeparatorKind.ArrayClose))
         {
-            // Parse current expression in array
             if (Expressions.ParseExpression(context) is IASTNode expr)
             {
                 arguments.Add(expr);
@@ -137,7 +136,6 @@ internal sealed class SimpleFunctionCallNode : IMaybeStatementASTNode
             arguments
         );
 
-        // Build out the format string, segment by segment
         var fieldIndex = 0;
         StringBuilder formatSb = new(64);
         while (!context.EndOfCode && context.CurrentToken is not TokenTemplateStringEnd)
@@ -155,7 +153,6 @@ internal sealed class SimpleFunctionCallNode : IMaybeStatementASTNode
             {
                 context.Position++;
 
-                // Parse field
                 if (Expressions.ParseExpression(context) is IASTNode expr)
                 {
                     arguments.Add(expr);
@@ -282,7 +279,6 @@ internal sealed class SimpleFunctionCallNode : IMaybeStatementASTNode
             return this;
         }
 
-        // Get numerical value
         int value;
         if (constant is NumberNode numberNode)
         {
@@ -323,7 +319,6 @@ internal sealed class SimpleFunctionCallNode : IMaybeStatementASTNode
             return this;
         }
 
-        // Get numerical value
         long value;
         if (constant is NumberNode numberNode)
         {
@@ -339,7 +334,6 @@ internal sealed class SimpleFunctionCallNode : IMaybeStatementASTNode
             return this;
         }
 
-        // Return Int64Node version of number
         return new Int64Node(value, NearbyToken);
     }
 
@@ -379,7 +373,6 @@ internal sealed class SimpleFunctionCallNode : IMaybeStatementASTNode
                     break;
                 }
 
-                // Remove underscores and trim string
                 str = str.Replace("_", "", StringComparison.Ordinal).Trim();
 
                 // Attempt hex literal parse
@@ -400,7 +393,6 @@ internal sealed class SimpleFunctionCallNode : IMaybeStatementASTNode
                 // Attempt binary literal parse
                 if (str.StartsWith("0b", StringComparison.InvariantCultureIgnoreCase))
                 {
-                    // Build number one binary digit at a time
                     long binary = 0;
                     for (var i = 2; i < str.Length; i++)
                     {
@@ -434,7 +426,6 @@ internal sealed class SimpleFunctionCallNode : IMaybeStatementASTNode
                 return this;
         }
 
-        // Return NumberNode version of number
         return new NumberNode(value, NearbyToken);
     }
 
@@ -476,7 +467,6 @@ internal sealed class SimpleFunctionCallNode : IMaybeStatementASTNode
             return this;
         }
 
-        // Create a variable hash node!
         return new VariableHashNode(
             str.Value,
             context.CompileContext.GameContext.Builtins.LookupBuiltinVariable(str.Value) is not null,
@@ -512,7 +502,6 @@ internal sealed class SimpleFunctionCallNode : IMaybeStatementASTNode
     /// </summary>
     public void GenerateDirectCode(BytecodeContext context)
     {
-        // Handle array copy-on-write
         if (context.CanGenerateArrayOwners && ArrayOwners.IsArraySetFunction(this))
         {
             ArrayOwners.GenerateSetArrayOwner(context, this);
@@ -525,7 +514,6 @@ internal sealed class SimpleFunctionCallNode : IMaybeStatementASTNode
         // use the outer scope for function resolution. Otherwise, use current scope.
         var scope = context.CurrentScope.GeneratingFunctionDeclHeader ? context.CurrentScope.Parent : context.CurrentScope;
 
-        // Emit actual call instruction
         FunctionPatch funcPatch = new(scope, FunctionName, BuiltinFunction);
         context.EmitCall(funcPatch, Arguments.Count);
         context.PushDataType(DataType.Variable);
@@ -559,7 +547,6 @@ internal sealed class SimpleFunctionCallNode : IMaybeStatementASTNode
                 // Push reference to function
                 context.Emit(ExtendedOpcode.PushReference, new LocalFunctionPatch(null, context.CurrentScope, FunctionName));
 
-                // Emit actual call
                 context.EmitCallVariable(Arguments.Count);
                 context.PushDataType(DataType.Variable);
 
@@ -607,7 +594,6 @@ internal sealed class SimpleFunctionCallNode : IMaybeStatementASTNode
                 finalVarNode.GenerateCode(context);
                 context.PopDataType();
 
-                // Emit actual call
                 context.EmitCallVariable(Arguments.Count);
                 context.PushDataType(DataType.Variable);
 

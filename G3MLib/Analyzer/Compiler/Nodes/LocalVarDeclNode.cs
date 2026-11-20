@@ -44,13 +44,11 @@ internal sealed class LocalVarDeclNode : IASTNode
     /// </summary>
     public static LocalVarDeclNode? Parse(ParseContext context)
     {
-        // Parse "var" keyword
         if (context.EnsureToken(KeywordKind.Var) is not TokenKeyword tokenKeyword)
         {
             return null;
         }
 
-        // Parse list of variables being declared
         List<string> declaredLocals = new(8);
         List<IASTNode?> assignedValues = new(8);
         while (!context.EndOfCode && context.Tokens[context.Position] is TokenVariable tokenVariable)
@@ -69,7 +67,6 @@ internal sealed class LocalVarDeclNode : IASTNode
             // Awaiting official Underminers resolution: duplicate declaration diagnostics differ between compiler versions.
             context.CurrentScope.DeclareLocal(tokenVariable.Text);
 
-            // Check for assignment
             if (context.IsCurrentToken(OperatorKind.Assign) || context.IsCurrentToken(OperatorKind.Assign2))
             {
                 context.Position++;
@@ -100,7 +97,6 @@ internal sealed class LocalVarDeclNode : IASTNode
             context.Position++;
         }
 
-        // Create final local var declaration node
         return new LocalVarDeclNode(tokenKeyword, declaredLocals, assignedValues);
     }
 
@@ -133,7 +129,6 @@ internal sealed class LocalVarDeclNode : IASTNode
         {
             if (AssignedValues[i] is IASTNode expression)
             {
-                // Handle array copy-on-write
                 var canGenerateArrayOwners = context.CanGenerateArrayOwners;
                 if (canGenerateArrayOwners && ArrayOwners.ContainsNewArrayLiteral(expression))
                 {
@@ -155,9 +150,9 @@ internal sealed class LocalVarDeclNode : IASTNode
     /// <inheritdoc/>
     public IEnumerable<IASTNode> EnumerateChildren()
     {
-        for (var i = 0; i < AssignedValues.Count; i++)
+        foreach (var assignedValue in AssignedValues)
         {
-            if (AssignedValues[i] is IASTNode expression)
+            if (assignedValue is IASTNode expression)
             {
                 yield return expression;
             }

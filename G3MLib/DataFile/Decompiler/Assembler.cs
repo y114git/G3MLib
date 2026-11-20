@@ -234,7 +234,6 @@ public static partial class Assembler
         // Default label output to null
         label = null;
 
-        // Remove comments from end of line
         var line = source.Split(" ;;; ", 2)[0];
 
         // Split apart opcode and data types
@@ -255,7 +254,6 @@ public static partial class Assembler
             throw new FormatException("Too many type parameters");
         }
 
-        // Start creating instruction with opcode and types
         var kind = types[0];
         GameMakerInstruction instr = new();
         if (NameToExtendedID.TryGetValue(kind.ToLower(CultureInfo.InvariantCulture), out var extendedId))
@@ -270,16 +268,13 @@ public static partial class Assembler
         }
         if (types.Length >= 2)
         {
-            // Parse first type
             instr.Type1 = GameMakerInstructionUtil.FromOpcodeParam(types[1]);
         }
         if (types.Length >= 3)
         {
-            // Parse second type
             instr.Type2 = GameMakerInstructionUtil.FromOpcodeParam(types[2]);
         }
 
-        // Parse depending on overarching instruction type
         switch (GameMakerInstruction.GetInstructionType(instr.Kind))
         {
             case GameMakerInstruction.InstructionType.SingleTypeInstruction:
@@ -453,7 +448,6 @@ public static partial class Assembler
                     throw new KeyNotFoundException($"Could not find function with name \"{funcName}\"");
                 instr.ValueFunction = func;
 
-                // Parse argument count
                 instr.ArgumentsCount = ushort.Parse(match.Groups[2].Value, CultureInfo.InvariantCulture);
 
                 line = "";
@@ -469,7 +463,6 @@ public static partial class Assembler
                     // For pushref (push reference) instructions, additional data is needed for its referenced asset
                     if (extendedId == -11)
                     {
-                        // Parse additional int argument
                         if (int.TryParse(line, out var intArgument))
                         {
                             instr.IntArgument = intArgument;
@@ -551,14 +544,12 @@ public static partial class Assembler
         // Use a passthrough main thread action if none was supplied
         mainThreadAction ??= passthroughMainThreadAction;
 
-        // Initialize structures
         Dictionary<string, uint> labels = [];
         List<(GameMakerInstruction Instruction, uint InstructionAddress, string Label)> labelTargets = [];
         List<GameMakerInstruction> instructions = new(16);
         Dictionary<string, GameMakerVariable> localvars = [];
         List<GameMakerCodeLocals.LocalVar> codeLocalDefinitions = [];
 
-        // Start reading instructions
         uint address = 0;
         StringReader strReader = new(source);
         string fullLine;
@@ -571,10 +562,8 @@ public static partial class Assembler
                 continue;
             }
 
-            // Handle sub-code entries
             if (line[0] == '>')
             {
-                // Parse sub-code entry name, and make sure it exists
                 line = line[2..].Trim();
                 var space = line.IndexOf(' ', StringComparison.InvariantCulture);
                 var codeName = line[..space];
@@ -615,7 +604,6 @@ public static partial class Assembler
                     throw new FormatException("Sub-code entry format error; should be formatted like \"> gml_Script_some_script (locals=6, argc=7)\"");
                 }
 
-                // Update info on the code entry
                 mainThreadAction(() =>
                 {
                     code.LocalsCount = ushort.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture);
@@ -625,10 +613,8 @@ public static partial class Assembler
                 continue;
             }
 
-            // Handle block labels
             if (line[0] == ':' && line.Length >= 3 && line[1] == '[')
             {
-                // Extract label name
                 var label = line[2..line.IndexOf(']', StringComparison.InvariantCulture)];
 
                 // Make sure label name isn't invalid or a duplicate
@@ -646,7 +632,6 @@ public static partial class Assembler
                 continue;
             }
 
-            // Handle assembler directives
             if (line[0] == '.')
             {
                 var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
@@ -748,7 +733,6 @@ public static partial class Assembler
             str = str[..at];
         }
 
-        // Parse string contents
         if (!string.IsNullOrEmpty(str))
         {
             if (str[0] != '"' || str[^1] != '"')
@@ -762,7 +746,6 @@ public static partial class Assembler
             str = null;
         }
 
-        // Get existing string object using ID
         var strobj = (id >= 0) ? strg[id] : null;
         if (strobj is not null)
         {
@@ -837,7 +820,6 @@ public static partial class Assembler
                 _ => instance
             };
 
-            // Set up for parsing after the dot
             strPosition = instanceTypeDot + 1;
         }
 
@@ -864,7 +846,6 @@ public static partial class Assembler
                 var instanceTypeStr = str[(variableTypeEnd + 1)..instanceTypeDot];
                 variInstanceType = Enum.Parse<GameMakerInstruction.InstanceType>(instanceTypeStr, true);
 
-                // Set up parsing after the dot
                 strPosition = instanceTypeDot + 1;
             }
             else
@@ -882,7 +863,6 @@ public static partial class Assembler
                     variInstanceType = GameMakerInstruction.InstanceType.Self;
                 }
 
-                // Set up parsing after the variable type's closing bracket
                 strPosition = variableTypeEnd + 1;
             }
         }
@@ -912,7 +892,6 @@ public static partial class Assembler
             throw new KeyNotFoundException($"Failed to find existing variable: {variInstanceType.ToString().ToLower(CultureInfo.InvariantCulture)}.{variableName}");
         }
 
-        // Return reference to be used in instruction
         return (locatedVariable, type);
     }
 }

@@ -42,6 +42,18 @@ public class AdaptiveBinaryReader : IBinaryReader
         }
     }
 
+    /// <summary>
+    /// Whether the reader works inside one chunk buffer. <see cref="Length"/> is always the length of the whole stream; in buffered mode
+    /// <see cref="Position"/> is relative to the buffer and <see cref="AbsPosition"/> is the file position. <see cref="ChunkEnd"/> gives the absolute chunk boundary.
+    /// </summary>
+    protected bool IsChunkBuffered => isUsingBufferReader;
+
+    /// <summary>Absolute start of the chunk being read; only valid while <see cref="IsChunkBuffered"/>.</summary>
+    protected long ChunkStart => bufferBinaryReader.ChunkStartPosition;
+
+    /// <summary>Absolute end of the chunk being read; only valid while <see cref="IsChunkBuffered"/>.</summary>
+    protected long ChunkEnd => bufferBinaryReader.ChunkEndPosition;
+
     public Encoding Encoding { get; } = new UTF8Encoding(false);
     public Stream Stream { get; set; }
     public long Length { get; private set; }

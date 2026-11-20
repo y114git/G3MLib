@@ -122,9 +122,9 @@ public partial class ProjectContext : IScriptInterface
         return true;
     }
 
-    public string PromptChooseDirectory() => throw UiUnavailable();
-    public string PromptLoadFile(string defaultExt, string filter) => throw UiUnavailable();
-    public string PromptSaveFile(string defaultExt, string filter) => throw UiUnavailable();
+    public string? PromptChooseDirectory() => throw UiUnavailable();
+    public string? PromptLoadFile(string defaultExt, string filter) => throw UiUnavailable();
+    public string? PromptSaveFile(string defaultExt, string filter) => throw UiUnavailable();
 
     public bool RunUMTScript(string path)
     {
@@ -161,7 +161,7 @@ public partial class ProjectContext : IScriptInterface
         throw new ScriptException(error);
     }
 
-    public string ScriptInputDialog(string title, string label, string defaultInput, string cancelText, string submitText, bool isMultiline, bool preventClose) => throw UiUnavailable();
+    public string? ScriptInputDialog(string title, string label, string defaultInput, string cancelText, string submitText, bool isMultiline, bool preventClose) => throw UiUnavailable();
     public void ScriptMessage(string message) => ScriptMessageHandler?.Invoke(message);
     public void ScriptOpenURL(string url) => throw UiUnavailable();
     public bool ScriptQuestion(string message) => false;
@@ -173,7 +173,7 @@ public partial class ProjectContext : IScriptInterface
     public void SetProgressBar(string message, string status, double progressValue, double maxValue) => SetProgress((int)Math.Clamp(progressValue, int.MinValue, int.MaxValue));
     public void SetProgressBar() => SetProgress(0);
     public void SetUMTConsoleText(string message) => ScriptMessage(message);
-    public string SimpleTextInput(string title, string label, string defaultValue, bool allowMultiline, bool showDialog = true) => throw UiUnavailable();
+    public string? SimpleTextInput(string title, string label, string defaultValue, bool allowMultiline, bool showDialog = true) => throw UiUnavailable();
     public void SimpleTextOutput(string title, string label, string message, bool allowMultiline) => ScriptMessage(message);
     public void StartProgressBarUpdater()
     {

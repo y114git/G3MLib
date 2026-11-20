@@ -10,7 +10,7 @@ internal sealed class ModelCloner(HashSet<object> shared, Func<object, bool> isO
 {
     private static readonly ConcurrentDictionary<Type, FieldInfo[]> FieldCache = new();
     private static readonly ConcurrentDictionary<Type, bool> HoldsCache = new();
-    private static readonly MethodInfo MemberwiseCloneMethod = typeof(object).GetMethod("MemberwiseClone", BindingFlags.Instance | BindingFlags.NonPublic)!;
+    private static readonly MethodInfo MemberwiseCloneMethod = typeof(object).GetMethod("MemberwiseClone", BindingFlags.Instance | BindingFlags.NonPublic) ?? throw new MissingMethodException(nameof(MemberwiseClone));
     private readonly Dictionary<object, object> _map = new(ReferenceEqualityComparer.Instance);
 
     // Maps a source object to the copy that stands in for it, so references to it inside the graph point at the copy.
@@ -52,7 +52,7 @@ internal sealed class ModelCloner(HashSet<object> shared, Func<object, bool> isO
 
     private Array CloneArray(Array source, Type type)
     {
-        var elementType = type.GetElementType()!;
+        var elementType = type.GetElementType() ?? throw new ArgumentException($"{type.Name} is not an array type.", nameof(type));
         var copy = (Array)source.Clone();
         _map[source] = copy;
         if (elementType == typeof(string) || (elementType.IsValueType && !HoldsModel(elementType)))
@@ -92,7 +92,7 @@ internal sealed class ModelCloner(HashSet<object> shared, Func<object, bool> isO
         {
             throw new NotSupportedException($"{type.Name} with model objects as keys cannot be copied.");
         }
-        var copy = MemberwiseCloneMethod.Invoke(source, null)!;
+        var copy = MemberwiseCloneMethod.Invoke(source, null) ?? throw new InvalidOperationException("MemberwiseClone returned null.");
         _map[source] = copy;
         created(source, copy);
         foreach (var field in FieldsOf(type))
@@ -143,7 +143,7 @@ internal sealed class ModelCloner(HashSet<object> shared, Func<object, bool> isO
             foreach (var field in current.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
             {
                 var fieldType = field.FieldType;
-                var element = fieldType.IsArray ? fieldType.GetElementType()! : fieldType;
+                var element = fieldType.IsArray ? fieldType.GetElementType() ?? fieldType : fieldType;
                 if (element.IsValueType ? HoldsModel(element) : element != typeof(string) && (fieldType.IsArray || IsCopyable(element)))
                 {
                     return true;

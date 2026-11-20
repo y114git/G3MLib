@@ -467,9 +467,9 @@ public sealed class TextureGroupPacker
         var bestShortSideFit = int.MaxValue;
         var bestLongSideFit = int.MaxValue;
         TextureRect bestRect = default;
-        for (var i = 0; i < freeRects.Count; i++)
+        foreach (var freeRect in freeRects)
         {
-            var rect = freeRects[i];
+            var rect = freeRect;
             if (rect.Width >= width && rect.Height >= height)
             {
                 var leftoverHoriz = rect.Width - width;

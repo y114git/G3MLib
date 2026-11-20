@@ -191,15 +191,15 @@ public class ScriptGlobals : IScriptInterface
         return true;
     }
 
-    public virtual string ScriptInputDialog(string title, string label, string defaultInput, string cancelText, string submitText, bool isMultiline, bool preventClose) => throw UiUnavailable();
+    public virtual string? ScriptInputDialog(string title, string label, string defaultInput, string cancelText, string submitText, bool isMultiline, bool preventClose) => throw UiUnavailable();
 
     /// <summary>
     /// Short form of <see cref="ScriptInputDialog(string, string, string, string, string, bool, bool)"/> kept for scripts written for earlier G3MLib hosts:
     /// returns <paramref name="defaultInput"/> without asking when <paramref name="showDialog"/> is false.
     /// </summary>
-    public string ScriptInputDialog(string title, string label, string defaultInput, bool allowMultiline, bool showDialog) =>
+    public string? ScriptInputDialog(string title, string label, string defaultInput, bool allowMultiline, bool showDialog) =>
         showDialog ? ScriptInputDialog(title, label, defaultInput, "Cancel", "OK", allowMultiline, false) : defaultInput;
-    public virtual string SimpleTextInput(string title, string label, string defaultValue, bool allowMultiline, bool showDialog = true) => throw UiUnavailable();
+    public virtual string? SimpleTextInput(string title, string label, string defaultValue, bool allowMultiline, bool showDialog = true) => throw UiUnavailable();
     public virtual void SimpleTextOutput(string title, string label, string message, bool allowMultiline) => ScriptMessage(message);
 
     public virtual Task ClickableSearchOutput(string title, string query, int resultsCount, IOrderedEnumerable<KeyValuePair<string, List<(int lineNum, string codeLine)>>> resultsDict, bool showInDecompiledView, IOrderedEnumerable<string>? failedList = null) => Task.CompletedTask;
@@ -213,9 +213,9 @@ public class ScriptGlobals : IScriptInterface
     {
     }
 
-    public virtual string PromptChooseDirectory() => throw UiUnavailable();
-    public virtual string PromptLoadFile(string defaultExt, string filter) => throw UiUnavailable();
-    public virtual string PromptSaveFile(string defaultExt, string filter) => throw UiUnavailable();
+    public virtual string? PromptChooseDirectory() => throw UiUnavailable();
+    public virtual string? PromptLoadFile(string defaultExt, string filter) => throw UiUnavailable();
+    public virtual string? PromptSaveFile(string defaultExt, string filter) => throw UiUnavailable();
 
     public virtual void ChangeSelection(object newSelection, bool inNewTab = false)
     {

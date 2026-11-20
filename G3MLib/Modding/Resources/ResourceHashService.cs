@@ -121,8 +121,8 @@ public static class ResourceHashService
 		{
 			var gameMakerEmbeddedAudio = data.EmbeddedAudio[i];
 			var key = $"audio_{i:D4}";
-			var data2 = gameMakerEmbeddedAudio?.Data ?? [];
-			result[key] = HexHash(data2);
+			var secondData = gameMakerEmbeddedAudio?.Data ?? [];
+			result[key] = HexHash(secondData);
 		});
 		return new Dictionary<string, string>(result, StringComparer.OrdinalIgnoreCase);
 	}
@@ -370,9 +370,9 @@ public static class ResourceHashService
 					w.WriteString("name", current.Name?.Content ?? "");
 					w.WriteString("region", current.Region?.Content ?? "");
 					w.WriteStartArray("entries");
-					foreach (var item2 in current.Entries ?? [])
+					foreach (var listItem2 in current.Entries ?? [])
 					{
-						w.WriteStringValue(item2?.Content ?? "");
+						w.WriteStringValue(listItem2?.Content ?? "");
 					}
 					w.WriteEndArray();
 					w.WriteEndObject();
@@ -559,9 +559,9 @@ public static class ResourceHashService
 			var gameMakerEmbeddedTexture = data.EmbeddedTextures[num];
 			if (gameMakerEmbeddedTexture?.TextureData?.Image == null)
 			{
-				foreach (var (item, item2, item3, item4) in hashSet2)
+				foreach (var (item, listItem2, listItem3, listItem4) in hashSet2)
 				{
-					frameHashes[(num, item, item2, item3, item4)] = "";
+					frameHashes[(num, item, listItem2, listItem3, listItem4)] = "";
 				}
 				return;
 			}
@@ -617,9 +617,9 @@ public static class ResourceHashService
 						w.WriteBoolean("enabled", gameMakerSprite.V3NineSlice.Enabled);
 						w.WriteStartArray("tileModes");
 						var tileModes = gameMakerSprite.V3NineSlice.TileModes;
-						foreach (var value2 in tileModes)
+						foreach (var itemValue2 in tileModes)
 						{
-							w.WriteNumberValue((int)value2);
+							w.WriteNumberValue((int)itemValue2);
 						}
 						w.WriteEndArray();
 						w.WriteEndObject();
@@ -647,14 +647,14 @@ public static class ResourceHashService
 								w.WriteNumber("tgtH", gameMakerTexturePageItem.TargetHeight);
 								w.WriteNumber("bndX", gameMakerTexturePageItem.BoundingWidth);
 								w.WriteNumber("bndY", gameMakerTexturePageItem.BoundingHeight);
-								var num = (gameMakerTexturePageItem.TexturePage != null && pageIndexMap.TryGetValue(gameMakerTexturePageItem.TexturePage, out var value3)) ? value3 : (-1);
+								var num = (gameMakerTexturePageItem.TexturePage != null && pageIndexMap.TryGetValue(gameMakerTexturePageItem.TexturePage, out var itemValue3)) ? itemValue3 : (-1);
 								w.WriteNumber("texPage", num);
-								var value4 = "";
+								var itemValue4 = "";
 								if (num >= 0)
 								{
-									frameHashes.TryGetValue((num, gameMakerTexturePageItem.SourceX, gameMakerTexturePageItem.SourceY, gameMakerTexturePageItem.SourceWidth, gameMakerTexturePageItem.SourceHeight), out value4);
+									frameHashes.TryGetValue((num, gameMakerTexturePageItem.SourceX, gameMakerTexturePageItem.SourceY, gameMakerTexturePageItem.SourceWidth, gameMakerTexturePageItem.SourceHeight), out itemValue4);
 								}
-								w.WriteString("frameHash", value4 ?? "");
+								w.WriteString("frameHash", itemValue4 ?? "");
 								w.WriteEndObject();
 							}
 							else
@@ -679,8 +679,8 @@ public static class ResourceHashService
 								w.WriteStartObject();
 								w.WriteNumber("width", current.Width);
 								w.WriteNumber("height", current.Height);
-								var data2 = current.Data;
-								w.WriteNumber("length", (data2 != null) ? data2.Length : 0);
+								var secondData = current.Data;
+								w.WriteNumber("length", (secondData != null) ? secondData.Length : 0);
 								w.WriteString("dataHash", (current.Data != null) ? HexHash(current.Data) : "");
 								w.WriteEndObject();
 							}
@@ -848,7 +848,7 @@ public static class ResourceHashService
 						w.WriteNumber("texSrcY", texture.SourceY);
 						w.WriteNumber("texSrcW", texture.SourceWidth);
 						w.WriteNumber("texSrcH", texture.SourceHeight);
-						w.WriteNumber("texPage", (texture.TexturePage != null && pageIndexMap.TryGetValue(texture.TexturePage, out var value2)) ? value2 : (-1));
+						w.WriteNumber("texPage", (texture.TexturePage != null && pageIndexMap.TryGetValue(texture.TexturePage, out var itemValue2)) ? itemValue2 : (-1));
 					}
 					w.WriteEndObject();
 				});
@@ -1821,9 +1821,9 @@ public static class ResourceHashService
 										if (array != null)
 										{
 											var array2 = array;
-											foreach (var value2 in array2)
+											foreach (var itemValue2 in array2)
 											{
-												w.WriteNumberValue(value2);
+												w.WriteNumberValue(itemValue2);
 											}
 										}
 										w.WriteEndArray();

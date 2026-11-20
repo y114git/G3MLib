@@ -86,13 +86,12 @@ internal sealed class ShortCircuit(int startAddress, int endAddress, ShortCircui
             ctx.ThrowIfCancellationRequested();
             // Add child nodes
             List<IControlFlowNode> children = [block.Predecessors[0]];
-            for (var i = 0; i < block.Predecessors.Count; i++)
+            foreach (var predecessor in block.Predecessors)
             {
                 // Connect to the next condition (the non-branch path from the previous condition)
-                children.Add(block.Predecessors[i].Successors[0]);
+                children.Add(predecessor.Successors[0]);
             }
 
-            // Create actual node
             var logicKind = block.Instructions[0].ValueShort == 0 ? ShortCircuitType.And : ShortCircuitType.Or;
             ShortCircuit sc = new(children[0].StartAddress, block.EndAddress, logicKind, children);
             shortCircuits.Add(sc);
@@ -109,10 +108,8 @@ internal sealed class ShortCircuit(int startAddress, int endAddress, ShortCircui
             finalBlock.Instructions.RemoveAt(finalBlock.Instructions.Count - 1);
             IControlFlowNode.DisconnectSuccessor(finalBlock, 0);
 
-            // Remove original push instruction that was detected
             block.Instructions.RemoveAt(0);
 
-            // Update overarching control flow
             IControlFlowNode.InsertStructure(children[0], block.Successors[0], sc);
 
             // Update parent status of the first child, as well as this loop, for later operation
@@ -141,7 +138,6 @@ internal sealed class ShortCircuit(int startAddress, int endAddress, ShortCircui
         builder.BuildArbitrary(Children[0], output, -1);
         conditions.Add(builder.ExpressionStack.Pop());
 
-        // Build the rest of the conditions
         for (var i = 1; i < Children.Count; i++)
         {
             conditions.Add(builder.BuildExpression(Children[i]));

@@ -20,7 +20,6 @@ internal static class StaticDeclarations
     /// </summary>
     public static void Parse(ParseContext context)
     {
-        // Parse "static" keyword
         if (context.EnsureToken(KeywordKind.Static) is not TokenKeyword tokenKeyword)
         {
             return;
@@ -36,7 +35,6 @@ internal static class StaticDeclarations
             context.CurrentScope.StaticInitializerBlock ??= BlockNode.CreateEmpty(tokenKeyword, 8);
         }
 
-        // Parse list of variables being declared
         while (!context.EndOfCode && context.Tokens[context.Position] is TokenVariable tokenVariable)
         {
             context.Position++;
@@ -50,7 +48,6 @@ internal static class StaticDeclarations
             // Awaiting official Underminers resolution: duplicate declaration diagnostics differ between compiler versions.
             context.CurrentScope.DeclareStatic(tokenVariable.Text);
 
-            // Check for assignment
             if (context.IsCurrentToken(OperatorKind.Assign) || context.IsCurrentToken(OperatorKind.Assign2))
             {
                 context.Position++;

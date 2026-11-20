@@ -79,7 +79,6 @@ internal sealed class WithLoop : Loop
         newAfter.Parent = this;
         After = newAfter;
 
-        // Get rid of jumps from tail
         IControlFlowNode.DisconnectSuccessor(Tail, 1);
         IControlFlowNode.DisconnectSuccessor(Tail, 0);
 
@@ -100,7 +99,6 @@ internal sealed class WithLoop : Loop
             nodeToEndAt = BreakBlock.Successors[0];
             IControlFlowNode.DisconnectSuccessor(BreakBlock, 0);
 
-            // Get rid of branch instruction from oldAfter
             var oldAfterBlock = oldAfter as Block ?? throw new DecompilerException("Expected old after to be block");
             oldAfterBlock.Instructions.RemoveAt(oldAfterBlock.Instructions.Count - 1);
 
@@ -131,7 +129,6 @@ internal sealed class WithLoop : Loop
             Predecessors.Add(Before);
         }
 
-        // Remove all predecessors of Tail that are before this loop
         for (var i = Tail.Predecessors.Count - 1; i >= 0; i--)
         {
             var curr = Tail.Predecessors[i];
@@ -165,7 +162,6 @@ internal sealed class WithLoop : Loop
         var prevLoop = builder.TopFragmentContext.SurroundingLoop;
         builder.TopFragmentContext.SurroundingLoop = this;
 
-        // Build loop body, and create statement
         var body = builder.BuildBlock(Head);
         output.Add(new WithLoopNode(target, body));
 

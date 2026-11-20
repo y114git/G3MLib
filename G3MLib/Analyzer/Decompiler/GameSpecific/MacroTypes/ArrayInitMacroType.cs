@@ -37,7 +37,6 @@ public class ArrayInitMacroType(IMacroType type) : IMacroTypeArrayInit
                 continue;
             }
 
-            // Update element
             arrayInit.Elements[i] = nodeResolved;
             didAnything = true;
         }

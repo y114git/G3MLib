@@ -87,13 +87,11 @@ internal sealed class FunctionDeclNode : IMaybeStatementASTNode
     /// </summary>
     private static IfNode GenerateDefaultCheckAndAssign(ParseContext context, int argumentIndex, IASTNode value)
     {
-        // Create condition
         var undefined = SimpleVariableNode.CreateUndefined(context);
         var useBuiltinInstanceType = context.CompileContext.GameContext.UsingBuiltinDefaultArguments;
         var argumentVar = SimpleVariableNode.CreateArgumentVariable(context, value.NearbyToken, argumentIndex, useBuiltinInstanceType);
         BinaryChainNode condition = new(value.NearbyToken, [argumentVar, undefined], [BinaryChainNode.BinaryOperation.CompareEqual]);
 
-        // Create assignment statement
         argumentVar = SimpleVariableNode.CreateArgumentVariable(context, value.NearbyToken, argumentIndex, useBuiltinInstanceType);
         AssignNode assign = new(AssignNode.AssignKind.Normal, argumentVar, value);
 
@@ -125,7 +123,6 @@ internal sealed class FunctionDeclNode : IMaybeStatementASTNode
         FunctionScope newScope = new(oldScope, true);
         context.CurrentScope = newScope;
 
-        // Parse arguments and default values
         List<string> argumentNames = new(16);
         BlockNode? defaultValueBlock = null;
         while (!context.EndOfCode && context.Tokens[context.Position] is TokenVariable tokenVariable)
@@ -139,12 +136,10 @@ internal sealed class FunctionDeclNode : IMaybeStatementASTNode
             argumentNames.Add(argumentName);
             context.Position++;
 
-            // Check for default value
             if (context.IsCurrentToken(OperatorKind.Assign) || context.IsCurrentToken(OperatorKind.Assign2))
             {
                 context.Position++;
 
-                // Parse default value
                 if (Expressions.ParseExpression(context) is IASTNode defaultValueExpr)
                 {
                     // Generate code for checking/assigning default value for this argument
@@ -184,7 +179,6 @@ internal sealed class FunctionDeclNode : IMaybeStatementASTNode
             }
         }
 
-        // Check for ")"
         if (context.EnsureToken(SeparatorKind.GroupClose) is null)
         {
             return null;
@@ -193,13 +187,11 @@ internal sealed class FunctionDeclNode : IMaybeStatementASTNode
         // Assign arguments to function scope
         newScope.DeclareArguments(argumentNames);
 
-        // Check for inheritance
         SimpleFunctionCallNode? inheritanceCall = null;
         if (context.IsCurrentToken(SeparatorKind.Colon))
         {
             context.Position++;
 
-            // Parse inheritance call
             if (!context.EndOfCode && context.Tokens[context.Position] is TokenFunction tokenInheritFunction)
             {
                 context.Position++;
@@ -239,13 +231,11 @@ internal sealed class FunctionDeclNode : IMaybeStatementASTNode
             context.CompileContext.PushError("Only constructor functions can inherit", inheritanceCall.NearbyToken);
         }
 
-        // Parse main body block
         var body = BlockNode.ParseRegular(context);
 
         // Exit function scope
         context.CurrentScope = oldScope;
 
-        // Return new function declaration node
         return new FunctionDeclNode(newScope, tokenKeyword, new(functionName, argumentNames, defaultValueBlock, body, inheritanceCall, false, isConstructor));
     }
 
@@ -279,7 +269,6 @@ internal sealed class FunctionDeclNode : IMaybeStatementASTNode
         FunctionScope newScope = new(oldScope, true);
         context.CurrentScope = newScope;
 
-        // Create new function declaration node
         var block = BlockNode.CreateEmpty(tokenOpen, 8);
         FunctionDeclNode decl = new(newScope, tokenOpen, new(null, [], null, block, null, true, true));
         List<IASTNode> args = new(9) { decl };
@@ -329,10 +318,8 @@ internal sealed class FunctionDeclNode : IMaybeStatementASTNode
             }
             else
             {
-                // Parse ":"
                 context.EnsureToken(SeparatorKind.Colon);
 
-                // Parse expression to assign to the value
                 if (Expressions.ParseExpression(context) is not IASTNode expr)
                 {
                     // Failed to parse expression... stop parsing
@@ -439,7 +426,6 @@ internal sealed class FunctionDeclNode : IMaybeStatementASTNode
         // Exit function scope
         context.CurrentScope = oldScope;
 
-        // Create function call node
         return new SimpleFunctionCallNode(VMConstants.NewObjectFunction, null, args);
     }
 
@@ -526,7 +512,6 @@ internal sealed class FunctionDeclNode : IMaybeStatementASTNode
             oldScope.AssignFunctionEntry(FunctionName, entry);
         }
 
-        // Create control flow context stack for the scope
         Scope.ControlFlowContexts = new(8);
 
         // Mark scope as generating a function declaration header

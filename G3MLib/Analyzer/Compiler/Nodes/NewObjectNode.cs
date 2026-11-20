@@ -44,13 +44,11 @@ internal sealed class NewObjectNode : IMaybeStatementASTNode
     /// </summary>
     public static NewObjectNode? Parse(ParseContext context)
     {
-        // Parse "new" keyword
         if (context.EnsureToken(KeywordKind.New) is not TokenKeyword tokenKeyword)
         {
             return null;
         }
 
-        // Parse function/variable/value being instantiated
         IASTNode expression;
         if (!context.EndOfCode && context.Tokens[context.Position] is TokenFunction tokenFunction)
         {
@@ -60,7 +58,6 @@ internal sealed class NewObjectNode : IMaybeStatementASTNode
         }
         else
         {
-            // Parse general chain expression
             if (Expressions.ParseChainExpression(context, true) is IASTNode chainExpression)
             {
                 expression = chainExpression;
@@ -71,13 +68,11 @@ internal sealed class NewObjectNode : IMaybeStatementASTNode
             }
         }
 
-        // Parse arguments being used in constructor call
         if (Functions.ParseCallArguments(context, 65534 /* Awaiting official Underminers resolution: constructor argument limit. */) is not List<IASTNode> arguments)
         {
             return null;
         }
 
-        // Create final expression node
         return new NewObjectNode(tokenKeyword, expression, arguments);
     }
 

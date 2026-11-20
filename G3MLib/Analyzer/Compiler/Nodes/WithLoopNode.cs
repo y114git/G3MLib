@@ -41,13 +41,11 @@ internal sealed class WithLoopNode : IASTNode
     /// </summary>
     public static WithLoopNode? Parse(ParseContext context)
     {
-        // Parse "with" keyword
         if (context.EnsureToken(KeywordKind.With) is not TokenKeyword tokenKeyword)
         {
             return null;
         }
 
-        // Parse loop condition
         if (Expressions.ParseExpression(context) is not IASTNode expression)
         {
             return null;
@@ -59,13 +57,11 @@ internal sealed class WithLoopNode : IASTNode
             context.Position++;
         }
 
-        // Parse loop body
         if (Statements.ParseStatement(context) is not IASTNode body)
         {
             return null;
         }
 
-        // Create final statement
         return new WithLoopNode(tokenKeyword, expression, body);
     }
 

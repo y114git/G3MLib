@@ -42,6 +42,11 @@ public static partial class ResourceExportService
 
 	private static readonly char[] s_invalidChars = Path.GetInvalidFileNameChars();
 
+	private static readonly System.Buffers.SearchValues<char> s_lowerHex = System.Buffers.SearchValues.Create("0123456789abcdef");
+
+	private static bool HasHashSuffixShape(string name) =>
+		name.Length >= 14 && name.AsSpan(name.Length - 14, 2).SequenceEqual("__") && name.AsSpan(name.Length - 12).IndexOfAnyExcept(s_lowerHex) < 0;
+
 	internal static string SafeName(string name)
 	{
 		if (string.IsNullOrWhiteSpace(name))
@@ -64,7 +69,8 @@ public static partial class ResourceExportService
 		}
 
 		// A replaced character gets the hash too, so 'a:b' and 'a_b' do not share a folder.
-		if (!altered && safe == name && safe.Length <= 96)
+		// A name already shaped like a hashed result ('a_b__' plus 12 hex digits) is hashed again, so it cannot equal the folder of another name.
+		if (!altered && safe == name && safe.Length <= 96 && !HasHashSuffixShape(safe))
 		{
 			return safe;
 		}
@@ -254,14 +260,14 @@ public static partial class ResourceExportService
 			ExportAnimationCurves(data, outputDir, changedNames.GetValueOrDefault("AnimationCurves"));
 		});
 		totalSw.Stop();
-		var handler2 = new LogInterpolatedStringHandler(48, 1, out shouldAppend);
+		var logMessage2 = new LogInterpolatedStringHandler(48, 1, out shouldAppend);
 		if (shouldAppend)
 		{
-			handler2.AppendLiteral("[Export Timing] TOTAL (selective, excl. code): ");
-			handler2.AppendFormatted(totalSw.Elapsed.TotalSeconds, "F1");
-			handler2.AppendLiteral("s");
+			logMessage2.AppendLiteral("[Export Timing] TOTAL (selective, excl. code): ");
+			logMessage2.AppendFormatted(totalSw.Elapsed.TotalSeconds, "F1");
+			logMessage2.AppendLiteral("s");
 		}
-		LogService.Log(ref handler2);
+		LogService.Log(ref logMessage2);
 		void Time(string name, Action action)
 		{
 			var filter = changedNames.GetValueOrDefault(name);
@@ -269,18 +275,18 @@ public static partial class ResourceExportService
 			{
 				sw.Restart();
 				action();
-				var handler3 = new LogInterpolatedStringHandler(32, 3, out var shouldAppend2);
+				var logMessage3 = new LogInterpolatedStringHandler(32, 3, out var shouldAppend2);
 				if (shouldAppend2)
 				{
-					handler3.AppendLiteral("[Export Timing] ");
-					handler3.AppendFormatted(name);
-					handler3.AppendLiteral(": ");
-					handler3.AppendFormatted(sw.Elapsed.TotalSeconds, "F1");
-					handler3.AppendLiteral("s (");
-					handler3.AppendFormatted(filter.Count);
-					handler3.AppendLiteral(" resources)");
+					logMessage3.AppendLiteral("[Export Timing] ");
+					logMessage3.AppendFormatted(name);
+					logMessage3.AppendLiteral(": ");
+					logMessage3.AppendFormatted(sw.Elapsed.TotalSeconds, "F1");
+					logMessage3.AppendLiteral("s (");
+					logMessage3.AppendFormatted(filter.Count);
+					logMessage3.AppendLiteral(" resources)");
 				}
-				LogService.Log(ref handler3);
+				LogService.Log(ref logMessage3);
 			}
 		}
 	}
@@ -719,17 +725,17 @@ public static partial class ResourceExportService
 		CancellableParallel.ForEach(entries, delegate ((GameMakerScript Item, string ExportName) entry)
 		{
 			var item = entry.Item;
-			var item2 = entry.ExportName;
+			var listItem2 = entry.ExportName;
 			BatchRun.Guard(item.Name.Content, () =>
 			{
-				var text = Path.Combine(dir, item2);
+				var text = Path.Combine(dir, listItem2);
 				Directory.CreateDirectory(text);
 				ExportText.WriteAllText(contents: JsonSerializer.Serialize(new Dictionary<string, object>
 				{
 					["name"] = item.Name.Content,
 					["code"] = item.Code?.Name?.Content ?? "",
 					["isConstructor"] = item.IsConstructor
-				}, s_jsonOpts), path: Path.Combine(text, item2 + ".json"));
+				}, s_jsonOpts), path: Path.Combine(text, listItem2 + ".json"));
 			});
 		});
 	}
@@ -802,8 +808,8 @@ public static partial class ResourceExportService
 			IL_00a6:
 				obj["texturePageItemIndex"] = num;
 				obj["texturePageItemName"] = image.TextureEntry?.Name?.Content ?? "";
-				var value2 = obj;
-				ExportText.WriteAllText(Path.Combine(text2, text + ".json"), JsonSerializer.Serialize(value2, s_jsonOpts));
+				var itemValue2 = obj;
+				ExportText.WriteAllText(Path.Combine(text2, text + ".json"), JsonSerializer.Serialize(itemValue2, s_jsonOpts));
 			});
 		});
 	}
@@ -1117,8 +1123,8 @@ public static partial class ResourceExportService
 					{
 						using var magickImage = gameMakerEmbeddedTexture.TextureData.Image.GetMagickImage();
 						magickImage.Strip();
-						var data2 = GMImage.FromMagickImage(magickImage).ConvertToPng().GetData();
-						File.WriteAllBytes(Path.Combine(text2, text + ".png"), data2);
+						var secondData = GMImage.FromMagickImage(magickImage).ConvertToPng().GetData();
+						File.WriteAllBytes(Path.Combine(text2, text + ".png"), secondData);
 					}
 				}
 				var value = new Dictionary<string, object>
@@ -1215,14 +1221,14 @@ public static partial class ResourceExportService
 				var (gameMakerSprite, _) = item;
 				try
 				{
-					var item2 = item.Index;
+					var listItem2 = item.Index;
 					var text = SafeName(gameMakerSprite.Name?.Content ?? string.Empty);
-					var text2 = string.IsNullOrEmpty(text) ? $"__unnamed_sprite__idx{item2}" : text;
+					var text2 = string.IsNullOrEmpty(text) ? $"__unnamed_sprite__idx{listItem2}" : text;
 					var text3 = Path.Combine(dir, text2);
 					Directory.CreateDirectory(text3);
 					var dictionary = new Dictionary<string, object>
 					{
-						["index"] = item2,
+						["index"] = listItem2,
 						["name"] = gameMakerSprite.Name?.Content ?? "",
 						["width"] = gameMakerSprite.Width,
 						["height"] = gameMakerSprite.Height,
@@ -1329,18 +1335,18 @@ public static partial class ResourceExportService
 					}
 					ExportText.WriteAllText(Path.Combine(text3, text2 + ".json"), JsonSerializer.Serialize(dictionary, s_jsonOpts), Encoding.UTF8);
 					string? frameError = null;
-					for (var num2 = 0; num2 < gameMakerSprite.Textures.Count; num2++)
+					for (var secondNum = 0; secondNum < gameMakerSprite.Textures.Count; secondNum++)
 					{
-						var gameMakerTexturePageItem2 = gameMakerSprite.Textures[num2]?.Texture;
+						var gameMakerTexturePageItem2 = gameMakerSprite.Textures[secondNum]?.Texture;
 						if (gameMakerTexturePageItem2 != null)
 						{
 							try
 							{
-								worker.ExportAsPNG(gameMakerTexturePageItem2, Path.Combine(text3, $"{text}_{num2}.png"));
+								worker.ExportAsPNG(gameMakerTexturePageItem2, Path.Combine(text3, $"{text}_{secondNum}.png"));
 							}
 							catch (Exception ex) when (!ModdingCancellation.IsCancellation(ex))
 							{
-								frameError ??= $"Frame {num2}: {ex.Message}";
+								frameError ??= $"Frame {secondNum}: {ex.Message}";
 							}
 						}
 					}
@@ -2292,8 +2298,8 @@ public static partial class ResourceExportService
 			try
 			{
 				var value = SafeName(obj.Name.Content);
-				var value2 = objectIndices.TryGetValue(obj, out var value3) ? value3 : (-1);
-				var path = $"{value}__idx{value2:D4}";
+				var itemValue2 = objectIndices.TryGetValue(obj, out var itemValue3) ? itemValue3 : (-1);
+				var path = $"{value}__idx{itemValue2:D4}";
 				var text = Path.Combine(dir, path);
 				Directory.CreateDirectory(text);
 				using var utf8Json = new FileStream(Path.Combine(text, "object.json"), FileMode.Create);
@@ -2303,7 +2309,7 @@ public static partial class ResourceExportService
 				});
 				utf8JsonWriter.WriteStartObject();
 				utf8JsonWriter.WriteString("name", obj.Name.Content);
-				utf8JsonWriter.WriteNumber("index", value2);
+				utf8JsonWriter.WriteNumber("index", itemValue2);
 				utf8JsonWriter.WriteString("sprite", obj.Sprite?.Name?.Content ?? "");
 				utf8JsonWriter.WriteBoolean("visible", obj.Visible);
 				utf8JsonWriter.WriteBoolean("solid", obj.Solid);
@@ -2769,11 +2775,11 @@ public static partial class ResourceExportService
 			try
 			{
 				string? item = null;
-				string? item2 = null;
+				string? listItem2 = null;
 				Dictionary<string, (string, string)> dictionary = null;
 				try
 				{
-					item2 = new DecompileContext(context, gameMakerCode, decompilerSettings).DecompileToString();
+					listItem2 = new DecompileContext(context, gameMakerCode, decompilerSettings).DecompileToString();
 				}
 				catch (Exception ex)
 				{
@@ -2797,10 +2803,10 @@ public static partial class ResourceExportService
 						{
 							try
 							{
-								var item3 = current.Disassemble(data.Variables, data.CodeLocals?.For(current));
-								if (value != null && value.TryGetValue(current.Name.Content, out var value2))
+								var listItem3 = current.Disassemble(data.Variables, data.CodeLocals?.For(current));
+								if (value != null && value.TryGetValue(current.Name.Content, out var itemValue2))
 								{
-									dictionary[value2.ArchiveKey[(codeArchiveEntryDescriptor.ArchiveKey.Length + 1)..]] = (current.Name.Content, item3);
+									dictionary[itemValue2.ArchiveKey[(codeArchiveEntryDescriptor.ArchiveKey.Length + 1)..]] = (current.Name.Content, listItem3);
 								}
 							}
 							catch (Exception ex)
@@ -2810,7 +2816,7 @@ public static partial class ResourceExportService
 						}
 					}
 				}
-				result[codeArchiveEntryDescriptor.ArchiveKey] = (gameMakerCode.Name.Content, item2, item, dictionary);
+				result[codeArchiveEntryDescriptor.ArchiveKey] = (gameMakerCode.Name.Content, listItem2, item, dictionary);
 			}
 			catch (Exception ex)
 			{
@@ -2883,9 +2889,9 @@ public static partial class ResourceExportService
 						try
 						{
 							var contents3 = current.Disassemble(data.Variables, data.CodeLocals?.For(current));
-							if (value != null && value.TryGetValue(current.Name.Content, out var value2))
+							if (value != null && value.TryGetValue(current.Name.Content, out var itemValue2))
 							{
-								var text2 = value2.ArchiveKey[(codeArchiveEntryDescriptor.ArchiveKey.Length + 1)..];
+								var text2 = itemValue2.ArchiveKey[(codeArchiveEntryDescriptor.ArchiveKey.Length + 1)..];
 								ExportText.WriteAllText(Path.Combine(text, text2 + ".asm"), contents3, Encoding.UTF8);
 							}
 						}

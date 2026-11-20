@@ -97,19 +97,19 @@ public class GameMakerTimeline : GameMakerNamedResource, IDisposable
         writer.WriteGameMakerString(Name);
 
         writer.Write(Moments.Count);
-        for (var i = 0; i < Moments.Count; i++)
+        foreach (var momentEntry in Moments)
         {
             // Write the time point
-            writer.Write(Moments[i].Step);
+            writer.Write(momentEntry.Step);
 
             // Unnecessary pointer to next array
-            writer.WriteGameMakerObjectPointer(Moments[i].Event);
+            writer.WriteGameMakerObjectPointer(momentEntry.Event);
         }
 
-        for (var i = 0; i < Moments.Count; i++)
+        foreach (var momentEntry in Moments)
         {
             // Write the actions for this moment
-            writer.WriteGameMakerObject(Moments[i].Event);
+            writer.WriteGameMakerObject(momentEntry.Event);
         }
     }
 

@@ -41,19 +41,16 @@ internal sealed class SwitchNode : IASTNode
     /// </summary>
     public static SwitchNode? Parse(ParseContext context)
     {
-        // Parse "switch" keyword
         if (context.EnsureToken(KeywordKind.Switch) is not TokenKeyword tokenKeyword)
         {
             return null;
         }
 
-        // Parse expression being matched
         if (Expressions.ParseExpression(context) is not IASTNode expression)
         {
             return null;
         }
 
-        // Parse main block
         List<IASTNode> children = new(32);
         context.EnsureToken(SeparatorKind.BlockOpen, KeywordKind.Begin);
         context.SkipSemicolons();
@@ -94,7 +91,6 @@ internal sealed class SwitchNode : IASTNode
         }
         context.EnsureToken(SeparatorKind.BlockClose, KeywordKind.End);
 
-        // Create final statement
         return new SwitchNode(tokenKeyword, expression, children);
     }
 
@@ -204,7 +200,6 @@ internal sealed class SwitchNode : IASTNode
         context.PushControlFlowContext(new SwitchContext(expressionType, tailPatch, continuePatch));
         for (var i = 0; i < cases.Count; i++)
         {
-            // Get range of children nodes to generate code for
             var currentCase = cases[i];
             var startIndex = currentCase.ChildIndex + 1;
             var endIndexExclusive = (i + 1 < cases.Count) ? cases[i + 1].ChildIndex : Children.Count;

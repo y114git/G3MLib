@@ -18,7 +18,6 @@ public sealed class ClearedReferences
         Skipped = skipped;
     }
 
-    /// <summary>The uses that were cleared.</summary>
     public IReadOnlyList<Reference> Cleared { get; }
 
     /// <summary>The owners whose references were cleared, once each. Pass them to <see cref="ReferenceIndex.Update"/> after <see cref="Undo"/>, and refresh them in a UI.</summary>

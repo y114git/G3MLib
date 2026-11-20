@@ -169,14 +169,12 @@ public static class VMAssembly
 
             var opcodeParts = parts[0].Split('.');
 
-            // Parse opcode
             var opcodeStr = opcodeParts[0].ToLowerInvariant();
             if (!StringToOpcode.TryGetValue(opcodeStr, out var opcode))
             {
                 throw new InvalidOperationException($"Unexpected opcode \"{opcodeStr}\"");
             }
 
-            // Parse data types
             IGMInstruction.DataType type1 = 0;
             IGMInstruction.DataType type2 = 0;
             if (opcodeParts.Length >= 2)
@@ -217,12 +215,10 @@ public static class VMAssembly
                 Type2 = type2
             };
 
-            // Parse additional data
             switch (opcode)
             {
                 case IGMInstruction.Opcode.Compare:
                     {
-                        // Parse comparison kind
                         if (parts.Length < 2)
                         {
                             throw new InvalidOperationException("Compare needs comparison kind parameter");
@@ -247,7 +243,6 @@ public static class VMAssembly
                         }
                         var data = string.Join(' ', parts[1..]).Trim();
 
-                        // Parse swap variant
                         if (instr.Type1 == IGMInstruction.DataType.Int16)
                         {
                             if (!byte.TryParse(data, out var popSwapSize) || popSwapSize < 5 || popSwapSize > 6)
@@ -258,7 +253,6 @@ public static class VMAssembly
                             break;
                         }
 
-                        // Parse variable destination
                         if (!ParseVariableFromString(data, variables, out var variable, out var varType, out var instType))
                         {
                             throw new InvalidOperationException($"Failed to parse variable {data}");
@@ -270,7 +264,6 @@ public static class VMAssembly
                     break;
                 case IGMInstruction.Opcode.Duplicate:
                     {
-                        // Parse normal dup size
                         if (parts.Length < 2)
                         {
                             throw new InvalidOperationException("Duplicate needs size parameter");
@@ -294,7 +287,6 @@ public static class VMAssembly
                     break;
                 case IGMInstruction.Opcode.CallVariable:
                     {
-                        // Parse argument count
                         if (parts.Length < 2)
                         {
                             throw new InvalidOperationException("CallVariable needs size parameter");
@@ -325,7 +317,6 @@ public static class VMAssembly
                             break;
                         }
 
-                        // Parse normal target
                         if (target.Length < 3 || target[0] != '[' || target[^1] != ']')
                         {
                             throw new InvalidOperationException("Invalid branch target format");
@@ -462,14 +453,12 @@ public static class VMAssembly
                     break;
                 case IGMInstruction.Opcode.Extended:
                     {
-                        // Parse extended opcode type
                         if (!StringToExtOpcode.TryGetValue(opcodeStr, out var extOpcode))
                         {
                             throw new InvalidOperationException($"Unexpected extended opcode \"{opcodeStr}\"");
                         }
                         instr.ExtKind = extOpcode;
 
-                        // Parse additional arguments
                         if (extOpcode == IGMInstruction.ExtendedOpcode.PushReference)
                         {
                             if (parts.Length < 2)
@@ -510,7 +499,6 @@ public static class VMAssembly
             targetInstr.BranchOffset = labelAddress - targetInstr.Address;
         }
 
-        // Update code lengths
         root.Length = address;
         foreach (var child in root.Children)
         {
@@ -535,7 +523,6 @@ public static class VMAssembly
             return false;
         }
 
-        // Parse variable type
         if (str[0] == '[')
         {
             var closingBracket = str.IndexOf(']', StringComparison.Ordinal);
@@ -556,11 +543,9 @@ public static class VMAssembly
                 _ => throw new InvalidOperationException("Unknown variable type")
             };
 
-            // Get rid of this part of the variable string
             str = str[(closingBracket + 1)..];
         }
 
-        // Parse instance type
         var dot = str.IndexOf('.', StringComparison.Ordinal);
         if (dot == -1)
         {
@@ -588,7 +573,6 @@ public static class VMAssembly
             };
         }
 
-        // Get actual variable name
         str = str[(dot + 1)..];
 
         // If the variable name starts with ", treat it as a string we need to deal with escapes in
@@ -601,7 +585,6 @@ public static class VMAssembly
             str = UnescapeStringContents(str[1..^1]);
         }
 
-        // Update variable
         variable = new GMVariable(new GMString(str))
         {
             InstanceType = instType,

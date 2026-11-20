@@ -20,7 +20,6 @@ internal static class Numbers
     {
         var pos = ContiguousTextReader.ReadWhileNumber(context.Text, startPosition, out var number);
 
-        // Parse number
         if (long.TryParse(number, NumberStyles.Integer, CultureInfo.InvariantCulture, out var intValue))
         {
             // Check if the integer can be represented losslessly as a double
@@ -53,7 +52,6 @@ internal static class Numbers
         var prefix = dollarSignSyntax ? "$" : "0x";
         var pos = ContiguousTextReader.ReadWhileHex(context.Text, startPosition + (dollarSignSyntax ? 1 : 2), out var hex);
 
-        // Parse hex as a number
         if (long.TryParse(hex, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var value))
         {
             if (value is >= int.MinValue and <= int.MaxValue)

@@ -167,10 +167,10 @@ public sealed class AudioGroupFile : IDisposable
 				using var writer = new BinaryWriter(output, Encoding.ASCII, leaveOpen: true);
 				writer.Write("FORM"u8);
 				writer.Write(0u);
-				for (var i = 0; i < _chunks.Count; i++)
+				foreach (var _chunk in _chunks)
 				{
 					cancellationToken.ThrowIfCancellationRequested();
-					var chunk = _chunks[i];
+					var chunk = _chunk;
 					writer.Write(Encoding.ASCII.GetBytes(chunk.Name));
 					writer.Write(0u);
 					var start = output.Position;

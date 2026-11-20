@@ -153,9 +153,9 @@ public static class DataIntegrityService
 			}
 		}
 		var codeNames = new HashSet<string>(StringComparer.Ordinal);
-		foreach (var item2 in data.Code ?? [])
+		foreach (var listItem2 in data.Code ?? [])
 		{
-			var codeName = item2?.Name?.Content;
+			var codeName = listItem2?.Name?.Content;
 			if (!string.IsNullOrEmpty(codeName))
 			{
 				codeNames.Add(codeName);
@@ -228,9 +228,9 @@ public static class DataIntegrityService
 			{
 				continue;
 			}
-			foreach (var item2 in code?.Instructions ?? [])
+			foreach (var listItem2 in code?.Instructions ?? [])
 			{
-				var name = item2.ValueFunction?.Name?.Content;
+				var name = listItem2.ValueFunction?.Name?.Content;
 				if (!string.IsNullOrEmpty(name) && FunctionNameUtil.TryGetLocalChildOrdinalFamily(name, out var family2, out var ordinal2))
 				{
 					if (!referencedByFamily.TryGetValue(family2, out var ordinals))
@@ -939,10 +939,8 @@ public static class DataIntegrityService
 /// <summary>Whether an <see cref="IntegrityIssue"/> is a problem that remains or a fix that was applied.</summary>
 public enum IntegritySeverity
 {
-	/// <summary>A fix the check applied.</summary>
 	Repair,
 
-	/// <summary>A problem the check found and did not fix.</summary>
 	Error
 }
 

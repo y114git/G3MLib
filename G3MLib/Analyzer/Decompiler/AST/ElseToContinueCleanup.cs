@@ -22,7 +22,6 @@ internal static class ElseToContinueCleanup
             return;
         }
 
-        // Get initial last statement
         if (body.Children.Count == 0)
         {
             return;
@@ -37,7 +36,6 @@ internal static class ElseToContinueCleanup
             body.Children.AddRange(ifNode.ElseBlock.Children);
             ifNode.ElseBlock = null;
 
-            // Get next last statement
             if (body.Children.Count == 0)
             {
                 break;

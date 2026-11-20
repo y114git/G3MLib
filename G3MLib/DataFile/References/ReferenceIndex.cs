@@ -493,9 +493,9 @@ public sealed class ReferenceIndex
                     }
                 }
             }
-            else if (IsSection(property, value))
+            else if (value is not null && IsSection(property, value))
             {
-                registry.Add(value!);
+                registry.Add(value);
             }
         }
         return registry;

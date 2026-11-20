@@ -215,9 +215,9 @@ internal sealed class BinaryBranch : IControlFlowNode
                 else
                 {
                     // Check if we have an empty else block
-                    for (var j = 0; j < after.Predecessors.Count; j++)
+                    foreach (var predecessor in after.Predecessors)
                     {
-                        var curr = after.Predecessors[j];
+                        var curr = predecessor;
                         if (curr.StartAddress >= bb.StartAddress && curr.EndAddress <= bb.EndAddress &&
                             curr is Block currBlock && currBlock.Instructions is [.., { Kind: IGMInstruction.Opcode.Branch }])
                         {
@@ -235,10 +235,10 @@ internal sealed class BinaryBranch : IControlFlowNode
                 }
 
                 // Reroute all nodes going into condition to instead go into the branch
-                for (var j = 0; j < block.Predecessors.Count; j++)
+                foreach (var predecessor in block.Predecessors)
                 {
-                    bb.Predecessors.Add(block.Predecessors[j]);
-                    IControlFlowNode.ReplaceConnections(block.Predecessors[j].Successors, block, bb);
+                    bb.Predecessors.Add(predecessor);
+                    IControlFlowNode.ReplaceConnections(predecessor.Successors, block, bb);
                 }
                 if (block.Parent is not null)
                 {

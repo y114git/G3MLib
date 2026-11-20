@@ -34,7 +34,6 @@ internal sealed class BlockNode : IASTNode
     /// </summary>
     public static BlockNode ParseRoot(ParseContext context)
     {
-        // Parse statements
         List<IASTNode> children = new(32);
         context.SkipSemicolons();
         while (!context.EndOfCode)
@@ -51,14 +50,12 @@ internal sealed class BlockNode : IASTNode
             context.SkipSemicolons();
         }
 
-        // Get nearby token from first child statement
         IToken? nearbyToken = null;
         if (children.Count > 0)
         {
             nearbyToken = children[0].NearbyToken;
         }
 
-        // Create final block node
         return new BlockNode(children, nearbyToken);
     }
 
@@ -70,7 +67,6 @@ internal sealed class BlockNode : IASTNode
         // Attempt to parse opening
         var tokenOpen = context.EnsureToken(SeparatorKind.BlockOpen, KeywordKind.Begin);
 
-        // Parse statements
         List<IASTNode> children = new(32);
         context.SkipSemicolons();
         while (!context.EndOfCode && !context.IsCurrentToken(SeparatorKind.BlockClose, KeywordKind.End))
@@ -90,7 +86,6 @@ internal sealed class BlockNode : IASTNode
         // Attempt to parse closing
         context.EnsureToken(SeparatorKind.BlockClose, KeywordKind.End);
 
-        // Create final block node
         return new BlockNode(children, tokenOpen);
     }
 

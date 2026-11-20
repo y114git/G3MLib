@@ -278,8 +278,8 @@ public interface IScriptInterface
     /// <param name="isMultiline">Whether to allow the input to have multiple lines.</param>
     /// <param name="preventClose">Whether the window is allowed to be closed.
     /// Should this be set to <see langword="false"/>, then there also won't be a close button.</param>
-    /// <returns>The text that the user inputted.</returns>
-    string ScriptInputDialog(string title, string label, string defaultInput, string cancelText, string submitText, bool isMultiline, bool preventClose);
+    /// <returns>The text that the user inputted, or <see langword="null"/> when the prompt was cancelled.</returns>
+    string? ScriptInputDialog(string title, string label, string defaultInput, string cancelText, string submitText, bool isMultiline, bool preventClose);
 
     /// <summary>
     /// Allows the user to input text in a simple dialog.
@@ -289,8 +289,8 @@ public interface IScriptInterface
     /// <param name="defaultValue">The default value of the input.</param>
     /// <param name="allowMultiline">Whether to allow the input to have multiple lines.</param>
     /// <param name="showDialog">Whether to block the parent window and only continue after the dialog is cleared.</param>
-    /// <returns>The text that the user inputted.</returns>
-    string SimpleTextInput(string title, string label, string defaultValue, bool allowMultiline, bool showDialog = true);
+    /// <returns>The text that the user inputted, or <see langword="null"/> when the prompt was cancelled.</returns>
+    string? SimpleTextInput(string title, string label, string defaultValue, bool allowMultiline, bool showDialog = true);
 
     /// <summary>
     /// Shows simple output to the user.
@@ -437,7 +437,7 @@ public interface IScriptInterface
     /// Used to prompt the user for a directory.
     /// </summary>
     /// <returns>The directory selected by the user.</returns>
-    string PromptChooseDirectory();
+    string? PromptChooseDirectory();
 
     /// <summary>
     /// Used to prompt the user for a file.
@@ -445,7 +445,7 @@ public interface IScriptInterface
     /// <param name="defaultExt">The default extension that should be selected.</param>
     /// <param name="filter">The filters used for the file select.</param>
     /// <returns>The file selected by the user.</returns>
-    string PromptLoadFile(string defaultExt, string filter);
+    string? PromptLoadFile(string defaultExt, string filter);
 
     /// <summary>
     /// Used to prompt the user for a location to save a file.
@@ -453,5 +453,5 @@ public interface IScriptInterface
     /// <param name="defaultExt">The default extension that should be used when saving the file.</param>
     /// <param name="filter">The filters used to specify the file types in the dialog.</param>
     /// <returns>The file path specified by the user for saving.</returns>
-    string PromptSaveFile(string defaultExt, string filter);
+    string? PromptSaveFile(string defaultExt, string filter);
 }

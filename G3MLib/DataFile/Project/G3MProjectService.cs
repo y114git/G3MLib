@@ -234,33 +234,59 @@ public static class G3MProjectService
             warnings.AddRange(typeWarnings.Where(w => w is not null));
             warnings.AddRange(items.Where(r => r.Kind == ResultKind.Failed).Select(r => $"{r.Name} was not exported: {r.Message}"));
 
-            committed = true;
-            for (var i = 0; i < ResourceFolders.Length; i++)
+            List<(string Target, string? Aside)> replaced = [];
+            try
             {
-                (var type, var folder) = ResourceFolders[i];
-                var target = Path.Join(projectDirectory, folder);
-                var exported = Path.Join(staging, TypeDirectoryName(type));
-                if (update)
+                for (var i = 0; i < ResourceFolders.Length; i++)
                 {
-                    if (typeWarnings[i] is null && options.Only.TryGetValue(type, out var names))
+                    (var type, var folder) = ResourceFolders[i];
+                    var target = Path.Join(projectDirectory, folder);
+                    var exported = Path.Join(staging, TypeDirectoryName(type));
+                    if (update)
                     {
-                        written += MergeUnits(exported, target, folder, names, touched);
+                        if (typeWarnings[i] is null && options.Only.TryGetValue(type, out var names))
+                        {
+                            written += MergeUnits(exported, target, folder, names, touched);
+                        }
+                        continue;
                     }
-                    continue;
+                    // A failed type keeps its old folder, and a delta export leaves types it did not export alone.
+                    if (typeWarnings[i] is not null || (filtered && !options.Only.ContainsKey(type)))
+                    {
+                        continue;
+                    }
+                    // The old folder is renamed aside, not deleted, so a failed move can put it back.
+                    string? aside = null;
+                    if (Directory.Exists(target))
+                    {
+                        aside = target + ".old-" + Guid.NewGuid().ToString("N");
+                    }
+                    // Recorded before the move, so a failure inside it is rolled back too.
+                    replaced.Add((target, aside));
+                    if (aside is not null && !DirectoryMover.Move(target, aside))
+                    {
+                        // The old folder was copied whole but could not be removed. The new one cannot go in beside it, so remove it or abort.
+                        DirectoryMover.Delete(target);
+                    }
+                    if (Directory.Exists(exported))
+                    {
+                        Directory.CreateDirectory(Path.GetDirectoryName(target));
+                        // False means the target is complete and a copy of it is left in the staging folder, which is removed at the end.
+                        DirectoryMover.Move(exported, target);
+                    }
                 }
-                // A failed type keeps its old folder, and a delta export leaves types it did not export alone.
-                if (typeWarnings[i] is not null || (filtered && !options.Only.ContainsKey(type)))
+            }
+            catch
+            {
+                RestoreReplaced(replaced);
+                throw;
+            }
+            committed = true;
+            foreach (var (_, aside) in replaced)
+            {
+                if (aside is not null)
                 {
-                    continue;
-                }
-                if (Directory.Exists(target))
-                {
-                    Directory.Delete(target, true);
-                }
-                if (Directory.Exists(exported))
-                {
-                    Directory.CreateDirectory(Path.GetDirectoryName(target));
-                    Directory.Move(exported, target);
+                    RemoveQuietly(aside);
                 }
             }
         }
@@ -275,7 +301,14 @@ public static class G3MProjectService
             CultureInfo.CurrentCulture = previousCulture;
             if (Directory.Exists(staging))
             {
-                Directory.Delete(staging, true);
+                try
+                {
+                    DirectoryMover.Delete(staging);
+                }
+                catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+                {
+                    // a staging folder a scanner still holds must neither turn a finished export into a failure nor hide the error of a failed one
+                }
             }
             if (createdDirectory && !committed && !Directory.EnumerateFileSystemEntries(projectDirectory).Any())
             {
@@ -306,8 +339,47 @@ public static class G3MProjectService
         return new() { Path = projectPath, Resources = update ? written : project.Resources.Count, Warnings = warnings };
     }
 
-    // Replaces the units of one type in place: units of the listed names and units exported again are removed,
-    // then the exported ones are moved in. Returns how many were moved.
+    // Puts the folders that a failed export replaced back, newest first. Best effort: the error that caused the rollback is the one reported.
+    // An aside folder is never deleted here, so one that could not be put back stays on disk as the only copy.
+    internal static void RestoreReplaced(IReadOnlyList<(string Target, string? Aside)> replaced)
+    {
+        for (var i = replaced.Count - 1; i >= 0; i--)
+        {
+            var (target, aside) = replaced[i];
+            try
+            {
+                if (aside is not null && !Directory.Exists(aside))
+                {
+                    continue; // the old folder never left its place, so what is at the target is the old folder
+                }
+                if (Directory.Exists(target))
+                {
+                    DirectoryMover.Delete(target);
+                }
+                if (aside is not null)
+                {
+                    DirectoryMover.Move(aside, target);
+                }
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                LogService.Warning(e.Message);
+            }
+        }
+    }
+
+    private static void RemoveQuietly(string folder)
+    {
+        try
+        {
+            DirectoryMover.Delete(folder);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            LogService.Warning(e.Message);
+        }
+    }
+
     private static int MergeUnits(string exported, string target, string folder, IReadOnlySet<string> names, HashSet<string> touched)
     {
         foreach (var unit in ListUnits(target))
@@ -335,7 +407,7 @@ public static class G3MProjectService
             Directory.CreateDirectory(target);
             if (Directory.Exists(unit))
             {
-                Directory.Move(unit, Path.Join(target, name));
+                DirectoryMover.Move(unit, Path.Join(target, name));
             }
             else
             {

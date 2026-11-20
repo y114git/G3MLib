@@ -72,7 +72,7 @@ public sealed class DataAccessGate
 
         TimeSpan? limit = timeout == Timeout.InfiniteTimeSpan ? null : timeout;
         var clock = Stopwatch.StartNew();
-        using var wake = cancellationToken.Register(static state => { var self = (DataAccessGate)state!; lock (self._sync) Monitor.PulseAll(self._sync); }, this);
+        using var wake = cancellationToken.Register(static state => { if (state is DataAccessGate self) lock (self._sync) Monitor.PulseAll(self._sync); }, this);
         lock (_sync)
         {
             if (write)

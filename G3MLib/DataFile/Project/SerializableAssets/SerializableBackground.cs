@@ -93,13 +93,11 @@ internal sealed class SerializableBackground : ISerializableTextureProjectAsset
     /// </summary>
     internal void PopulateFromData(ProjectContext projectContext, GameMakerBackground bg)
     {
-        // Update all main properties
         DataName = bg.Name.Content;
         Transparent = bg.Transparent;
         Smooth = bg.Smooth;
         Preload = bg.Preload;
 
-        // Update GMS2+ properties
         if (projectContext.Data.IsGameMaker2())
         {
             Tileset = new()
@@ -124,11 +122,9 @@ internal sealed class SerializableBackground : ISerializableTextureProjectAsset
     /// <inheritdoc/>
     public void Serialize(ProjectContext projectContext, string destinationFile)
     {
-        // Write main JSON
         using FileStream fs = new(destinationFile, FileMode.Create);
         JsonSerializer.Serialize<ISerializableProjectAsset>(fs, this, ProjectContext.JsonOptions);
 
-        // Write image as a PNG
         var filename = $"{Path.GetFileNameWithoutExtension(destinationFile)}.png";
         var directory = Path.GetDirectoryName(destinationFile);
         projectContext.TextureWorker.ExportAsPNG(_dataAsset.Texture, Path.Join(directory, filename), DataName, true);
@@ -158,12 +154,10 @@ internal sealed class SerializableBackground : ISerializableTextureProjectAsset
     {
         var bg = _dataAsset;
 
-        // Update all main properties
         bg.Transparent = Transparent;
         bg.Smooth = Smooth;
         bg.Preload = Preload;
 
-        // Update GMS2+ properties
         if (projectContext.Data.IsGameMaker2())
         {
             bg.GMS2TilesetVersion = Tileset.VersionNumber;

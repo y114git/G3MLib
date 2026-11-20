@@ -106,16 +106,16 @@ internal static class ProjectDataTypes
         {
             return;
         }
-        for (var i = 0; i < roots.Count; i++)
+        foreach (var root in roots)
         {
-            var name = roots[i]?.Name?.Content;
+            var name = root?.Name?.Content;
             if (name is null || filter is not null && !filter.Contains(name))
             {
                 continue;
             }
             var directory = Path.Join(typeDirectory, ResourceExportService.SafeName(name));
             Directory.CreateDirectory(directory);
-            Write(Path.Join(directory, "uilayer.json"), ToJson(roots[i], typeof(GameMakerUIRootNode)));
+            Write(Path.Join(directory, "uilayer.json"), ToJson(root, typeof(GameMakerUIRootNode)));
         }
     }
 

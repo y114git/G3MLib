@@ -316,6 +316,8 @@ public class GameMakerData : IDisposable
     public IList<GameMakerParticleSystemEmitter> ParticleSystemEmitters => FORM.PSEM?.List;
 
 
+    internal object WriteSync { get; } = new();
+
     private DataAccessGate? _gate;
 
     /// <summary>

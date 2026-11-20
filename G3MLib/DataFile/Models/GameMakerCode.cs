@@ -1382,7 +1382,7 @@ public class GameMakerInstruction : GameMakerObject, IGMInstruction
             9 => true,// used to be unused, now are sequences
             10 => resourceId >= data.Shaders.Count,
             11 => resourceId >= data.Sequences.Count,
-            // case 12 used to be animcurves, but now is unused (so would actually mean earlier than 2024.4)
+            // Case 12 was animation curves and is unused now, so it would mean a version before 2024.4
             13 => resourceId >= data.ParticleSystems.Count,
             _ => false,
         };

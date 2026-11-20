@@ -17,7 +17,6 @@ internal sealed class DoUntilLoop(int startAddress, int endAddress, int index, I
 {
     public override void UpdateFlowGraph()
     {
-        // Get rid of jumps from tail
         IControlFlowNode.DisconnectSuccessor(Tail, 1);
         IControlFlowNode.DisconnectSuccessor(Tail, 0);
         var tailBlock = Tail as Block;
@@ -37,7 +36,6 @@ internal sealed class DoUntilLoop(int startAddress, int endAddress, int index, I
         var prevLoop = builder.TopFragmentContext.SurroundingLoop;
         builder.TopFragmentContext.SurroundingLoop = this;
 
-        // Build body
         var stackCountBefore = builder.ExpressionStack.Count;
         var body = builder.BuildBlock(Head);
         var stackCountAfter = builder.ExpressionStack.Count;

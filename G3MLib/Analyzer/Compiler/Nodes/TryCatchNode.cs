@@ -66,13 +66,11 @@ internal sealed class TryCatchNode : IASTNode
     /// </summary>
     public static IASTNode? Parse(ParseContext context)
     {
-        // Parse "try" keyword
         if (context.EnsureToken(KeywordKind.Try) is not TokenKeyword tokenKeyword)
         {
             return null;
         }
 
-        // Parse "try" part of the statement
         var previousEscapeCount = context.ExitReturnBreakContinueCount;
         if (Statements.ParseStatement(context) is not IASTNode @try)
         {
@@ -90,7 +88,6 @@ internal sealed class TryCatchNode : IASTNode
         {
             context.Position++;
 
-            // Parse the catch variable name
             context.EnsureToken(SeparatorKind.GroupOpen);
             if (!context.EndOfCode && context.Tokens[context.Position] is TokenVariable tokenVariable)
             {
@@ -102,7 +99,6 @@ internal sealed class TryCatchNode : IASTNode
             }
             context.EnsureToken(SeparatorKind.GroupClose);
 
-            // Parse the actual statement/body
             previousEscapeCount = context.ExitReturnBreakContinueCount + context.ThrowCount;
             @catch = Statements.ParseStatement(context);
 
@@ -118,7 +114,6 @@ internal sealed class TryCatchNode : IASTNode
             @finally = Statements.ParseStatement(context);
         }
 
-        // Create final statement
         if (@catch is null && @finally is null)
         {
             // Apparently it's valid to just have "try," which effectively does nothing
@@ -132,7 +127,6 @@ internal sealed class TryCatchNode : IASTNode
     /// </summary>
     private WhileLoopNode GenerateBlockLoop(ParseContext context, TryStatementContext tryContext, IASTNode block)
     {
-        // Create block inside of loop
         var innerBlock = BlockNode.CreateEmpty(NearbyToken, 3);
 
         // If continue variable is set at the top of the loop, break out of loop
@@ -145,7 +139,6 @@ internal sealed class TryCatchNode : IASTNode
         // Break at the end of the loop always (it shouldn't actually loop)
         innerBlock.Children.Add(new BreakNode(NearbyToken));
 
-        // Create actual loop node
         return new WhileLoopNode(NearbyToken, new BooleanNode(true, NearbyToken), innerBlock);
     }
 
@@ -167,12 +160,10 @@ internal sealed class TryCatchNode : IASTNode
             context.CurrentScope.TryFinallyNodes.Add(Finally);
         }
 
-        // Get unique names for this try statement's variables
         var uniqueIndex = context.CompileContext.GameContext.CodeBuilder.GenerateTryVariableID(context.TryStatementProcessIndex++);
         var breakName = $"{VMConstants.TryBreakVariable}{uniqueIndex}";
         var continueName = $"{VMConstants.TryContinueVariable}{uniqueIndex}";
 
-        // Create context for this try statement
         var previousTryContext = context.TryStatementContext;
         TryStatementContext newTryContext = new(breakName, continueName, Finally is not null);
         context.TryStatementContext = newTryContext;
@@ -214,7 +205,6 @@ internal sealed class TryCatchNode : IASTNode
         // Restore previous try statement context
         context.TryStatementContext = previousTryContext;
 
-        // Remove from finally nodes
         if (Finally is not null)
         {
             context.CurrentScope.TryFinallyNodes.RemoveAt(context.CurrentScope.TryFinallyNodes.Count - 1);
@@ -225,7 +215,6 @@ internal sealed class TryCatchNode : IASTNode
         // generate code to propagate break/continue to those.
         if (breakContinueUsedAnywhere)
         {
-            // Create block with enough room for generated code
             var insideBreakContinueContext = context.CurrentScope.ProcessingBreakContinueContext;
             var newBlock = BlockNode.CreateEmpty(NearbyToken, insideBreakContinueContext ? 5 : 3);
 

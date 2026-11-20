@@ -435,16 +435,16 @@ public partial class PatchService
 						handler.AppendLiteral("MB");
 					}
 					LogService.Log(ref handler);
-					var handler2 = new LogInterpolatedStringHandler(39, 2, out shouldAppend);
+					var logMessage2 = new LogInterpolatedStringHandler(39, 2, out shouldAppend);
 					if (shouldAppend)
 					{
-						handler2.AppendLiteral("[Timing] Import CodeEntries: ");
-						handler2.AppendFormatted(phaseSw.Elapsed.TotalSeconds, "F1");
-						handler2.AppendLiteral("s, RAM: ");
-						handler2.AppendFormatted(Process.GetCurrentProcess().WorkingSet64 / 1024 / 1024);
-						handler2.AppendLiteral("MB");
+						logMessage2.AppendLiteral("[Timing] Import CodeEntries: ");
+						logMessage2.AppendFormatted(phaseSw.Elapsed.TotalSeconds, "F1");
+						logMessage2.AppendLiteral("s, RAM: ");
+						logMessage2.AppendFormatted(Process.GetCurrentProcess().WorkingSet64 / 1024 / 1024);
+						logMessage2.AppendLiteral("MB");
 					}
-					LogService.Log(ref handler2);
+					LogService.Log(ref logMessage2);
 				}
 				LogService.Progress(90, 100);
 				progressIndex++;
@@ -469,14 +469,14 @@ public partial class PatchService
 				progress?.Report(new BatchProgress(progressIndex, progressTotal, resourceType));
 				continue;
 			}
-			var handler3 = new LogInterpolatedStringHandler(27, 1, out shouldAppend);
+			var logMessage3 = new LogInterpolatedStringHandler(27, 1, out shouldAppend);
 			if (shouldAppend)
 			{
-				handler3.AppendLiteral("[PatchService] Applying ");
-				handler3.AppendFormatted(resourceType);
-				handler3.AppendLiteral("...");
+				logMessage3.AppendLiteral("[PatchService] Applying ");
+				logMessage3.AppendFormatted(resourceType);
+				logMessage3.AppendLiteral("...");
 			}
-			LogService.Log(ref handler3);
+			LogService.Log(ref logMessage3);
 			phaseSw.Restart();
 			try
 			{
@@ -507,18 +507,18 @@ public partial class PatchService
 			}
 			if (logDetailedCodeImport)
 			{
-				var handler4 = new LogInterpolatedStringHandler(28, 3, out shouldAppend);
+				var logMessage4 = new LogInterpolatedStringHandler(28, 3, out shouldAppend);
 				if (shouldAppend)
 				{
-					handler4.AppendLiteral("[Timing] Import ");
-					handler4.AppendFormatted(resourceType);
-					handler4.AppendLiteral(": ");
-					handler4.AppendFormatted(phaseSw.Elapsed.TotalSeconds, "F1");
-					handler4.AppendLiteral("s, RAM: ");
-					handler4.AppendFormatted(Process.GetCurrentProcess().WorkingSet64 / 1024 / 1024);
-					handler4.AppendLiteral("MB");
+					logMessage4.AppendLiteral("[Timing] Import ");
+					logMessage4.AppendFormatted(resourceType);
+					logMessage4.AppendLiteral(": ");
+					logMessage4.AppendFormatted(phaseSw.Elapsed.TotalSeconds, "F1");
+					logMessage4.AppendLiteral("s, RAM: ");
+					logMessage4.AppendFormatted(Process.GetCurrentProcess().WorkingSet64 / 1024 / 1024);
+					logMessage4.AppendLiteral("MB");
 				}
-				LogService.Log(ref handler4);
+				LogService.Log(ref logMessage4);
 			}
 			if (resourceType == "Sprites")
 			{
@@ -747,13 +747,13 @@ public partial class PatchService
 			{
 				reorderStopwatch.Stop();
 			}
-			var handler2 = new LogInterpolatedStringHandler(38, 1, out var shouldAppend2);
+			var logMessage2 = new LogInterpolatedStringHandler(38, 1, out var shouldAppend2);
 			if (shouldAppend2)
 			{
-				handler2.AppendLiteral("[PatchService] Asset reorder warning: ");
-				handler2.AppendFormatted(ex.Message);
+				logMessage2.AppendLiteral("[PatchService] Asset reorder warning: ");
+				logMessage2.AppendFormatted(ex.Message);
 			}
-			LogService.Log(ref handler2);
+			LogService.Log(ref logMessage2);
 			shouldAppend = false;
 			return shouldAppend;
 		}
@@ -903,16 +903,16 @@ public partial class PatchService
 						handler.AppendFormatted(originalInfo.GeneralInfo?.DisplayName ?? "Unknown");
 					}
 					LogService.Log(ref handler);
-					var handler2 = new LogInterpolatedStringHandler(41, 2, out shouldAppend);
+					var logMessage2 = new LogInterpolatedStringHandler(41, 2, out shouldAppend);
 					if (shouldAppend)
 					{
-						handler2.AppendLiteral("[Timing] Original cache: ");
-						handler2.AppendFormatted(phaseSw.Elapsed.TotalMilliseconds, "F0");
-						handler2.AppendLiteral("ms, peak RAM: ");
-						handler2.AppendFormatted(Process.GetCurrentProcess().WorkingSet64 / 1024 / 1024);
-						handler2.AppendLiteral("MB");
+						logMessage2.AppendLiteral("[Timing] Original cache: ");
+						logMessage2.AppendFormatted(phaseSw.Elapsed.TotalMilliseconds, "F0");
+						logMessage2.AppendLiteral("ms, peak RAM: ");
+						logMessage2.AppendFormatted(Process.GetCurrentProcess().WorkingSet64 / 1024 / 1024);
+						logMessage2.AppendLiteral("MB");
 					}
-					LogService.Log(ref handler2);
+					LogService.Log(ref logMessage2);
 				}
 				else
 				{
@@ -922,13 +922,13 @@ public partial class PatchService
 					using var originalData = await GameMakerIO.ReadAsync(stream).ConfigureAwait(false);
 					originalCodeEntryCount = originalData.Code?.Count ?? 0;
 					var originalLoadTime = phaseSw.Elapsed;
-					var handler3 = new LogInterpolatedStringHandler(25, 1, out shouldAppend);
+					var logMessage3 = new LogInterpolatedStringHandler(25, 1, out shouldAppend);
 					if (shouldAppend)
 					{
-						handler3.AppendLiteral("[PatchService] Original: ");
-						handler3.AppendFormatted(originalData.GeneralInfo?.DisplayName?.Content ?? "Unknown");
+						logMessage3.AppendLiteral("[PatchService] Original: ");
+						logMessage3.AppendFormatted(originalData.GeneralInfo?.DisplayName?.Content ?? "Unknown");
 					}
-					LogService.Log(ref handler3);
+					LogService.Log(ref logMessage3);
 					var dataFileInfo = new DataFileInfo
 					{
 						Filename = Path.GetFileName(originalPath),
@@ -946,31 +946,31 @@ public partial class PatchService
 					originalNameCounts = GetResourceNameCounts(originalData);
 					originalOrderedNames = GetOrderSensitiveResourceNames(originalData);
 					await G3MCacheService.WriteDataCacheAsync(originalPath, originalInfo, originalHashes, originalNameCounts, originalOrderedNames, cacheOptions).ConfigureAwait(false);
-					var handler4 = new LogInterpolatedStringHandler(48, 3, out shouldAppend);
+					var logMessage4 = new LogInterpolatedStringHandler(48, 3, out shouldAppend);
 					if (shouldAppend)
 					{
-						handler4.AppendLiteral("[Timing] Original load: ");
-						handler4.AppendFormatted(originalLoadTime.TotalSeconds, "F1");
-						handler4.AppendLiteral("s, hash: ");
-						handler4.AppendFormatted(phaseSw.Elapsed.TotalSeconds, "F1");
-						handler4.AppendLiteral("s, peak RAM: ");
-						handler4.AppendFormatted(Process.GetCurrentProcess().WorkingSet64 / 1024 / 1024);
-						handler4.AppendLiteral("MB");
+						logMessage4.AppendLiteral("[Timing] Original load: ");
+						logMessage4.AppendFormatted(originalLoadTime.TotalSeconds, "F1");
+						logMessage4.AppendLiteral("s, hash: ");
+						logMessage4.AppendFormatted(phaseSw.Elapsed.TotalSeconds, "F1");
+						logMessage4.AppendLiteral("s, peak RAM: ");
+						logMessage4.AppendFormatted(Process.GetCurrentProcess().WorkingSet64 / 1024 / 1024);
+						logMessage4.AppendLiteral("MB");
 					}
-					LogService.Log(ref handler4);
+					LogService.Log(ref logMessage4);
 				}
 				phaseSw.Restart();
 				GC.Collect();
-				var handler5 = new LogInterpolatedStringHandler(48, 2, out shouldAppend);
+				var logMessage5 = new LogInterpolatedStringHandler(48, 2, out shouldAppend);
 				if (shouldAppend)
 				{
-					handler5.AppendLiteral("[Timing] GC after original: ");
-					handler5.AppendFormatted(phaseSw.Elapsed.TotalMilliseconds, "F0");
-					handler5.AppendLiteral("ms, RAM after GC: ");
-					handler5.AppendFormatted(Process.GetCurrentProcess().WorkingSet64 / 1024 / 1024);
-					handler5.AppendLiteral("MB");
+					logMessage5.AppendLiteral("[Timing] GC after original: ");
+					logMessage5.AppendFormatted(phaseSw.Elapsed.TotalMilliseconds, "F0");
+					logMessage5.AppendLiteral("ms, RAM after GC: ");
+					logMessage5.AppendFormatted(Process.GetCurrentProcess().WorkingSet64 / 1024 / 1024);
+					logMessage5.AppendLiteral("MB");
 				}
-				LogService.Log(ref handler5);
+				LogService.Log(ref logMessage5);
 			}
 #pragma warning disable CA1062 // originalHashes is assigned from a non-null source in every branch above
 			if (originalCodeEntryCount < 0 && originalHashes.TryGetValue("CodeEntries", out var originalCodeHashes))
@@ -995,13 +995,13 @@ public partial class PatchService
 				var modifiedData = precomputedModifiedData ?? originalData;
 				var modifiedCodeEntryCount = modifiedData.Code?.Count ?? 0;
 				var originalLoadTime = phaseSw.Elapsed;
-				var handler6 = new LogInterpolatedStringHandler(25, 1, out shouldAppend);
+				var logMessage6 = new LogInterpolatedStringHandler(25, 1, out shouldAppend);
 				if (shouldAppend)
 				{
-					handler6.AppendLiteral("[PatchService] Modified: ");
-					handler6.AppendFormatted(modifiedData.GeneralInfo?.DisplayName?.Content ?? "Unknown");
+					logMessage6.AppendLiteral("[PatchService] Modified: ");
+					logMessage6.AppendFormatted(modifiedData.GeneralInfo?.DisplayName?.Content ?? "Unknown");
 				}
-				LogService.Log(ref handler6);
+				LogService.Log(ref logMessage6);
 				var cachedModified = G3MCacheService.TryReadDataCache(modifiedPath, modifiedCacheOptions);
 				if (cachedModified != null)
 				{
@@ -1057,14 +1057,14 @@ public partial class PatchService
 				AddDuplicateCountChanges(originalNameCounts, modifiedData, changedNamesPerType);
 				PromoteOrderSensitiveExportsIfNeeded(originalOrderedNames, modifiedData, modifiedHashes, changedNamesPerType, helperForcedResourceTypes);
 				PromoteVersionSensitiveExportsIfNeeded(originalInfo.GeneralInfo, modifiedInfo.GeneralInfo, modifiedHashes, changedNamesPerType);
-				var handler7 = new LogInterpolatedStringHandler(41, 1, out shouldAppend);
+				var logMessage7 = new LogInterpolatedStringHandler(41, 1, out shouldAppend);
 				if (shouldAppend)
 				{
-					handler7.AppendLiteral("[Timing] Hash comparison (pre-export): ");
-					handler7.AppendFormatted(phaseSw.Elapsed.TotalMilliseconds, "F0");
-					handler7.AppendLiteral("ms");
+					logMessage7.AppendLiteral("[Timing] Hash comparison (pre-export): ");
+					logMessage7.AppendFormatted(phaseSw.Elapsed.TotalMilliseconds, "F0");
+					logMessage7.AppendLiteral("ms");
 				}
-				LogService.Log(ref handler7);
+				LogService.Log(ref logMessage7);
 				ExpandChangedCodeEntriesForTopology(modifiedData, changedNamesPerType);
 				phaseSw.Restart();
 				LogService.Log("[PatchService] Exporting modified resources (selective)...");
@@ -1073,51 +1073,51 @@ public partial class PatchService
 				var codeExportSw = Stopwatch.StartNew();
 				codeEntriesInMemory = ResourceExportService.ExportCodeEntriesToMemory(modifiedData, changedCodeNames);
 				codeExportSw.Stop();
-				var handler8 = new LogInterpolatedStringHandler(43, 2, out shouldAppend);
+				var logMessage8 = new LogInterpolatedStringHandler(43, 2, out shouldAppend);
 				if (shouldAppend)
 				{
-					handler8.AppendLiteral("[Export Timing] CodeEntries (in-memory ");
-					handler8.AppendFormatted(changedCodeNames.Count);
-					handler8.AppendLiteral("): ");
-					handler8.AppendFormatted(codeExportSw.Elapsed.TotalSeconds, "F1");
-					handler8.AppendLiteral("s");
+					logMessage8.AppendLiteral("[Export Timing] CodeEntries (in-memory ");
+					logMessage8.AppendFormatted(changedCodeNames.Count);
+					logMessage8.AppendLiteral("): ");
+					logMessage8.AppendFormatted(codeExportSw.Elapsed.TotalSeconds, "F1");
+					logMessage8.AppendLiteral("s");
 				}
-				LogService.Log(ref handler8);
+				LogService.Log(ref logMessage8);
 				var exportTime = phaseSw.Elapsed;
 				phaseSw.Restart();
 				var helpersExportDir = Path.Combine(tempDir2, "Helpers");
 				ExportPatchHelpers(modifiedData, helpersExportDir, originalHashes, modifiedHashes, changedNamesPerType, helperForcedResourceTypes, originalCodeEntryCount, originalCodeEntryCountRecovered, modifiedCodeEntryCount, codeEntriesInMemory);
-				var handler9 = new LogInterpolatedStringHandler(71, 5, out shouldAppend);
+				var logMessage9 = new LogInterpolatedStringHandler(71, 5, out shouldAppend);
 				if (shouldAppend)
 				{
-					handler9.AppendLiteral("[Timing] Modified load: ");
-					handler9.AppendFormatted(originalLoadTime.TotalSeconds, "F1");
-					handler9.AppendLiteral("s, hash: ");
-					handler9.AppendFormatted(hashTime.TotalSeconds, "F1");
-					handler9.AppendLiteral("s, export: ");
-					handler9.AppendFormatted(exportTime.TotalSeconds, "F1");
-					handler9.AppendLiteral("s, helpers: ");
-					handler9.AppendFormatted(phaseSw.Elapsed.TotalSeconds, "F1");
-					handler9.AppendLiteral("s, peak RAM: ");
-					handler9.AppendFormatted(Process.GetCurrentProcess().WorkingSet64 / 1024 / 1024);
-					handler9.AppendLiteral("MB");
+					logMessage9.AppendLiteral("[Timing] Modified load: ");
+					logMessage9.AppendFormatted(originalLoadTime.TotalSeconds, "F1");
+					logMessage9.AppendLiteral("s, hash: ");
+					logMessage9.AppendFormatted(hashTime.TotalSeconds, "F1");
+					logMessage9.AppendLiteral("s, export: ");
+					logMessage9.AppendFormatted(exportTime.TotalSeconds, "F1");
+					logMessage9.AppendLiteral("s, helpers: ");
+					logMessage9.AppendFormatted(phaseSw.Elapsed.TotalSeconds, "F1");
+					logMessage9.AppendLiteral("s, peak RAM: ");
+					logMessage9.AppendFormatted(Process.GetCurrentProcess().WorkingSet64 / 1024 / 1024);
+					logMessage9.AppendLiteral("MB");
 				}
-				LogService.Log(ref handler9);
+				LogService.Log(ref logMessage9);
 			}
 			if (precomputedModifiedData == null)
 			{
 				phaseSw.Restart();
 				GC.Collect();
-				var handler10 = new LogInterpolatedStringHandler(48, 2, out shouldAppend);
+				var logMessage10 = new LogInterpolatedStringHandler(48, 2, out shouldAppend);
 				if (shouldAppend)
 				{
-					handler10.AppendLiteral("[Timing] GC after modified: ");
-					handler10.AppendFormatted(phaseSw.Elapsed.TotalMilliseconds, "F0");
-					handler10.AppendLiteral("ms, RAM after GC: ");
-					handler10.AppendFormatted(Process.GetCurrentProcess().WorkingSet64 / 1024 / 1024);
-					handler10.AppendLiteral("MB");
+					logMessage10.AppendLiteral("[Timing] GC after modified: ");
+					logMessage10.AppendFormatted(phaseSw.Elapsed.TotalMilliseconds, "F0");
+					logMessage10.AppendLiteral("ms, RAM after GC: ");
+					logMessage10.AppendFormatted(Process.GetCurrentProcess().WorkingSet64 / 1024 / 1024);
+					logMessage10.AppendLiteral("MB");
 				}
-				LogService.Log(ref handler10);
+				LogService.Log(ref logMessage10);
 			}
 			LogService.Progress(60, 100);
 			var manifest = new G3MPatchManifest
@@ -1154,14 +1154,14 @@ public partial class PatchService
 					}
 				}
 				LogService.Progress(65, 100);
-				var handler11 = new LogInterpolatedStringHandler(27, 1, out shouldAppend);
+				var logMessage11 = new LogInterpolatedStringHandler(27, 1, out shouldAppend);
 				if (shouldAppend)
 				{
-					handler11.AppendLiteral("[Timing] Hash comparison: ");
-					handler11.AppendFormatted(phaseSw.Elapsed.TotalSeconds, "F1");
-					handler11.AppendLiteral("s");
+					logMessage11.AppendLiteral("[Timing] Hash comparison: ");
+					logMessage11.AppendFormatted(phaseSw.Elapsed.TotalSeconds, "F1");
+					logMessage11.AppendLiteral("s");
 				}
-				LogService.Log(ref handler11);
+				LogService.Log(ref logMessage11);
 				ResourceTypeChanges value;
 				foreach (var resource in manifest.Resources)
 				{
@@ -1221,11 +1221,11 @@ public partial class PatchService
 					}
 					if (codeEntriesInMemory.Count > 0)
 					{
-						foreach (var item2 in codeEntriesInMemory)
+						foreach (var listItem2 in codeEntriesInMemory)
 						{
-							item2.Deconstruct(out key2, out var value2);
+							listItem2.Deconstruct(out key2, out var itemValue2);
 							var resourceType3 = key2;
-							(var LogicalName, var gml, var asm, var childAsms) = value2;
+							(var LogicalName, var gml, var asm, var childAsms) = itemValue2;
 							if (gml != null)
 							{
 								var gmlPath = $"CodeEntries/{resourceType3}/{resourceType3}.gml";
@@ -1242,24 +1242,24 @@ public partial class PatchService
 							{
 								continue;
 							}
-							foreach (var item3 in childAsms)
+							foreach (var listItem3 in childAsms)
 							{
-								item3.Deconstruct(out key2, out var value3);
+								listItem3.Deconstruct(out key2, out var itemValue3);
 								var childLeafKey = key2;
-								var childEntry = value3;
+								var childEntry = itemValue3;
 								var childPath = $"CodeEntries/{resourceType3}/{childLeafKey}.asm";
 								using var writer = new StreamWriter(await archive.CreateEntry(childPath, ArchiveCompressionUtil.GetLevel(childPath)).OpenAsync(cancellationToken).ConfigureAwait(false), Encoding.UTF8);
 								await writer.WriteAsync(childEntry.Asm).ConfigureAwait(false);
 							}
 						}
-						var handler12 = new LogInterpolatedStringHandler(54, 1, out shouldAppend);
+						var logMessage12 = new LogInterpolatedStringHandler(54, 1, out shouldAppend);
 						if (shouldAppend)
 						{
-							handler12.AppendLiteral("[PatchService] CodeEntries: ");
-							handler12.AppendFormatted(codeEntriesInMemory.Count);
-							handler12.AppendLiteral(" written directly to patch");
+							logMessage12.AppendLiteral("[PatchService] CodeEntries: ");
+							logMessage12.AppendFormatted(codeEntriesInMemory.Count);
+							logMessage12.AppendLiteral(" written directly to patch");
 						}
-						LogService.Log(ref handler12);
+						LogService.Log(ref logMessage12);
 					}
 					var helpersDir = Path.Combine(tempDir2, "Helpers");
 					if (Directory.Exists(helpersDir))
@@ -1303,26 +1303,26 @@ public partial class PatchService
 				}
 				LogService.Progress(100, 100);
 				File.Move(tempOutputPath, outputPath, overwrite: true);
-				var handler13 = new LogInterpolatedStringHandler(23, 1, out shouldAppend);
+				var logMessage13 = new LogInterpolatedStringHandler(23, 1, out shouldAppend);
 				if (shouldAppend)
 				{
-					handler13.AppendLiteral("[Timing] Patch write: ");
-					handler13.AppendFormatted(phaseSw.Elapsed.TotalSeconds, "F1");
-					handler13.AppendLiteral("s");
+					logMessage13.AppendLiteral("[Timing] Patch write: ");
+					logMessage13.AppendFormatted(phaseSw.Elapsed.TotalSeconds, "F1");
+					logMessage13.AppendLiteral("s");
 				}
-				LogService.Log(ref handler13);
+				LogService.Log(ref logMessage13);
 				LogService.ProgressComplete();
 				totalSw.Stop();
-				var handler14 = new LogInterpolatedStringHandler(46, 2, out shouldAppend);
+				var logMessage14 = new LogInterpolatedStringHandler(46, 2, out shouldAppend);
 				if (shouldAppend)
 				{
-					handler14.AppendLiteral("[Timing] === PATCH CREATE TOTAL: ");
-					handler14.AppendFormatted(totalSw.Elapsed.TotalSeconds, "F1");
-					handler14.AppendLiteral("s === RAM: ");
-					handler14.AppendFormatted(Process.GetCurrentProcess().WorkingSet64 / 1024 / 1024);
-					handler14.AppendLiteral("MB");
+					logMessage14.AppendLiteral("[Timing] === PATCH CREATE TOTAL: ");
+					logMessage14.AppendFormatted(totalSw.Elapsed.TotalSeconds, "F1");
+					logMessage14.AppendLiteral("s === RAM: ");
+					logMessage14.AppendFormatted(Process.GetCurrentProcess().WorkingSet64 / 1024 / 1024);
+					logMessage14.AppendLiteral("MB");
 				}
-				LogService.Log(ref handler14);
+				LogService.Log(ref logMessage14);
 				return new PatchCreateResult
 				{
 					Success = true,
@@ -1434,9 +1434,9 @@ public partial class PatchService
 		{
 			return counts;
 		}
-		foreach (var item2 in list)
+		foreach (var listItem2 in list)
 		{
-			var name = item2?.Name?.Content;
+			var name = listItem2?.Name?.Content;
 			if (!string.IsNullOrEmpty(name))
 			{
 				counts[name] = counts.GetValueOrDefault(name) + 1;
@@ -1649,14 +1649,14 @@ public partial class PatchService
 		}
 		else
 		{
-			var handler2 = new LogInterpolatedStringHandler(51, 1, out shouldAppend);
+			var logMessage2 = new LogInterpolatedStringHandler(51, 1, out shouldAppend);
 			if (shouldAppend)
 			{
-				handler2.AppendLiteral("[PatchService] ");
-				handler2.AppendFormatted(resourceType);
-				handler2.AppendLiteral(": order changed, exporting full type");
+				logMessage2.AppendLiteral("[PatchService] ");
+				logMessage2.AppendFormatted(resourceType);
+				logMessage2.AppendLiteral(": order changed, exporting full type");
 			}
-			LogService.Log(ref handler2);
+			LogService.Log(ref logMessage2);
 		}
 	}
 
@@ -1786,9 +1786,9 @@ public partial class PatchService
 		}
 		List<string> result = [];
 		var directories = Directory.GetDirectories(directory);
-		for (var i = 0; i < directories.Length; i++)
+		foreach (var subdirectory in directories)
 		{
-			var folderName = Path.GetFileName(directories[i]);
+			var folderName = Path.GetFileName(subdirectory);
 			if (string.Equals(StripIdxSuffix(folderName), baseName, StringComparison.Ordinal))
 			{
 				result.Add(folderName);
@@ -1883,9 +1883,9 @@ public partial class PatchService
 		Dictionary<string, int> baseNameCounts = [];
 		List<(string, string)> entries = [];
 		var directories = Directory.GetDirectories(directory);
-		for (var i = 0; i < directories.Length; i++)
+		foreach (var subdirectory in directories)
 		{
-			var folderName = Path.GetFileName(directories[i]);
+			var folderName = Path.GetFileName(subdirectory);
 			var baseName = StripIdxSuffix(folderName);
 			entries.Add((folderName, baseName));
 			baseNameCounts[baseName] = baseNameCounts.GetValueOrDefault(baseName) + 1;
@@ -2275,13 +2275,13 @@ public partial class PatchService
 			if (!scriptOrderOnly && CanUseMinimalStandardApply(applyPlan, resourceTypesToProcess))
 			{
 				usedMinimalApply = true;
-				var handler2 = new LogInterpolatedStringHandler(58, 1, out shouldAppend);
+				var logMessage2 = new LogInterpolatedStringHandler(58, 1, out shouldAppend);
 				if (shouldAppend)
 				{
-					handler2.AppendLiteral("[PatchService] Applying only required resource functions: ");
-					handler2.AppendFormatted(string.Join(", ", resourceTypesToProcess));
+					logMessage2.AppendLiteral("[PatchService] Applying only required resource functions: ");
+					logMessage2.AppendFormatted(string.Join(", ", resourceTypesToProcess));
 				}
-				LogService.Log(ref handler2);
+				LogService.Log(ref logMessage2);
 				(var minimalAppliedCount, var minimalFailedCount) = ImportMinimalResources(data, pfs, resourceTypesToProcess, dataPath, outputPath, progress);
 				if (minimalFailedCount > 0 || minimalAppliedCount == 0)
 				{
@@ -2371,36 +2371,36 @@ public partial class PatchService
 					Error = "No resources were applied successfully"
 				};
 			}
-			var handler3 = new LogInterpolatedStringHandler(211, 12, out shouldAppend);
+			var logMessage3 = new LogInterpolatedStringHandler(211, 12, out shouldAppend);
 			if (shouldAppend)
 			{
-				handler3.AppendLiteral("[Timing] Apply in-memory breakdown: patchLoad=");
-				handler3.AppendFormatted(patchLoadSw.Elapsed.TotalSeconds, "F2");
-				handler3.AppendLiteral("s, nonCode=");
-				handler3.AppendFormatted(nonCodeImportSw.Elapsed.TotalSeconds, "F2");
-				handler3.AppendLiteral("s, code=");
-				handler3.AppendFormatted(codeImportSw.Elapsed.TotalSeconds, "F2");
-				handler3.AppendLiteral("s, finalize=");
-				handler3.AppendFormatted(finalizeSw.Elapsed.TotalSeconds, "F2");
-				handler3.AppendLiteral("s, reorderPreCode=");
-				handler3.AppendFormatted(preCodeReorderSw.Elapsed.TotalSeconds, "F2");
-				handler3.AppendLiteral("s, reorderPostSprite=");
-				handler3.AppendFormatted(postSpriteReorderSw.Elapsed.TotalSeconds, "F2");
-				handler3.AppendLiteral("s, reorderFinal=");
-				handler3.AppendFormatted(finalReorderSw.Elapsed.TotalSeconds, "F2");
-				handler3.AppendLiteral("s, repairDupes=");
-				handler3.AppendFormatted(repairDuplicatesSw.Elapsed.TotalSeconds, "F2");
-				handler3.AppendLiteral("s, applyEvents=");
-				handler3.AppendFormatted(applyEventsSw.Elapsed.TotalSeconds, "F2");
-				handler3.AppendLiteral("s, repairDangling=");
-				handler3.AppendFormatted(repairDanglingCodeSw.Elapsed.TotalSeconds, "F2");
-				handler3.AppendLiteral("s, ensureScripts=");
-				handler3.AppendFormatted(ensureScriptsSw.Elapsed.TotalSeconds, "F2");
-				handler3.AppendLiteral("s, integrity=");
-				handler3.AppendFormatted(integritySw.Elapsed.TotalSeconds, "F2");
-				handler3.AppendLiteral("s");
+				logMessage3.AppendLiteral("[Timing] Apply in-memory breakdown: patchLoad=");
+				logMessage3.AppendFormatted(patchLoadSw.Elapsed.TotalSeconds, "F2");
+				logMessage3.AppendLiteral("s, nonCode=");
+				logMessage3.AppendFormatted(nonCodeImportSw.Elapsed.TotalSeconds, "F2");
+				logMessage3.AppendLiteral("s, code=");
+				logMessage3.AppendFormatted(codeImportSw.Elapsed.TotalSeconds, "F2");
+				logMessage3.AppendLiteral("s, finalize=");
+				logMessage3.AppendFormatted(finalizeSw.Elapsed.TotalSeconds, "F2");
+				logMessage3.AppendLiteral("s, reorderPreCode=");
+				logMessage3.AppendFormatted(preCodeReorderSw.Elapsed.TotalSeconds, "F2");
+				logMessage3.AppendLiteral("s, reorderPostSprite=");
+				logMessage3.AppendFormatted(postSpriteReorderSw.Elapsed.TotalSeconds, "F2");
+				logMessage3.AppendLiteral("s, reorderFinal=");
+				logMessage3.AppendFormatted(finalReorderSw.Elapsed.TotalSeconds, "F2");
+				logMessage3.AppendLiteral("s, repairDupes=");
+				logMessage3.AppendFormatted(repairDuplicatesSw.Elapsed.TotalSeconds, "F2");
+				logMessage3.AppendLiteral("s, applyEvents=");
+				logMessage3.AppendFormatted(applyEventsSw.Elapsed.TotalSeconds, "F2");
+				logMessage3.AppendLiteral("s, repairDangling=");
+				logMessage3.AppendFormatted(repairDanglingCodeSw.Elapsed.TotalSeconds, "F2");
+				logMessage3.AppendLiteral("s, ensureScripts=");
+				logMessage3.AppendFormatted(ensureScriptsSw.Elapsed.TotalSeconds, "F2");
+				logMessage3.AppendLiteral("s, integrity=");
+				logMessage3.AppendFormatted(integritySw.Elapsed.TotalSeconds, "F2");
+				logMessage3.AppendLiteral("s");
 			}
-			LogService.Log(ref handler3);
+			LogService.Log(ref logMessage3);
 			return new PatchApplyResult
 			{
 				Success = true,
@@ -2499,13 +2499,13 @@ public partial class PatchService
 			}
 			LogService.Log(ref handler);
 			LogService.Progress(5, 100);
-			var handler2 = new LogInterpolatedStringHandler(28, 1, out shouldAppend);
+			var logMessage2 = new LogInterpolatedStringHandler(28, 1, out shouldAppend);
 			if (shouldAppend)
 			{
-				handler2.AppendLiteral("[PatchService] Data loaded: ");
-				handler2.AppendFormatted(data.GeneralInfo?.DisplayName?.Content ?? "Unknown");
+				logMessage2.AppendLiteral("[PatchService] Data loaded: ");
+				logMessage2.AppendFormatted(data.GeneralInfo?.DisplayName?.Content ?? "Unknown");
 			}
-			LogService.Log(ref handler2);
+			LogService.Log(ref logMessage2);
 			try
 			{
 				var inMemoryResult = ApplyPatchToDataCore(
@@ -2577,39 +2577,39 @@ public partial class PatchService
 				if (usedMinimalApply)
 				{
 					totalSw.Stop();
-					var handler5 = new LogInterpolatedStringHandler(31, 1, out shouldAppend);
+					var logMessage5 = new LogInterpolatedStringHandler(31, 1, out shouldAppend);
 					if (shouldAppend)
 					{
-						handler5.AppendLiteral("[Timing] Minimal apply total: ");
-						handler5.AppendFormatted(totalSw.Elapsed.TotalSeconds, "F1");
-						handler5.AppendLiteral("s");
+						logMessage5.AppendLiteral("[Timing] Minimal apply total: ");
+						logMessage5.AppendFormatted(totalSw.Elapsed.TotalSeconds, "F1");
+						logMessage5.AppendLiteral("s");
 					}
-					LogService.Log(ref handler5);
+					LogService.Log(ref logMessage5);
 					return inMemoryResult;
 				}
-				var handler6 = new LogInterpolatedStringHandler(31, 2, out shouldAppend);
+				var logMessage6 = new LogInterpolatedStringHandler(31, 2, out shouldAppend);
 				if (shouldAppend)
 				{
-					handler6.AppendLiteral("[Timing] Final save: ");
-					handler6.AppendFormatted(phaseSw.Elapsed.TotalSeconds, "F1");
-					handler6.AppendLiteral("s, RAM: ");
-					handler6.AppendFormatted(Process.GetCurrentProcess().WorkingSet64 / 1024 / 1024);
-					handler6.AppendLiteral("MB");
+					logMessage6.AppendLiteral("[Timing] Final save: ");
+					logMessage6.AppendFormatted(phaseSw.Elapsed.TotalSeconds, "F1");
+					logMessage6.AppendLiteral("s, RAM: ");
+					logMessage6.AppendFormatted(Process.GetCurrentProcess().WorkingSet64 / 1024 / 1024);
+					logMessage6.AppendLiteral("MB");
 				}
-				LogService.Log(ref handler6);
+				LogService.Log(ref logMessage6);
 				LogService.Progress(100, 100);
 				LogService.ProgressComplete();
 				totalSw.Stop();
-				var handler7 = new LogInterpolatedStringHandler(45, 2, out shouldAppend);
+				var logMessage7 = new LogInterpolatedStringHandler(45, 2, out shouldAppend);
 				if (shouldAppend)
 				{
-					handler7.AppendLiteral("[Timing] === PATCH APPLY TOTAL: ");
-					handler7.AppendFormatted(totalSw.Elapsed.TotalSeconds, "F1");
-					handler7.AppendLiteral("s === RAM: ");
-					handler7.AppendFormatted(Process.GetCurrentProcess().WorkingSet64 / 1024 / 1024);
-					handler7.AppendLiteral("MB");
+					logMessage7.AppendLiteral("[Timing] === PATCH APPLY TOTAL: ");
+					logMessage7.AppendFormatted(totalSw.Elapsed.TotalSeconds, "F1");
+					logMessage7.AppendLiteral("s === RAM: ");
+					logMessage7.AppendFormatted(Process.GetCurrentProcess().WorkingSet64 / 1024 / 1024);
+					logMessage7.AppendLiteral("MB");
 				}
-				LogService.Log(ref handler7);
+				LogService.Log(ref logMessage7);
 				var expectedModifiedHash = manifest?.Modified?.Md5;
 				if (verifyModifiedHash && allowXdeltaFallback && !string.IsNullOrWhiteSpace(expectedModifiedHash))
 				{
@@ -3108,14 +3108,14 @@ public partial class PatchService
 		}
 		if (created > 0)
 		{
-			var handler2 = new LogInterpolatedStringHandler(71, 1, out shouldAppend);
+			var logMessage2 = new LogInterpolatedStringHandler(71, 1, out shouldAppend);
 			if (shouldAppend)
 			{
-				handler2.AppendLiteral("[PatchService] Created ");
-				handler2.AppendFormatted(created);
-				handler2.AppendLiteral(" missing Script entries for live gml_Script code");
+				logMessage2.AppendLiteral("[PatchService] Created ");
+				logMessage2.AppendFormatted(created);
+				logMessage2.AppendLiteral(" missing Script entries for live gml_Script code");
 			}
-			LogService.Log(ref handler2);
+			LogService.Log(ref logMessage2);
 		}
 	}
 
@@ -3311,11 +3311,11 @@ public partial class PatchService
 	{
 		foreach (var item in data.Code)
 		{
-			foreach (var item2 in EnumerateCodeTreeRecursive(item))
+			foreach (var listItem2 in EnumerateCodeTreeRecursive(item))
 			{
-				foreach (var item3 in item2.Instructions ?? [])
+				foreach (var listItem3 in listItem2.Instructions ?? [])
 				{
-					if (string.Equals(item3.ValueFunction?.Name?.Content, functionName, StringComparison.Ordinal))
+					if (string.Equals(listItem3.ValueFunction?.Name?.Content, functionName, StringComparison.Ordinal))
 					{
 						return true;
 					}
@@ -3428,22 +3428,22 @@ public partial class PatchService
 				return true;
 			}
 		}
-		foreach (var item2 in data.GameEndScripts ?? [])
+		foreach (var listItem2 in data.GameEndScripts ?? [])
 		{
-			if (item2?.Code == code)
+			if (listItem2?.Code == code)
 			{
 				return true;
 			}
 		}
 		foreach (var gameObject in data.GameObjects)
 		{
-			foreach (var item3 in gameObject?.Events ?? [])
+			foreach (var listItem3 in gameObject?.Events ?? [])
 			{
-				foreach (var item4 in item3 ?? [])
+				foreach (var listItem4 in listItem3 ?? [])
 				{
-					foreach (var item5 in item4.Actions ?? [])
+					foreach (var listItem5 in listItem4.Actions ?? [])
 					{
-						if (item5?.CodeId == code)
+						if (listItem5?.CodeId == code)
 						{
 							return true;
 						}
@@ -3464,9 +3464,9 @@ public partial class PatchService
 					return true;
 				}
 			}
-			foreach (var item6 in room?.Layers ?? [])
+			foreach (var listItem6 in room?.Layers ?? [])
 			{
-				foreach (var inst2 in item6?.InstancesData?.Instances ?? [])
+				foreach (var inst2 in listItem6?.InstancesData?.Instances ?? [])
 				{
 					if (inst2?.CreationCode == code || inst2?.PreCreateCode == code)
 					{
@@ -3511,18 +3511,18 @@ public partial class PatchService
 					return true;
 				}
 			}
-			foreach (var item2 in room?.GameObjects ?? [])
+			foreach (var listItem2 in room?.GameObjects ?? [])
 			{
-				if (item2?.ObjectDefinition == gameObject)
+				if (listItem2?.ObjectDefinition == gameObject)
 				{
 					return true;
 				}
 			}
-			foreach (var item3 in room?.Layers ?? [])
+			foreach (var listItem3 in room?.Layers ?? [])
 			{
-				foreach (var item4 in item3?.InstancesData?.Instances ?? [])
+				foreach (var listItem4 in listItem3?.InstancesData?.Instances ?? [])
 				{
-					if (item4?.ObjectDefinition == gameObject)
+					if (listItem4?.ObjectDefinition == gameObject)
 					{
 						return true;
 					}
@@ -3570,9 +3570,9 @@ public partial class PatchService
 				{
 					return true;
 				}
-				foreach (var item2 in layer?.AssetsData?.Sprites ?? [])
+				foreach (var listItem2 in layer?.AssetsData?.Sprites ?? [])
 				{
-					if (item2?.Sprite == sprite)
+					if (listItem2?.Sprite == sprite)
 					{
 						return true;
 					}
@@ -3607,9 +3607,9 @@ public partial class PatchService
 					return true;
 				}
 			}
-			foreach (var item2 in room?.Layers ?? [])
+			foreach (var listItem2 in room?.Layers ?? [])
 			{
-				if (item2?.TilesData?.Background == background)
+				if (listItem2?.TilesData?.Background == background)
 				{
 					return true;
 				}
@@ -3624,9 +3624,9 @@ public partial class PatchService
 		{
 			foreach (var item in room?.Layers ?? [])
 			{
-				foreach (var item2 in item?.AssetsData?.TextItems ?? [])
+				foreach (var listItem2 in item?.AssetsData?.TextItems ?? [])
 				{
-					if (item2?.Font == font)
+					if (listItem2?.Font == font)
 					{
 						return true;
 					}
@@ -3895,6 +3895,8 @@ public partial class PatchService
 			if (code2 != null)
 			{
 				lookup[descriptor.ArchiveKey] = code2;
+				// Archives written by 1.1.4 and older use the legacy key for a name shaped like a hashed folder name.
+				lookup.TryAdd(descriptor.LegacyArchiveKey, code2);
 			}
 		}
 		return lookup;
@@ -4203,9 +4205,9 @@ public partial class PatchService
 				continue;
 			}
 			var parts = path.Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries);
-			for (var i = 0; i < parts.Length; i++)
+			foreach (var part in parts)
 			{
-				if (parts[i].StartsWith("texture_", StringComparison.OrdinalIgnoreCase) && int.TryParse(parts[i]["texture_".Length..], out var index))
+				if (part.StartsWith("texture_", StringComparison.OrdinalIgnoreCase) && int.TryParse(part["texture_".Length..], out var index))
 				{
 					result.Add(index);
 					break;
@@ -4444,26 +4446,26 @@ public partial class PatchService
 		}
 		if (repaired > 0)
 		{
-			var handler2 = new LogInterpolatedStringHandler(83, 1, out shouldAppend);
+			var logMessage2 = new LogInterpolatedStringHandler(83, 1, out shouldAppend);
 			if (shouldAppend)
 			{
-				handler2.AppendLiteral("[PatchService] Re-linked ");
-				handler2.AppendFormatted(repaired);
-				handler2.AppendLiteral(" local child Function references to their owning CodeEntry");
+				logMessage2.AppendLiteral("[PatchService] Re-linked ");
+				logMessage2.AppendFormatted(repaired);
+				logMessage2.AppendLiteral(" local child Function references to their owning CodeEntry");
 			}
-			LogService.Log(ref handler2);
+			LogService.Log(ref logMessage2);
 		}
 		var pruned = PruneDetachedLocalStructFunctions(data, codeByName);
 		if (pruned > 0)
 		{
-			var handler3 = new LogInterpolatedStringHandler(61, 1, out shouldAppend);
+			var logMessage3 = new LogInterpolatedStringHandler(61, 1, out shouldAppend);
 			if (shouldAppend)
 			{
-				handler3.AppendLiteral("[PatchService] Removed ");
-				handler3.AppendFormatted(pruned);
-				handler3.AppendLiteral(" detached local child Function entries");
+				logMessage3.AppendLiteral("[PatchService] Removed ");
+				logMessage3.AppendFormatted(pruned);
+				logMessage3.AppendLiteral(" detached local child Function entries");
 			}
-			LogService.Log(ref handler3);
+			LogService.Log(ref logMessage3);
 		}
 		Dictionary<string, GameMakerFunction?> GetLocalMap(GameMakerCode gameMakerCode)
 		{
@@ -4771,18 +4773,18 @@ public partial class PatchService
 			handler.AppendLiteral(" ASM entries...");
 		}
 		LogService.Log(ref handler);
-		var handler2 = new LogInterpolatedStringHandler(55, 3, out shouldAppend);
+		var logMessage2 = new LogInterpolatedStringHandler(55, 3, out shouldAppend);
 		if (shouldAppend)
 		{
-			handler2.AppendLiteral("[ImportCodeEntries] Current state: ");
-			handler2.AppendFormatted(data.Code.Count);
-			handler2.AppendLiteral(" code, ");
-			handler2.AppendFormatted(data.Variables.Count);
-			handler2.AppendLiteral(" vars, ");
-			handler2.AppendFormatted(data.Functions.Count);
-			handler2.AppendLiteral(" funcs");
+			logMessage2.AppendLiteral("[ImportCodeEntries] Current state: ");
+			logMessage2.AppendFormatted(data.Code.Count);
+			logMessage2.AppendLiteral(" code, ");
+			logMessage2.AppendFormatted(data.Variables.Count);
+			logMessage2.AppendLiteral(" vars, ");
+			logMessage2.AppendFormatted(data.Functions.Count);
+			logMessage2.AppendLiteral(" funcs");
 		}
-		LogService.Log(ref handler2);
+		LogService.Log(ref logMessage2);
 		string vfContent;
 		if (vfContentOverride != null)
 		{
@@ -4863,9 +4865,9 @@ public partial class PatchService
 				AutoCreateAssets = true
 			};
 			codeLookup = new Dictionary<string, GameMakerCode>(data.Code.Count);
-			foreach (var item2 in data.Code)
+			foreach (var listItem2 in data.Code)
 			{
-				foreach (var nested in EnumerateCodeTreeRecursive(item2))
+				foreach (var nested in EnumerateCodeTreeRecursive(listItem2))
 				{
 					if (nested != null && nested.Name?.Content != null)
 					{
@@ -4889,14 +4891,14 @@ public partial class PatchService
 		var collisionCount = 0;
 		var asmBackedCompileSkippedCount = allGmlCoveredByAsm ? gmlEntries.Count : 0;
 		List<(string, string, bool)> gmlOnlyEntries = [];
-		string value2;
+		string itemValue2;
 		if (!allGmlCoveredByAsm)
 		{
 			foreach (var gmlEntry in gmlEntries)
 			{
-				gmlEntry.Deconstruct(out key, out value2);
+				gmlEntry.Deconstruct(out key, out itemValue2);
 				var entryKey2 = key;
-				var gmlCode = value2;
+				var gmlCode = itemValue2;
 				var codeName = targetTopLevelNamesByKey.GetValueOrDefault(entryKey2, codeEntryLogicalNames?.GetValueOrDefault(entryKey2) ?? entryKey2);
 				if (!isAssetShiftRecompileOnly && asmEntries.ContainsKey(entryKey2))
 				{
@@ -4916,15 +4918,15 @@ public partial class PatchService
 					}
 					catch (Exception ex)
 					{
-						var handler3 = new LogInterpolatedStringHandler(38, 2, out shouldAppend);
+						var logMessage3 = new LogInterpolatedStringHandler(38, 2, out shouldAppend);
 						if (shouldAppend)
 						{
-							handler3.AppendLiteral("[ImportCodeEntries] Collision error ");
-							handler3.AppendFormatted(codeName);
-							handler3.AppendLiteral(": ");
-							handler3.AppendFormatted(ex.Message);
+							logMessage3.AppendLiteral("[ImportCodeEntries] Collision error ");
+							logMessage3.AppendFormatted(codeName);
+							logMessage3.AppendLiteral(": ");
+							logMessage3.AppendFormatted(ex.Message);
 						}
-						LogService.Log(ref handler3);
+						LogService.Log(ref logMessage3);
 					}
 					continue;
 				}
@@ -4951,41 +4953,41 @@ public partial class PatchService
 				}
 				catch (Exception ex2)
 				{
-					var handler4 = new LogInterpolatedStringHandler(31, 2, out shouldAppend);
+					var logMessage4 = new LogInterpolatedStringHandler(31, 2, out shouldAppend);
 					if (shouldAppend)
 					{
-						handler4.AppendLiteral("[ImportCodeEntries] Skipping ");
-						handler4.AppendFormatted(codeName);
-						handler4.AppendLiteral(": ");
-						handler4.AppendFormatted(ex2.Message);
+						logMessage4.AppendLiteral("[ImportCodeEntries] Skipping ");
+						logMessage4.AppendFormatted(codeName);
+						logMessage4.AppendLiteral(": ");
+						logMessage4.AppendFormatted(ex2.Message);
 					}
-					LogService.Log(ref handler4);
+					LogService.Log(ref logMessage4);
 				}
 			}
 		}
 		if (asmBackedCompileSkippedCount > 0)
 		{
-			var handler5 = new LogInterpolatedStringHandler(65, 1, out shouldAppend);
+			var logMessage5 = new LogInterpolatedStringHandler(65, 1, out shouldAppend);
 			if (shouldAppend)
 			{
-				handler5.AppendLiteral("[ImportCodeEntries] Skipped GML compile for ");
-				handler5.AppendFormatted(asmBackedCompileSkippedCount);
-				handler5.AppendLiteral(" ASM-backed entrie(s)");
+				logMessage5.AppendLiteral("[ImportCodeEntries] Skipped GML compile for ");
+				logMessage5.AppendFormatted(asmBackedCompileSkippedCount);
+				logMessage5.AppendLiteral(" ASM-backed entrie(s)");
 			}
-			LogService.Log(ref handler5);
+			LogService.Log(ref logMessage5);
 		}
-		var handler6 = new LogInterpolatedStringHandler(61, 3, out shouldAppend);
+		var logMessage6 = new LogInterpolatedStringHandler(61, 3, out shouldAppend);
 		if (shouldAppend)
 		{
-			handler6.AppendLiteral("[ImportCodeEntries] Queued ");
-			handler6.AppendFormatted(regularCount);
-			handler6.AppendLiteral(" regular + ");
-			handler6.AppendFormatted(collisionCount);
-			handler6.AppendLiteral(" collision entries in ");
-			handler6.AppendFormatted(phaseSw.Elapsed.TotalSeconds, "F1");
-			handler6.AppendLiteral("s");
+			logMessage6.AppendLiteral("[ImportCodeEntries] Queued ");
+			logMessage6.AppendFormatted(regularCount);
+			logMessage6.AppendLiteral(" regular + ");
+			logMessage6.AppendFormatted(collisionCount);
+			logMessage6.AppendLiteral(" collision entries in ");
+			logMessage6.AppendFormatted(phaseSw.Elapsed.TotalSeconds, "F1");
+			logMessage6.AppendLiteral("s");
 		}
-		LogService.Log(ref handler6);
+		LogService.Log(ref logMessage6);
 		phaseSw.Restart();
 		if (hasCompleteCodeEntryMetadata && targetEntryNames.Count > 0)
 		{
@@ -5011,14 +5013,14 @@ public partial class PatchService
 			}
 			if (entriesToDelete.Count > 0)
 			{
-				var handler7 = new LogInterpolatedStringHandler(51, 1, out shouldAppend);
+				var logMessage7 = new LogInterpolatedStringHandler(51, 1, out shouldAppend);
 				if (shouldAppend)
 				{
-					handler7.AppendLiteral("[ImportCodeEntries] Removing ");
-					handler7.AppendFormatted(entriesToDelete.Count);
-					handler7.AppendLiteral(" stale code entries...");
+					logMessage7.AppendLiteral("[ImportCodeEntries] Removing ");
+					logMessage7.AppendFormatted(entriesToDelete.Count);
+					logMessage7.AppendLiteral(" stale code entries...");
 				}
-				LogService.Log(ref handler7);
+				LogService.Log(ref logMessage7);
 				var deletedEvents = 0;
 				foreach (var code in entriesToDelete)
 				{
@@ -5048,9 +5050,9 @@ public partial class PatchService
 						{
 							continue;
 						}
-						for (var evtType = 0; evtType < obj.Events.Count; evtType++)
+						foreach (var gameEvent in obj.Events)
 						{
-							var evtList = obj.Events[evtType];
+							var evtList = gameEvent;
 							for (var i3 = evtList.Count - 1; i3 >= 0; i3--)
 							{
 								if (evtList[i3].Actions.Count > 0 && evtList[i3].Actions[0].CodeId == code)
@@ -5085,18 +5087,18 @@ public partial class PatchService
 					}
 					data.Code.Remove(code);
 				}
-				var handler8 = new LogInterpolatedStringHandler(51, 3, out shouldAppend);
+				var logMessage8 = new LogInterpolatedStringHandler(51, 3, out shouldAppend);
 				if (shouldAppend)
 				{
-					handler8.AppendLiteral("[ImportCodeEntries] Deleted ");
-					handler8.AppendFormatted(entriesToDelete.Count);
-					handler8.AppendLiteral(" entries + ");
-					handler8.AppendFormatted(deletedEvents);
-					handler8.AppendLiteral(" events in ");
-					handler8.AppendFormatted(phaseSw.Elapsed.TotalSeconds, "F1");
-					handler8.AppendLiteral("s");
+					logMessage8.AppendLiteral("[ImportCodeEntries] Deleted ");
+					logMessage8.AppendFormatted(entriesToDelete.Count);
+					logMessage8.AppendLiteral(" entries + ");
+					logMessage8.AppendFormatted(deletedEvents);
+					logMessage8.AppendLiteral(" events in ");
+					logMessage8.AppendFormatted(phaseSw.Elapsed.TotalSeconds, "F1");
+					logMessage8.AppendLiteral("s");
 				}
-				LogService.Log(ref handler8);
+				LogService.Log(ref logMessage8);
 			}
 		}
 		phaseSw.Restart();
@@ -5174,44 +5176,44 @@ public partial class PatchService
 			var objectNameCountsForEvents = BuildObjectNameCounts(data);
 			for (var objIndex = 0; objIndex < data.GameObjects.Count; objIndex++)
 			{
-				var obj2 = data.GameObjects[objIndex];
-				if (obj2 == null || obj2.Name?.Content == null)
+				var objNode2 = data.GameObjects[objIndex];
+				if (objNode2 == null || objNode2.Name?.Content == null)
 				{
 					continue;
 				}
 				List<(int, uint, string)> events = [];
-				for (var j = 0; j < obj2.Events.Count; j++)
+				for (var j = 0; j < objNode2.Events.Count; j++)
 				{
-					foreach (var evt in obj2.Events[j])
+					foreach (var evt in objNode2.Events[j])
 					{
 						var evtCodeName = (evt.Actions.Count > 0) ? (evt.Actions[0].CodeId?.Name?.Content ?? "") : "";
 						events.Add((j, evt.EventSubtype, evtCodeName));
 					}
 				}
-				eventSnapshot[GetObjectEventKey(obj2.Name.Content, objIndex, objectNameCountsForEvents)] = events;
+				eventSnapshot[GetObjectEventKey(objNode2.Name.Content, objIndex, objectNameCountsForEvents)] = events;
 			}
 		}
 		if (hasQueuedGmlCompilation)
 		{
-			var handler9 = new LogInterpolatedStringHandler(46, 1, out shouldAppend);
+			var logMessage9 = new LogInterpolatedStringHandler(46, 1, out shouldAppend);
 			if (shouldAppend)
 			{
-				handler9.AppendLiteral("[ImportCodeEntries] Compiling ");
-				handler9.AppendFormatted(regularCount + collisionCount);
-				handler9.AppendLiteral(" code entries...");
+				logMessage9.AppendLiteral("[ImportCodeEntries] Compiling ");
+				logMessage9.AppendFormatted(regularCount + collisionCount);
+				logMessage9.AppendLiteral(" code entries...");
 			}
-			LogService.Log(ref handler9);
+			LogService.Log(ref logMessage9);
 			gmlCompilationRan = true;
 			var compileResult = importGroup.Import(throwOnFailedCompile: false);
 			if (!compileResult.Successful)
 			{
-				var handler10 = new LogInterpolatedStringHandler(41, 1, out shouldAppend);
+				var logMessage10 = new LogInterpolatedStringHandler(41, 1, out shouldAppend);
 				if (shouldAppend)
 				{
-					handler10.AppendLiteral("[ImportCodeEntries] Compilation warning: ");
-					handler10.AppendFormatted(compileResult.PrintAllErrors(codeEntryNames: true));
+					logMessage10.AppendLiteral("[ImportCodeEntries] Compilation warning: ");
+					logMessage10.AppendFormatted(compileResult.PrintAllErrors(codeEntryNames: true));
 				}
-				LogService.Log(ref handler10);
+				LogService.Log(ref logMessage10);
 				var retryFailures = RetryGmlOnlyCodeEntriesIndividually(data, gmlOnlyEntries, collisionTargetsByCode);
 				if (retryFailures > 0)
 				{
@@ -5223,16 +5225,16 @@ public partial class PatchService
 		{
 			LogService.Log("[ImportCodeEntries] GML compilation skipped: ASM payload covers all queued entries");
 		}
-		var handler11 = new LogInterpolatedStringHandler(51, 1, out shouldAppend);
+		var logMessage11 = new LogInterpolatedStringHandler(51, 1, out shouldAppend);
 		if (shouldAppend)
 		{
-			handler11.AppendLiteral("[ImportCodeEntries] Compilation phase complete in ");
-			handler11.AppendFormatted(phaseSw.Elapsed.TotalSeconds, "F2");
-			handler11.AppendLiteral("s");
+			logMessage11.AppendLiteral("[ImportCodeEntries] Compilation phase complete in ");
+			logMessage11.AppendFormatted(phaseSw.Elapsed.TotalSeconds, "F2");
+			logMessage11.AppendLiteral("s");
 		}
-		LogService.Log(ref handler11);
-		(GameMakerCode, GameMakerCodeLocals, GameMakerScript) value3;
-		(GameMakerCode, GameMakerCodeLocals, GameMakerScript, string) value4;
+		LogService.Log(ref logMessage11);
+		(GameMakerCode, GameMakerCodeLocals, GameMakerScript) itemValue3;
+		(GameMakerCode, GameMakerCodeLocals, GameMakerScript, string) itemValue4;
 		if (hasQueuedGmlCompilation)
 		{
 			var currentArchiveLookupAfterCompile = BuildArchiveCodeLookup(data);
@@ -5248,11 +5250,11 @@ public partial class PatchService
 				}
 			}
 			var restoredTopLevel = 0;
-			foreach (var item3 in topLevelEntrySnapshot)
+			foreach (var listItem3 in topLevelEntrySnapshot)
 			{
-				item3.Deconstruct(out value2, out value3);
-				var entryKey5 = value2;
-				var snapshot = value3;
+				listItem3.Deconstruct(out itemValue2, out itemValue3);
+				var entryKey5 = itemValue2;
+				var snapshot = itemValue3;
 				if (targetCodeEntriesByKey.Count > 0 && !targetCodeEntriesByKey.ContainsKey(entryKey5) || currentEntries.Contains(entryKey5))
 				{
 					continue;
@@ -5293,24 +5295,24 @@ public partial class PatchService
 			}
 			if (restoredTopLevel > 0)
 			{
-				var handler12 = new LogInterpolatedStringHandler(80, 1, out shouldAppend);
+				var logMessage12 = new LogInterpolatedStringHandler(80, 1, out shouldAppend);
 				if (shouldAppend)
 				{
-					handler12.AppendLiteral("[ImportCodeEntries] Restored ");
-					handler12.AppendFormatted(restoredTopLevel);
-					handler12.AppendLiteral(" missing top-level code occurrence(s) from snapshot");
+					logMessage12.AppendLiteral("[ImportCodeEntries] Restored ");
+					logMessage12.AppendFormatted(restoredTopLevel);
+					logMessage12.AppendLiteral(" missing top-level code occurrence(s) from snapshot");
 				}
-				LogService.Log(ref handler12);
+				LogService.Log(ref logMessage12);
 			}
 			currentArchiveLookupAfterCompile = BuildArchiveCodeLookup(data);
 			currentEntries = new HashSet<string>(currentArchiveLookupAfterCompile.Keys, StringComparer.Ordinal);
 			var restored = 0;
 			var repairedParenting = 0;
-			foreach (var item4 in childEntrySnapshot)
+			foreach (var listItem4 in childEntrySnapshot)
 			{
-				item4.Deconstruct(out value2, out value4);
-				var entryKey6 = value2;
-				var snapshot2 = value4;
+				listItem4.Deconstruct(out itemValue2, out itemValue4);
+				var entryKey6 = itemValue2;
+				var snapshot2 = itemValue4;
 				if (targetCodeEntriesByKey.Count > 0 && !targetCodeEntriesByKey.ContainsKey(entryKey6))
 				{
 					continue;
@@ -5355,53 +5357,53 @@ public partial class PatchService
 				{
 					snapScript2.Code = snapCode2;
 					data.Scripts.Add(snapScript2);
-					var handler13 = new LogInterpolatedStringHandler(39, 2, out shouldAppend);
+					var logMessage13 = new LogInterpolatedStringHandler(39, 2, out shouldAppend);
 					if (shouldAppend)
 					{
-						handler13.AppendLiteral("  Restored detached child + script: ");
-						handler13.AppendFormatted(snapCode2.Name?.Content);
-						handler13.AppendLiteral(" [");
-						handler13.AppendFormatted(entryKey6);
-						handler13.AppendLiteral("]");
+						logMessage13.AppendLiteral("  Restored detached child + script: ");
+						logMessage13.AppendFormatted(snapCode2.Name?.Content);
+						logMessage13.AppendLiteral(" [");
+						logMessage13.AppendFormatted(entryKey6);
+						logMessage13.AppendLiteral("]");
 					}
-					LogService.Log(ref handler13);
+					LogService.Log(ref logMessage13);
 				}
 				else
 				{
-					var handler14 = new LogInterpolatedStringHandler(30, 2, out shouldAppend);
+					var logMessage14 = new LogInterpolatedStringHandler(30, 2, out shouldAppend);
 					if (shouldAppend)
 					{
-						handler14.AppendLiteral("  Restored detached child: ");
-						handler14.AppendFormatted(snapCode2.Name?.Content);
-						handler14.AppendLiteral(" [");
-						handler14.AppendFormatted(entryKey6);
-						handler14.AppendLiteral("]");
+						logMessage14.AppendLiteral("  Restored detached child: ");
+						logMessage14.AppendFormatted(snapCode2.Name?.Content);
+						logMessage14.AppendLiteral(" [");
+						logMessage14.AppendFormatted(entryKey6);
+						logMessage14.AppendLiteral("]");
 					}
-					LogService.Log(ref handler14);
+					LogService.Log(ref logMessage14);
 				}
 				restored++;
 			}
 			if (repairedParenting > 0)
 			{
-				var handler15 = new LogInterpolatedStringHandler(69, 1, out shouldAppend);
+				var logMessage15 = new LogInterpolatedStringHandler(69, 1, out shouldAppend);
 				if (shouldAppend)
 				{
-					handler15.AppendLiteral("[ImportCodeEntries] Repaired parent linkage for ");
-					handler15.AppendFormatted(repairedParenting);
-					handler15.AppendLiteral(" child code entrie(s)");
+					logMessage15.AppendLiteral("[ImportCodeEntries] Repaired parent linkage for ");
+					logMessage15.AppendFormatted(repairedParenting);
+					logMessage15.AppendLiteral(" child code entrie(s)");
 				}
-				LogService.Log(ref handler15);
+				LogService.Log(ref logMessage15);
 			}
 			if (restored > 0)
 			{
-				var handler16 = new LogInterpolatedStringHandler(92, 1, out shouldAppend);
+				var logMessage16 = new LogInterpolatedStringHandler(92, 1, out shouldAppend);
 				if (shouldAppend)
 				{
-					handler16.AppendLiteral("[ImportCodeEntries] Restored ");
-					handler16.AppendFormatted(restored);
-					handler16.AppendLiteral(" child entries as standalone (detached from recompiled parents)");
+					logMessage16.AppendLiteral("[ImportCodeEntries] Restored ");
+					logMessage16.AppendFormatted(restored);
+					logMessage16.AppendLiteral(" child entries as standalone (detached from recompiled parents)");
 				}
-				LogService.Log(ref handler16);
+				LogService.Log(ref logMessage16);
 			}
 			currentArchiveLookupAfterCompile = BuildArchiveCodeLookup(data);
 
@@ -5418,14 +5420,14 @@ public partial class PatchService
 			}
 			if (spurious.Count > 0)
 			{
-				var handler17 = new LogInterpolatedStringHandler(61, 1, out shouldAppend);
+				var logMessage17 = new LogInterpolatedStringHandler(61, 1, out shouldAppend);
 				if (shouldAppend)
 				{
-					handler17.AppendLiteral("[ImportCodeEntries] Removing ");
-					handler17.AppendFormatted(spurious.Count);
-					handler17.AppendLiteral(" compiler side-effect entries...");
+					logMessage17.AppendLiteral("[ImportCodeEntries] Removing ");
+					logMessage17.AppendFormatted(spurious.Count);
+					logMessage17.AppendLiteral(" compiler side-effect entries...");
 				}
-				LogService.Log(ref handler17);
+				LogService.Log(ref logMessage17);
 				foreach (var code2 in spurious)
 				{
 					List<GameMakerCode> spuriousChildren = [];
@@ -5464,13 +5466,13 @@ public partial class PatchService
 						}
 					}
 					data.Code.Remove(code2);
-					var handler18 = new LogInterpolatedStringHandler(11, 1, out shouldAppend);
+					var logMessage18 = new LogInterpolatedStringHandler(11, 1, out shouldAppend);
 					if (shouldAppend)
 					{
-						handler18.AppendLiteral("  Removed: ");
-						handler18.AppendFormatted(code2.Name?.Content);
+						logMessage18.AppendLiteral("  Removed: ");
+						logMessage18.AppendFormatted(code2.Name?.Content);
 					}
-					LogService.Log(ref handler18);
+					LogService.Log(ref logMessage18);
 				}
 			}
 		}
@@ -5491,24 +5493,24 @@ public partial class PatchService
 			}
 			if (linkedScripts > 0)
 			{
-				var handler19 = new LogInterpolatedStringHandler(73, 1, out shouldAppend);
+				var logMessage19 = new LogInterpolatedStringHandler(73, 1, out shouldAppend);
 				if (shouldAppend)
 				{
-					handler19.AppendLiteral("[ImportCodeEntries] Linked ");
-					handler19.AppendFormatted(linkedScripts);
-					handler19.AppendLiteral(" Script entries to their code (were Code=null)");
+					logMessage19.AppendLiteral("[ImportCodeEntries] Linked ");
+					logMessage19.AppendFormatted(linkedScripts);
+					logMessage19.AppendLiteral(" Script entries to their code (were Code=null)");
 				}
-				LogService.Log(ref handler19);
+				LogService.Log(ref logMessage19);
 			}
 		}
-		var handler20 = new LogInterpolatedStringHandler(41, 1, out shouldAppend);
+		var logMessage20 = new LogInterpolatedStringHandler(41, 1, out shouldAppend);
 		if (shouldAppend)
 		{
-			handler20.AppendLiteral("[ImportCodeEntries] Compilation done in ");
-			handler20.AppendFormatted(phaseSw.Elapsed.TotalSeconds, "F1");
-			handler20.AppendLiteral("s");
+			logMessage20.AppendLiteral("[ImportCodeEntries] Compilation done in ");
+			logMessage20.AppendFormatted(phaseSw.Elapsed.TotalSeconds, "F1");
+			logMessage20.AppendLiteral("s");
 		}
-		LogService.Log(ref handler20);
+		LogService.Log(ref logMessage20);
 		phaseSw.Restart();
 		var restoredEvents = 0;
 		if (touchesObjectEventCode && hasQueuedGmlCompilation)
@@ -5516,8 +5518,8 @@ public partial class PatchService
 			var objectNameCountsForEvents2 = BuildObjectNameCounts(data);
 			for (var k = 0; k < data.GameObjects.Count; k++)
 			{
-				var obj3 = data.GameObjects[k];
-				if (obj3 == null || obj3.Name?.Content == null || !eventSnapshot.TryGetValue(GetObjectEventKey(obj3.Name.Content, k, objectNameCountsForEvents2), out var snapshot3))
+				var objNode3 = data.GameObjects[k];
+				if (objNode3 == null || objNode3.Name?.Content == null || !eventSnapshot.TryGetValue(GetObjectEventKey(objNode3.Name.Content, k, objectNameCountsForEvents2), out var snapshot3))
 				{
 					continue;
 				}
@@ -5526,9 +5528,9 @@ public partial class PatchService
 				{
 					expectedPairs.Add((evtType2, subtype));
 				}
-				for (var l = 0; l < obj3.Events.Count; l++)
+				for (var l = 0; l < objNode3.Events.Count; l++)
 				{
-					var evtList2 = obj3.Events[l];
+					var evtList2 = objNode3.Events[l];
 					for (var i9 = evtList2.Count - 1; i9 >= 0; i9--)
 					{
 						if (!expectedPairs.Contains((l, evtList2[i9].EventSubtype)))
@@ -5542,23 +5544,23 @@ public partial class PatchService
 		}
 		if (restoredEvents > 0)
 		{
-			var handler21 = new LogInterpolatedStringHandler(69, 1, out shouldAppend);
+			var logMessage21 = new LogInterpolatedStringHandler(69, 1, out shouldAppend);
 			if (shouldAppend)
 			{
-				handler21.AppendLiteral("[ImportCodeEntries] Removed ");
-				handler21.AppendFormatted(restoredEvents);
-				handler21.AppendLiteral(" spurious events added during compilation");
+				logMessage21.AppendLiteral("[ImportCodeEntries] Removed ");
+				logMessage21.AppendFormatted(restoredEvents);
+				logMessage21.AppendLiteral(" spurious events added during compilation");
 			}
-			LogService.Log(ref handler21);
+			LogService.Log(ref logMessage21);
 		}
-		var handler22 = new LogInterpolatedStringHandler(53, 1, out shouldAppend);
+		var logMessage22 = new LogInterpolatedStringHandler(53, 1, out shouldAppend);
 		if (shouldAppend)
 		{
-			handler22.AppendLiteral("[ImportCodeEntries] Event restore phase complete in ");
-			handler22.AppendFormatted(phaseSw.Elapsed.TotalSeconds, "F2");
-			handler22.AppendLiteral("s");
+			logMessage22.AppendLiteral("[ImportCodeEntries] Event restore phase complete in ");
+			logMessage22.AppendFormatted(phaseSw.Elapsed.TotalSeconds, "F2");
+			logMessage22.AppendLiteral("s");
 		}
-		LogService.Log(ref handler22);
+		LogService.Log(ref logMessage22);
 		var eventCleanupSw = Stopwatch.StartNew();
 		var objEventsContent = objectEventsContentOverride;
 		var objEventsPath = Path.Combine(helpersDir, "object_events.json");
@@ -5573,12 +5575,12 @@ public partial class PatchService
 			var objectNameCountsForCleanup = BuildObjectNameCounts(data);
 			for (var m = 0; m < data.GameObjects.Count; m++)
 			{
-				var obj4 = data.GameObjects[m];
-				if (obj4 == null || obj4.Name?.Content == null)
+				var objNode4 = data.GameObjects[m];
+				if (objNode4 == null || objNode4.Name?.Content == null)
 				{
 					continue;
 				}
-				var eventKey = ResolveObjectEventsKey(targetEventsRoot, data, obj4.Name.Content, m, objectNameCountsForCleanup);
+				var eventKey = ResolveObjectEventsKey(targetEventsRoot, data, objNode4.Name.Content, m, objectNameCountsForCleanup);
 				if (eventKey == null || !targetEventsRoot.TryGetProperty(eventKey, out var targetEvents))
 				{
 					continue;
@@ -5608,13 +5610,13 @@ public partial class PatchService
 						}
 						subtype2 = (uint)data.GameObjects.IndexOf(collObj);
 					}
-					if (t < 0 || t >= obj4.Events.Count)
+					if (t < 0 || t >= objNode4.Events.Count)
 					{
 						continue;
 					}
 					var eventKeepKey = $"{t}_{subtype2}";
 					GameMakerGameObject.Event? targetEvent = null;
-					foreach (var existingEvt in obj4.Events[t])
+					foreach (var existingEvt in objNode4.Events[t])
 					{
 						if (existingEvt.EventSubtype == subtype2)
 						{
@@ -5628,7 +5630,7 @@ public partial class PatchService
 						{
 							EventSubtype = subtype2
 						};
-						obj4.Events[t].Add(targetEvent);
+						objNode4.Events[t].Add(targetEvent);
 					}
 					var hasLiveAction = false;
 					if (evt2.TryGetProperty("actions", out var actionsElem) && actionsElem.ValueKind == JsonValueKind.Array)
@@ -5669,27 +5671,27 @@ public partial class PatchService
 					}
 					else
 					{
-						obj4.Events[t].Remove(targetEvent);
+						objNode4.Events[t].Remove(targetEvent);
 					}
 				}
-				for (var evtType3 = 0; evtType3 < obj4.Events.Count; evtType3++)
+				for (var evtType3 = 0; evtType3 < objNode4.Events.Count; evtType3++)
 				{
-					for (var j2 = obj4.Events[evtType3].Count - 1; j2 >= 0; j2--)
+					for (var j2 = objNode4.Events[evtType3].Count - 1; j2 >= 0; j2--)
 					{
 						bool shouldKeep;
 						if (evtType3 == 4)
 						{
-							var collObjIdx = (int)obj4.Events[evtType3][j2].EventSubtype;
+							var collObjIdx = (int)objNode4.Events[evtType3][j2].EventSubtype;
 							var collObjName = (collObjIdx < 0 || collObjIdx >= data.GameObjects.Count) ? null : data.GameObjects[collObjIdx]?.Name?.Content;
 							shouldKeep = !string.IsNullOrEmpty(collObjName) && targetCollisionNames.Contains(collObjName);
 						}
 						else
 						{
-							shouldKeep = targetEventKeys.Contains($"{evtType3}_{obj4.Events[evtType3][j2].EventSubtype}");
+							shouldKeep = targetEventKeys.Contains($"{evtType3}_{objNode4.Events[evtType3][j2].EventSubtype}");
 						}
 						if (!shouldKeep)
 						{
-							obj4.Events[evtType3].RemoveAt(j2);
+							objNode4.Events[evtType3].RemoveAt(j2);
 							authRemoved++;
 						}
 					}
@@ -5697,36 +5699,36 @@ public partial class PatchService
 			}
 			if (authRemoved > 0)
 			{
-				var handler23 = new LogInterpolatedStringHandler(73, 1, out shouldAppend);
+				var logMessage23 = new LogInterpolatedStringHandler(73, 1, out shouldAppend);
 				if (shouldAppend)
 				{
-					handler23.AppendLiteral("[ImportCodeEntries] Removed ");
-					handler23.AppendFormatted(authRemoved);
-					handler23.AppendLiteral(" events not in TARGET (authoritative cleanup)");
+					logMessage23.AppendLiteral("[ImportCodeEntries] Removed ");
+					logMessage23.AppendFormatted(authRemoved);
+					logMessage23.AppendLiteral(" events not in TARGET (authoritative cleanup)");
 				}
-				LogService.Log(ref handler23);
+				LogService.Log(ref logMessage23);
 			}
 		}
 		eventCleanupSw.Stop();
-		var handler24 = new LogInterpolatedStringHandler(43, 1, out shouldAppend);
+		var logMessage24 = new LogInterpolatedStringHandler(43, 1, out shouldAppend);
 		if (shouldAppend)
 		{
-			handler24.AppendLiteral("[ImportCodeEntries] Event cleanup done in ");
-			handler24.AppendFormatted(eventCleanupSw.Elapsed.TotalSeconds, "F2");
-			handler24.AppendLiteral("s");
+			logMessage24.AppendLiteral("[ImportCodeEntries] Event cleanup done in ");
+			logMessage24.AppendFormatted(eventCleanupSw.Elapsed.TotalSeconds, "F2");
+			logMessage24.AppendLiteral("s");
 		}
-		LogService.Log(ref handler24);
+		LogService.Log(ref logMessage24);
 		if (isAssetShiftRecompileOnly)
 		{
 			LogService.Log("[ImportCodeEntries] Function/variable reconciliation skipped for asset-shift recompile");
-			var handler25 = new LogInterpolatedStringHandler(43, 1, out shouldAppend);
+			var logMessage25 = new LogInterpolatedStringHandler(43, 1, out shouldAppend);
 			if (shouldAppend)
 			{
-				handler25.AppendLiteral("[ImportCodeEntries] Hybrid import done in ");
-				handler25.AppendFormatted(sw.Elapsed.TotalSeconds, "F1");
-				handler25.AppendLiteral("s");
+				logMessage25.AppendLiteral("[ImportCodeEntries] Hybrid import done in ");
+				logMessage25.AppendFormatted(sw.Elapsed.TotalSeconds, "F1");
+				logMessage25.AppendLiteral("s");
 			}
-			LogService.Log(ref handler25);
+			LogService.Log(ref logMessage25);
 			return;
 		}
 		var functionReconcileSw = Stopwatch.StartNew();
@@ -5739,36 +5741,36 @@ public partial class PatchService
 			LogService.Log("[ImportCodeEntries] Function/variable reconciliation skipped after GML compilation");
 		}
 		functionReconcileSw.Stop();
-		var handler26 = new LogInterpolatedStringHandler(63, 1, out shouldAppend);
+		var logMessage26 = new LogInterpolatedStringHandler(63, 1, out shouldAppend);
 		if (shouldAppend)
 		{
-			handler26.AppendLiteral("[ImportCodeEntries] Function reconciliation phase complete in ");
-			handler26.AppendFormatted(functionReconcileSw.Elapsed.TotalSeconds, "F2");
-			handler26.AppendLiteral("s");
+			logMessage26.AppendLiteral("[ImportCodeEntries] Function reconciliation phase complete in ");
+			logMessage26.AppendFormatted(functionReconcileSw.Elapsed.TotalSeconds, "F2");
+			logMessage26.AppendLiteral("s");
 		}
-		LogService.Log(ref handler26);
+		LogService.Log(ref logMessage26);
 		Dictionary<string, GameMakerString>? codeImportStringLookup = null;
 		var variableReconcileSw = Stopwatch.StartNew();
 		variableReconcileSw.Stop();
-		var handler27 = new LogInterpolatedStringHandler(63, 1, out shouldAppend);
+		var logMessage27 = new LogInterpolatedStringHandler(63, 1, out shouldAppend);
 		if (shouldAppend)
 		{
-			handler27.AppendLiteral("[ImportCodeEntries] Variable reconciliation phase complete in ");
-			handler27.AppendFormatted(variableReconcileSw.Elapsed.TotalSeconds, "F2");
-			handler27.AppendLiteral("s");
+			logMessage27.AppendLiteral("[ImportCodeEntries] Variable reconciliation phase complete in ");
+			logMessage27.AppendFormatted(variableReconcileSw.Elapsed.TotalSeconds, "F2");
+			logMessage27.AppendLiteral("s");
 		}
-		LogService.Log(ref handler27);
+		LogService.Log(ref logMessage27);
 		if (asmEntries.Count == 0)
 		{
 			LogService.Log("[ImportCodeEntries] ASM reassembly skipped: no ASM entries supplied");
-			var handler28 = new LogInterpolatedStringHandler(43, 1, out shouldAppend);
+			var logMessage28 = new LogInterpolatedStringHandler(43, 1, out shouldAppend);
 			if (shouldAppend)
 			{
-				handler28.AppendLiteral("[ImportCodeEntries] Hybrid import done in ");
-				handler28.AppendFormatted(sw.Elapsed.TotalSeconds, "F1");
-				handler28.AppendLiteral("s");
+				logMessage28.AppendLiteral("[ImportCodeEntries] Hybrid import done in ");
+				logMessage28.AppendFormatted(sw.Elapsed.TotalSeconds, "F1");
+				logMessage28.AppendLiteral("s");
 			}
-			LogService.Log(ref handler28);
+			LogService.Log(ref logMessage28);
 			return;
 		}
 		phaseSw.Restart();
@@ -5829,14 +5831,14 @@ public partial class PatchService
 		}
 		if (createdAsmSkeletons > 0)
 		{
-			var handler29 = new LogInterpolatedStringHandler(75, 1, out shouldAppend);
+			var logMessage29 = new LogInterpolatedStringHandler(75, 1, out shouldAppend);
 			if (shouldAppend)
 			{
-				handler29.AppendLiteral("[ImportCodeEntries] Created ");
-				handler29.AppendFormatted(createdAsmSkeletons);
-				handler29.AppendLiteral(" missing ASM code skeletons from patch metadata");
+				logMessage29.AppendLiteral("[ImportCodeEntries] Created ");
+				logMessage29.AppendFormatted(createdAsmSkeletons);
+				logMessage29.AppendLiteral(" missing ASM code skeletons from patch metadata");
 			}
-			LogService.Log(ref handler29);
+			LogService.Log(ref logMessage29);
 		}
 		skeletonSw.Stop();
 		var assemblerCacheSw = Stopwatch.StartNew();
@@ -5867,8 +5869,8 @@ public partial class PatchService
 		{
 			foreach (var asmEntry in asmEntries)
 			{
-				asmEntry.Deconstruct(out value2, out key);
-				var entryKey8 = value2;
+				asmEntry.Deconstruct(out itemValue2, out key);
+				var entryKey8 = itemValue2;
 				var asmText = key;
 				if (!archiveCodeLookup.TryGetValue(entryKey8, out var code5))
 				{
@@ -5930,9 +5932,9 @@ public partial class PatchService
 								{
 									continue;
 								}
-								foreach (var item5 in scriptsForChild)
+								foreach (var listItem5 in scriptsForChild)
 								{
-									item5.Code = null;
+									listItem5.Code = null;
 								}
 							}
 							foreach (var (childEntryKey, childLogicalName) in explicitChildren)
@@ -5986,26 +5988,26 @@ public partial class PatchService
 							{
 								continue;
 							}
-							foreach (var item6 in scriptsForChild2)
+							foreach (var listItem6 in scriptsForChild2)
 							{
-								item6.Code = null;
+								listItem6.Code = null;
 							}
 						}
 						List<GameMakerCode> oursChildren = [.. code5.ChildEntries.OrderBy(gameMakerCode => gameMakerCode.Offset)];
 						if (targetChildNames.Count != oursChildren.Count)
 						{
-							var handler30 = new LogInterpolatedStringHandler(103, 3, out shouldAppend);
+							var logMessage30 = new LogInterpolatedStringHandler(103, 3, out shouldAppend);
 							if (shouldAppend)
 							{
-								handler30.AppendLiteral("[ImportCodeEntries] Child topology differs for ");
-								handler30.AppendFormatted(codeName6);
-								handler30.AppendLiteral(": ASM has ");
-								handler30.AppendFormatted(targetChildNames.Count);
-								handler30.AppendLiteral(", compiled has ");
-								handler30.AppendFormatted(oursChildren.Count);
-								handler30.AppendLiteral("; continuing with partial remap");
+								logMessage30.AppendLiteral("[ImportCodeEntries] Child topology differs for ");
+								logMessage30.AppendFormatted(codeName6);
+								logMessage30.AppendLiteral(": ASM has ");
+								logMessage30.AppendFormatted(targetChildNames.Count);
+								logMessage30.AppendLiteral(", compiled has ");
+								logMessage30.AppendFormatted(oursChildren.Count);
+								logMessage30.AppendLiteral("; continuing with partial remap");
 							}
-							LogService.Log(ref handler30);
+							LogService.Log(ref logMessage30);
 						}
 						var remapCount = (!hasExplicitChildEntries) ? Math.Min(targetChildNames.Count, oursChildren.Count) : 0;
 						for (var ci = 0; ci < remapCount; ci++)
@@ -6078,9 +6080,9 @@ public partial class PatchService
 						code5.Instructions.Add(instr);
 					}
 					var totalWords = 0u;
-					foreach (var instr2 in newInstructions)
+					foreach (var secondInstr in newInstructions)
 					{
-						totalWords += instr2.CalculateInstructionSize();
+						totalWords += secondInstr.CalculateInstructionSize();
 					}
 					code5.Length = totalWords * 4;
 					replaceInstructionsSw.Stop();
@@ -6095,15 +6097,15 @@ public partial class PatchService
 					}
 					if (asmFailed <= 5)
 					{
-						var handler31 = new LogInterpolatedStringHandler(36, 2, out shouldAppend);
+						var logMessage31 = new LogInterpolatedStringHandler(36, 2, out shouldAppend);
 						if (shouldAppend)
 						{
-							handler31.AppendLiteral("[ImportCodeEntries] ASM error for ");
-							handler31.AppendFormatted(codeName6);
-							handler31.AppendLiteral(": ");
-							handler31.AppendFormatted(ex3.Message);
+							logMessage31.AppendLiteral("[ImportCodeEntries] ASM error for ");
+							logMessage31.AppendFormatted(codeName6);
+							logMessage31.AppendLiteral(": ");
+							logMessage31.AppendFormatted(ex3.Message);
 						}
-						LogService.Log(ref handler31);
+						LogService.Log(ref logMessage31);
 					}
 				}
 			}
@@ -6120,16 +6122,16 @@ public partial class PatchService
 			var recovered = asmGmlFallbackEntries.Count - fallbackFailed;
 			asmFailed -= recovered;
 			reassembled += recovered;
-			var handler32 = new LogInterpolatedStringHandler(59, 2, out shouldAppend);
+			var logMessage32 = new LogInterpolatedStringHandler(59, 2, out shouldAppend);
 			if (shouldAppend)
 			{
-				handler32.AppendLiteral("[ImportCodeEntries] Recovered ");
-				handler32.AppendFormatted(recovered);
-				handler32.AppendLiteral("/");
-				handler32.AppendFormatted(asmGmlFallbackEntries.Count);
-				handler32.AppendLiteral(" failed ASM entries from GML");
+				logMessage32.AppendLiteral("[ImportCodeEntries] Recovered ");
+				logMessage32.AppendFormatted(recovered);
+				logMessage32.AppendLiteral("/");
+				logMessage32.AppendFormatted(asmGmlFallbackEntries.Count);
+				logMessage32.AppendLiteral(" failed ASM entries from GML");
 			}
-			LogService.Log(ref handler32);
+			LogService.Log(ref logMessage32);
 		}
 		var postAsmTopologySw = Stopwatch.StartNew();
 		if (pendingChildReattachments.Count > 0)
@@ -6150,14 +6152,14 @@ public partial class PatchService
 			}
 			if (reattachedChildren > 0)
 			{
-				var handler33 = new LogInterpolatedStringHandler(75, 1, out shouldAppend);
+				var logMessage33 = new LogInterpolatedStringHandler(75, 1, out shouldAppend);
 				if (shouldAppend)
 				{
-					handler33.AppendLiteral("[ImportCodeEntries] Reattached ");
-					handler33.AppendFormatted(reattachedChildren);
-					handler33.AppendLiteral(" restored child entries after ASM reassembly");
+					logMessage33.AppendLiteral("[ImportCodeEntries] Reattached ");
+					logMessage33.AppendFormatted(reattachedChildren);
+					logMessage33.AppendLiteral(" restored child entries after ASM reassembly");
 				}
-				LogService.Log(ref handler33);
+				LogService.Log(ref logMessage33);
 			}
 		}
 		if (hasCompleteCodeEntryMetadata && targetCodeEntriesByKey.Count > 0)
@@ -6165,27 +6167,27 @@ public partial class PatchService
 			var canonicalParents = 0;
 			var canonicalChildren = 0;
 			var allTrackedCodes = new Dictionary<string, GameMakerCode>(StringComparer.Ordinal);
-			foreach (var item7 in topLevelEntrySnapshot)
+			foreach (var listItem7 in topLevelEntrySnapshot)
 			{
-				item7.Deconstruct(out key, out value3);
-				(allTrackedCodes[key], _, _) = value3;
+				listItem7.Deconstruct(out key, out itemValue3);
+				(allTrackedCodes[key], _, _) = itemValue3;
 			}
-			foreach (var item8 in childEntrySnapshot)
+			foreach (var listItem8 in childEntrySnapshot)
 			{
-				item8.Deconstruct(out key, out value4);
-				(allTrackedCodes[key], _, _, _) = value4;
+				listItem8.Deconstruct(out key, out itemValue4);
+				(allTrackedCodes[key], _, _, _) = itemValue4;
 			}
 			archiveCodeLookup = BuildArchiveCodeLookup(data);
-			foreach (var item9 in archiveCodeLookup)
+			foreach (var listItem9 in archiveCodeLookup)
 			{
-				item9.Deconstruct(out key, out var value5);
+				listItem9.Deconstruct(out key, out var itemValue5);
 				var entryKey11 = key;
-				var code6 = value5;
+				var code6 = itemValue5;
 				allTrackedCodes[entryKey11] = code6;
 			}
-			foreach (var item10 in targetCodeEntriesByKey)
+			foreach (var listItem10 in targetCodeEntriesByKey)
 			{
-				item10.Deconstruct(out key, out value);
+				listItem10.Deconstruct(out key, out value);
 				var entryKey12 = key;
 				var meta2 = value;
 				if (allTrackedCodes.TryGetValue(entryKey12, out var code7))
@@ -6203,9 +6205,9 @@ public partial class PatchService
 					}
 				}
 			}
-			foreach (var item11 in targetCodeEntriesByKey)
+			foreach (var listItem11 in targetCodeEntriesByKey)
 			{
-				item11.Deconstruct(out key, out value);
+				listItem11.Deconstruct(out key, out value);
 				var entryKey13 = key;
 				var meta3 = value;
 				if (meta3.Item3 != null && allTrackedCodes.TryGetValue(entryKey13, out var child4) && allTrackedCodes.TryGetValue(meta3.Item3, out var parent3))
@@ -6230,16 +6232,16 @@ public partial class PatchService
 					canonicalChildren++;
 				}
 			}
-			var handler34 = new LogInterpolatedStringHandler(92, 2, out shouldAppend);
+			var logMessage34 = new LogInterpolatedStringHandler(92, 2, out shouldAppend);
 			if (shouldAppend)
 			{
-				handler34.AppendLiteral("[ImportCodeEntries] Canonicalized code topology from helper metadata: ");
-				handler34.AppendFormatted(canonicalParents);
-				handler34.AppendLiteral(" parents, ");
-				handler34.AppendFormatted(canonicalChildren);
-				handler34.AppendLiteral(" child links");
+				logMessage34.AppendLiteral("[ImportCodeEntries] Canonicalized code topology from helper metadata: ");
+				logMessage34.AppendFormatted(canonicalParents);
+				logMessage34.AppendLiteral(" parents, ");
+				logMessage34.AppendFormatted(canonicalChildren);
+				logMessage34.AppendLiteral(" child links");
 			}
-			LogService.Log(ref handler34);
+			LogService.Log(ref logMessage34);
 		}
 		if (hasCompleteCodeEntryMetadata)
 		{
@@ -6254,74 +6256,74 @@ public partial class PatchService
 		postAsmTopologySw.Stop();
 		if (asmFailed > 5)
 		{
-			var handler35 = new LogInterpolatedStringHandler(57, 1, out shouldAppend);
+			var logMessage35 = new LogInterpolatedStringHandler(57, 1, out shouldAppend);
 			if (shouldAppend)
 			{
-				handler35.AppendLiteral("[ImportCodeEntries] ... and ");
-				handler35.AppendFormatted(asmFailed - 5);
-				handler35.AppendLiteral(" more ASM errors (suppressed)");
+				logMessage35.AppendLiteral("[ImportCodeEntries] ... and ");
+				logMessage35.AppendFormatted(asmFailed - 5);
+				logMessage35.AppendLiteral(" more ASM errors (suppressed)");
 			}
-			LogService.Log(ref handler35);
+			LogService.Log(ref logMessage35);
 		}
-		var handler36 = new LogInterpolatedStringHandler(165, 14, out shouldAppend);
+		var logMessage36 = new LogInterpolatedStringHandler(165, 14, out shouldAppend);
 		if (shouldAppend)
 		{
-			handler36.AppendLiteral("[ImportCodeEntries] ASM timings: funcs=");
-			handler36.AppendFormatted(functionReconcileSw.Elapsed.TotalSeconds, "F2");
-			handler36.AppendLiteral("s, vars=");
-			handler36.AppendFormatted(variableReconcileSw.Elapsed.TotalSeconds, "F2");
-			handler36.AppendLiteral("s, localvars=");
-			handler36.AppendFormatted(localVarLookupSw.Elapsed.TotalSeconds, "F2");
-			handler36.AppendLiteral("s, codeLookup=");
-			handler36.AppendFormatted(archiveLookupSw.Elapsed.TotalSeconds, "F2");
-			handler36.AppendLiteral("s, skeletons=");
-			handler36.AppendFormatted(skeletonSw.Elapsed.TotalSeconds, "F2");
-			handler36.AppendLiteral("s, cache=");
-			handler36.AppendFormatted(assemblerCacheSw.Elapsed.TotalSeconds, "F2");
-			handler36.AppendLiteral("s, loop=");
-			handler36.AppendFormatted(asmLoopSw.Elapsed.TotalSeconds, "F2");
-			handler36.AppendLiteral("s, child=");
-			handler36.AppendFormatted(childDirectiveSw.Elapsed.TotalSeconds, "F2");
-			handler36.AppendLiteral("s/");
-			handler36.AppendFormatted(childDirectiveEntries);
-			handler36.AppendLiteral(", preprocess=");
-			handler36.AppendFormatted(asmPreprocessSw.Elapsed.TotalSeconds, "F2");
-			handler36.AppendLiteral("s/");
-			handler36.AppendFormatted(preprocessedAsmEntries);
-			handler36.AppendLiteral(", assemble=");
-			handler36.AppendFormatted(assembleOnlySw.Elapsed.TotalSeconds, "F2");
-			handler36.AppendLiteral("s, replace=");
-			handler36.AppendFormatted(replaceInstructionsSw.Elapsed.TotalSeconds, "F2");
-			handler36.AppendLiteral("s, topology=");
-			handler36.AppendFormatted(postAsmTopologySw.Elapsed.TotalSeconds, "F2");
-			handler36.AppendLiteral("s");
+			logMessage36.AppendLiteral("[ImportCodeEntries] ASM timings: funcs=");
+			logMessage36.AppendFormatted(functionReconcileSw.Elapsed.TotalSeconds, "F2");
+			logMessage36.AppendLiteral("s, vars=");
+			logMessage36.AppendFormatted(variableReconcileSw.Elapsed.TotalSeconds, "F2");
+			logMessage36.AppendLiteral("s, localvars=");
+			logMessage36.AppendFormatted(localVarLookupSw.Elapsed.TotalSeconds, "F2");
+			logMessage36.AppendLiteral("s, codeLookup=");
+			logMessage36.AppendFormatted(archiveLookupSw.Elapsed.TotalSeconds, "F2");
+			logMessage36.AppendLiteral("s, skeletons=");
+			logMessage36.AppendFormatted(skeletonSw.Elapsed.TotalSeconds, "F2");
+			logMessage36.AppendLiteral("s, cache=");
+			logMessage36.AppendFormatted(assemblerCacheSw.Elapsed.TotalSeconds, "F2");
+			logMessage36.AppendLiteral("s, loop=");
+			logMessage36.AppendFormatted(asmLoopSw.Elapsed.TotalSeconds, "F2");
+			logMessage36.AppendLiteral("s, child=");
+			logMessage36.AppendFormatted(childDirectiveSw.Elapsed.TotalSeconds, "F2");
+			logMessage36.AppendLiteral("s/");
+			logMessage36.AppendFormatted(childDirectiveEntries);
+			logMessage36.AppendLiteral(", preprocess=");
+			logMessage36.AppendFormatted(asmPreprocessSw.Elapsed.TotalSeconds, "F2");
+			logMessage36.AppendLiteral("s/");
+			logMessage36.AppendFormatted(preprocessedAsmEntries);
+			logMessage36.AppendLiteral(", assemble=");
+			logMessage36.AppendFormatted(assembleOnlySw.Elapsed.TotalSeconds, "F2");
+			logMessage36.AppendLiteral("s, replace=");
+			logMessage36.AppendFormatted(replaceInstructionsSw.Elapsed.TotalSeconds, "F2");
+			logMessage36.AppendLiteral("s, topology=");
+			logMessage36.AppendFormatted(postAsmTopologySw.Elapsed.TotalSeconds, "F2");
+			logMessage36.AppendLiteral("s");
 		}
-		LogService.Log(ref handler36);
-		var handler37 = new LogInterpolatedStringHandler(46, 3, out shouldAppend);
+		LogService.Log(ref logMessage36);
+		var logMessage37 = new LogInterpolatedStringHandler(46, 3, out shouldAppend);
 		if (shouldAppend)
 		{
-			handler37.AppendLiteral("[ImportCodeEntries] Reassembled ");
-			handler37.AppendFormatted(reassembled);
-			handler37.AppendLiteral("/");
-			handler37.AppendFormatted(reassembled + asmFailed);
-			handler37.AppendLiteral(" entries in ");
-			handler37.AppendFormatted(phaseSw.Elapsed.TotalSeconds, "F1");
-			handler37.AppendLiteral("s");
+			logMessage37.AppendLiteral("[ImportCodeEntries] Reassembled ");
+			logMessage37.AppendFormatted(reassembled);
+			logMessage37.AppendLiteral("/");
+			logMessage37.AppendFormatted(reassembled + asmFailed);
+			logMessage37.AppendLiteral(" entries in ");
+			logMessage37.AppendFormatted(phaseSw.Elapsed.TotalSeconds, "F1");
+			logMessage37.AppendLiteral("s");
 		}
-		LogService.Log(ref handler37);
+		LogService.Log(ref logMessage37);
 		if (asmFailed > 0)
 		{
 			throw new InvalidDataException($"{asmFailed} code entr{((asmFailed == 1) ? "y" : "ies")} could not be imported from ASM or GML");
 		}
 		sw.Stop();
-		var handler38 = new LogInterpolatedStringHandler(47, 1, out shouldAppend);
+		var logMessage38 = new LogInterpolatedStringHandler(47, 1, out shouldAppend);
 		if (shouldAppend)
 		{
-			handler38.AppendLiteral("[ImportCodeEntries] Hybrid import complete in ");
-			handler38.AppendFormatted(sw.Elapsed.TotalSeconds, "F1");
-			handler38.AppendLiteral("s");
+			logMessage38.AppendLiteral("[ImportCodeEntries] Hybrid import complete in ");
+			logMessage38.AppendFormatted(sw.Elapsed.TotalSeconds, "F1");
+			logMessage38.AppendLiteral("s");
 		}
-		LogService.Log(ref handler38);
+		LogService.Log(ref logMessage38);
 	}
 
 	private static int RetryGmlOnlyCodeEntriesIndividually(GameMakerData data, List<(string CodeName, string GmlCode, bool IsCollision)> gmlOnlyEntries, Dictionary<string, string> collisionTargetsByCode)
@@ -6395,44 +6397,44 @@ public partial class PatchService
 					continue;
 				}
 				failed++;
-				var handler2 = new LogInterpolatedStringHandler(48, 2, out shouldAppend);
+				var logMessage2 = new LogInterpolatedStringHandler(48, 2, out shouldAppend);
 				if (shouldAppend)
 				{
-					handler2.AppendLiteral("[ImportCodeEntries] GML-only retry failed for ");
-					handler2.AppendFormatted(CodeName);
-					handler2.AppendLiteral(": ");
-					handler2.AppendFormatted(result.PrintAllErrors(codeEntryNames: true));
+					logMessage2.AppendLiteral("[ImportCodeEntries] GML-only retry failed for ");
+					logMessage2.AppendFormatted(CodeName);
+					logMessage2.AppendLiteral(": ");
+					logMessage2.AppendFormatted(result.PrintAllErrors(codeEntryNames: true));
 				}
-				LogService.Log(ref handler2);
+				LogService.Log(ref logMessage2);
 			}
 			catch (Exception ex)
 			{
 				failed++;
-				var handler3 = new LogInterpolatedStringHandler(51, 2, out shouldAppend);
+				var logMessage3 = new LogInterpolatedStringHandler(51, 2, out shouldAppend);
 				if (shouldAppend)
 				{
-					handler3.AppendLiteral("[ImportCodeEntries] GML-only retry exception for ");
-					handler3.AppendFormatted(CodeName);
-					handler3.AppendLiteral(": ");
-					handler3.AppendFormatted(ex.Message);
+					logMessage3.AppendLiteral("[ImportCodeEntries] GML-only retry exception for ");
+					logMessage3.AppendFormatted(CodeName);
+					logMessage3.AppendLiteral(": ");
+					logMessage3.AppendFormatted(ex.Message);
 				}
-				LogService.Log(ref handler3);
+				LogService.Log(ref logMessage3);
 			}
 		}
-		var handler4 = new LogInterpolatedStringHandler(59, 4, out shouldAppend);
+		var logMessage4 = new LogInterpolatedStringHandler(59, 4, out shouldAppend);
 		if (shouldAppend)
 		{
-			handler4.AppendLiteral("[ImportCodeEntries] GML-only retry applied ");
-			handler4.AppendFormatted(applied);
-			handler4.AppendLiteral("/");
-			handler4.AppendFormatted(gmlOnlyEntries.Count);
-			handler4.AppendLiteral(", failed ");
-			handler4.AppendFormatted(failed);
-			handler4.AppendLiteral(", in ");
-			handler4.AppendFormatted(phaseSw.Elapsed.TotalSeconds, "F1");
-			handler4.AppendLiteral("s");
+			logMessage4.AppendLiteral("[ImportCodeEntries] GML-only retry applied ");
+			logMessage4.AppendFormatted(applied);
+			logMessage4.AppendLiteral("/");
+			logMessage4.AppendFormatted(gmlOnlyEntries.Count);
+			logMessage4.AppendLiteral(", failed ");
+			logMessage4.AppendFormatted(failed);
+			logMessage4.AppendLiteral(", in ");
+			logMessage4.AppendFormatted(phaseSw.Elapsed.TotalSeconds, "F1");
+			logMessage4.AppendLiteral("s");
 		}
-		LogService.Log(ref handler4);
+		LogService.Log(ref logMessage4);
 		return failed;
 	}
 
@@ -6481,11 +6483,11 @@ public partial class PatchService
 			data.Functions.Add(function3);
 		}
 		var remapped = 0;
-		foreach (var item2 in data.Code)
+		foreach (var listItem2 in data.Code)
 		{
-			foreach (var item3 in EnumerateCodeTreeRecursive(item2))
+			foreach (var listItem3 in EnumerateCodeTreeRecursive(listItem2))
 			{
-				foreach (var instruction in item3.Instructions ?? [])
+				foreach (var instruction in listItem3.Instructions ?? [])
 				{
 					var name3 = instruction.ValueFunction?.Name?.Content;
 					if (!string.IsNullOrEmpty(name3) && newByName.TryGetValue(FunctionNameUtil.CanonicalizeFunctionName(name3), out var replacement) && instruction.ValueFunction != replacement)
@@ -6545,9 +6547,9 @@ public partial class PatchService
 		var remapped = 0;
 		foreach (var item in data.Code)
 		{
-			foreach (var item2 in EnumerateCodeTreeRecursive(item))
+			foreach (var listItem2 in EnumerateCodeTreeRecursive(item))
 			{
-				foreach (var instruction in item2.Instructions ?? [])
+				foreach (var instruction in listItem2.Instructions ?? [])
 				{
 					var variable3 = instruction.ValueVariable;
 					var name2 = variable3?.Name?.Content;
@@ -6798,9 +6800,9 @@ public partial class PatchService
 			{
 				continue;
 			}
-			for (var eventType = 0; eventType < obj.Events.Count; eventType++)
+			foreach (var gameEvent in obj.Events)
 			{
-				obj.Events[eventType].Clear();
+				gameEvent.Clear();
 			}
 			foreach (var evt2 in desired)
 			{
@@ -6886,9 +6888,9 @@ public partial class PatchService
 			("_Gesture_", 13),
 			("_PreCreate_", 14)
 		];
-		for (var i = 0; i < array.Length; i++)
+		foreach (var arrayItem in array)
 		{
-			var tuple = array[i];
+			var tuple = arrayItem;
 			var suffix = tuple.Item1;
 			var type = tuple.Item2;
 			var idx = codeName.LastIndexOf(suffix, StringComparison.Ordinal);
@@ -7606,9 +7608,9 @@ public partial class PatchService
 	{
 		var sections = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
 		string? currentSection = null;
-		for (var i = 0; i < lines.Length; i++)
+		foreach (var lineEntry in lines)
 		{
-			var line = lines[i].TrimEnd();
+			var line = lineEntry.TrimEnd();
 			if (line.StartsWith("@@", StringComparison.Ordinal) && line.EndsWith("@@", StringComparison.Ordinal) && line.Length > 4)
 			{
 				var text = line;

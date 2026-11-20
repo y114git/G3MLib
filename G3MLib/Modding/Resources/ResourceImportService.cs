@@ -357,9 +357,9 @@ public static partial class ResourceImportService
 				}
 				if (root3.TryGetProperty("events", out var evtsElm) && evtsElm.ValueKind == JsonValueKind.Array)
 				{
-					for (var ei = 0; ei < go2.Events.Count; ei++)
+					foreach (var gameEvent in go2.Events)
 					{
-						go2.Events[ei].Clear();
+						gameEvent.Clear();
 					}
 					foreach (var evtElm in evtsElm.EnumerateArray())
 					{
@@ -441,7 +441,7 @@ public static partial class ResourceImportService
 		Log($"[ImportGameObjects] Done. {imported} imported ({created} new, {updated} updated)");
 		GameMakerGameObject? FindObject(string key)
 		{
-			return lookup.TryGet(key, out GameMakerGameObject obj2, out _) ? obj2 : null;
+			return lookup.TryGet(key, out GameMakerGameObject objNode2, out _) ? objNode2 : null;
 		}
 		GameMakerSprite? FindSprite(string key)
 		{
@@ -758,11 +758,11 @@ public static partial class ResourceImportService
 									if (text2 == "objects")
 									{
 										List<(GameMakerGameObject, int, string)> collisionInfo = [];
-										foreach (var obj2 in data.GameObjects)
+										foreach (var objNode2 in data.GameObjects)
 										{
-											if (obj2 != null)
+											if (objNode2 != null)
 											{
-												var collisions = obj2.Events[4];
+												var collisions = objNode2.Events[4];
 												for (var ci = 0; ci < collisions.Count; ci++)
 												{
 													var sub = collisions[ci].EventSubtype;
@@ -771,7 +771,7 @@ public static partial class ResourceImportService
 														var target = data.GameObjects[(int)sub];
 														if (target != null && target.Name?.Content != null)
 														{
-															collisionInfo.Add((obj2, ci, target.Name.Content));
+															collisionInfo.Add((objNode2, ci, target.Name.Content));
 														}
 													}
 												}
@@ -788,11 +788,11 @@ public static partial class ResourceImportService
 											}
 										}
 										var fixedCollisions = 0;
-										foreach (var (obj3, evtIdx, tName) in collisionInfo)
+										foreach (var (objNode3, evtIdx, tName) in collisionInfo)
 										{
-											if (objectIndicesByName.TryGetValue(tName, out var newIdx) && evtIdx < obj3.Events[4].Count)
+											if (objectIndicesByName.TryGetValue(tName, out var newIdx) && evtIdx < objNode3.Events[4].Count)
 											{
-												var collisions2 = obj3.Events[4];
+												var collisions2 = objNode3.Events[4];
 												if (collisions2[evtIdx].EventSubtype != newIdx)
 												{
 													collisions2[evtIdx].EventSubtype = newIdx;
@@ -1349,9 +1349,12 @@ public static partial class ResourceImportService
 	/// <summary>The resource name an exported folder holds: the JSON "name", because the folder name is only a file-system safe form of it.</summary>
 	private static string ResourceName(JsonElement root, string folderName)
 	{
-		return root.ValueKind == JsonValueKind.Object && root.TryGetProperty("name", out var nameElm)
-			&& nameElm.ValueKind == JsonValueKind.String && !string.IsNullOrEmpty(nameElm.GetString())
-			? nameElm.GetString()! : folderName;
+		if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("name", out var nameElm) && nameElm.ValueKind == JsonValueKind.String
+			&& nameElm.GetString() is { Length: > 0 } name)
+		{
+			return name;
+		}
+		return folderName;
 	}
 
 	/// <summary>Cancelling throws <see cref="OperationCanceledException"/>. The input folder is never changed; <paramref name="data"/> may hold part of the import, so discard it.</summary>
@@ -1804,9 +1807,9 @@ public static partial class ResourceImportService
 			return;
 		}
 		target.Clear();
-		foreach (var item2 in array.EnumerateArray())
+		foreach (var listItem2 in array.EnumerateArray())
 		{
-			var codeName = item2.GetString();
+			var codeName = listItem2.GetString();
 			if (!string.IsNullOrWhiteSpace(codeName))
 			{
 				var code = data.Code?.ByName(codeName);
@@ -2219,9 +2222,9 @@ public static partial class ResourceImportService
 				GameMakerSimpleListString list = [];
 				if (assetTagElm.TryGetProperty("tags", out var itemTagsElm) && itemTagsElm.ValueKind == JsonValueKind.Array)
 				{
-					foreach (var item2 in itemTagsElm.EnumerateArray())
+					foreach (var listItem2 in itemTagsElm.EnumerateArray())
 					{
-						var tag2 = item2.GetString();
+						var tag2 = listItem2.GetString();
 						if (!string.IsNullOrEmpty(tag2))
 						{
 							list.Add(data.Strings.MakeString(tag2));
@@ -2878,14 +2881,14 @@ public static partial class ResourceImportService
 					{
 						var channel = new GameMakerAnimationCurve.Channel
 						{
-							Name = data.Strings.MakeString(current.TryGetProperty("name", out var value2) ? (value2.GetString() ?? "") : ""),
+							Name = data.Strings.MakeString(current.TryGetProperty("name", out var itemValue2) ? (itemValue2.GetString() ?? "") : ""),
 							Curve = (GameMakerAnimationCurve.Channel.CurveType)GetJsonValue(current, "curve", 0),
 							Iterations = GetJsonValue(current, "iterations", 0u),
 							Points = []
 						};
-						if (current.TryGetProperty("points", out var value3) && value3.ValueKind == JsonValueKind.Array)
+						if (current.TryGetProperty("points", out var itemValue3) && itemValue3.ValueKind == JsonValueKind.Array)
 						{
-							foreach (var current2 in value3.EnumerateArray())
+							foreach (var current2 in itemValue3.EnumerateArray())
 							{
 								if (current2.ValueKind == JsonValueKind.Object)
 								{
@@ -3368,18 +3371,18 @@ public static partial class ResourceImportService
 								if (fileName2 == "HLSL11_VertexData.bin")
 								{
 									var gameMakerShader = shader;
-									var obj7 = gameMakerShader.HLSL11_VertexData ??= new GameMakerShader.GameMakerRawShaderData();
-									obj7.Data = bytes;
-									obj7.IsNull = false;
+									var objNode7 = gameMakerShader.HLSL11_VertexData ??= new GameMakerShader.GameMakerRawShaderData();
+									objNode7.Data = bytes;
+									objNode7.IsNull = false;
 								}
 								break;
 							case 'C':
 								if (fileName2 == "Cg_PS3_VertexData.bin")
 								{
 									var gameMakerShader = shader;
-									var obj6 = gameMakerShader.Cg_PS3_VertexData ??= new GameMakerShader.GameMakerRawShaderData();
-									obj6.Data = bytes;
-									obj6.IsNull = false;
+									var objNode6 = gameMakerShader.Cg_PS3_VertexData ??= new GameMakerShader.GameMakerRawShaderData();
+									objNode6.Data = bytes;
+									objNode6.IsNull = false;
 								}
 								break;
 						}
@@ -3391,18 +3394,18 @@ public static partial class ResourceImportService
 								if (fileName2 == "HLSL11_PixelData.bin")
 								{
 									var gameMakerShader = shader;
-									var obj4 = gameMakerShader.HLSL11_PixelData ??= new GameMakerShader.GameMakerRawShaderData();
-									obj4.Data = bytes;
-									obj4.IsNull = false;
+									var objNode4 = gameMakerShader.HLSL11_PixelData ??= new GameMakerShader.GameMakerRawShaderData();
+									objNode4.Data = bytes;
+									objNode4.IsNull = false;
 								}
 								break;
 							case 'C':
 								if (fileName2 == "Cg_PS3_PixelData.bin")
 								{
 									var gameMakerShader = shader;
-									var obj3 = gameMakerShader.Cg_PS3_PixelData ??= new GameMakerShader.GameMakerRawShaderData();
-									obj3.Data = bytes;
-									obj3.IsNull = false;
+									var objNode3 = gameMakerShader.Cg_PS3_PixelData ??= new GameMakerShader.GameMakerRawShaderData();
+									objNode3.Data = bytes;
+									objNode3.IsNull = false;
 								}
 								break;
 						}
@@ -3411,36 +3414,36 @@ public static partial class ResourceImportService
 						if (fileName2 == "PSSL_VertexData.bin")
 						{
 							var gameMakerShader = shader;
-							var obj9 = gameMakerShader.PSSL_VertexData ??= new GameMakerShader.GameMakerRawShaderData();
-							obj9.Data = bytes;
-							obj9.IsNull = false;
+							var objNode9 = gameMakerShader.PSSL_VertexData ??= new GameMakerShader.GameMakerRawShaderData();
+							objNode9.Data = bytes;
+							objNode9.IsNull = false;
 						}
 						break;
 					case 18:
 						if (fileName2 == "PSSL_PixelData.bin")
 						{
 							var gameMakerShader = shader;
-							var obj5 = gameMakerShader.PSSL_PixelData ??= new GameMakerShader.GameMakerRawShaderData();
-							obj5.Data = bytes;
-							obj5.IsNull = false;
+							var objNode5 = gameMakerShader.PSSL_PixelData ??= new GameMakerShader.GameMakerRawShaderData();
+							objNode5.Data = bytes;
+							objNode5.IsNull = false;
 						}
 						break;
 					case 24:
 						if (fileName2 == "Cg_PSVita_VertexData.bin")
 						{
 							var gameMakerShader = shader;
-							var obj8 = gameMakerShader.Cg_PSVita_VertexData ??= new GameMakerShader.GameMakerRawShaderData();
-							obj8.Data = bytes;
-							obj8.IsNull = false;
+							var objNode8 = gameMakerShader.Cg_PSVita_VertexData ??= new GameMakerShader.GameMakerRawShaderData();
+							objNode8.Data = bytes;
+							objNode8.IsNull = false;
 						}
 						break;
 					case 23:
 						if (fileName2 == "Cg_PSVita_PixelData.bin")
 						{
 							var gameMakerShader = shader;
-							var obj2 = gameMakerShader.Cg_PSVita_PixelData ??= new GameMakerShader.GameMakerRawShaderData();
-							obj2.Data = bytes;
-							obj2.IsNull = false;
+							var objNode2 = gameMakerShader.Cg_PSVita_PixelData ??= new GameMakerShader.GameMakerRawShaderData();
+							objNode2.Data = bytes;
+							objNode2.IsNull = false;
 						}
 						break;
 					case 22:
@@ -4556,9 +4559,9 @@ public static partial class ResourceImportService
 			}
 		}
 		filesIn = GetFilesIn(inputDir, "*.json");
-		for (var i = 0; i < filesIn.Length; i++)
+		foreach (var filesInItem in filesIn)
 		{
-			var n = Path.GetFileNameWithoutExtension(filesIn[i]);
+			var n = Path.GetFileNameWithoutExtension(filesInItem);
 			if (!n.Equals("config", StringComparison.OrdinalIgnoreCase) && MatchesOnlyName(n))
 			{
 				names.Add(n);
@@ -4945,8 +4948,8 @@ public static partial class ResourceImportService
 		string[] sorted = [.. roomDirs.OrderBy(delegate (string d)
 		{
 			var folder = Path.GetFileName(d);
-			var num2 = patchRoomOrder.FindIndex(n => n == folder || SafeName(n) == folder || ResourceExportService.LegacySafeName(n) == folder);
-			return (num2 < 0) ? int.MaxValue : num2;
+			var secondNum = patchRoomOrder.FindIndex(n => n == folder || SafeName(n) == folder || ResourceExportService.LegacySafeName(n) == folder);
+			return (secondNum < 0) ? int.MaxValue : secondNum;
 		})];
 		var lookup = RoomImportLookup.Build(data);
 		Log($"[ImportRooms] Found {sorted.Length} room folder(s) to import.");
@@ -6081,7 +6084,7 @@ public static partial class ResourceImportService
 				gameMakerTexturePageItem.BoundingHeight = (ushort)Convert.ToInt32(bhv, CultureInfo.InvariantCulture);
 			}
 		}
-		GameMakerTexturePageItem? FindExistingTPI(int num, ushort num2, ushort num3, ushort num4, ushort num5)
+		GameMakerTexturePageItem? FindExistingTPI(int num, ushort secondNum, ushort num3, ushort num4, ushort num5)
 		{
 			if (num < 0 || num >= data.EmbeddedTextures.Count)
 			{
@@ -6090,7 +6093,7 @@ public static partial class ResourceImportService
 			var texturePage = data.EmbeddedTextures[num];
 			foreach (var tpi2 in data.TexturePageItems)
 			{
-				if (tpi2.TexturePage == texturePage && tpi2.SourceX == num2 && tpi2.SourceY == num3 && tpi2.SourceWidth == num4 && tpi2.SourceHeight == num5)
+				if (tpi2.TexturePage == texturePage && tpi2.SourceX == secondNum && tpi2.SourceY == num3 && tpi2.SourceWidth == num4 && tpi2.SourceHeight == num5)
 				{
 					return tpi2;
 				}

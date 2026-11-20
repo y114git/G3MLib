@@ -66,14 +66,12 @@ internal sealed class TryCatch : IControlFlowNode
         foreach (var block in blocks)
         {
             ctx.ThrowIfCancellationRequested();
-            // Check for start block
             if (block.Instructions.Count == 6)
             {
                 var call = block.Instructions[^2];
                 if (call.Kind == IGMInstruction.Opcode.Call &&
                     call.TryFindFunction(ctx.GameContext)?.Name?.Content == VMConstants.TryHookFunction)
                 {
-                    // Get components of our try..catch statement
                     var tryNode = block.Successors[0];
                     var catchNode = block.Successors.Count >= 3 ? block.Successors[2] : null;
                     var endBlock = block.Successors[1] as Block ?? throw new DecompilerException("Expected second successor to be block");
@@ -81,12 +79,10 @@ internal sealed class TryCatch : IControlFlowNode
                     TryCatch tc = new(block.StartAddress, endBlock.StartAddress, tryNode, catchNode);
                     res.Add(tc);
 
-                    // Remove predecessor of try node
                     IControlFlowNode.DisconnectPredecessor(tryNode, 0);
 
                     if (catchNode is not null)
                     {
-                        // Remove predecessor of catch node
                         IControlFlowNode.DisconnectPredecessor(catchNode, 0);
 
                         // Remove branch instruction from end node's second predecessor, i.e.
@@ -103,7 +99,6 @@ internal sealed class TryCatch : IControlFlowNode
                         }
                         tryEndBlock.Instructions.RemoveAt(tryEndBlock.Instructions.Count - 1);
 
-                        // Remove instructions from the end of the catch block
                         var catchEndBlock = blocks[endBlock.BlockIndex - 1];
                         if (catchEndBlock.Instructions is not
                             [.., { Kind: IGMInstruction.Opcode.Call }, { Kind: IGMInstruction.Opcode.PopDelete },
@@ -131,10 +126,8 @@ internal sealed class TryCatch : IControlFlowNode
                     // Disconnect new empty node from the end node
                     IControlFlowNode.DisconnectSuccessor(empty, 0);
 
-                    // Remove instructions from initial block
                     block.Instructions.Clear();
 
-                    // Remove try unhook instructions from end node
                     if (endBlock.Instructions.Count == 0 ||
                         endBlock.Instructions[0].Kind != IGMInstruction.Opcode.Call ||
                         endBlock.Instructions[0].TryFindFunction(ctx.GameContext)?.Name?.Content != VMConstants.TryUnhookFunction)
@@ -161,7 +154,6 @@ internal sealed class TryCatch : IControlFlowNode
                 }
             }
 
-            // Check for finally block
             if (block.Instructions.Count >= 3)
             {
                 var call = block.Instructions[^3];
@@ -231,7 +223,6 @@ internal sealed class TryCatch : IControlFlowNode
         VariableNode? catchVariable = null;
         if (Catch is not null)
         {
-            // Get variable from start of catch's initial block
             var catchInstrBlock = builder.Context.BlocksByAddress[Catch.StartAddress];
             if (catchInstrBlock.Instructions is not [{ Kind: IGMInstruction.Opcode.Pop } popInstr, ..] ||
                 popInstr.TryFindVariable(builder.Context.GameContext) is not IGMVariable { Name.Content: string variableName } variable)
@@ -244,7 +235,6 @@ internal sealed class TryCatch : IControlFlowNode
             // Register this as a local variable, but not to local variable declaration list
             builder.LocalVariableNames.Add(variableName);
 
-            // Build actual catch body - also follow any parents, as needed
             var catchNode = Catch;
             while (catchNode.Parent is not null)
             {

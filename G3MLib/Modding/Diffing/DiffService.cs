@@ -731,55 +731,55 @@ public static class DiffService
 	private static void AppendBinaryAnalysis(StringBuilder sb, string file1Path, string file2Path, DiffReportMode reportMode, ResourceDiffSummary resourceDiffs)
 	{
 		using var s1 = OpenDataReadStream(file1Path);
-		using var data1 = GameMakerIO.Read(s1);
+		using var firstData = GameMakerIO.Read(s1);
 		using var s2 = OpenDataReadStream(file2Path);
-		using var data2 = GameMakerIO.Read(s2);
+		using var secondData = GameMakerIO.Read(s2);
 		sb.AppendLine("## Binary Analysis");
 		sb.AppendLine();
 		sb.AppendLine("### Resource Counts");
 		sb.AppendLine();
 		sb.AppendLine("| Resource | File 1 | File 2 | Delta |");
 		sb.AppendLine("|:---------|-------:|-------:|------:|");
-		Row("Sprites", data1.Sprites?.Count ?? 0, data2.Sprites?.Count ?? 0);
-		Row("Backgrounds", data1.Backgrounds?.Count ?? 0, data2.Backgrounds?.Count ?? 0);
-		Row("Sounds", data1.Sounds?.Count ?? 0, data2.Sounds?.Count ?? 0);
-		Row("Fonts", data1.Fonts?.Count ?? 0, data2.Fonts?.Count ?? 0);
-		Row("Paths", data1.Paths?.Count ?? 0, data2.Paths?.Count ?? 0);
-		Row("Scripts", data1.Scripts?.Count ?? 0, data2.Scripts?.Count ?? 0);
-		Row("GameObjects", data1.GameObjects?.Count ?? 0, data2.GameObjects?.Count ?? 0);
-		Row("Rooms", data1.Rooms?.Count ?? 0, data2.Rooms?.Count ?? 0);
-		Row("Code", data1.Code?.Count ?? 0, data2.Code?.Count ?? 0);
-		Row("Functions", data1.Functions?.Count ?? 0, data2.Functions?.Count ?? 0);
-		Row("Variables", data1.Variables?.Count ?? 0, data2.Variables?.Count ?? 0);
-		Row("Strings", data1.Strings?.Count ?? 0, data2.Strings?.Count ?? 0);
-		Row("Timelines", data1.Timelines?.Count ?? 0, data2.Timelines?.Count ?? 0);
-		Row("Shaders", data1.Shaders?.Count ?? 0, data2.Shaders?.Count ?? 0);
-		Row("Extensions", data1.Extensions?.Count ?? 0, data2.Extensions?.Count ?? 0);
-		Row("AudioGroups", data1.AudioGroups?.Count ?? 0, data2.AudioGroups?.Count ?? 0);
-		Row("EmbeddedTextures", data1.EmbeddedTextures?.Count ?? 0, data2.EmbeddedTextures?.Count ?? 0);
-		Row("TexturePageItems", data1.TexturePageItems?.Count ?? 0, data2.TexturePageItems?.Count ?? 0);
+		Row("Sprites", firstData.Sprites?.Count ?? 0, secondData.Sprites?.Count ?? 0);
+		Row("Backgrounds", firstData.Backgrounds?.Count ?? 0, secondData.Backgrounds?.Count ?? 0);
+		Row("Sounds", firstData.Sounds?.Count ?? 0, secondData.Sounds?.Count ?? 0);
+		Row("Fonts", firstData.Fonts?.Count ?? 0, secondData.Fonts?.Count ?? 0);
+		Row("Paths", firstData.Paths?.Count ?? 0, secondData.Paths?.Count ?? 0);
+		Row("Scripts", firstData.Scripts?.Count ?? 0, secondData.Scripts?.Count ?? 0);
+		Row("GameObjects", firstData.GameObjects?.Count ?? 0, secondData.GameObjects?.Count ?? 0);
+		Row("Rooms", firstData.Rooms?.Count ?? 0, secondData.Rooms?.Count ?? 0);
+		Row("Code", firstData.Code?.Count ?? 0, secondData.Code?.Count ?? 0);
+		Row("Functions", firstData.Functions?.Count ?? 0, secondData.Functions?.Count ?? 0);
+		Row("Variables", firstData.Variables?.Count ?? 0, secondData.Variables?.Count ?? 0);
+		Row("Strings", firstData.Strings?.Count ?? 0, secondData.Strings?.Count ?? 0);
+		Row("Timelines", firstData.Timelines?.Count ?? 0, secondData.Timelines?.Count ?? 0);
+		Row("Shaders", firstData.Shaders?.Count ?? 0, secondData.Shaders?.Count ?? 0);
+		Row("Extensions", firstData.Extensions?.Count ?? 0, secondData.Extensions?.Count ?? 0);
+		Row("AudioGroups", firstData.AudioGroups?.Count ?? 0, secondData.AudioGroups?.Count ?? 0);
+		Row("EmbeddedTextures", firstData.EmbeddedTextures?.Count ?? 0, secondData.EmbeddedTextures?.Count ?? 0);
+		Row("TexturePageItems", firstData.TexturePageItems?.Count ?? 0, secondData.TexturePageItems?.Count ?? 0);
 		sb.AppendLine();
 		if (ResourceTypeChanged(resourceDiffs, "Sprites"))
 		{
-			AppendSpriteFrameAnalysis(sb, data1, data2);
+			AppendSpriteFrameAnalysis(sb, firstData, secondData);
 		}
-		CompareNamedList("Variables", data1.Variables, data2.Variables, v => v?.Name?.Content);
-		CompareNamedList("Functions", data1.Functions, data2.Functions, f => f?.Name?.Content);
-		CompareNamedList("GameObjects", data1.GameObjects, data2.GameObjects, o => o?.Name?.Content);
-		CompareNamedList("Sprites", data1.Sprites, data2.Sprites, gameMakerSprite => gameMakerSprite?.Name?.Content);
-		CompareNamedList("Rooms", data1.Rooms, data2.Rooms, gameMakerRoom => gameMakerRoom?.Name?.Content);
-		CompareNamedList("Scripts", data1.Scripts, data2.Scripts, gameMakerScript => gameMakerScript?.Name?.Content);
-		CompareNamedList("Sounds", data1.Sounds, data2.Sounds, gameMakerSound => gameMakerSound?.Name?.Content);
-		CompareNamedList("Code Entries", data1.Code, data2.Code, gameMakerCode => gameMakerCode?.Name?.Content);
+		CompareNamedList("Variables", firstData.Variables, secondData.Variables, v => v?.Name?.Content);
+		CompareNamedList("Functions", firstData.Functions, secondData.Functions, f => f?.Name?.Content);
+		CompareNamedList("GameObjects", firstData.GameObjects, secondData.GameObjects, o => o?.Name?.Content);
+		CompareNamedList("Sprites", firstData.Sprites, secondData.Sprites, gameMakerSprite => gameMakerSprite?.Name?.Content);
+		CompareNamedList("Rooms", firstData.Rooms, secondData.Rooms, gameMakerRoom => gameMakerRoom?.Name?.Content);
+		CompareNamedList("Scripts", firstData.Scripts, secondData.Scripts, gameMakerScript => gameMakerScript?.Name?.Content);
+		CompareNamedList("Sounds", firstData.Sounds, secondData.Sounds, gameMakerSound => gameMakerSound?.Name?.Content);
+		CompareNamedList("Code Entries", firstData.Code, secondData.Code, gameMakerCode => gameMakerCode?.Name?.Content);
 		if (ResourceTypeChanged(resourceDiffs, "Sprites") || ResourceTypeChanged(resourceDiffs, "Backgrounds") || ResourceTypeChanged(resourceDiffs, "Fonts") || ResourceTypeChanged(resourceDiffs, "TexturePageItems") || ResourceTypeChanged(resourceDiffs, "EmbeddedTextures"))
 		{
-			AppendTexturePageItemReferenceAnalysis(sb, data1, data2, (reportMode == DiffReportMode.Full) ? 200 : 40);
+			AppendTexturePageItemReferenceAnalysis(sb, firstData, secondData, (reportMode == DiffReportMode.Full) ? 200 : 40);
 		}
 		List<(string, int, int)> roomDiffs = [];
-		if (data1.Rooms != null && data2.Rooms != null)
+		if (firstData.Rooms != null && secondData.Rooms != null)
 		{
 			var rooms2ByName = new Dictionary<string, GameMakerRoom>(StringComparer.Ordinal);
-			foreach (var room in data2.Rooms)
+			foreach (var room in secondData.Rooms)
 			{
 				var name = room?.Name?.Content;
 				if (!string.IsNullOrEmpty(name) && room != null)
@@ -787,7 +787,7 @@ public static class DiffService
 					rooms2ByName.TryAdd(name, room);
 				}
 			}
-			foreach (var r1 in data1.Rooms)
+			foreach (var r1 in firstData.Rooms)
 			{
 				if (r1 != null && r1.Name?.Content != null && rooms2ByName.TryGetValue(r1.Name.Content, out var r2))
 				{
@@ -874,39 +874,39 @@ public static class DiffService
 			{
 				var stringBuilder4 = sb;
 				var stringBuilder5 = stringBuilder4;
-				var handler2 = new StringBuilder.AppendInterpolatedStringHandler(4, 1, stringBuilder4, CultureInfo.InvariantCulture);
-				handler2.AppendLiteral("### ");
-				handler2.AppendFormatted(sectionName);
-				stringBuilder5.AppendLine(CultureInfo.InvariantCulture, ref handler2);
+				var logMessage2 = new StringBuilder.AppendInterpolatedStringHandler(4, 1, stringBuilder4, CultureInfo.InvariantCulture);
+				logMessage2.AppendLiteral("### ");
+				logMessage2.AppendFormatted(sectionName);
+				stringBuilder5.AppendLine(CultureInfo.InvariantCulture, ref logMessage2);
 				sb.AppendLine();
 				if (missing.Count > 0)
 				{
 					stringBuilder4 = sb;
 					var stringBuilder6 = stringBuilder4;
-					handler2 = new StringBuilder.AppendInterpolatedStringHandler(26, 1, stringBuilder4, CultureInfo.InvariantCulture);
-					handler2.AppendLiteral("**Missing in File 2 (");
-					handler2.AppendFormatted(missing.Count);
-					handler2.AppendLiteral("):** ");
-					stringBuilder6.AppendLine(CultureInfo.InvariantCulture, ref handler2);
+					logMessage2 = new StringBuilder.AppendInterpolatedStringHandler(26, 1, stringBuilder4, CultureInfo.InvariantCulture);
+					logMessage2.AppendLiteral("**Missing in File 2 (");
+					logMessage2.AppendFormatted(missing.Count);
+					logMessage2.AppendLiteral("):** ");
+					stringBuilder6.AppendLine(CultureInfo.InvariantCulture, ref logMessage2);
 					foreach (var n in missing.Take(maxItems))
 					{
 						stringBuilder4 = sb;
 						var stringBuilder7 = stringBuilder4;
-						handler2 = new StringBuilder.AppendInterpolatedStringHandler(4, 1, stringBuilder4, CultureInfo.InvariantCulture);
-						handler2.AppendLiteral("- `");
-						handler2.AppendFormatted(n);
-						handler2.AppendLiteral("`");
-						stringBuilder7.AppendLine(CultureInfo.InvariantCulture, ref handler2);
+						logMessage2 = new StringBuilder.AppendInterpolatedStringHandler(4, 1, stringBuilder4, CultureInfo.InvariantCulture);
+						logMessage2.AppendLiteral("- `");
+						logMessage2.AppendFormatted(n);
+						logMessage2.AppendLiteral("`");
+						stringBuilder7.AppendLine(CultureInfo.InvariantCulture, ref logMessage2);
 					}
 					if (missing.Count > maxItems)
 					{
 						stringBuilder4 = sb;
 						var stringBuilder8 = stringBuilder4;
-						handler2 = new StringBuilder.AppendInterpolatedStringHandler(16, 1, stringBuilder4, CultureInfo.InvariantCulture);
-						handler2.AppendLiteral("- *...and ");
-						handler2.AppendFormatted(missing.Count - maxItems);
-						handler2.AppendLiteral(" more*");
-						stringBuilder8.AppendLine(CultureInfo.InvariantCulture, ref handler2);
+						logMessage2 = new StringBuilder.AppendInterpolatedStringHandler(16, 1, stringBuilder4, CultureInfo.InvariantCulture);
+						logMessage2.AppendLiteral("- *...and ");
+						logMessage2.AppendFormatted(missing.Count - maxItems);
+						logMessage2.AppendLiteral(" more*");
+						stringBuilder8.AppendLine(CultureInfo.InvariantCulture, ref logMessage2);
 					}
 					sb.AppendLine();
 				}
@@ -914,30 +914,30 @@ public static class DiffService
 				{
 					stringBuilder4 = sb;
 					var stringBuilder9 = stringBuilder4;
-					handler2 = new StringBuilder.AppendInterpolatedStringHandler(24, 1, stringBuilder4, CultureInfo.InvariantCulture);
-					handler2.AppendLiteral("**Extra in File 2 (");
-					handler2.AppendFormatted(extra.Count);
-					handler2.AppendLiteral("):** ");
-					stringBuilder9.AppendLine(CultureInfo.InvariantCulture, ref handler2);
+					logMessage2 = new StringBuilder.AppendInterpolatedStringHandler(24, 1, stringBuilder4, CultureInfo.InvariantCulture);
+					logMessage2.AppendLiteral("**Extra in File 2 (");
+					logMessage2.AppendFormatted(extra.Count);
+					logMessage2.AppendLiteral("):** ");
+					stringBuilder9.AppendLine(CultureInfo.InvariantCulture, ref logMessage2);
 					foreach (var n2 in extra.Take(maxItems))
 					{
 						stringBuilder4 = sb;
 						var stringBuilder10 = stringBuilder4;
-						handler2 = new StringBuilder.AppendInterpolatedStringHandler(4, 1, stringBuilder4, CultureInfo.InvariantCulture);
-						handler2.AppendLiteral("- `");
-						handler2.AppendFormatted(n2);
-						handler2.AppendLiteral("`");
-						stringBuilder10.AppendLine(CultureInfo.InvariantCulture, ref handler2);
+						logMessage2 = new StringBuilder.AppendInterpolatedStringHandler(4, 1, stringBuilder4, CultureInfo.InvariantCulture);
+						logMessage2.AppendLiteral("- `");
+						logMessage2.AppendFormatted(n2);
+						logMessage2.AppendLiteral("`");
+						stringBuilder10.AppendLine(CultureInfo.InvariantCulture, ref logMessage2);
 					}
 					if (extra.Count > maxItems)
 					{
 						stringBuilder4 = sb;
 						var stringBuilder11 = stringBuilder4;
-						handler2 = new StringBuilder.AppendInterpolatedStringHandler(16, 1, stringBuilder4, CultureInfo.InvariantCulture);
-						handler2.AppendLiteral("- *...and ");
-						handler2.AppendFormatted(extra.Count - maxItems);
-						handler2.AppendLiteral(" more*");
-						stringBuilder11.AppendLine(CultureInfo.InvariantCulture, ref handler2);
+						logMessage2 = new StringBuilder.AppendInterpolatedStringHandler(16, 1, stringBuilder4, CultureInfo.InvariantCulture);
+						logMessage2.AppendLiteral("- *...and ");
+						logMessage2.AppendFormatted(extra.Count - maxItems);
+						logMessage2.AppendLiteral(" more*");
+						stringBuilder11.AppendLine(CultureInfo.InvariantCulture, ref logMessage2);
 					}
 					sb.AppendLine();
 				}
@@ -945,40 +945,40 @@ public static class DiffService
 				{
 					stringBuilder4 = sb;
 					var stringBuilder12 = stringBuilder4;
-					handler2 = new StringBuilder.AppendInterpolatedStringHandler(24, 1, stringBuilder4, CultureInfo.InvariantCulture);
-					handler2.AppendLiteral("**Index mismatches (");
-					handler2.AppendFormatted(indexMismatches.Count);
-					handler2.AppendLiteral("):**");
-					stringBuilder12.AppendLine(CultureInfo.InvariantCulture, ref handler2);
+					logMessage2 = new StringBuilder.AppendInterpolatedStringHandler(24, 1, stringBuilder4, CultureInfo.InvariantCulture);
+					logMessage2.AppendLiteral("**Index mismatches (");
+					logMessage2.AppendFormatted(indexMismatches.Count);
+					logMessage2.AppendLiteral("):**");
+					stringBuilder12.AppendLine(CultureInfo.InvariantCulture, ref logMessage2);
 					sb.AppendLine();
 					sb.AppendLine("| Name | File 1 idx | File 2 idx |");
 					sb.AppendLine("|:-----|----------:|-----------:|");
-					foreach (var item2 in indexMismatches.Take(maxItems))
+					foreach (var listItem2 in indexMismatches.Take(maxItems))
 					{
-						var name4 = item2.Item1;
-						var i5 = item2.Item2;
-						var i6 = item2.Item3;
+						var name4 = listItem2.Item1;
+						var i5 = listItem2.Item2;
+						var i6 = listItem2.Item3;
 						stringBuilder4 = sb;
 						var stringBuilder13 = stringBuilder4;
-						handler2 = new StringBuilder.AppendInterpolatedStringHandler(12, 3, stringBuilder4, CultureInfo.InvariantCulture);
-						handler2.AppendLiteral("| `");
-						handler2.AppendFormatted(name4);
-						handler2.AppendLiteral("` | ");
-						handler2.AppendFormatted(i5);
-						handler2.AppendLiteral(" | ");
-						handler2.AppendFormatted(i6);
-						handler2.AppendLiteral(" |");
-						stringBuilder13.AppendLine(CultureInfo.InvariantCulture, ref handler2);
+						logMessage2 = new StringBuilder.AppendInterpolatedStringHandler(12, 3, stringBuilder4, CultureInfo.InvariantCulture);
+						logMessage2.AppendLiteral("| `");
+						logMessage2.AppendFormatted(name4);
+						logMessage2.AppendLiteral("` | ");
+						logMessage2.AppendFormatted(i5);
+						logMessage2.AppendLiteral(" | ");
+						logMessage2.AppendFormatted(i6);
+						logMessage2.AppendLiteral(" |");
+						stringBuilder13.AppendLine(CultureInfo.InvariantCulture, ref logMessage2);
 					}
 					if (indexMismatches.Count > maxItems)
 					{
 						stringBuilder4 = sb;
 						var stringBuilder14 = stringBuilder4;
-						handler2 = new StringBuilder.AppendInterpolatedStringHandler(22, 1, stringBuilder4, CultureInfo.InvariantCulture);
-						handler2.AppendLiteral("| *...and ");
-						handler2.AppendFormatted(indexMismatches.Count - maxItems);
-						handler2.AppendLiteral(" more* | | |");
-						stringBuilder14.AppendLine(CultureInfo.InvariantCulture, ref handler2);
+						logMessage2 = new StringBuilder.AppendInterpolatedStringHandler(22, 1, stringBuilder4, CultureInfo.InvariantCulture);
+						logMessage2.AppendLiteral("| *...and ");
+						logMessage2.AppendFormatted(indexMismatches.Count - maxItems);
+						logMessage2.AppendLiteral(" more* | | |");
+						stringBuilder14.AppendLine(CultureInfo.InvariantCulture, ref logMessage2);
 					}
 					sb.AppendLine();
 				}
@@ -1001,17 +1001,17 @@ public static class DiffService
 		{
 			var delta = (num == num2) ? "=" : $"{num2 - num:+#;-#;0}";
 			var stringBuilder4 = sb;
-			var handler2 = new StringBuilder.AppendInterpolatedStringHandler(13, 4, stringBuilder4, CultureInfo.InvariantCulture);
-			handler2.AppendLiteral("| ");
-			handler2.AppendFormatted(value);
-			handler2.AppendLiteral(" | ");
-			handler2.AppendFormatted(num);
-			handler2.AppendLiteral(" | ");
-			handler2.AppendFormatted(num2);
-			handler2.AppendLiteral(" | ");
-			handler2.AppendFormatted(delta);
-			handler2.AppendLiteral(" |");
-			stringBuilder4.AppendLine(CultureInfo.InvariantCulture, ref handler2);
+			var logMessage2 = new StringBuilder.AppendInterpolatedStringHandler(13, 4, stringBuilder4, CultureInfo.InvariantCulture);
+			logMessage2.AppendLiteral("| ");
+			logMessage2.AppendFormatted(value);
+			logMessage2.AppendLiteral(" | ");
+			logMessage2.AppendFormatted(num);
+			logMessage2.AppendLiteral(" | ");
+			logMessage2.AppendFormatted(num2);
+			logMessage2.AppendLiteral(" | ");
+			logMessage2.AppendFormatted(delta);
+			logMessage2.AppendLiteral(" |");
+			stringBuilder4.AppendLine(CultureInfo.InvariantCulture, ref logMessage2);
 		}
 	}
 
@@ -1033,10 +1033,10 @@ public static class DiffService
 		return summary.ByType.Keys.Any(resourceType => !resourceType.Equals("GeneralInfo", StringComparison.OrdinalIgnoreCase) && ResourceTypeChanged(summary, resourceType));
 	}
 
-	private static void AppendTexturePageItemReferenceAnalysis(StringBuilder sb, GameMakerData data1, GameMakerData data2, int maxRows)
+	private static void AppendTexturePageItemReferenceAnalysis(StringBuilder sb, GameMakerData firstData, GameMakerData secondData, int maxRows)
 	{
-		var refs1 = BuildTexturePageItemReferenceMap(data1);
-		var refs2 = BuildTexturePageItemReferenceMap(data2);
+		var refs1 = BuildTexturePageItemReferenceMap(firstData);
+		var refs2 = BuildTexturePageItemReferenceMap(secondData);
 		List<string> rows = [];
 		foreach (var key in from k in refs1.Keys.Union(refs2.Keys)
 							orderby k
@@ -1103,7 +1103,6 @@ public static class DiffService
 		{
 			Add(font?.Texture, "font:" + (font?.Name?.Content ?? "?"));
 		}
-		return refs.ToDictionary(kvp => kvp.Key, kvp => string.Join(", ", kvp.Value.OrderBy(v => v, StringComparer.Ordinal).Take(8)));
 		void Add(GameMakerTexturePageItem? tpi, string owner)
 		{
 			if (tpi != null && indices.TryGetValue(tpi, out var index))
@@ -1116,16 +1115,17 @@ public static class DiffService
 				owners.Add(owner);
 			}
 		}
+		return refs.ToDictionary(kvp => kvp.Key, kvp => string.Join(", ", kvp.Value.OrderBy(v => v, StringComparer.Ordinal).Take(8)));
 	}
 
-	private static void AppendSpriteFrameAnalysis(StringBuilder sb, GameMakerData data1, GameMakerData data2)
+	private static void AppendSpriteFrameAnalysis(StringBuilder sb, GameMakerData firstData, GameMakerData secondData)
 	{
-		if (data1.Sprites == null || data2.Sprites == null)
+		if (firstData.Sprites == null || secondData.Sprites == null)
 		{
 			return;
 		}
-		var sprites1 = data1.Sprites.Where(s => s?.Name?.Content != null).ToDictionary(s => s.Name.Content, StringComparer.Ordinal);
-		var sprites2 = data2.Sprites.Where(s => s?.Name?.Content != null).ToDictionary(s => s.Name.Content, StringComparer.Ordinal);
+		var sprites1 = firstData.Sprites.Where(s => s?.Name?.Content != null).ToDictionary(s => s.Name.Content, StringComparer.Ordinal);
+		var sprites2 = secondData.Sprites.Where(s => s?.Name?.Content != null).ToDictionary(s => s.Name.Content, StringComparer.Ordinal);
 		List<string> rows = [];
 		using var worker = new TextureWorker();
 		foreach (var name in sprites1.Keys.Intersect(sprites2.Keys, StringComparer.Ordinal).OrderBy(n => n, StringComparer.Ordinal))
@@ -1372,32 +1372,32 @@ public static class DiffService
 			else
 			{
 				using var stream = OpenDataReadStream(file1Path);
-				using var data1 = await GameMakerIO.ReadAsync(stream).ConfigureAwait(false);
+				using var firstData = await GameMakerIO.ReadAsync(stream).ConfigureAwait(false);
 				var loadTime = diffPhaseSw.Elapsed;
 				diffPhaseSw.Restart();
-				hashes1 = ResourceHashService.HashAll(data1);
+				hashes1 = ResourceHashService.HashAll(firstData);
 				var info = new DataFileInfo
 				{
 					Filename = Path.GetFileName(file1Path),
 					Size = new FileInfo(file1Path).Length,
 					Md5 = file1Md5,
-					BytecodeVersion = data1.GeneralInfo?.BytecodeVersion ?? 0,
-					GmsVersion = GeneralInfoUtil.GetVersionDisplay(data1.GeneralInfo),
-					GeneralInfo = GeneralInfoUtil.ExtractGeneralInfo(data1)
+					BytecodeVersion = firstData.GeneralInfo?.BytecodeVersion ?? 0,
+					GmsVersion = GeneralInfoUtil.GetVersionDisplay(firstData.GeneralInfo),
+					GeneralInfo = GeneralInfoUtil.ExtractGeneralInfo(firstData)
 				};
-				await G3MCacheService.WriteDataCacheAsync(file1Path, info, hashes1, PatchService.GetResourceNameCountsForReuse(data1), PatchService.GetOrderSensitiveResourceNamesForReuse(data1), cacheOptions).ConfigureAwait(false);
-				var handler2 = new LogInterpolatedStringHandler(40, 3, out shouldAppend);
+				await G3MCacheService.WriteDataCacheAsync(file1Path, info, hashes1, PatchService.GetResourceNameCountsForReuse(firstData), PatchService.GetOrderSensitiveResourceNamesForReuse(firstData), cacheOptions).ConfigureAwait(false);
+				var logMessage2 = new LogInterpolatedStringHandler(40, 3, out shouldAppend);
 				if (shouldAppend)
 				{
-					handler2.AppendLiteral("[Timing] File1 load: ");
-					handler2.AppendFormatted(loadTime.TotalSeconds, "F1");
-					handler2.AppendLiteral("s, hash: ");
-					handler2.AppendFormatted(diffPhaseSw.Elapsed.TotalSeconds, "F1");
-					handler2.AppendLiteral("s, RAM: ");
-					handler2.AppendFormatted(Process.GetCurrentProcess().WorkingSet64 / 1024 / 1024);
-					handler2.AppendLiteral("MB");
+					logMessage2.AppendLiteral("[Timing] File1 load: ");
+					logMessage2.AppendFormatted(loadTime.TotalSeconds, "F1");
+					logMessage2.AppendLiteral("s, hash: ");
+					logMessage2.AppendFormatted(diffPhaseSw.Elapsed.TotalSeconds, "F1");
+					logMessage2.AppendLiteral("s, RAM: ");
+					logMessage2.AppendFormatted(Process.GetCurrentProcess().WorkingSet64 / 1024 / 1024);
+					logMessage2.AppendLiteral("MB");
 				}
-				LogService.Log(ref handler2);
+				LogService.Log(ref logMessage2);
 			}
 			GC.Collect();
 			LogService.Progress(25, 100);
@@ -1406,46 +1406,46 @@ public static class DiffService
 			if (cached2 != null)
 			{
 				hashes2 = cached2.ResourceHashes;
-				var handler3 = new LogInterpolatedStringHandler(32, 2, out shouldAppend);
+				var logMessage3 = new LogInterpolatedStringHandler(32, 2, out shouldAppend);
 				if (shouldAppend)
 				{
-					handler3.AppendLiteral("[Timing] File2 cache: ");
-					handler3.AppendFormatted(diffPhaseSw.Elapsed.TotalSeconds, "F1");
-					handler3.AppendLiteral("s, RAM: ");
-					handler3.AppendFormatted(Process.GetCurrentProcess().WorkingSet64 / 1024 / 1024);
-					handler3.AppendLiteral("MB");
+					logMessage3.AppendLiteral("[Timing] File2 cache: ");
+					logMessage3.AppendFormatted(diffPhaseSw.Elapsed.TotalSeconds, "F1");
+					logMessage3.AppendLiteral("s, RAM: ");
+					logMessage3.AppendFormatted(Process.GetCurrentProcess().WorkingSet64 / 1024 / 1024);
+					logMessage3.AppendLiteral("MB");
 				}
-				LogService.Log(ref handler3);
+				LogService.Log(ref logMessage3);
 			}
 			else
 			{
 				using var stream = OpenDataReadStream(file2Path);
-				using var data1 = await GameMakerIO.ReadAsync(stream).ConfigureAwait(false);
+				using var firstData = await GameMakerIO.ReadAsync(stream).ConfigureAwait(false);
 				var loadTime = diffPhaseSw.Elapsed;
 				diffPhaseSw.Restart();
-				hashes2 = ResourceHashService.HashAll(data1);
+				hashes2 = ResourceHashService.HashAll(firstData);
 				var info2 = new DataFileInfo
 				{
 					Filename = Path.GetFileName(file2Path),
 					Size = new FileInfo(file2Path).Length,
 					Md5 = file2Md5,
-					BytecodeVersion = data1.GeneralInfo?.BytecodeVersion ?? 0,
-					GmsVersion = GeneralInfoUtil.GetVersionDisplay(data1.GeneralInfo),
-					GeneralInfo = GeneralInfoUtil.ExtractGeneralInfo(data1)
+					BytecodeVersion = firstData.GeneralInfo?.BytecodeVersion ?? 0,
+					GmsVersion = GeneralInfoUtil.GetVersionDisplay(firstData.GeneralInfo),
+					GeneralInfo = GeneralInfoUtil.ExtractGeneralInfo(firstData)
 				};
-				await G3MCacheService.WriteDataCacheAsync(file2Path, info2, hashes2, PatchService.GetResourceNameCountsForReuse(data1), PatchService.GetOrderSensitiveResourceNamesForReuse(data1), cacheOptions).ConfigureAwait(false);
-				var handler4 = new LogInterpolatedStringHandler(40, 3, out shouldAppend);
+				await G3MCacheService.WriteDataCacheAsync(file2Path, info2, hashes2, PatchService.GetResourceNameCountsForReuse(firstData), PatchService.GetOrderSensitiveResourceNamesForReuse(firstData), cacheOptions).ConfigureAwait(false);
+				var logMessage4 = new LogInterpolatedStringHandler(40, 3, out shouldAppend);
 				if (shouldAppend)
 				{
-					handler4.AppendLiteral("[Timing] File2 load: ");
-					handler4.AppendFormatted(loadTime.TotalSeconds, "F1");
-					handler4.AppendLiteral("s, hash: ");
-					handler4.AppendFormatted(diffPhaseSw.Elapsed.TotalSeconds, "F1");
-					handler4.AppendLiteral("s, RAM: ");
-					handler4.AppendFormatted(Process.GetCurrentProcess().WorkingSet64 / 1024 / 1024);
-					handler4.AppendLiteral("MB");
+					logMessage4.AppendLiteral("[Timing] File2 load: ");
+					logMessage4.AppendFormatted(loadTime.TotalSeconds, "F1");
+					logMessage4.AppendLiteral("s, hash: ");
+					logMessage4.AppendFormatted(diffPhaseSw.Elapsed.TotalSeconds, "F1");
+					logMessage4.AppendLiteral("s, RAM: ");
+					logMessage4.AppendFormatted(Process.GetCurrentProcess().WorkingSet64 / 1024 / 1024);
+					logMessage4.AppendLiteral("MB");
 				}
-				LogService.Log(ref handler4);
+				LogService.Log(ref logMessage4);
 			}
 			GC.Collect();
 			LogService.Progress(40, 100);
@@ -1483,17 +1483,17 @@ public static class DiffService
 					changedTypes.Add(resourceType);
 				}
 			}
-			var handler5 = new LogInterpolatedStringHandler(45, 3, out shouldAppend);
+			var logMessage5 = new LogInterpolatedStringHandler(45, 3, out shouldAppend);
 			if (shouldAppend)
 			{
-				handler5.AppendLiteral("[Timing] Hash comparison: ");
-				handler5.AppendFormatted(diffPhaseSw.Elapsed.TotalSeconds, "F1");
-				handler5.AppendLiteral("s, changed types: ");
-				handler5.AppendFormatted(changedTypes.Count);
-				handler5.AppendLiteral("/");
-				handler5.AppendFormatted(ResourceTypes.Length);
+				logMessage5.AppendLiteral("[Timing] Hash comparison: ");
+				logMessage5.AppendFormatted(diffPhaseSw.Elapsed.TotalSeconds, "F1");
+				logMessage5.AppendLiteral("s, changed types: ");
+				logMessage5.AppendFormatted(changedTypes.Count);
+				logMessage5.AppendLiteral("/");
+				logMessage5.AppendFormatted(ResourceTypes.Length);
 			}
-			LogService.Log(ref handler5);
+			LogService.Log(ref logMessage5);
 			LogService.Progress(50, 100);
 			var textDiffTypes = (reportMode == DiffReportMode.Full) ? changedTypes.ToList() : [.. changedTypes.Where(type => !BinaryHeavyResourceTypes.Contains(type))];
 			if (textDiffTypes.Count > 0)
@@ -1501,38 +1501,38 @@ public static class DiffService
 				Directory.CreateDirectory(export1Dir);
 				Directory.CreateDirectory(export2Dir);
 				diffPhaseSw.Restart();
-				var handler6 = new LogInterpolatedStringHandler(59, 2, out shouldAppend);
+				var logMessage6 = new LogInterpolatedStringHandler(59, 2, out shouldAppend);
 				if (shouldAppend)
 				{
-					handler6.AppendLiteral("[DiffService] Exporting ");
-					handler6.AppendFormatted(textDiffTypes.Count);
-					handler6.AppendLiteral("/");
-					handler6.AppendFormatted(changedTypes.Count);
-					handler6.AppendLiteral(" changed type(s) for text diffs...");
+					logMessage6.AppendLiteral("[DiffService] Exporting ");
+					logMessage6.AppendFormatted(textDiffTypes.Count);
+					logMessage6.AppendLiteral("/");
+					logMessage6.AppendFormatted(changedTypes.Count);
+					logMessage6.AppendLiteral(" changed type(s) for text diffs...");
 				}
-				LogService.Log(ref handler6);
+				LogService.Log(ref logMessage6);
 				using (var stream2 = OpenDataReadStream(file1Path))
 				{
-					using var data2 = await GameMakerIO.ReadAsync(stream2).ConfigureAwait(false);
-					ResourceExportService.ExportTypes(data2, export1Dir, file1Path, textDiffTypes);
+					using var secondData = await GameMakerIO.ReadAsync(stream2).ConfigureAwait(false);
+					ResourceExportService.ExportTypes(secondData, export1Dir, file1Path, textDiffTypes);
 				}
 				GC.Collect();
 				using (var stream3 = OpenDataReadStream(file2Path))
 				{
-					using var data3 = await GameMakerIO.ReadAsync(stream3).ConfigureAwait(false);
-					ResourceExportService.ExportTypes(data3, export2Dir, file2Path, textDiffTypes);
+					using var thirdData = await GameMakerIO.ReadAsync(stream3).ConfigureAwait(false);
+					ResourceExportService.ExportTypes(thirdData, export2Dir, file2Path, textDiffTypes);
 				}
 				GC.Collect();
-				var handler7 = new LogInterpolatedStringHandler(42, 2, out shouldAppend);
+				var logMessage7 = new LogInterpolatedStringHandler(42, 2, out shouldAppend);
 				if (shouldAppend)
 				{
-					handler7.AppendLiteral("[Timing] Selective export (");
-					handler7.AppendFormatted(textDiffTypes.Count);
-					handler7.AppendLiteral(" text types): ");
-					handler7.AppendFormatted(diffPhaseSw.Elapsed.TotalSeconds, "F1");
-					handler7.AppendLiteral("s");
+					logMessage7.AppendLiteral("[Timing] Selective export (");
+					logMessage7.AppendFormatted(textDiffTypes.Count);
+					logMessage7.AppendLiteral(" text types): ");
+					logMessage7.AppendFormatted(diffPhaseSw.Elapsed.TotalSeconds, "F1");
+					logMessage7.AppendLiteral("s");
 				}
-				LogService.Log(ref handler7);
+				LogService.Log(ref logMessage7);
 				LogService.Progress(80, 100);
 				diffPhaseSw.Restart();
 				var typeIndex = 0;
@@ -1554,37 +1554,37 @@ public static class DiffService
 					typeIndex++;
 					LogService.Progress(80 + typeIndex * 15 / totalTypes, 100);
 				}
-				var handler8 = new LogInterpolatedStringHandler(32, 1, out shouldAppend);
+				var logMessage8 = new LogInterpolatedStringHandler(32, 1, out shouldAppend);
 				if (shouldAppend)
 				{
-					handler8.AppendLiteral("[Timing] Text diff collection: ");
-					handler8.AppendFormatted(diffPhaseSw.Elapsed.TotalSeconds, "F1");
-					handler8.AppendLiteral("s");
+					logMessage8.AppendLiteral("[Timing] Text diff collection: ");
+					logMessage8.AppendFormatted(diffPhaseSw.Elapsed.TotalSeconds, "F1");
+					logMessage8.AppendLiteral("s");
 				}
-				LogService.Log(ref handler8);
+				LogService.Log(ref logMessage8);
 			}
 			else if (changedTypes.Count > 0)
 			{
-				var handler9 = new LogInterpolatedStringHandler(73, 1, out shouldAppend);
+				var logMessage9 = new LogInterpolatedStringHandler(73, 1, out shouldAppend);
 				if (shouldAppend)
 				{
-					handler9.AppendLiteral("[DiffService] Text diff export skipped; changed types are binary-heavy (");
-					handler9.AppendFormatted(string.Join(", ", changedTypes));
-					handler9.AppendLiteral(")");
+					logMessage9.AppendLiteral("[DiffService] Text diff export skipped; changed types are binary-heavy (");
+					logMessage9.AppendFormatted(string.Join(", ", changedTypes));
+					logMessage9.AppendLiteral(")");
 				}
-				LogService.Log(ref handler9);
+				LogService.Log(ref logMessage9);
 			}
 			diffSw.Stop();
-			var handler10 = new LogInterpolatedStringHandler(38, 2, out shouldAppend);
+			var logMessage10 = new LogInterpolatedStringHandler(38, 2, out shouldAppend);
 			if (shouldAppend)
 			{
-				handler10.AppendLiteral("[Timing] === DIFF TOTAL: ");
-				handler10.AppendFormatted(diffSw.Elapsed.TotalSeconds, "F1");
-				handler10.AppendLiteral("s === RAM: ");
-				handler10.AppendFormatted(Process.GetCurrentProcess().WorkingSet64 / 1024 / 1024);
-				handler10.AppendLiteral("MB");
+				logMessage10.AppendLiteral("[Timing] === DIFF TOTAL: ");
+				logMessage10.AppendFormatted(diffSw.Elapsed.TotalSeconds, "F1");
+				logMessage10.AppendLiteral("s === RAM: ");
+				logMessage10.AppendFormatted(Process.GetCurrentProcess().WorkingSet64 / 1024 / 1024);
+				logMessage10.AppendLiteral("MB");
 			}
-			LogService.Log(ref handler10);
+			LogService.Log(ref logMessage10);
 			return summary;
 		}
 		finally

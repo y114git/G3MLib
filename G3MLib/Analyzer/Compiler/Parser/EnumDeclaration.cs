@@ -48,13 +48,11 @@ internal sealed class EnumDeclaration
     /// </summary>
     public static void Parse(ParseContext context)
     {
-        // Parse "enum" keyword
         if (context.EnsureToken(KeywordKind.Enum) is null)
         {
             return;
         }
 
-        // Parse enum name
         if (context.EndOfCode)
         {
             context.CompileContext.PushError("Unexpected end of code (expected name for enum)");
@@ -89,12 +87,10 @@ internal sealed class EnumDeclaration
             return;
         }
 
-        // Create new enum entry, and parse enum values
         List<string> valueNames = new(16);
         Dictionary<string, IASTNode?> values = new(16);
         while (!context.EndOfCode && !context.IsCurrentToken(SeparatorKind.BlockClose))
         {
-            // Parse name of enum value
             var valueName = context.Tokens[context.Position++];
             if (valueName is not TokenVariable valueNameVar)
             {
@@ -102,7 +98,6 @@ internal sealed class EnumDeclaration
                 return;
             }
 
-            // Check for duplicates
             var shouldAddValue = true;
             var valueNameStr = valueNameVar.Text;
             if (values.ContainsKey(valueNameStr))

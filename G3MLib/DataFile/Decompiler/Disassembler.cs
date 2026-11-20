@@ -72,7 +72,6 @@ public static class Disassembler
         // 300 seemed too high and 100 too low. This may change in the future.
         StringBuilder sb = new(256);
 
-        // Print locals
         var printedLocalVars = true;
         if (locals is null && !code.WeirdLocalFlag)
         {
@@ -104,7 +103,6 @@ public static class Disassembler
         // Find addresses of all blocks
         var blocks = FindBlockAddresses(code);
 
-        // Print actual instructions
         uint address = 0;
         foreach (var inst in code.Instructions)
         {
@@ -112,7 +110,6 @@ public static class Disassembler
             // or if any instructions have already been printed.
             var doNewline = printedLocalVars || address > 0;
 
-            // Print fragment at current address
             if (fragments.TryGetValue(address, out var entry))
             {
                 sb.Append('\n');
@@ -122,7 +119,6 @@ public static class Disassembler
                 doNewline = false;
             }
 
-            // Print block at current address
             if (blocks.TryGetValue(address, out var ind))
             {
                 if (doNewline)
@@ -132,7 +128,6 @@ public static class Disassembler
                 sb.Append(CultureInfo.InvariantCulture, $":[{ind}]\n");
             }
 
-            // Print actual instruction at current address
             lines?.Add(new DisassemblyLine((int)address * 4, sb.Length, 0));
             inst.ToString(sb, code, address, blocks);
             sb.Append('\n');
@@ -141,7 +136,6 @@ public static class Disassembler
             address += inst.CalculateInstructionSize();
         }
 
-        // Print ending block
         if (printedLocalVars || address > 0)
         {
             sb.Append('\n');

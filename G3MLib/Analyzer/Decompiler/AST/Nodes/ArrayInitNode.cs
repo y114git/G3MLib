@@ -72,9 +72,9 @@ public class ArrayInitNode(List<IExpressionNode> elements) : IConditionalValueNo
     /// <inheritdoc/>
     public bool RequiresMultipleLines(ASTPrinter printer, bool isStatementLHS)
     {
-        for (var i = 0; i < Elements.Count; i++)
+        foreach (var element in Elements)
         {
-            if (Elements[i].RequiresMultipleLines(printer, false))
+            if (element.RequiresMultipleLines(printer, false))
             {
                 return true;
             }

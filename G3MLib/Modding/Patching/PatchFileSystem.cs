@@ -399,9 +399,9 @@ public sealed class PatchFileSystem
 			var children = value;
 			_childDirs[parent2] = [.. children.OrderBy(x => x, StringComparer.OrdinalIgnoreCase)];
 		}
-		foreach (var item2 in fileSets)
+		foreach (var listItem2 in fileSets)
 		{
-			item2.Deconstruct(out key, out value);
+			listItem2.Deconstruct(out key, out value);
 			var parent3 = key;
 			var files = value;
 			_childFiles[parent3] = [.. files.OrderBy(x => x, StringComparer.OrdinalIgnoreCase)];
@@ -616,20 +616,20 @@ public sealed class PatchFileSystem
 				stream2.Write(data, 0, data.Length);
 			}
 		}
-		string value2;
+		string itemValue2;
 		foreach (var gmlEntry in GmlEntries)
 		{
-			gmlEntry.Deconstruct(out key, out value2);
+			gmlEntry.Deconstruct(out key, out itemValue2);
 			var entryKey = key;
-			var gml = value2;
+			var gml = itemValue2;
 			var entryPath = $"CodeEntries/{entryKey}/{entryKey}.gml";
 			using var writer = new StreamWriter(archive.CreateEntry(entryPath, ArchiveCompressionUtil.GetLevel(entryPath)).Open(), Encoding.UTF8);
 			writer.Write(gml);
 		}
 		foreach (var asmEntry in AsmEntries)
 		{
-			asmEntry.Deconstruct(out value2, out key);
-			var entryKey2 = value2;
+			asmEntry.Deconstruct(out itemValue2, out key);
+			var entryKey2 = itemValue2;
 			var asm = key;
 			var entryPath2 = AsmEntryPaths.GetValueOrDefault(entryKey2) ?? $"CodeEntries/{entryKey2}/{entryKey2}.asm";
 			using var writer2 = new StreamWriter(archive.CreateEntry(entryPath2, ArchiveCompressionUtil.GetLevel(entryPath2)).Open(), Encoding.UTF8);

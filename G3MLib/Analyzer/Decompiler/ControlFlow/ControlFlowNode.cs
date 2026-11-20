@@ -119,9 +119,9 @@ internal interface IControlFlowNode
     static void InsertPredecessorsAll(IControlFlowNode node, IControlFlowNode newPredecessor)
     {
         // Reroute all earlier predecessors of "node" to "newPredecessor"
-        for (var i = 0; i < node.Predecessors.Count; i++)
+        foreach (var predecessorEntry in node.Predecessors)
         {
-            var currPred = node.Predecessors[i];
+            var currPred = predecessorEntry;
             newPredecessor.Predecessors.Add(currPred);
             ReplaceConnections(currPred.Successors, node, newPredecessor);
         }

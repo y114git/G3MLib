@@ -41,15 +41,15 @@ public static class G3MCacheService
 		}
 		catch (Exception ex)
 		{
-			var handler2 = new LogInterpolatedStringHandler(36, 2, out shouldAppend);
+			var logMessage2 = new LogInterpolatedStringHandler(36, 2, out shouldAppend);
 			if (shouldAppend)
 			{
-				handler2.AppendLiteral("[Cache] Ignored invalid cache for ");
-				handler2.AppendFormatted(Path.GetFileName(sourcePath));
-				handler2.AppendLiteral(": ");
-				handler2.AppendFormatted(ex.Message);
+				logMessage2.AppendLiteral("[Cache] Ignored invalid cache for ");
+				logMessage2.AppendFormatted(Path.GetFileName(sourcePath));
+				logMessage2.AppendLiteral(": ");
+				logMessage2.AppendFormatted(ex.Message);
 			}
-			LogService.Log(ref handler2);
+			LogService.Log(ref logMessage2);
 			return null;
 		}
 	}
@@ -75,15 +75,15 @@ public static class G3MCacheService
 		}
 		catch (Exception ex)
 		{
-			var handler2 = new LogInterpolatedStringHandler(41, 2, out shouldAppend);
+			var logMessage2 = new LogInterpolatedStringHandler(41, 2, out shouldAppend);
 			if (shouldAppend)
 			{
-				handler2.AppendLiteral("[Cache] Ignored invalid info cache for ");
-				handler2.AppendFormatted(Path.GetFileName(sourcePath));
-				handler2.AppendLiteral(": ");
-				handler2.AppendFormatted(ex.Message);
+				logMessage2.AppendLiteral("[Cache] Ignored invalid info cache for ");
+				logMessage2.AppendFormatted(Path.GetFileName(sourcePath));
+				logMessage2.AppendLiteral(": ");
+				logMessage2.AppendFormatted(ex.Message);
 			}
-			LogService.Log(ref handler2);
+			LogService.Log(ref logMessage2);
 			return null;
 		}
 	}
@@ -199,15 +199,15 @@ public static class G3MCacheService
 		}
 		catch (Exception ex)
 		{
-			var handler2 = new LogInterpolatedStringHandler(36, 2, out shouldAppend);
+			var logMessage2 = new LogInterpolatedStringHandler(36, 2, out shouldAppend);
 			if (shouldAppend)
 			{
-				handler2.AppendLiteral("[Cache] Could not write cache for ");
-				handler2.AppendFormatted(Path.GetFileName(sourcePath));
-				handler2.AppendLiteral(": ");
-				handler2.AppendFormatted(ex.Message);
+				logMessage2.AppendLiteral("[Cache] Could not write cache for ");
+				logMessage2.AppendFormatted(Path.GetFileName(sourcePath));
+				logMessage2.AppendLiteral(": ");
+				logMessage2.AppendFormatted(ex.Message);
 			}
-			LogService.Log(ref handler2);
+			LogService.Log(ref logMessage2);
 		}
 		finally
 		{

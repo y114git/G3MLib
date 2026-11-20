@@ -42,7 +42,7 @@ public class GlobalMacroTypeResolver : IMacroTypeResolver
             return null;
         }
 
-        if (CodeEntryNames.TryGetValue(cleaner.TopFragmentContext!.CodeEntryName!, out var resolver))
+        if (cleaner.TopFragmentContext?.CodeEntryName is { } entryName && CodeEntryNames.TryGetValue(entryName, out var resolver))
         {
             var resolved = resolver.ResolveVariableType(cleaner, variableName);
             if (resolved is not null)
@@ -62,7 +62,7 @@ public class GlobalMacroTypeResolver : IMacroTypeResolver
             return null;
         }
 
-        if (CodeEntryNames.TryGetValue(cleaner.TopFragmentContext!.CodeEntryName!, out var resolver))
+        if (cleaner.TopFragmentContext?.CodeEntryName is { } entryName && CodeEntryNames.TryGetValue(entryName, out var resolver))
         {
             var resolved = resolver.ResolveFunctionArgumentTypes(cleaner, functionName);
             if (resolved is not null)
@@ -82,7 +82,7 @@ public class GlobalMacroTypeResolver : IMacroTypeResolver
             return null;
         }
 
-        if (CodeEntryNames.TryGetValue(cleaner.TopFragmentContext!.CodeEntryName!, out var resolver))
+        if (cleaner.TopFragmentContext?.CodeEntryName is { } entryName && CodeEntryNames.TryGetValue(entryName, out var resolver))
         {
             var resolved = resolver.ResolveReturnValueType(cleaner, functionName);
             if (resolved is not null)

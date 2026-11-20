@@ -41,13 +41,11 @@ internal sealed class WhileLoopNode : IASTNode
     /// </summary>
     public static WhileLoopNode? Parse(ParseContext context)
     {
-        // Parse "while" keyword
         if (context.EnsureToken(KeywordKind.While) is not TokenKeyword tokenKeyword)
         {
             return null;
         }
 
-        // Parse loop condition
         if (Expressions.ParseExpression(context) is not IASTNode condition)
         {
             return null;
@@ -59,13 +57,11 @@ internal sealed class WhileLoopNode : IASTNode
             context.Position++;
         }
 
-        // Parse loop body
         if (Statements.ParseStatement(context) is not IASTNode body)
         {
             return null;
         }
 
-        // Create final statement
         return new WhileLoopNode(tokenKeyword, condition, body);
     }
 
@@ -105,7 +101,6 @@ internal sealed class WhileLoopNode : IASTNode
         MultiBackwardBranchPatchTracked headPatch = new(context);
         MultiForwardBranchPatch tailPatch = new();
 
-        // Loop condition
         Condition.GenerateCode(context);
         context.ConvertDataType(DataType.Boolean);
 
@@ -120,7 +115,6 @@ internal sealed class WhileLoopNode : IASTNode
         Body.GenerateCode(context);
         context.PopControlFlowContext();
 
-        // Loop tail
         headPatch.AddInstruction(context, context.Emit(Opcode.Branch));
         tailPatch.Patch(context);
 

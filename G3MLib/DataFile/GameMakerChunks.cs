@@ -519,7 +519,7 @@ public class GameMakerChunkEXTN : GameMakerListChunk<GameMakerExtension>
         productIdData = [];
         if (GameMakerExtension.ProductDataEligible(reader.gameMakerData))
         {
-            for (var i = 0; i < List.Count; i++)
+            foreach (var listItem in List)
             {
                 productIdData.Add(reader.ReadBytes(16));
             }
@@ -950,7 +950,7 @@ public class GameMakerChunkBGND : GameMakerAlignUpdatedListChunk<GameMakerBackgr
         }
 
         var returnTo = reader.Position;
-        var chunkStartPos = reader.AbsPosition;
+        var chunkEndPos = reader.AbsPosition + Length;
 
         // Go through each background, and check to see if it ends at the expected position. If not, this is probably 2024.14.1.
         var bgCount = reader.ReadUInt32();
@@ -986,10 +986,36 @@ public class GameMakerChunkBGND : GameMakerAlignUpdatedListChunk<GameMakerBackgr
                 {
                     theoreticalEndPos += 16 - theoreticalEndPos % 16;
                 }
-                var chunkEndPos = chunkStartPos + Length;
                 if (theoreticalEndPos != chunkEndPos)
                 {
                     // Probably 2024.14.1!
+                    reader.gameMakerData.SetGMS2Version(2024, 14, 1);
+                    break;
+                }
+
+                // The size check passes for both layouts when the 8 extra bytes of the last background vanish in the chunk end padding.
+                // The old layout then has the high half of the frame length where the new one has the exported sprite, which is not 0 for "none".
+                reader.AbsPosition = bgPtr + 13 * 4;
+                var newItemsPerTileCount = reader.ReadUInt32();
+                var newTileCount = reader.ReadUInt32();
+                var newEndPos = (long)bgPtr + 18 * sizeof(uint) + (long)newItemsPerTileCount * newTileCount * sizeof(uint);
+                if (newEndPos % 16 != 0)
+                {
+                    newEndPos += 16 - newEndPos % 16;
+                }
+                if (newEndPos != chunkEndPos)
+                {
+                    continue;
+                }
+                // Only the new layout fits when the old one would give a frame length above 32 bits and the sprite is "none" or a small index
+                // and the new frame length has no high half; anything less certain keeps the old layout.
+                reader.AbsPosition = bgPtr + 15 * 4;
+                var frameLengthHigh = reader.ReadUInt32();
+                reader.AbsPosition = bgPtr + 17 * 4;
+                var newFrameLengthHigh = reader.ReadUInt32();
+                var spriteIsPlausible = frameLengthHigh == uint.MaxValue || frameLengthHigh is > 0 and < 100_000;
+                if (spriteIsPlausible && newFrameLengthHigh == 0)
+                {
                     reader.gameMakerData.SetGMS2Version(2024, 14, 1);
                     break;
                 }
@@ -1171,52 +1197,49 @@ public class GameMakerChunkFONT : GameMakerListChunk<GameMakerFont>
         var positionToReturn = reader.Position;
         var GMS2022_2 = false;
 
-        var possibleFontCount = reader.ReadUInt32();
-        if (possibleFontCount > 0)
+        // A count above what the chunk can hold is read as far as the chunk goes; the pointer validation reports it.
+        var possibleFontCount = Math.Min(reader.ReadUInt32(), Length / sizeof(uint));
+        List<uint> fontPointers = new((int)Math.Min(possibleFontCount, 1024));
+        for (uint i = 0; i < possibleFontCount; i++)
         {
-            uint firstFontPointer = 0;
-            for (uint i = 0; i < possibleFontCount; i++)
+            var fontPointer = reader.ReadUInt32();
+            if (fontPointer != 0)
+                fontPointers.Add(fontPointer);
+        }
+        // A font without glyphs shows nothing about the glyph layout, so the next font with glyphs decides.
+        foreach (var fontPointer in fontPointers)
+        {
+            reader.AbsPosition = fontPointer + 48; // There are 48 bytes of existing metadata.
+            var glyphsLength = reader.ReadUInt32();
+            GMS2022_2 = true;
+            if ((ulong)glyphsLength * sizeof(uint) > Length)
             {
-                var fontPointer = reader.ReadUInt32();
-                if (fontPointer != 0)
-                {
-                    firstFontPointer = fontPointer;
-                    break;
-                }
+                GMS2022_2 = false;
+                break;
             }
-            if (firstFontPointer != 0)
+            if (glyphsLength == 0)
+                continue;
+            List<uint> glyphPointers = [];
+            for (uint i = 0; i < glyphsLength; i++)
             {
-                reader.AbsPosition = firstFontPointer + 48; // There are 48 bytes of existing metadata.
-                var glyphsLength = reader.ReadUInt32();
-                GMS2022_2 = true;
-                if ((ulong)glyphsLength * sizeof(uint) > Length)
+                var glyphPointer = reader.ReadUInt32();
+                if (glyphPointer == 0)
+                    throw new IOException("One of the glyph pointers is null?");
+                glyphPointers.Add(glyphPointer);
+            }
+            foreach (var pointer in glyphPointers)
+            {
+                if (reader.AbsPosition != pointer)
                 {
                     GMS2022_2 = false;
+                    break;
                 }
-                else if (glyphsLength != 0)
-                {
-                    List<uint> glyphPointers = [];
-                    for (uint i = 0; i < glyphsLength; i++)
-                    {
-                        var glyphPointer = reader.ReadUInt32();
-                        if (glyphPointer == 0)
-                            throw new IOException("One of the glyph pointers is null?");
-                        glyphPointers.Add(glyphPointer);
-                    }
-                    foreach (var pointer in glyphPointers)
-                    {
-                        if (reader.AbsPosition != pointer)
-                        {
-                            GMS2022_2 = false;
-                            break;
-                        }
 
-                        reader.Position += 14;
-                        var kerningLength = reader.ReadUInt16();
-                        reader.Position += (uint)4 * kerningLength; // combining read/write would apparently break
-                    }
-                }
+                reader.Position += 14;
+                var kerningLength = reader.ReadUInt16();
+                reader.Position += (uint)4 * kerningLength; // combining read/write would apparently break
             }
+            break;
         }
         if (GMS2022_2)
             reader.gameMakerData.SetGMS2Version(2022, 2);
@@ -1251,7 +1274,7 @@ public class GameMakerChunkFONT : GameMakerListChunk<GameMakerFont>
         var GMS2023_6 = true;
         var GMS2024_11 = false;
 
-        var possibleFontCount = reader.ReadUInt32();
+        var possibleFontCount = Math.Min(reader.ReadUInt32(), Length / sizeof(uint));
         if (possibleFontCount <= 0)
         {
             // No way to know anything
@@ -1260,19 +1283,18 @@ public class GameMakerChunkFONT : GameMakerListChunk<GameMakerFont>
             return;
         }
 
-        List<long> firstAndNextFontPointers = new(2);
+        // A font without glyphs shows nothing about the glyph layout, so the next font with glyphs decides.
+        List<long> fontPointers = new((int)Math.Min(possibleFontCount, 1024));
         for (uint i = 0; i < possibleFontCount; i++)
         {
             var fontPointer = reader.ReadUInt32();
             if (fontPointer != 0)
             {
-                firstAndNextFontPointers.Add(fontPointer);
-                if (firstAndNextFontPointers.Count == 2)
-                    break;
+                fontPointers.Add(fontPointer);
             }
         }
 
-        if (firstAndNextFontPointers.Count == 0)
+        if (fontPointers.Count == 0)
         {
             // No way to know anything
             reader.AbsPosition = positionToReturn;
@@ -1280,80 +1302,87 @@ public class GameMakerChunkFONT : GameMakerListChunk<GameMakerFont>
             return;
         }
 
-        if (firstAndNextFontPointers.Count == 1)
-        {
-            // Add in the position of the padding i.e. the end of the font list
-            firstAndNextFontPointers.Add(positionToReturn + Length - 512);
-        }
+        // The end of the font list, where the padding starts
+        fontPointers.Add(positionToReturn + Length - 512);
 
-        reader.AbsPosition = firstAndNextFontPointers[0] + 52;      // Also the LineHeight value. 48 + 4 = 52.
-        if (reader.gameMakerData.IsNonLTSVersionAtLeast(2023, 2))   // SDFSpread is present from 2023.2 non-LTS onward
-            reader.AbsPosition += 4;                                // (detected by PSEM/PSYS chunk existence)
+        for (var fontIndex = 0; fontIndex + 1 < fontPointers.Count; fontIndex++)
+        {
+            reader.AbsPosition = fontPointers[fontIndex] + 52;      // Also the LineHeight value. 48 + 4 = 52.
+            if (reader.gameMakerData.IsNonLTSVersionAtLeast(2023, 2))   // SDFSpread is present from 2023.2 non-LTS onward
+                reader.AbsPosition += 4;                                // (detected by PSEM/PSYS chunk existence)
 
-        var glyphsLength = reader.ReadUInt32();
-        var availableGlyphData = firstAndNextFontPointers[1] - reader.AbsPosition;
-        if (availableGlyphData < 0 || (ulong)glyphsLength * sizeof(uint) > (ulong)availableGlyphData)
-        {
-            GMS2023_6 = false;
-        }
-        else if (glyphsLength != 0)
-        {
-            List<uint> glyphPointers = [];
-            for (uint i = 0; i < glyphsLength; i++)
+            var glyphsLength = reader.ReadUInt32();
+            if (glyphsLength == 0)
             {
-                var glyphPointer = reader.ReadUInt32();
-                if (glyphPointer == 0)
-                    throw new IOException("One of the glyph pointers is null?");
-                glyphPointers.Add(glyphPointer);
+                continue;
             }
-
-            // When this is set to true the detection logic will not run again
-            var GMS2024_11_Failed = false;
-            for (var i = 0; i < glyphPointers.Count; i++)
+            var availableGlyphData = fontPointers[fontIndex + 1] - reader.AbsPosition;
+            if (availableGlyphData < 0 || (ulong)glyphsLength * sizeof(uint) > (ulong)availableGlyphData)
             {
-                if (reader.AbsPosition != glyphPointers[i])
+                GMS2023_6 = false;
+            }
+            else if (glyphsLength != 0)
+            {
+                List<uint> glyphPointers = [];
+                for (uint i = 0; i < glyphsLength; i++)
                 {
-                    GMS2023_6 = false;
-                    GMS2024_11 = false;
-                    break;
+                    var glyphPointer = reader.ReadUInt32();
+                    if (glyphPointer == 0)
+                        throw new IOException("One of the glyph pointers is null?");
+                    glyphPointers.Add(glyphPointer);
                 }
 
-                reader.Position += 14;
-                var kerningLength = reader.ReadUInt16();
-                if (!GMS2024_11_Failed)
+                // When this is set to true the detection logic will not run again
+                var GMS2024_11_Failed = false;
+                for (var i = 0; i < glyphPointers.Count; i++)
                 {
-                    if (!GMS2024_11)
+                    if (reader.AbsPosition != glyphPointers[i])
                     {
-                        // Hopefully the last thing in a UTFont is the glyph list
-                        var pointerNextGlyph = i < glyphPointers.Count - 1 ? glyphPointers[i + 1] : firstAndNextFontPointers[1];
-                        // And hopefully the last thing in a glyph is the kerning list
-                        // Glyph kerning entries occupy four bytes each.
-                        var pointerAfterKerningList = reader.AbsPosition + 4 * kerningLength;
-                        // If we don't land on the next glyph/font after skipping the Kerning list,
-                        // kerningLength is probably bogus and UnknownAlwaysZero may be present
-                        if (pointerAfterKerningList != pointerNextGlyph)
+                        GMS2023_6 = false;
+                        GMS2024_11 = false;
+                        break;
+                    }
+
+                    reader.Position += 14;
+                    var kerningLength = reader.ReadUInt16();
+                    if (!GMS2024_11_Failed)
+                    {
+                        if (!GMS2024_11)
                         {
-                            // Discard last read, which would be of UnknownAlwaysZero
-                            kerningLength = reader.ReadUInt16();
-                            pointerAfterKerningList = reader.AbsPosition + 4 * kerningLength;
+                            // Hopefully the last thing in a UTFont is the glyph list
+                            var pointerNextGlyph = i < glyphPointers.Count - 1 ? glyphPointers[i + 1] : fontPointers[fontIndex + 1];
+                            // And hopefully the last thing in a glyph is the kerning list
+                            // Glyph kerning entries occupy four bytes each.
+                            var pointerAfterKerningList = reader.AbsPosition + 4 * kerningLength;
+                            // If we don't land on the next glyph/font after skipping the Kerning list,
+                            // kerningLength is probably bogus and UnknownAlwaysZero may be present
                             if (pointerAfterKerningList != pointerNextGlyph)
-                                reader.SubmitWarning("There appears to be more/less values than UnknownAlwaysZero before " +
-                                                        "the kerning list in a UTFont.Glyph - potential data loss");
-                            GMS2024_11 = true;
+                            {
+                                // Discard last read, which would be of UnknownAlwaysZero
+                                kerningLength = reader.ReadUInt16();
+                                pointerAfterKerningList = reader.AbsPosition + 4 * kerningLength;
+                                if (pointerAfterKerningList != pointerNextGlyph)
+                                    reader.SubmitWarning("There appears to be more/less values than UnknownAlwaysZero before " +
+                                                            "the kerning list in a UTFont.Glyph - potential data loss");
+                                GMS2024_11 = true;
+                            }
+                            else
+                            {
+                                GMS2024_11_Failed = true;
+                            }
                         }
                         else
                         {
-                            GMS2024_11_Failed = true;
+                            // Discard last read, which would be of UnknownAlwaysZero
+                            kerningLength = reader.ReadUInt16();
                         }
                     }
-                    else
-                    {
-                        // Discard last read, which would be of UnknownAlwaysZero
-                        kerningLength = reader.ReadUInt16();
-                    }
+                    reader.Position += 4 * kerningLength; // combining read/write would apparently break
                 }
-                reader.Position += 4 * kerningLength; // combining read/write would apparently break
             }
+
+            if (glyphsLength != 0)
+                break;
         }
 
         if (GMS2024_11 && !reader.gameMakerData.IsVersionAtLeast(2024, 11))
@@ -1451,8 +1480,26 @@ public class GameMakerChunkFONT : GameMakerListChunk<GameMakerFont>
         }
     }
 
+    // The layout checks follow the font pointers, so a pointer outside the chunk is named here instead of failing inside a check.
+    private static void ValidateFontPointers(GameMakerReader reader, uint length)
+    {
+        var returnTo = reader.Position;
+        var count = reader.ReadUInt32();
+        if ((ulong)count * sizeof(uint) <= length - sizeof(uint))
+        {
+            for (uint i = 0; i < count; i++)
+            {
+                var pointer = reader.ReadUInt32();
+                if (pointer != 0)
+                    reader.ThrowIfOutsideChunk(pointer, $"font {i + 1} of {count}");
+            }
+        }
+        reader.Position = returnTo;
+    }
+
     internal override void UnserializeChunk(GameMakerReader reader)
     {
+        ValidateFontPointers(reader, Length);
         CheckForLTSLayout(reader);
         if (!checkedFor2022_2)
             CheckForGM2022_2(reader);
@@ -3003,9 +3050,6 @@ public class GameMakerChunkPSEM : GameMakerChunk2023List<GameMakerParticleSystem
 
     private void CheckPsemVersion(GameMakerReader reader)
     {
-        // Particle system emitters had the good grace to change three times in three versions
-        // Three versions which are only detectable by optional features
-        // This function checks for 2023.4, 2023.6, and 2023.8
         if (checkedPsemVersion)
         {
             return;

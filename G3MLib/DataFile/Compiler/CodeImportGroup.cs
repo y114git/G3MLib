@@ -737,7 +737,7 @@ public sealed class CodeImportGroup
         }
         finally
         {
-            // Get rid of compile group, as it is no longer needed
+            // The compile group only lives for one import
             CompileGroup = null;
         }
 

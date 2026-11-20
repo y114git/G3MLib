@@ -61,7 +61,6 @@ public abstract class ConditionalMacroType(IMacroType? innerType)
             return null;
         }
 
-        // Check whether we specify any inner type at all
         if (InnerType is not null)
         {
             if (InnerType is not IMacroTypeInt32 innerTypeInt32)
@@ -99,7 +98,6 @@ public abstract class ConditionalMacroType(IMacroType? innerType)
             return null;
         }
 
-        // Check whether we specify any inner type at all
         if (InnerType is not null)
         {
             if (InnerType is not IMacroTypeInt64 innerTypeInt64)
@@ -132,7 +130,6 @@ public abstract class ConditionalMacroType(IMacroType? innerType)
 
     public IFunctionCallNode? Resolve(ASTCleaner cleaner, IFunctionCallNode call)
     {
-        // Check whether we specify any inner type at all
         if (InnerType is not null)
         {
             if (InnerType is not IMacroTypeFunctionArgs innerTypeFunctionArgs)
@@ -165,7 +162,6 @@ public abstract class ConditionalMacroType(IMacroType? innerType)
 
     public ArrayInitNode? Resolve(ASTCleaner cleaner, ArrayInitNode arrayInit)
     {
-        // Check whether we specify any inner type at all
         if (InnerType is not null)
         {
             if (InnerType is not IMacroTypeArrayInit innerTypeArrayInit)

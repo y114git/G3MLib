@@ -135,7 +135,6 @@ internal sealed class SerializableFont : ISerializableTextureProjectAsset
     /// </summary>
     internal void PopulateFromData(GameMakerFont fnt)
     {
-        // Update all main properties
         DataName = fnt.Name.Content;
         DisplayName = fnt.DisplayName?.Content;
         EmSizeIsFloat = fnt.EmSizeIsFloat;
@@ -153,7 +152,6 @@ internal sealed class SerializableFont : ISerializableTextureProjectAsset
         LineHeight = fnt.LineHeight;
         AscenderOffset = fnt.AscenderOffset;
 
-        // Update glyphs
         Glyphs = new(fnt.Glyphs.Count);
         foreach (var glyph in fnt.Glyphs)
         {
@@ -185,11 +183,9 @@ internal sealed class SerializableFont : ISerializableTextureProjectAsset
     /// <inheritdoc/>
     public void Serialize(ProjectContext projectContext, string destinationFile)
     {
-        // Write main JSON
         using FileStream fs = new(destinationFile, FileMode.Create);
         JsonSerializer.Serialize<ISerializableProjectAsset>(fs, this, ProjectContext.JsonOptions);
 
-        // Write image as a PNG
         var filename = $"{Path.GetFileNameWithoutExtension(destinationFile)}.png";
         var directory = Path.GetDirectoryName(destinationFile);
         projectContext.TextureWorker.ExportAsPNG(_dataAsset.Texture, Path.Join(directory, filename), DataName, true);
@@ -219,7 +215,6 @@ internal sealed class SerializableFont : ISerializableTextureProjectAsset
     {
         var fnt = _dataAsset;
 
-        // Update all main properties
         fnt.DisplayName = projectContext.MakeString(DisplayName);
         fnt.EmSizeIsFloat = EmSizeIsFloat;
         fnt.EmSize = EmSize;
@@ -236,7 +231,6 @@ internal sealed class SerializableFont : ISerializableTextureProjectAsset
         fnt.LineHeight = LineHeight;
         fnt.AscenderOffset = AscenderOffset;
 
-        // Update glyphs
         fnt.Glyphs = new(Glyphs?.Count ?? 0);
         foreach (var glyph in Glyphs ?? [])
         {

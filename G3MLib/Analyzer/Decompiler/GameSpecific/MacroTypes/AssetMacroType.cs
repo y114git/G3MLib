@@ -25,7 +25,6 @@ public class AssetMacroType(AssetType type) : IMacroTypeInt32
             return null;
         }
 
-        // Check for asset name with the given type
         var assetName = cleaner.Context.GameContext.GetAssetName(Type, data);
         if (assetName is not null)
         {

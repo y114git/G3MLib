@@ -54,7 +54,6 @@ internal sealed class StaticInit : IControlFlowNode
 
         foreach (var block in blocks)
         {
-            // Check for pattern
             if (block.Instructions is [..,
                 { Kind: Opcode.Extended, ExtKind: ExtendedOpcode.HasStaticInitialized },
                 { Kind: Opcode.BranchTrue }])
@@ -62,7 +61,6 @@ internal sealed class StaticInit : IControlFlowNode
                 StaticInit si = new(block.EndAddress, block.Successors[1].StartAddress, block.Successors[0]);
                 res.Add(si);
 
-                // Remove instructions from this block
                 block.Instructions.RemoveRange(block.Instructions.Count - 2, 2);
 
                 // Remove instruction from ending block, if it's the right one (changes depending on version)
@@ -83,7 +81,6 @@ internal sealed class StaticInit : IControlFlowNode
                 si.Successors.Add(afterNode);
                 afterNode.Predecessors.Add(si);
 
-                // Update parent status of head and this structure
                 si.Parent = si.Head.Parent;
                 si.Head.Parent = si;
             }

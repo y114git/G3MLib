@@ -411,6 +411,115 @@ public sealed class GameMakerFormatGapTests
     }
 
     [Fact]
+    public void GlyphLayoutIsDetectedPastAFirstFontWithoutGlyphs()
+    {
+        using var data = FreshDataFor(2024, 13, false);
+        // A real file has bytecode 17 and exactly 512 bytes of padding at the end of the font chunk. The glyph data below ends on a 16 byte boundary, so the writer adds no chunk alignment.
+        data.GeneralInfo.BytecodeVersion = 17;
+        data.Rooms.Clear();
+        ((GameMakerChunkFONT)data.FORM.Chunks["FONT"]).Padding = new byte[512];
+        data.Fonts.Add(new GameMakerFont { Name = data.Strings.MakeString("fnt_empty"), DisplayName = data.Strings.MakeString("Arial") });
+        GameMakerFont font = new() { Name = data.Strings.MakeString("fnt_probe"), DisplayName = data.Strings.MakeString("Arial") };
+        GameMakerFont.Glyph glyph = new() { Character = 65, SourceWidth = 5, SourceHeight = 7, Shift = 6 };
+        glyph.Kerning.Add(new GameMakerFont.Glyph.GlyphKerning { Character = 66, ShiftModifier = -1 });
+        glyph.Kerning.Add(new GameMakerFont.Glyph.GlyphKerning { Character = 67, ShiftModifier = -2 });
+        font.Glyphs.Add(glyph);
+        font.Glyphs.Add(new GameMakerFont.Glyph { Character = 66, SourceWidth = 4, SourceHeight = 7, Shift = 5 });
+        data.Fonts.Add(font);
+        using MemoryStream written = new();
+        GameMakerIO.Write(written, data);
+        // Store a plain GameMaker 2 version and hide UILR, so only the font chunk can show the 2024.11 glyph layout.
+        var file = written.ToArray();
+        uint[] stored = [2, 0, 0, 0];
+        for (var i = 0; i < 4; i++)
+            BitConverter.GetBytes(stored[i]).CopyTo(file, Gen8VersionOffset + i * 4);
+        file[file.AsSpan().IndexOf("UILR"u8) + 3] = (byte)'_';
+
+        using var read = GameMakerIO.Read(new MemoryStream(file));
+
+        Assert.True(read.IsVersionAtLeast(2024, 11));
+        Assert.Empty(read.Fonts[0].Glyphs);
+        Assert.Equal([(ushort)65, (ushort)66], read.Fonts[1].Glyphs.Select(g => g.Character));
+    }
+
+    [Fact]
+    public void BackgroundLayoutOf2024_14_1IsReadWhenItsExtraBytesHideInTheChunkEnd()
+    {
+        using var data = FreshDataFor(2024, 14, false);
+        data.SetGMS2Version(2024, 14, 1, 0, isLTS: false);
+        // Read as 2024.14 the last background would end exactly at the chunk end: 2 tile ids by the old layout, 8 extra bytes in the new one.
+        data.Backgrounds.Add(new GameMakerBackground
+        {
+            Name = data.Strings.MakeString("ts_probe"),
+            GMS2OutputBorderY = 2,
+            GMS2TileColumns = 1,
+            GMS2TileCount = 0,
+            GMS2ItemsPerTileCount = 0,
+            GMS2TileWidth = 16,
+            GMS2TileHeight = 16
+        });
+        using MemoryStream written = new();
+        GameMakerIO.Write(written, data);
+        var file = written.ToArray();
+        uint[] stored = [2, 0, 0, 0];
+        for (var i = 0; i < 4; i++)
+            BitConverter.GetBytes(stored[i]).CopyTo(file, Gen8VersionOffset + i * 4);
+
+        using var read = GameMakerIO.Read(new MemoryStream(file));
+
+        Assert.True(read.IsVersionAtLeast(2024, 14, 1));
+        Assert.Equal(16u, Assert.Single(read.Backgrounds).GMS2TileWidth);
+    }
+
+    [Fact]
+    public void AFontPointerPastTheChunkEndButInsideTheFileIsNamedInTheError()
+    {
+        using var data = FreshDataFor(2024, 14, false);
+        data.Fonts.Add(new GameMakerFont { Name = data.Strings.MakeString("fnt_probe"), DisplayName = data.Strings.MakeString("Arial") });
+        using MemoryStream written = new();
+        GameMakerIO.Write(written, data);
+        var file = written.ToArray();
+        var chunk = file.AsSpan().IndexOf("FONT"u8);
+        var chunkEnd = chunk + 8 + BitConverter.ToInt32(file, chunk + 4);
+        Assert.True(chunkEnd + 8 < file.Length);
+        BitConverter.GetBytes((uint)(chunkEnd + 8)).CopyTo(file, chunk + 8 + 4);
+
+        var error = Assert.ThrowsAny<Exception>(() => GameMakerIO.Read(new MemoryStream(file)));
+
+        Assert.Contains("outside chunk FONT", error.Message);
+    }
+
+    [Fact]
+    public void ALastBackgroundOfAPre2024_14_1FileEndingAtTheChunkEndKeepsTheOldLayout()
+    {
+        using var data = FreshDataFor(2024, 13, false);
+        data.Backgrounds.Add(new GameMakerBackground { Name = data.Strings.MakeString("ts_probe"), GMS2TileWidth = 16, GMS2TileCount = 0, GMS2ItemsPerTileCount = 0 });
+        using MemoryStream written = new();
+        GameMakerIO.Write(written, data);
+
+        using var read = GameMakerIO.Read(new MemoryStream(written.ToArray()));
+
+        Assert.False(read.IsVersionAtLeast(2024, 14, 1));
+        Assert.Equal(16u, Assert.Single(read.Backgrounds).GMS2TileWidth);
+    }
+
+    [Fact]
+    public void AFontPointerOutsideItsChunkIsNamedInTheError()
+    {
+        using var data = FreshDataFor(2024, 14, false);
+        data.Fonts.Add(new GameMakerFont { Name = data.Strings.MakeString("fnt_probe"), DisplayName = data.Strings.MakeString("Arial") });
+        using MemoryStream written = new();
+        GameMakerIO.Write(written, data);
+        var file = written.ToArray();
+        var chunk = file.AsSpan().IndexOf("FONT"u8);
+        BitConverter.GetBytes(0x7FFFFFF0u).CopyTo(file, chunk + 8 + 4);
+
+        var error = Assert.ThrowsAny<Exception>(() => GameMakerIO.Read(new MemoryStream(file)));
+
+        Assert.Contains("font 1 of 1 leads to 7FFFFFF0, outside chunk FONT", error.Message);
+    }
+
+    [Fact]
     public void FreshLtsDataWithItsDefaultRoomIsStableAcrossWriteAndRead()
     {
         using var data = GameMakerData.CreateNew2026LTS();

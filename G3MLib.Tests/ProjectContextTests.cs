@@ -250,4 +250,72 @@ public sealed class ProjectContextTests
         context.AllowScripts = false;
         Assert.False(context.AllowScripts);
     }
+
+    [Fact]
+    public void SubProjectsInheritTheScriptPolicy()
+    {
+        var root = Path.Join(Path.GetTempPath(), "g3m-subproject-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Join(root, "sub"));
+        try
+        {
+            File.WriteAllText(Path.Join(root, "project.json"), "{\"Name\":\"parent\",\"SubProjects\":[\"sub/project.json\"]}");
+            File.WriteAllText(Path.Join(root, "sub", "project.json"), "{\"Name\":\"child\",\"PreImportScripts\":[\"run.csx\"]}");
+            File.WriteAllText(Path.Join(root, "sub", "run.csx"), "throw new System.Exception(\"script ran\");");
+            var context = ProjectContext.CreateWithDirectories(root, root, Path.Join(root, "project.json"));
+            context.AllowScripts = false;
+
+            var error = Assert.Throws<ProjectException>(() => context.Import());
+
+            Assert.Contains("disallowed", error.Message);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public void RestoreReplacedPutsTheOldFoldersBack()
+    {
+        var root = Directory.CreateTempSubdirectory("g3mlib-restore-").FullName;
+        try
+        {
+            var target = Path.Combine(root, "Sprites");
+            var aside = target + ".old-1";
+            Directory.CreateDirectory(target);
+            File.WriteAllText(Path.Combine(target, "new.txt"), "new");
+            Directory.CreateDirectory(aside);
+            File.WriteAllText(Path.Combine(aside, "old.txt"), "old");
+
+            G3MProjectService.RestoreReplaced([(target, aside)]);
+
+            Assert.Equal("old", File.ReadAllText(Path.Combine(target, "old.txt")));
+            Assert.False(File.Exists(Path.Combine(target, "new.txt")));
+            Assert.False(Directory.Exists(aside));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public void RestoreReplacedLeavesTheOriginalAloneWhenItWasNeverMovedAside()
+    {
+        var root = Directory.CreateTempSubdirectory("g3mlib-restore-").FullName;
+        try
+        {
+            var target = Path.Combine(root, "Sprites");
+            Directory.CreateDirectory(target);
+            File.WriteAllText(Path.Combine(target, "old.txt"), "old");
+
+            G3MProjectService.RestoreReplaced([(target, target + ".old-missing")]);
+
+            Assert.Equal("old", File.ReadAllText(Path.Combine(target, "old.txt")));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
 }

@@ -48,7 +48,6 @@ public interface IFragmentNode : IStatementNode
             throw new DecompilerException("Missing instructions after fragment");
         }
 
-        // Get function reference for fragment
         if (followingBlock.Instructions[0] is not { Kind: Opcode.Push, Type1: DataType.Int32 } pushInstruction ||
             pushInstruction.TryFindFunction(builder.Context.GameContext) is null)
         {
@@ -107,7 +106,6 @@ public interface IFragmentNode : IStatementNode
                         usingOptimizedDeclaration = true;
                     }
 
-                    // Build body of the function
                     builder.PushFragmentContext(fragment);
                     builder.TopFragmentContext.FunctionName = funcName;
                     var block = builder.BuildBlock(fragment.Children[0]);
@@ -175,7 +173,6 @@ public interface IFragmentNode : IStatementNode
                                 structArguments.Add(builder.ExpressionStack.Pop());
                             }
 
-                            // Build body
                             builder.PushFragmentContext(fragment);
                             builder.StructArguments = structArguments;
                             var block = builder.BuildBlock(fragment.Children[0]);
@@ -188,7 +185,6 @@ public interface IFragmentNode : IStatementNode
                         {
                             // We're a constructor
 
-                            // Build body
                             builder.PushFragmentContext(fragment);
                             builder.TopFragmentContext.FunctionName = funcName;
                             var block = builder.BuildBlock(fragment.Children[0]);
@@ -225,7 +221,6 @@ public interface IFragmentNode : IStatementNode
                                 structArguments.Add(builder.ExpressionStack.Pop());
                             }
 
-                            // Build body
                             builder.PushFragmentContext(fragment);
                             builder.StructArguments = structArguments;
                             var block = builder.BuildBlock(fragment.Children[0]);
@@ -238,7 +233,6 @@ public interface IFragmentNode : IStatementNode
                         {
                             // We're a constructor
 
-                            // Build body
                             builder.PushFragmentContext(fragment);
                             builder.TopFragmentContext.FunctionName = funcNameOptimized;
                             var block = builder.BuildBlock(fragment.Children[0]);
@@ -253,7 +247,6 @@ public interface IFragmentNode : IStatementNode
                     {
                         // We're an anonymous constructor
 
-                        // Build body
                         builder.PushFragmentContext(fragment);
                         var block = builder.BuildBlock(fragment.Children[0]);
                         block.AddBlockLocalVarDecl(builder.Context);

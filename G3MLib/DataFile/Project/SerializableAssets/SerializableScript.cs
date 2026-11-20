@@ -36,7 +36,6 @@ internal sealed class SerializableScript : ISerializableProjectAsset
     /// </summary>
     internal void PopulateFromData(GameMakerScript script)
     {
-        // Update all main properties
         DataName = script.Name.Content;
         Code = script.Code?.Name?.Content;
     }
@@ -72,7 +71,6 @@ internal sealed class SerializableScript : ISerializableProjectAsset
     {
         var script = _dataAsset;
 
-        // Update all main properties
         script.Code = projectContext.FindCode(Code, this);
         script.IsConstructor = false;
 

@@ -180,7 +180,6 @@ public sealed class CompileGroup
             return Data.Strings[id];
         }
 
-        // Create new string, and update lookup
         GameMakerString str = new(contents);
         var strIndex = Data.Strings.Count;
         _linkingStringIdLookup[contents] = strIndex;
@@ -199,7 +198,6 @@ public sealed class CompileGroup
             return Data.Strings[id];
         }
 
-        // Create new string, and update lookup
         GameMakerString str = new(contents);
         id = Data.Strings.Count;
         _linkingStringIdLookup[contents] = id;
@@ -225,7 +223,6 @@ public sealed class CompileGroup
     /// </summary>
     internal void RegisterLocalVariable(GameMakerInstruction reference, string name)
     {
-        // Queue reference to be patched later
         if (!_linkingLocalReferences.TryGetValue(name, out var referenceList))
         {
             referenceList = new(16);
@@ -233,7 +230,6 @@ public sealed class CompileGroup
         }
         referenceList.Add(reference);
 
-        // Update variable order
         if (_linkingVariableOrderLookup.TryGetValue(name, out var existingIndex))
         {
             // If not already marked as "ever local," mark it as such now
@@ -295,9 +291,9 @@ public sealed class CompileGroup
     private static bool SimilarCodeEntryNames(string originalName, string newNameNoNumbers)
     {
         var originalPos = 0;
-        for (var i = 0; i < newNameNoNumbers.Length; i++)
+        foreach (var newNameNoNumber in newNameNoNumbers)
         {
-            if (newNameNoNumbers[i] == '%')
+            if (newNameNoNumber == '%')
             {
                 // Special control character: read any amount of digits from original name
                 while (originalPos < originalName.Length && char.IsAsciiDigit(originalName[originalPos]))
@@ -306,7 +302,7 @@ public sealed class CompileGroup
                 }
                 continue;
             }
-            if (newNameNoNumbers[i] == '#')
+            if (newNameNoNumber == '#')
             {
                 // Special control character: read any amount of hex digits from original name
                 while (originalPos < originalName.Length && char.IsAsciiHexDigitUpper(originalName[originalPos]))
@@ -320,7 +316,7 @@ public sealed class CompileGroup
                 // New name is too long
                 return false;
             }
-            if (originalName[originalPos] != newNameNoNumbers[i])
+            if (originalName[originalPos] != newNameNoNumber)
             {
                 // New name doesn't match somewhere other than through numbers
                 return false;
@@ -344,12 +340,11 @@ public sealed class CompileGroup
     /// </summary>
     private static string FindOriginalShortName(string originalName, string newShortNameNoNumbers)
     {
-        // Start reading after prefix
         var startOriginalPos = "gml_Script_".Length;
         var originalPos = startOriginalPos;
-        for (var i = 0; i < newShortNameNoNumbers.Length; i++)
+        foreach (var newShortNameNoNumber in newShortNameNoNumbers)
         {
-            if (newShortNameNoNumbers[i] == '%')
+            if (newShortNameNoNumber == '%')
             {
                 // Special control character: read any amount of digits from original name
                 while (originalPos < originalName.Length && char.IsAsciiDigit(originalName[originalPos]))
@@ -358,7 +353,7 @@ public sealed class CompileGroup
                 }
                 continue;
             }
-            if (newShortNameNoNumbers[i] == '#')
+            if (newShortNameNoNumber == '#')
             {
                 // Special control character: read any amount of hex digits from original name
                 while (originalPos < originalName.Length && char.IsAsciiHexDigitUpper(originalName[originalPos]))
@@ -462,7 +457,6 @@ public sealed class CompileGroup
                 continue;
             }
 
-            // Create a compile context early
             CompileContext context = new(operation.Code, scriptKind, globalScriptName, GlobalContext) { ExternalMacros = Macros };
 
             // Perform parse
@@ -470,7 +464,6 @@ public sealed class CompileGroup
             {
                 context.Parse();
 
-                // Check for compile errors
                 if (context.HasErrors)
                 {
                     errors ??= new(context.Errors.Count);
@@ -499,7 +492,6 @@ public sealed class CompileGroup
             // Perform linking on main thread
             MainThreadAction(() =>
             {
-                // Setup for linking
                 InitializeLinkingLookups();
 
                 // Iterate over all global script compile contexts, to find functions
@@ -514,7 +506,6 @@ public sealed class CompileGroup
                         // Get old function entry, if one exists (in case this needs to be rolled back due to an error)
                         Data.GlobalFunctions.TryGetFunction(functionName, out var oldFunctionEntry);
 
-                        // Define function using standard naming convention
                         var functionEntryName = $"gml_Script_{functionName}";
                         if (!_linkingFunctionLookup.TryGetValue(functionEntryName, out var newFunctionEntry))
                         {
@@ -559,7 +550,6 @@ public sealed class CompileGroup
             CompileContext context;
             if (scriptKind is not CompileScriptKind.GlobalScript)
             {
-                // Create a brand new compile context
                 context = new(operation.Code, scriptKind, globalScriptName, GlobalContext) { ExternalMacros = Macros };
             }
             else
@@ -572,7 +562,6 @@ public sealed class CompileGroup
             {
                 context.Compile();
 
-                // Check for compile errors
                 if (context.HasErrors)
                 {
                     errors ??= new(context.Errors.Count);
@@ -605,7 +594,6 @@ public sealed class CompileGroup
             // Perform linking on main thread
             MainThreadAction(() =>
             {
-                // Setup for linking
                 InitializeLinkingLookups();
 
                 // Make list of reusable child code entry names (and set of child entries remaining)
@@ -731,9 +719,9 @@ public sealed class CompileGroup
                     GameMakerCode? existingCodeEntry = null, newCodeEntry = null;
                     GameMakerScript? existingScript = null, newScript = null;
                     GameMakerFunction? existingFunction = null, newFunction = null;
-                    for (var i = 0; i < originalChildEntryNames.Count; i++)
+                    foreach (var originalChildEntryName in originalChildEntryNames)
                     {
-                        var originalEntryName = originalChildEntryNames[i];
+                        var originalEntryName = originalChildEntryName;
                         if (remainingChildEntries.TryGetValue(originalEntryName, out var originalCodeEntries) &&
                             SimilarCodeEntryNames(originalEntryName, codeEntryNameNoNumbers))
                         {
@@ -880,7 +868,6 @@ public sealed class CompileGroup
                     );
                 }
 
-                // Create structures for linking local variables
                 _linkingVariableOrderLookup ??= new(16);
                 _linkingVariableOrder ??= new(16);
                 _linkingLocalReferences ??= new(16);
@@ -890,7 +877,6 @@ public sealed class CompileGroup
                 {
                     context.Link();
 
-                    // Check for link errors
                     if (context.HasErrors)
                     {
                         errors ??= new(context.Errors.Count);
@@ -941,7 +927,6 @@ public sealed class CompileGroup
                             // If not already referenced, define a new variable, and store in lookup
                             variable ??= Data.Variables.DefineLocal(Data, varId, localString, nameStringIndex);
 
-                            // Update all references
                             foreach (var reference in _linkingLocalReferences[name])
                             {
                                 reference.ValueVariable = variable;
@@ -974,10 +959,8 @@ public sealed class CompileGroup
                     // Clear out all existing locals
                     locals.Locals.Clear();
 
-                    // Create "arguments" local
                     DefineCodeLocal(locals, linkingModern, "arguments", 0);
 
-                    // Create new locals
                     uint codeLocalsIndex = 1;
                     foreach (var local in localsOrder)
                     {
@@ -986,13 +969,11 @@ public sealed class CompileGroup
                     }
                 }
 
-                // Remove old child code entries/scripts/functions
                 foreach ((var name, var codeEntryNameGroup) in remainingChildEntries)
                 {
                     // Remove all remaining code entries associated with the given name
                     while (codeEntryNameGroup.RemainingOriginalEntries.TryDequeue(out var code))
                     {
-                        // Remove code entry
                         Data.Code.Remove(code);
                         operation.CodeEntry.ChildEntries.Remove(code);
 
@@ -1033,7 +1014,6 @@ public sealed class CompileGroup
                     // Attach latest information to script
                     childData.Script.IsConstructor = childData.FunctionEntry.IsConstructor;
 
-                    // Define code entry
                     if (!childData.ExistingCode)
                     {
                         operation.CodeEntry.ChildEntries.Insert(childIndex, childData.Code);
@@ -1045,7 +1025,6 @@ public sealed class CompileGroup
                         Data.Code.Insert(rootCodeEntryIndex + 1 + childIndex, childData.Code);
                     }
 
-                    // Define script
                     if (!childData.ExistingScript)
                     {
                         if (_linkingScriptLookup.TryGetValue(childData.Name, out var existing))
@@ -1059,7 +1038,6 @@ public sealed class CompileGroup
                         Data.Scripts.Add(childData.Script);
                     }
 
-                    // Define function
                     if (!childData.ExistingFunction)
                     {
                         _linkingFunctionLookup[childData.Name] = childData.Function;
@@ -1113,7 +1091,6 @@ public sealed class CompileGroup
         // Unreference other structures
         UnreferenceLinkingLookups();
 
-        // Return result
         if (errors is null)
         {
             return CompileResult.SuccessfulResult;
@@ -1143,9 +1120,9 @@ public sealed class CompileGroup
         if (_linkingFunctionLookup is null)
         {
             _linkingFunctionLookup = new(Data.Functions.Count);
-            for (var i = 0; i < Data.Functions.Count; i++)
+            foreach (var functionEntry in Data.Functions)
             {
-                var function = Data.Functions[i];
+                var function = functionEntry;
                 if (function?.Name?.Content is string name)
                 {
                     _linkingFunctionLookup[name] = function;
@@ -1157,9 +1134,9 @@ public sealed class CompileGroup
         if (_linkingScriptLookup is null)
         {
             _linkingScriptLookup = new(Data.Scripts.Count);
-            for (var i = 0; i < Data.Scripts.Count; i++)
+            foreach (var scriptEntry in Data.Scripts)
             {
-                var script = Data.Scripts[i];
+                var script = scriptEntry;
                 if (script?.Name?.Content is string name)
                 {
                     if (_linkingScriptLookup.TryGetValue(name, out var existing))
@@ -1174,7 +1151,6 @@ public sealed class CompileGroup
             }
         }
 
-        // Check for next usable struct ID
         if (_linkingStructCounter == -1)
         {
             _linkingStructCounter = 0;

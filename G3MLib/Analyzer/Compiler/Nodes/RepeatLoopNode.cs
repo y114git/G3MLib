@@ -41,25 +41,21 @@ internal sealed class RepeatLoopNode : IASTNode
     /// </summary>
     public static RepeatLoopNode? Parse(ParseContext context)
     {
-        // Parse "repeat" keyword
         if (context.EnsureToken(KeywordKind.Repeat) is not TokenKeyword tokenKeyword)
         {
             return null;
         }
 
-        // Parse loop repeat count expression
         if (Expressions.ParseExpression(context) is not IASTNode timesToRepeat)
         {
             return null;
         }
 
-        // Parse loop body
         if (Statements.ParseStatement(context) is not IASTNode body)
         {
             return null;
         }
 
-        // Create final statement
         return new RepeatLoopNode(tokenKeyword, timesToRepeat, body);
     }
 
@@ -134,7 +130,6 @@ internal sealed class RepeatLoopNode : IASTNode
             context.LastArrayOwnerID = -1;
         }
 
-        // Decrement loop counter
         decrementorPatch.Patch(context);
         if (context.CompileContext.GameContext.UsingExtraRepeatInstruction)
         {

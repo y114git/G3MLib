@@ -35,19 +35,16 @@ internal sealed class ThrowNode : IASTNode
     /// </summary>
     public static ThrowNode? Parse(ParseContext context)
     {
-        // Parse "throw" keyword
         if (context.EnsureToken(KeywordKind.Throw) is not TokenKeyword tokenKeyword)
         {
             return null;
         }
 
-        // Parse expression being thrown
         if (Expressions.ParseExpression(context) is not IASTNode expression)
         {
             return null;
         }
 
-        // Create final statement
         return new ThrowNode(tokenKeyword, expression);
     }
 
@@ -60,7 +57,6 @@ internal sealed class ThrowNode : IASTNode
         if (context.TryStatementContext is { HasFinally: true, ThrowFinallyGeneration: true } &&
             context.CompileContext.GameContext.UsingFinallyBeforeThrow)
         {
-            // Create block with latest finally node, then this throw node
             var newBlock = BlockNode.CreateEmpty(NearbyToken, 2);
             newBlock.Children.Add(context.CurrentScope.TryFinallyNodes[^1].Duplicate(context));
             newBlock.Children.Add(this);

@@ -41,13 +41,11 @@ internal sealed class DoUntilLoopNode : IASTNode
     /// </summary>
     public static DoUntilLoopNode? Parse(ParseContext context)
     {
-        // Parse "do" keyword
         if (context.EnsureToken(KeywordKind.Do) is not TokenKeyword tokenKeyword)
         {
             return null;
         }
 
-        // Parse loop body
         if (Statements.ParseStatement(context) is not IASTNode body)
         {
             return null;
@@ -60,13 +58,11 @@ internal sealed class DoUntilLoopNode : IASTNode
             return null;
         }
 
-        // Parse loop condition
         if (Expressions.ParseExpression(context) is not IASTNode condition)
         {
             return null;
         }
 
-        // Create final statement
         return new DoUntilLoopNode(tokenKeyword, body, condition);
     }
 
@@ -101,7 +97,6 @@ internal sealed class DoUntilLoopNode : IASTNode
         Body.GenerateCode(context);
         context.PopControlFlowContext();
 
-        // Loop condition
         conditionPatch.Patch(context);
         Condition.GenerateCode(context);
         context.ConvertDataType(DataType.Boolean);
@@ -109,7 +104,6 @@ internal sealed class DoUntilLoopNode : IASTNode
         // Jump based on condition
         headPatch.AddInstruction(context, context.Emit(Opcode.BranchFalse));
 
-        // Loop tail
         tailPatch.Patch(context);
 
         // If array owners are currently being generated, reset last array owner ID when continue/break are used

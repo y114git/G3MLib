@@ -44,7 +44,6 @@ internal sealed class SerializableShader : ISerializableProjectAsset
     /// </summary>
     internal void PopulateFromData(GameMakerShader shader)
     {
-        // Update all main properties
         DataName = shader.Name.Content;
         Type = shader.Type;
         Version = shader.Version;
@@ -92,13 +91,11 @@ internal sealed class SerializableShader : ISerializableProjectAsset
     /// <inheritdoc/>
     public void Serialize(ProjectContext projectContext, string destinationFile)
     {
-        // Write main JSON
         using (FileStream fs = new(destinationFile, FileMode.Create))
         {
             JsonSerializer.Serialize<ISerializableProjectAsset>(fs, this, ProjectContext.JsonOptions);
         }
 
-        // Write plaintext and data files
         var directory = Path.GetDirectoryName(destinationFile);
         SerializeShaderPlaintext(directory, _dataAsset.GLSL_ES_Fragment, "GLSL_ES_Fragment");
         SerializeShaderPlaintext(directory, _dataAsset.GLSL_ES_Vertex, "GLSL_ES_Vertex");
@@ -172,7 +169,6 @@ internal sealed class SerializableShader : ISerializableProjectAsset
     {
         var shader = _dataAsset;
 
-        // Update all main properties
         shader.Type = Type;
         shader.Version = Version;
         shader.VertexShaderAttributes.Clear();
@@ -184,7 +180,6 @@ internal sealed class SerializableShader : ISerializableProjectAsset
             });
         }
 
-        // Import plaintext and data files
         if (!projectContext.AssetDataNamesToPaths.TryGetValue(new(DataName, AssetType), out var jsonFilename))
         {
             throw new ProjectException("Failed to get shader asset path");

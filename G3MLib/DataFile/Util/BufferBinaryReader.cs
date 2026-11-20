@@ -138,6 +138,9 @@ public class BufferBinaryReader : IBinaryReader
     }
     public long ChunkStartPosition { get; set; }
 
+    /// <summary>Absolute position of the end of the chunk in the buffer.</summary>
+    public long ChunkEndPosition => ChunkStartPosition + chunkBuffer.Length - 8;
+
     public BufferBinaryReader(Stream stream, Encoding? encoding = null)
     {
         ArgumentNullException.ThrowIfNull(stream);

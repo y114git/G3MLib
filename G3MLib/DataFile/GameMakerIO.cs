@@ -514,9 +514,9 @@ public class GameMakerReader : AdaptiveBinaryReader
                 unserializeFunctions[t] = func;
             }
 
-            for (var i = 0; i < allTypes.Length; i++)
+            foreach (var allType in allTypes)
             {
-                var t = allTypes[i];
+                var t = allType;
                 FieldInfo fi;
                 object res;
 
@@ -709,6 +709,7 @@ public class GameMakerReader : AdaptiveBinaryReader
                 return;
             if (expectedAddress != AbsPosition)
             {
+                ThrowIfOutsideChunk(expectedAddress, upperBoundOnly: true);
                 SubmitWarning($"Reading misaligned at {AbsPosition:X8}, realigning back to {expectedAddress:X8}\nHIGH RISK OF DATA LOSS! The file is probably corrupted, or uses unsupported features\nProceed at your own risk");
                 AbsPosition = expectedAddress;
             }
@@ -719,6 +720,17 @@ public class GameMakerReader : AdaptiveBinaryReader
         {
             throw new GameMakerSerializationException(e.Message + "\nat " + AbsPosition.ToString("X8", CultureInfo.InvariantCulture) + " while reading object " + typeof(T).FullName, e);
         }
+    }
+
+    /// <summary>
+    /// Throws a clear error when an object that must lie in the chunk being read starts outside it.
+    /// </summary>
+    internal void ThrowIfOutsideChunk(long address, string what = "an object", bool upperBoundOnly = false)
+    {
+        if (!IsChunkBuffered)
+            return;
+        if ((!upperBoundOnly && address < ChunkStart) || address > ChunkEnd)
+            throw new IOException($"The pointer to {what} leads to {address:X8}, outside chunk {gameMakerData.ReadingChunkName} ({ChunkStart:X8} to {ChunkEnd:X8}); the pointer table or the chunk layout is wrong");
     }
 
     public T ReadGameMakerObject<T>() where T : GameMakerObject, new()
@@ -906,7 +918,7 @@ public class GameMakerWriter : FileBinaryWriter
     public void Flush(GameMakerData data)
     {
         ArgumentNullException.ThrowIfNull(data);
-        // Clear out index dictionaries (no longer needed)
+        // The index dictionaries are only needed while writing
         foreach (var chunk in data.FORM.Chunks.Values)
         {
             if (chunk is IGameMakerListChunk listChunk)
@@ -1210,6 +1222,25 @@ public static class GameMakerIO
         ArgumentNullException.ThrowIfNull(data.FORM);
         using var gate = data.Gate.BeginRead(cancellationToken: cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
+        // A write fills the chunks' index dictionaries and the resource ids of the data, so two writes of one data object take turns.
+        while (!Monitor.TryEnter(data.WriteSync, 50))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            WriteLocked(stream, data, progress, cancellationToken, messageHandler, reportDone);
+        }
+        finally
+        {
+            Monitor.Exit(data.WriteSync);
+        }
+    }
+
+    private static void WriteLocked(Stream stream, GameMakerData data, IProgress<GameMakerProgress> progress, CancellationToken cancellationToken,
+                                    GameMakerWriter.MessageHandlerDelegate messageHandler, bool reportDone)
+    {
         if (stream is not MemoryStream && stream.CanSeek && stream.CanWrite && stream.Position == 0 && TryWriteBuffered(stream, data, progress, cancellationToken, messageHandler))
         {
             if (reportDone)

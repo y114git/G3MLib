@@ -276,6 +276,42 @@ public class OldStyleArchiveNameTests
     }
 
     [Fact]
+    public void SafeNameNeverGivesTwoNamesTheSameFolder()
+    {
+        var hashed = ResourceExportServiceNames.Current("a:b");
+        Assert.NotEqual("a:b", hashed);
+        Assert.NotEqual(hashed, ResourceExportServiceNames.Current(hashed));
+        Assert.Equal("spr_plain", ResourceExportServiceNames.Current("spr_plain"));
+    }
+
+    [Fact]
+    public void ArchivesWithALiteralHashShapedFolderStayReadable()
+    {
+        var literal = "spr_a__0123456789ab";
+        Assert.NotEqual(literal, ResourceExportServiceNames.Current(literal));
+        Assert.Equal(literal, ResourceExportServiceNames.Legacy(literal));
+        Assert.True(MergeService.PatchHasResourcePayload(ZipWith($"Sprites/{literal}/{literal}.json"), "Sprites", literal));
+        Assert.True(MergeService.PatchHasResourcePayload(ZipWith($"Sprites/{ResourceExportServiceNames.Current(literal)}/{literal}.json"), "Sprites", literal));
+    }
+
+    [Fact]
+    public void CodeEntryArchiveKeysKeepTheKeyOlderVersionsWrote()
+    {
+        using var data = GameMakerData.CreateNew2026LTS();
+        var literal = "gml_Script_a__0123456789ab";
+        data.Code.Add(new GameMakerCode { Name = data.Strings.MakeString(literal) });
+        data.Code.Add(new GameMakerCode { Name = data.Strings.MakeString("gml_Script_plain") });
+
+        var descriptors = G3MLib.Modding.Resources.CodeEntryArchiveIdentity.DescribeEntries(data);
+
+        var hashShaped = descriptors.Single(d => d.LogicalName == literal);
+        Assert.Equal(literal, hashShaped.LegacyArchiveKey);
+        Assert.NotEqual(literal, hashShaped.ArchiveKey);
+        var plain = descriptors.Single(d => d.LogicalName == "gml_Script_plain");
+        Assert.Equal(plain.ArchiveKey, plain.LegacyArchiveKey);
+    }
+
+    [Fact]
     public void MergeFindsResourcesInOldAndNewStyleArchives()
     {
         var oldStyle = ZipWith("Sprites/spr_a_b/spr_a_b.json");

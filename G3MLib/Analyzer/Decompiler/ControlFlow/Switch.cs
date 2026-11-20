@@ -284,9 +284,9 @@ internal sealed class Switch : IControlFlowNode
 
                             // Ensure end block is only branched to by internal nodes
                             var externalPredecessor = false;
-                            for (var j = 0; j < endNode.Predecessors.Count; j++)
+                            foreach (var predecessor in endNode.Predecessors)
                             {
-                                var currPred = endNode.Predecessors[j];
+                                var currPred = predecessor;
                                 if (currPred.StartAddress < block.StartAddress || currPred.StartAddress >= endNode.StartAddress)
                                 {
                                     externalPredecessor = true;
@@ -496,10 +496,10 @@ internal sealed class Switch : IControlFlowNode
     {
         List<Switch> res = [];
 
-        for (var j = 0; j < ctx.SwitchData.Count; j++)
+        foreach (var switchDataItem in ctx.SwitchData)
         {
             ctx.ThrowIfCancellationRequested();
-            var data = ctx.SwitchData[j];
+            var data = switchDataItem;
 
             // Find all cases
             IControlFlowNode? currentNode = data.EndOfCaseBlock;

@@ -33,7 +33,6 @@ internal sealed class PrefixNode(IToken? token, IAssignableASTNode expression, b
             return null;
         }
 
-        // Create final node
         return new PrefixNode(token, assignableExpression, isIncrement);
     }
 

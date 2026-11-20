@@ -269,4 +269,28 @@ public class ThreadModelTests : IDisposable
 
         Task.WaitAll(jobs, TestContext.Current.CancellationToken);
     }
+
+    [Fact]
+    public void ConcurrentWritesOfOneDataObjectGiveTheSameBytes()
+    {
+        using var data = GameMakerIO.Read(new MemoryStream(FixtureBytes));
+        var expected = WriteBytes(data);
+
+        var results = Task.WhenAll(Enumerable.Range(0, 8).Select(_ => Task.Run(() =>
+        {
+            byte[][] written = new byte[6][];
+            for (var i = 0; i < written.Length; i++)
+                written[i] = WriteBytes(data);
+            return written;
+        }, TestContext.Current.CancellationToken))).GetAwaiter().GetResult();
+
+        Assert.All(results.SelectMany(r => r), bytes => Assert.True(bytes.AsSpan().SequenceEqual(expected)));
+    }
+
+    private static byte[] WriteBytes(GameMakerData data)
+    {
+        using MemoryStream output = new();
+        GameMakerIO.Write(output, data);
+        return output.ToArray();
+    }
 }

@@ -2211,9 +2211,9 @@ public static partial class MergeService
 		var selected = originalList;
 		var selectedScore = 0;
 
-		for (var i = 0; i < patchOrders.Count; i++)
+		foreach (var patchOrder in patchOrders)
 		{
-			if (!patchOrders[i].TryGetValue(section, out var patchList))
+			if (!patchOrder.TryGetValue(section, out var patchList))
 				continue;
 
 			var score = ComputeAssetOrderDifferenceScore(originalList, patchList);
@@ -4061,7 +4061,7 @@ public static partial class MergeService
 		// Check for duplicates
 		var nameGroups = rawNames.Select((n, i) => (name: n, idx: i))
 			.GroupBy(x => x.name, StringComparer.OrdinalIgnoreCase)
-			.Where(g => g.Count() > 1)
+			.Where(g => g.Skip(1).Any())
 			.SelectMany(g => g)
 			.Select(x => x.idx)
 			.ToHashSet();

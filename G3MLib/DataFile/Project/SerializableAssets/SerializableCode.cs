@@ -38,7 +38,6 @@ internal sealed class SerializableCode : ISerializableProjectAsset
     /// </summary>
     internal void PopulateFromData(GameMakerCode code)
     {
-        // Update all main properties
         DataName = code.Name.Content;
         WeirdLocalFlag = code.WeirdLocalFlag;
 
@@ -55,7 +54,6 @@ internal sealed class SerializableCode : ISerializableProjectAsset
             JsonSerializer.Serialize<ISerializableProjectAsset>(fs, this, ProjectContext.JsonOptions);
         }
 
-        // Write GML
         var filename = $"{Path.GetFileNameWithoutExtension(destinationFile)}.gml";
         var directory = Path.GetDirectoryName(destinationFile);
         using (FileStream fs = new(Path.Join(directory, filename), FileMode.Create))
@@ -99,7 +97,6 @@ internal sealed class SerializableCode : ISerializableProjectAsset
     {
         var code = _dataAsset;
 
-        // Update all main properties
         code.WeirdLocalFlag = WeirdLocalFlag;
 
         return code;
@@ -116,7 +113,6 @@ internal sealed class SerializableCode : ISerializableProjectAsset
             throw new ProjectException("Failed to get code asset path");
         }
 
-        // Load GML from disk, to be compiled
         var filename = $"{Path.GetFileNameWithoutExtension(jsonFilename)}.gml";
         var directory = Path.GetDirectoryName(jsonFilename);
         try
@@ -124,10 +120,8 @@ internal sealed class SerializableCode : ISerializableProjectAsset
             // Read text
             var source = File.ReadAllText(Path.Join(directory, filename));
 
-            // Queue for code replacement
             group.QueueReplace(_dataAsset, source);
 
-            // Update source within the project itself
             projectContext.UpdateCodeSource(_dataAsset, source);
         }
         catch (Exception e)
@@ -152,7 +146,6 @@ internal sealed class SerializableCode : ISerializableProjectAsset
             }
             if (existingGlobalInit is null)
             {
-                // Create a new global init entry
                 projectContext.Data.GlobalInitScripts.Add(new()
                 {
                     Code = _dataAsset

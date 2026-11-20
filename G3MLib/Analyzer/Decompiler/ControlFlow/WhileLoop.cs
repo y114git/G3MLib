@@ -73,17 +73,16 @@ internal sealed class WhileLoop : Loop
 
     public override void UpdateFlowGraph()
     {
-        // Get rid of jump from tail
         IControlFlowNode.DisconnectSuccessor(Tail, 0);
         var tailBlock = Tail as Block ?? throw new DecompilerException("Expected tail to be block");
         tailBlock.Instructions.RemoveAt(tailBlock.Instructions.Count - 1);
 
         // Find first branch location after head
         Block? branchBlock = null;
-        for (var i = 0; i < After.Predecessors.Count; i++)
+        foreach (var predecessorEntry in After.Predecessors)
         {
-            if (After.Predecessors[i].StartAddress < Head.StartAddress ||
-                After.Predecessors[i] is not Block b)
+            if (predecessorEntry.StartAddress < Head.StartAddress ||
+                predecessorEntry is not Block b)
             {
                 continue;
             }
@@ -103,7 +102,6 @@ internal sealed class WhileLoop : Loop
         Body = branchBlock.Successors[0];
         Body.Parent = this;
 
-        // Get rid of jumps from branch location
         IControlFlowNode.DisconnectSuccessor(branchBlock, 1);
         IControlFlowNode.DisconnectSuccessor(branchBlock, 0);
         branchBlock.Instructions.RemoveAt(branchBlock.Instructions.Count - 1);
@@ -130,7 +128,6 @@ internal sealed class WhileLoop : Loop
 
     public override void BuildAST(ASTBuilder builder, List<IStatementNode> output)
     {
-        // Build loop condition
         var condition = builder.BuildExpression(Head, output);
 
         // If condition was an int16 that was directly used without conversion, that means it was a boolean

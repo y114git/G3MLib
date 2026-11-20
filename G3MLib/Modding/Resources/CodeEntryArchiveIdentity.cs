@@ -26,8 +26,9 @@ internal static class CodeEntryArchiveIdentity
 				topLevelByNameCount[entry.Name.Content] = occurrence;
 				var safeName = ResourceExportService.SafeName(entry.Name.Content);
 				var archiveKey = BuildOccurrenceKey(safeName, occurrence);
-				result.Add(new CodeArchiveEntryDescriptor(archiveKey, entry.Name.Content, safeName, null, occurrence));
-				DescribeChildren(entry, archiveKey, result);
+				var legacyKey = BuildOccurrenceKey(ResourceExportService.LegacySafeName(entry.Name.Content), occurrence);
+				result.Add(new CodeArchiveEntryDescriptor(archiveKey, entry.Name.Content, safeName, null, occurrence, legacyKey));
+				DescribeChildren(entry, archiveKey, legacyKey, result);
 			}
 		}
 		return result;
@@ -38,7 +39,7 @@ internal static class CodeEntryArchiveIdentity
 		return DescribeEntries(data, topLevelFilterNames).ToDictionary(x => x.ArchiveKey, StringComparer.Ordinal);
 	}
 
-	private static void DescribeChildren(GameMakerCode parent, string parentArchiveKey, List<CodeArchiveEntryDescriptor> output)
+	private static void DescribeChildren(GameMakerCode parent, string parentArchiveKey, string parentLegacyKey, List<CodeArchiveEntryDescriptor> output)
 	{
 		if (parent.ChildEntries.Count == 0)
 		{
@@ -53,10 +54,12 @@ internal static class CodeEntryArchiveIdentity
 				childCountByName[child.Name.Content] = occurrence;
 				var safeName = ResourceExportService.SafeName(child.Name.Content);
 				var childLeafKey = BuildOccurrenceKey(safeName, occurrence);
-				output.Add(new CodeArchiveEntryDescriptor(parentArchiveKey + "/" + childLeafKey, child.Name.Content, safeName, parentArchiveKey, occurrence));
+				var legacyLeafKey = BuildOccurrenceKey(ResourceExportService.LegacySafeName(child.Name.Content), occurrence);
+				output.Add(new CodeArchiveEntryDescriptor(parentArchiveKey + "/" + childLeafKey, child.Name.Content, safeName, parentArchiveKey, occurrence, parentLegacyKey + "/" + legacyLeafKey));
 			}
 		}
 	}
 }
 
-internal sealed record CodeArchiveEntryDescriptor(string ArchiveKey, string LogicalName, string SafeName, string? ParentArchiveKey, int Occurrence);
+/// <param name="LegacyArchiveKey">The key 1.1.4 and older wrote, which differs from <paramref name="ArchiveKey"/> for names shaped like a hashed folder name.</param>
+internal sealed record CodeArchiveEntryDescriptor(string ArchiveKey, string LogicalName, string SafeName, string? ParentArchiveKey, int Occurrence, string LegacyArchiveKey);

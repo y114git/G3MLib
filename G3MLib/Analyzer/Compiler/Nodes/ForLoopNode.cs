@@ -53,7 +53,6 @@ internal sealed class ForLoopNode : IASTNode
     /// </summary>
     public static ForLoopNode? Parse(ParseContext context)
     {
-        // Parse "for" keyword
         if (context.EnsureToken(KeywordKind.For) is not TokenKeyword tokenKeyword)
         {
             return null;
@@ -62,7 +61,6 @@ internal sealed class ForLoopNode : IASTNode
         // Ensure we have "(" here
         context.EnsureToken(SeparatorKind.GroupOpen);
 
-        // Parse loop initializer
         IASTNode initializer;
         if (context.IsCurrentToken(SeparatorKind.Semicolon))
         {
@@ -72,7 +70,6 @@ internal sealed class ForLoopNode : IASTNode
         }
         else
         {
-            // Parse initializer statement
             if (Statements.ParseStatement(context) is not IASTNode stmt)
             {
                 return null;
@@ -86,7 +83,6 @@ internal sealed class ForLoopNode : IASTNode
             }
         }
 
-        // Parse loop condition
         IASTNode condition;
         if (context.IsCurrentToken(SeparatorKind.Semicolon))
         {
@@ -118,7 +114,6 @@ internal sealed class ForLoopNode : IASTNode
         }
         else
         {
-            // Parse incrementor statement
             if (Statements.ParseStatement(context) is not IASTNode stmt)
             {
                 return null;
@@ -132,13 +127,11 @@ internal sealed class ForLoopNode : IASTNode
         // Ensure we have ")" here
         context.EnsureToken(SeparatorKind.GroupClose);
 
-        // Parse loop body
         if (Statements.ParseStatement(context) is not IASTNode body)
         {
             return null;
         }
 
-        // Create final statement
         return new ForLoopNode(tokenKeyword, initializer, condition, incrementor, body);
     }
 
@@ -198,7 +191,6 @@ internal sealed class ForLoopNode : IASTNode
         MultiForwardBranchPatch tailPatch = new();
         MultiForwardBranchPatch incrementorPatch = new();
 
-        // Loop condition
         Condition.GenerateCode(context);
         context.ConvertDataType(DataType.Boolean);
 
@@ -219,7 +211,6 @@ internal sealed class ForLoopNode : IASTNode
         Incrementor.GenerateCode(context);
         context.PopControlFlowContext();
 
-        // Loop tail
         headPatch.AddInstruction(context, context.Emit(Opcode.Branch));
         tailPatch.Patch(context);
 

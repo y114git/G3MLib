@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.1.5] - 2026-11-20
+
+### Fixed
+
+- A project export no longer fails with "Access to the path ... is denied" when a virus scanner or sync tool still holds freshly written files: moving the staging folders and deleting the old ones is retried for a short time, a folder that still cannot be renamed is copied, and a leftover staging folder never turns a finished export into a failure.
+- Sub-projects inherit `AllowScripts` and the script message and warning handlers of the project that lists them. Before, an untrusted project with scripts turned off still ran the scripts of its sub-projects.
+- Export folder names stay distinct: a resource named like the generated folder of another (`a_b__` plus 12 hex digits) now gets its own hash suffix. Other names keep their folders.
+- Version detection of the font glyph layout skips fonts without glyphs and uses the first font that has some, so a file whose first font is empty no longer fails with "Reading out of chunk bounds".
+- Writing one data object from several threads at once no longer fails with a `NullReferenceException`: the writes take turns.
+- A font chunk whose pointer leads outside the chunk fails with a message that names the chunk and the font.
+- A 2024.14.1 file whose last background ends inside the chunk end padding is detected, so it no longer drifts into "Invalid boolean value" errors.
+- A folder move that must fall back to copying builds the copy beside the target and renames it, never leaves a half copy, and only retries sharing violations, lock violations and access denied.
+- A project export moves the old type folders aside before it moves the new ones in, and puts them back if a move fails, so a failed export no longer loses an old folder. A folder copy never follows or copies a link and fails with a clear message instead; on systems other than Windows a permission error is not retried.
+- Patch archives and exports made by 1.1.4 keep working for code entries named like a hashed folder (`x__` plus 12 hex digits).
+- `ScriptInputDialog`, `SimpleTextInput`, `PromptLoadFile`, `PromptSaveFile` and `PromptChooseDirectory` are annotated as returning `string?`: a cancelled prompt returns null.
+
+
 ## [1.1.4] - 2026-11-19
 
 ### Security
