@@ -578,24 +578,7 @@ public class GameMakerParticleSystemEmitter : GameMakerNamedResource, INotifyPro
         LifetimeMax = reader.ReadSingle();
         ScaleX = reader.ReadSingle();
         ScaleY = reader.ReadSingle();
-        if (reader.gameMakerData.IsVersionAtLeast(2023, 8))
-        {
-            SizeMinX = reader.ReadSingle();
-            SizeMaxX = reader.ReadSingle();
-            SizeMinY = reader.ReadSingle();
-            SizeMaxY = reader.ReadSingle();
-            SizeIncreaseX = reader.ReadSingle();
-            SizeIncreaseY = reader.ReadSingle();
-            SizeWiggleX = reader.ReadSingle();
-            SizeWiggleY = reader.ReadSingle();
-        }
-        else
-        {
-            SizeMin = reader.ReadSingle();
-            SizeMax = reader.ReadSingle();
-            SizeIncrease = reader.ReadSingle();
-            SizeWiggle = reader.ReadSingle();
-        }
+        UnserializeSizeFields(reader);
         SpeedMin = reader.ReadSingle();
         SpeedMax = reader.ReadSingle();
         SpeedIncrease = reader.ReadSingle();
@@ -618,6 +601,28 @@ public class GameMakerParticleSystemEmitter : GameMakerNamedResource, INotifyPro
         _spawnOnUpdate = new();
         _spawnOnUpdate.Unserialize(reader);
         SpawnOnUpdateCount = reader.ReadInt32();
+    }
+
+    private void UnserializeSizeFields(GameMakerReader reader)
+    {
+        if (reader.gameMakerData.IsVersionAtLeast(2023, 8))
+        {
+            SizeMinX = reader.ReadSingle();
+            SizeMaxX = reader.ReadSingle();
+            SizeMinY = reader.ReadSingle();
+            SizeMaxY = reader.ReadSingle();
+            SizeIncreaseX = reader.ReadSingle();
+            SizeIncreaseY = reader.ReadSingle();
+            SizeWiggleX = reader.ReadSingle();
+            SizeWiggleY = reader.ReadSingle();
+        }
+        else
+        {
+            SizeMin = reader.ReadSingle();
+            SizeMax = reader.ReadSingle();
+            SizeIncrease = reader.ReadSingle();
+            SizeWiggle = reader.ReadSingle();
+        }
     }
 
     /// <inheritdoc />

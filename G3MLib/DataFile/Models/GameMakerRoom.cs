@@ -249,7 +249,7 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
             Layers[selectedLayerIndex] = selectedLayer;
 
         var orderedIndex = 0;
-        for (var i = 0; i < Layers.Count; i++)
+        foreach (var i in Enumerable.Range(0, Layers.Count))
         {
             if (Layers[i] is not null)
                 Layers[i] = orderedLayers[orderedIndex++];
@@ -1734,9 +1734,9 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
                     field = value; OnPropertyChanged();
                     if (_tileData != null)
                     {
-                        for (var y = 0; y < _tileData.Length; y++)
+                        foreach (ref var row in _tileData.AsSpan())
                         {
-                            Array.Resize(ref _tileData[y], (int)value);
+                            Array.Resize(ref row, (int)value);
                         }
                         OnPropertyChanged(nameof(TileData));
                     }
@@ -1750,10 +1750,9 @@ public class GameMakerRoom : GameMakerNamedResource, IProjectAsset, INotifyPrope
                     if (_tileData != null)
                     {
                         Array.Resize(ref _tileData, (int)value);
-                        for (var y = 0; y < _tileData.Length; y++)
+                        foreach (ref var row in _tileData.AsSpan())
                         {
-                            if (_tileData[y] == null)
-                                _tileData[y] = new uint[TilesX];
+                            row ??= new uint[TilesX];
                         }
                         OnPropertyChanged(nameof(TileData));
                     }

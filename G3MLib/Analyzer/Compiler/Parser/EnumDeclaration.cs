@@ -228,6 +228,12 @@ internal sealed class EnumDeclaration
         }
 
         // Convert parse enums to GMEnum form
+        RegisterParsedEnums(context);
+        context.ParseEnums.Clear();
+    }
+
+    private static void RegisterParsedEnums(ParseContext context)
+    {
         foreach (var decl in context.ParseEnums.Values)
         {
             List<GMEnumValue> values = new(decl.ValueNames.Count);
@@ -238,6 +244,5 @@ internal sealed class EnumDeclaration
             }
             context.CompileContext.Enums.Add(decl.Name, new(decl.Name, values));
         }
-        context.ParseEnums.Clear();
     }
 }

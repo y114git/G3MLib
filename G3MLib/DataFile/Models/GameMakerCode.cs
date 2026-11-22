@@ -507,94 +507,19 @@ public class GameMakerInstruction : GameMakerObject, IGMInstruction
 
             case InstructionType.GotoInstruction:
                 {
-                    // Write word
-                    var firstWord = _firstWord;
-                    if (bytecode14)
-                    {
-                        // Transform opcode as needed for bytecode 14
-                        firstWord = (firstWord & 0xFFFFFF) | ((uint)ConvertNewKindToOldKind((byte)(firstWord >> 24)) << 24);
-                    }
-                    else if ((firstWord & 0xFFFFFF) != 0xF00000 && (firstWord & 0x800000) != 0)
-                    {
-                        // Additionally, after bytecode 14, transform 24-bit negative branch into a 23-bit negative branch
-
-                        // Unset 24-bit sign bit
-                        firstWord &= ~0x800000u;
-
-                        // Set 23-bit sign bit
-                        firstWord |= 0x400000;
-                    }
-                    writer.Write(firstWord);
+                    SerializeGotoInstruction(writer, bytecode14);
                     break;
                 }
 
             case InstructionType.PopInstruction:
                 {
-                    // Write first word, transforming opcode as needed for bytecode 14
-                    var firstWord = _firstWord;
-                    if (bytecode14)
-                    {
-                        firstWord = (firstWord & 0xFFFFFF) | ((uint)ConvertNewKindToOldKind((byte)(firstWord >> 24)) << 24);
-                    }
-                    writer.Write(firstWord);
-
-                    if (Type1 != DataType.Int16)
-                    {
-                        // Write actual variable being stored to (reset next occurrence to string ID for now)
-                        ReferenceNextOccurrenceOffset = (uint)(ValueVariable?.NameStringID ?? 0xDEAD);
-                        writer.Write(_primitiveValue.AsInt);
-                    }
+                    SerializePopInstruction(writer, bytecode14);
                     break;
                 }
 
             case InstructionType.PushInstruction:
                 {
-                    // Write first word, transforming opcode as needed for bytecode 14
-                    var firstWord = _firstWord;
-                    if (bytecode14)
-                    {
-                        firstWord = (firstWord & 0xFFFFFF) | ((uint)ConvertNewKindToOldKind((byte)(firstWord >> 24)) << 24);
-                    }
-                    writer.Write(firstWord);
-
-                    // Write value being pushed
-                    switch (Type1)
-                    {
-                        case DataType.Double:
-                            writer.Write(ValueDouble);
-                            break;
-                        case DataType.Int32:
-                            // For functions/variables, reset next occurrence to string ID for now
-                            if (ValueFunction is GameMakerFunction function)
-                            {
-                                ReferenceNextOccurrenceOffset = (uint)function.NameStringID;
-                                writer.Write(_primitiveValue.AsInt);
-                                break;
-                            }
-                            if (ValueVariable is GameMakerVariable variable)
-                            {
-                                ReferenceNextOccurrenceOffset = (uint)variable.NameStringID;
-                                writer.Write(_primitiveValue.AsInt);
-                                break;
-                            }
-
-                            writer.Write(ValueInt);
-                            break;
-                        case DataType.Int64:
-                            writer.Write(ValueLong);
-                            break;
-                        case DataType.Variable:
-                            // Write variable (reset next occurrence to string ID for now)
-                            ReferenceNextOccurrenceOffset = (uint)(ValueVariable?.NameStringID ?? 0xDEAD);
-                            writer.Write(_primitiveValue.AsInt);
-                            break;
-                        case DataType.String:
-                            writer.WriteGameMakerObject(ValueString);
-                            break;
-                        case DataType.Int16:
-                            // Data is encoded in the first two bytes of the instruction (was already written above)
-                            break;
-                    }
+                    SerializePushInstruction(writer, bytecode14);
 
                     break;
                 }
@@ -620,29 +545,124 @@ public class GameMakerInstruction : GameMakerObject, IGMInstruction
 
             case InstructionType.BreakInstruction:
                 {
-                    // Write first word
-                    writer.Write(_firstWord);
-
-                    // Write integer argument, or function, if either is present
-                    if (Type1 == DataType.Int32)
-                    {
-                        if (ValueFunction is GameMakerFunction function)
-                        {
-                            // Write function (reset next occurrence to string ID for now).
-                            // We additionally encode the script asset type, which can appear in files if this reference is the final one.
-                            ReferenceNextOccurrenceOffset = (uint)function.NameStringID;
-                            writer.Write(_primitiveValue.AsInt | (AdaptAssetTypeId(writer.gameMakerData, AssetType.Script) << 24));
-                        }
-                        else
-                        {
-                            writer.Write(IntArgument);
-                        }
-                    }
+                    SerializeBreakInstruction(writer, bytecode14);
                     break;
                 }
 
             default:
                 throw new IOException($"Unknown opcode {Kind.ToString().ToUpper(CultureInfo.InvariantCulture)}");
+        }
+    }
+
+    private void SerializeGotoInstruction(GameMakerWriter writer, bool bytecode14)
+    {
+        // Write word
+        var firstWord = _firstWord;
+        if (bytecode14)
+        {
+            // Transform opcode as needed for bytecode 14
+            firstWord = (firstWord & 0xFFFFFF) | ((uint)ConvertNewKindToOldKind((byte)(firstWord >> 24)) << 24);
+        }
+        else if ((firstWord & 0xFFFFFF) != 0xF00000 && (firstWord & 0x800000) != 0)
+        {
+            // Additionally, after bytecode 14, transform 24-bit negative branch into a 23-bit negative branch
+
+            // Unset 24-bit sign bit
+            firstWord &= ~0x800000u;
+
+            // Set 23-bit sign bit
+            firstWord |= 0x400000;
+        }
+        writer.Write(firstWord);
+    }
+
+    private void SerializePopInstruction(GameMakerWriter writer, bool bytecode14)
+    {
+        // Write first word, transforming opcode as needed for bytecode 14
+        var firstWord = _firstWord;
+        if (bytecode14)
+        {
+            firstWord = (firstWord & 0xFFFFFF) | ((uint)ConvertNewKindToOldKind((byte)(firstWord >> 24)) << 24);
+        }
+        writer.Write(firstWord);
+
+        if (Type1 != DataType.Int16)
+        {
+            // Write actual variable being stored to (reset next occurrence to string ID for now)
+            ReferenceNextOccurrenceOffset = (uint)(ValueVariable?.NameStringID ?? 0xDEAD);
+            writer.Write(_primitiveValue.AsInt);
+        }
+    }
+
+    private void SerializePushInstruction(GameMakerWriter writer, bool bytecode14)
+    {
+        // Write first word, transforming opcode as needed for bytecode 14
+        var firstWord = _firstWord;
+        if (bytecode14)
+        {
+            firstWord = (firstWord & 0xFFFFFF) | ((uint)ConvertNewKindToOldKind((byte)(firstWord >> 24)) << 24);
+        }
+        writer.Write(firstWord);
+
+        // Write value being pushed
+        switch (Type1)
+        {
+            case DataType.Double:
+                writer.Write(ValueDouble);
+                break;
+            case DataType.Int32:
+                // For functions/variables, reset next occurrence to string ID for now
+                if (ValueFunction is GameMakerFunction function)
+                {
+                    ReferenceNextOccurrenceOffset = (uint)function.NameStringID;
+                    writer.Write(_primitiveValue.AsInt);
+                    break;
+                }
+                if (ValueVariable is GameMakerVariable variable)
+                {
+                    ReferenceNextOccurrenceOffset = (uint)variable.NameStringID;
+                    writer.Write(_primitiveValue.AsInt);
+                    break;
+                }
+
+                writer.Write(ValueInt);
+                break;
+            case DataType.Int64:
+                writer.Write(ValueLong);
+                break;
+            case DataType.Variable:
+                // Write variable (reset next occurrence to string ID for now)
+                ReferenceNextOccurrenceOffset = (uint)(ValueVariable?.NameStringID ?? 0xDEAD);
+                writer.Write(_primitiveValue.AsInt);
+                break;
+            case DataType.String:
+                writer.WriteGameMakerObject(ValueString);
+                break;
+            case DataType.Int16:
+                // Data is encoded in the first two bytes of the instruction (was already written above)
+                break;
+        }
+    }
+
+    private void SerializeBreakInstruction(GameMakerWriter writer, bool bytecode14)
+    {
+        // Write first word
+        writer.Write(_firstWord);
+
+        // Write integer argument, or function, if either is present
+        if (Type1 == DataType.Int32)
+        {
+            if (ValueFunction is GameMakerFunction function)
+            {
+                // Write function (reset next occurrence to string ID for now).
+                // We additionally encode the script asset type, which can appear in files if this reference is the final one.
+                ReferenceNextOccurrenceOffset = (uint)function.NameStringID;
+                writer.Write(_primitiveValue.AsInt | (AdaptAssetTypeId(writer.gameMakerData, AssetType.Script) << 24));
+            }
+            else
+            {
+                writer.Write(IntArgument);
+            }
         }
     }
 

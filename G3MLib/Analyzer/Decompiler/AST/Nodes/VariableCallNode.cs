@@ -61,10 +61,7 @@ public class VariableCallNode(IExpressionNode function, IExpressionNode? instanc
     {
         Function = Function.Clean(cleaner);
         Instance = Instance?.Clean(cleaner);
-        for (var i = 0; i < Arguments.Count; i++)
-        {
-            Arguments[i] = Arguments[i].Clean(cleaner);
-        }
+        Arguments.ReplaceEach(cleaner, static (n, a) => n.Clean(a));
 
         return CleanupMacroTypes(cleaner);
     }
@@ -74,10 +71,7 @@ public class VariableCallNode(IExpressionNode function, IExpressionNode? instanc
     {
         Function = Function.Clean(cleaner);
         Instance = Instance?.Clean(cleaner);
-        for (var i = 0; i < Arguments.Count; i++)
-        {
-            Arguments[i] = Arguments[i].Clean(cleaner);
-        }
+        Arguments.ReplaceEach(cleaner, static (n, a) => n.Clean(a));
 
         return CleanupMacroTypes(cleaner);
     }

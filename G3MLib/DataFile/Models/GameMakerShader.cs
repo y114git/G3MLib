@@ -293,6 +293,11 @@ public class GameMakerShader : GameMakerNamedResource, IProjectAsset, IDisposabl
             Cg_PSVita_PixelData.WriteData(writer);
         }
 
+        SerializePS3Data(writer);
+    }
+
+    private void SerializePS3Data(GameMakerWriter writer)
+    {
         if (Version >= 2)
         {
             if (!Cg_PS3_VertexData.IsNull)

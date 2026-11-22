@@ -57,9 +57,9 @@ public static class Disassembler
         List<DisassemblyLine> collected = new(code.Instructions.Count);
         var text = Disassemble(code, vars, locals, ignoreMissingCodeLocals, collected);
         Analyzer.Compiler.LineMap map = new(text);
-        for (var i = 0; i < collected.Count; i++)
+        foreach (ref var line in collected.Items())
         {
-            collected[i] = collected[i] with { Line = map.GetPosition(collected[i].TextOffset).Line };
+            line = line with { Line = map.GetPosition(line.TextOffset).Line };
         }
         lines = collected;
         return text;

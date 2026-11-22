@@ -187,7 +187,7 @@ public static class YySprite
         string[] frameIds = [.. Enumerable.Range(0, sprite.Textures.Count).Select(i => YyFile.StableGuid($"{name}/frame/{i}"))];
 
         using TextureWorker worker = new();
-        for (var i = 0; i < frameIds.Length; i++)
+        foreach (var i in Enumerable.Range(0, frameIds.Length))
         {
             var png = Path.Combine(folder, frameIds[i] + ".png");
             worker.ExportAsPNG(sprite.Textures[i].Texture, png, name, true);

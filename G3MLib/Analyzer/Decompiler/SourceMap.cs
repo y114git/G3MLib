@@ -170,9 +170,8 @@ internal sealed class SourceMapRecorder
 
         // Record index to entry index; dropped (empty) records map to their nearest kept ancestor
         var entryOf = new int[_records.Count];
-        for (var i = 0; i < _records.Count; i++)
+        foreach (var (i, record) in _records.Index())
         {
-            var record = _records[i];
             var start = record.Start;
             var end = Math.Min(record.End, text.Length);
             while (start < end && char.IsWhiteSpace(text[start]))

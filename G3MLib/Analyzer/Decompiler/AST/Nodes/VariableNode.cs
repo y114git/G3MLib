@@ -85,10 +85,11 @@ public class VariableNode(IGMVariable variable, VariableType referenceType, IExp
             {
                 return false;
             }
-            for (var i = 0; i < ArrayIndices.Count; i++)
+            var otherIndex = 0;
+            foreach (var index in ArrayIndices)
             {
                 // Compare index references directly, as these should be duplicated if in the same expression
-                if (ArrayIndices[i] != other.ArrayIndices[i])
+                if (index != other.ArrayIndices[otherIndex++])
                 {
                     return false;
                 }
@@ -168,10 +169,7 @@ public class VariableNode(IGMVariable variable, VariableType referenceType, IExp
         // Clean up array indices
         if (ArrayIndices is not null)
         {
-            for (var i = 0; i < ArrayIndices.Count; i++)
-            {
-                ArrayIndices[i] = ArrayIndices[i].Clean(cleaner);
-            }
+            ArrayIndices.ReplaceEach(cleaner, static (n, a) => n.Clean(a));
         }
 
         // Determine if Left needs to be grouped
@@ -230,10 +228,7 @@ public class VariableNode(IGMVariable variable, VariableType referenceType, IExp
         Left = Left.PostClean(cleaner);
         if (ArrayIndices is not null)
         {
-            for (var i = 0; i < ArrayIndices.Count; i++)
-            {
-                ArrayIndices[i] = ArrayIndices[i].PostClean(cleaner);
-            }
+            ArrayIndices.ReplaceEach(cleaner, static (n, a) => n.PostClean(a));
         }
 
         if (cleaner.Context.Settings.CleanupLocalVarDeclarations &&

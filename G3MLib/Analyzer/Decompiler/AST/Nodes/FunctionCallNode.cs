@@ -55,10 +55,7 @@ public class FunctionCallNode(IGMFunction function, List<IExpressionNode> argume
     IExpressionNode IASTNode<IExpressionNode>.Clean(ASTCleaner cleaner)
     {
         // Clean up all arguments
-        for (var i = 0; i < Arguments.Count; i++)
-        {
-            Arguments[i] = Arguments[i].Clean(cleaner);
-        }
+        Arguments.ReplaceEach(cleaner, static (n, a) => n.Clean(a));
 
         // Handle special instance types and template strings
         switch (Function.Name.Content)
@@ -110,10 +107,7 @@ public class FunctionCallNode(IGMFunction function, List<IExpressionNode> argume
     IStatementNode IASTNode<IStatementNode>.Clean(ASTCleaner cleaner)
     {
         // Just clean up arguments here - special calls are only in expressions
-        for (var i = 0; i < Arguments.Count; i++)
-        {
-            Arguments[i] = Arguments[i].Clean(cleaner);
-        }
+        Arguments.ReplaceEach(cleaner, static (n, a) => n.Clean(a));
 
         return DataStructureAccessorNode.TryCreateSet(this, cleaner.Context) ?? CleanupMacroTypes(cleaner);
     }
@@ -306,12 +300,12 @@ public class FunctionCallNode(IGMFunction function, List<IExpressionNode> argume
         {
             var didAnything = false;
 
-            for (var i = 0; i < Arguments.Count; i++)
+            foreach (ref var argument in Arguments.Items())
             {
-                if (Arguments[i] is IMacroResolvableNode argResolvable &&
+                if (argument is IMacroResolvableNode argResolvable &&
                     argResolvable.ResolveMacroType(cleaner, type) is IExpressionNode argResolved)
                 {
-                    Arguments[i] = argResolved;
+                    argument = argResolved;
                     didAnything = true;
                 }
             }

@@ -100,10 +100,7 @@ internal sealed class BlockNode : IASTNode
     /// <inheritdoc/>
     public IASTNode PostProcess(ParseContext context)
     {
-        for (var i = 0; i < Children.Count; i++)
-        {
-            Children[i] = Children[i].PostProcess(context);
-        }
+        Children.ReplaceEach(context, static (n, a) => n.PostProcess(a));
         return this;
     }
 
@@ -112,20 +109,14 @@ internal sealed class BlockNode : IASTNode
     /// </summary>
     public void PostProcessChildrenOnly(ParseContext context)
     {
-        for (var i = 0; i < Children.Count; i++)
-        {
-            Children[i] = Children[i].PostProcess(context);
-        }
+        Children.ReplaceEach(context, static (n, a) => n.PostProcess(a));
     }
 
     /// <inheritdoc/>
     public IASTNode Duplicate(ParseContext context)
     {
         List<IASTNode> newChildren = [.. Children];
-        for (var i = 0; i < newChildren.Count; i++)
-        {
-            newChildren[i] = newChildren[i].Duplicate(context);
-        }
+        newChildren.ReplaceEach(context, static (n, a) => n.Duplicate(a));
         return new BlockNode(newChildren, NearbyToken);
     }
 

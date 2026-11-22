@@ -35,12 +35,12 @@ public class ShortCircuitNode(List<IExpressionNode> conditions, ShortCircuitType
     /// <inheritdoc/>
     public IExpressionNode Clean(ASTCleaner cleaner)
     {
-        for (var i = 0; i < Conditions.Count; i++)
+        foreach (ref var condition in Conditions.Items())
         {
-            Conditions[i] = Conditions[i].Clean(cleaner);
+            condition = condition.Clean(cleaner);
 
             // Group inner short circuits, so they don't clash order of operations
-            if (Conditions[i] is ShortCircuitNode sc)
+            if (condition is ShortCircuitNode sc)
             {
                 sc.Group = true;
             }
@@ -52,10 +52,7 @@ public class ShortCircuitNode(List<IExpressionNode> conditions, ShortCircuitType
     /// <inheritdoc/>
     public IExpressionNode PostClean(ASTCleaner cleaner)
     {
-        for (var i = 0; i < Conditions.Count; i++)
-        {
-            Conditions[i] = Conditions[i].PostClean(cleaner);
-        }
+        Conditions.ReplaceEach(cleaner, static (n, a) => n.PostClean(a));
         return this;
     }
 

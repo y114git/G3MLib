@@ -143,12 +143,12 @@ public sealed class AudioGroupFile : IDisposable
 	{
 		Dictionary<int, int> map = [];
 		List<Entry> kept = [];
-		for (var i = 0; i < _entries.Count; i++)
+		foreach (var (i, entry) in _entries.Index())
 		{
-			if (_entries[i].Length == 0)
+			if (entry.Length == 0)
 				continue;
 			map[i] = kept.Count;
-			kept.Add(_entries[i]);
+			kept.Add(entry);
 		}
 		_entries = kept;
 		return map;

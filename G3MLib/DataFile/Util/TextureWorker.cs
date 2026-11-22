@@ -2,6 +2,7 @@ using ImageMagick;
 using System.Collections.Concurrent;
 using System.IO;
 using G3MLib.DataFile.Models;
+using G3MLib.Modding.Logging;
 
 namespace G3MLib.DataFile.Util;
 
@@ -398,7 +399,7 @@ public class TextureWorker : IDisposable
             MagickImageInfo info = new(filePath);
             return ((int)info.Width, (int)info.Height);
         }
-        catch (Exception)
+        catch (Exception e) when (!ModdingCancellation.IsCancellation(e))
         {
             return (-1, -1);
         }

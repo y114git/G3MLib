@@ -518,34 +518,8 @@ public static class ResourceHashService
 		{
 			return [];
 		}
-		Dictionary<GameMakerEmbeddedTexture, int> pageIndexMap = [];
-		if (data.EmbeddedTextures != null)
-		{
-			for (var i = 0; i < data.EmbeddedTextures.Count; i++)
-			{
-				pageIndexMap[data.EmbeddedTextures[i]] = i;
-			}
-		}
-		Dictionary<int, HashSet<(ushort, ushort, ushort, ushort)>> regionsPerPage = [];
-		foreach (var sprite in data.Sprites)
-		{
-			if (sprite?.Textures == null)
-			{
-				continue;
-			}
-			foreach (var texture in sprite.Textures)
-			{
-				var tpi = texture?.Texture;
-				if (tpi?.TexturePage != null && pageIndexMap.TryGetValue(tpi.TexturePage, out var pageIdx))
-				{
-					if (!regionsPerPage.TryGetValue(pageIdx, out var regions))
-					{
-						regions = regionsPerPage[pageIdx] = [];
-					}
-					regions.Add((tpi.SourceX, tpi.SourceY, tpi.SourceWidth, tpi.SourceHeight));
-				}
-			}
-		}
+		var pageIndexMap = BuildPageIndexMap(data);
+		var regionsPerPage = CollectRegionsPerPage(data, pageIndexMap);
 		var frameHashes = new ConcurrentDictionary<(int, ushort, ushort, ushort, ushort), string>();
 		CancellableParallel.ForEach(regionsPerPage, new ParallelOptions
 		{
@@ -568,7 +542,7 @@ public static class ResourceHashService
 			var (width, height, array) = GetRgbaPixels(gameMakerEmbeddedTexture.TextureData.Image);
 			foreach (var (num2, num3, num4, num5) in hashSet2)
 			{
-				TryHashTextureRegionPixels(array, num, width, height, num2, num3, num4, num5, out var hash);
+				TryHashTextureRegionPixels(array, new TextureRegion(num, width, height, num2, num3, num4, num5), out var hash);
 				frameHashes[(num, num2, num3, num4, num5)] = hash;
 			}
 		});
@@ -607,92 +581,145 @@ public static class ResourceHashService
 						w.WriteString("spineAtlas", gameMakerSprite.SpineAtlas);
 					}
 					w.WriteNumber("sWFVersion", gameMakerSprite.SWFVersion);
-					if (gameMakerSprite.V3NineSlice != null)
-					{
-						w.WriteStartObject("nineSlice");
-						w.WriteNumber("left", gameMakerSprite.V3NineSlice.Left);
-						w.WriteNumber("top", gameMakerSprite.V3NineSlice.Top);
-						w.WriteNumber("right", gameMakerSprite.V3NineSlice.Right);
-						w.WriteNumber("bottom", gameMakerSprite.V3NineSlice.Bottom);
-						w.WriteBoolean("enabled", gameMakerSprite.V3NineSlice.Enabled);
-						w.WriteStartArray("tileModes");
-						var tileModes = gameMakerSprite.V3NineSlice.TileModes;
-						foreach (var itemValue2 in tileModes)
-						{
-							w.WriteNumberValue((int)itemValue2);
-						}
-						w.WriteEndArray();
-						w.WriteEndObject();
-					}
-					else
-					{
-						w.WriteNull("nineSlice");
-					}
-					w.WriteStartArray("textures");
-					if (gameMakerSprite.Textures != null)
-					{
-						foreach (var texture2 in gameMakerSprite.Textures)
-						{
-							var gameMakerTexturePageItem = texture2?.Texture;
-							if (gameMakerTexturePageItem != null)
-							{
-								w.WriteStartObject();
-								w.WriteNumber("srcX", gameMakerTexturePageItem.SourceX);
-								w.WriteNumber("srcY", gameMakerTexturePageItem.SourceY);
-								w.WriteNumber("srcW", gameMakerTexturePageItem.SourceWidth);
-								w.WriteNumber("srcH", gameMakerTexturePageItem.SourceHeight);
-								w.WriteNumber("tgtX", gameMakerTexturePageItem.TargetX);
-								w.WriteNumber("tgtY", gameMakerTexturePageItem.TargetY);
-								w.WriteNumber("tgtW", gameMakerTexturePageItem.TargetWidth);
-								w.WriteNumber("tgtH", gameMakerTexturePageItem.TargetHeight);
-								w.WriteNumber("bndX", gameMakerTexturePageItem.BoundingWidth);
-								w.WriteNumber("bndY", gameMakerTexturePageItem.BoundingHeight);
-								var num = (gameMakerTexturePageItem.TexturePage != null && pageIndexMap.TryGetValue(gameMakerTexturePageItem.TexturePage, out var itemValue3)) ? itemValue3 : (-1);
-								w.WriteNumber("texPage", num);
-								var itemValue4 = "";
-								if (num >= 0)
-								{
-									frameHashes.TryGetValue((num, gameMakerTexturePageItem.SourceX, gameMakerTexturePageItem.SourceY, gameMakerTexturePageItem.SourceWidth, gameMakerTexturePageItem.SourceHeight), out itemValue4);
-								}
-								w.WriteString("frameHash", itemValue4 ?? "");
-								w.WriteEndObject();
-							}
-							else
-							{
-								w.WriteNullValue();
-							}
-						}
-					}
-					w.WriteEndArray();
-					if (gameMakerSprite.CollisionMasks != null)
-					{
-						w.WriteNumber("maskCount", gameMakerSprite.CollisionMasks.Count);
-						w.WriteStartArray("masks");
-						foreach (var current in gameMakerSprite.CollisionMasks)
-						{
-							if (current == null)
-							{
-								w.WriteNullValue();
-							}
-							else
-							{
-								w.WriteStartObject();
-								w.WriteNumber("width", current.Width);
-								w.WriteNumber("height", current.Height);
-								var secondData = current.Data;
-								w.WriteNumber("length", (secondData != null) ? secondData.Length : 0);
-								w.WriteString("dataHash", (current.Data != null) ? HexHash(current.Data) : "");
-								w.WriteEndObject();
-							}
-						}
-						w.WriteEndArray();
-					}
+					WriteSpriteNineSliceHash(w, gameMakerSprite);
+					WriteSpriteTexturesHash(w, gameMakerSprite, pageIndexMap, frameHashes);
+					WriteSpriteCollisionMasksHash(w, gameMakerSprite);
 					w.WriteEndObject();
 				});
 				result[gameMakerSprite.Name.Content] = value;
 			}
 		});
 		return new Dictionary<string, string>(result);
+	}
+
+	private static Dictionary<GameMakerEmbeddedTexture, int> BuildPageIndexMap(GameMakerData data)
+	{
+		Dictionary<GameMakerEmbeddedTexture, int> pageIndexMap = [];
+		if (data.EmbeddedTextures != null)
+		{
+			for (var i = 0; i < data.EmbeddedTextures.Count; i++)
+			{
+				pageIndexMap[data.EmbeddedTextures[i]] = i;
+			}
+		}
+		return pageIndexMap;
+	}
+
+	private static Dictionary<int, HashSet<(ushort, ushort, ushort, ushort)>> CollectRegionsPerPage(GameMakerData data, Dictionary<GameMakerEmbeddedTexture, int> pageIndexMap)
+	{
+		Dictionary<int, HashSet<(ushort, ushort, ushort, ushort)>> regionsPerPage = [];
+		foreach (var sprite in data.Sprites)
+		{
+			if (sprite?.Textures == null)
+			{
+				continue;
+			}
+			foreach (var texture in sprite.Textures)
+			{
+				var tpi = texture?.Texture;
+				if (tpi?.TexturePage != null && pageIndexMap.TryGetValue(tpi.TexturePage, out var pageIdx))
+				{
+					if (!regionsPerPage.TryGetValue(pageIdx, out var regions))
+					{
+						regions = regionsPerPage[pageIdx] = [];
+					}
+					regions.Add((tpi.SourceX, tpi.SourceY, tpi.SourceWidth, tpi.SourceHeight));
+				}
+			}
+		}
+		return regionsPerPage;
+	}
+
+	private static void WriteSpriteNineSliceHash(Utf8JsonWriter w, GameMakerSprite sprite)
+	{
+		if (sprite.V3NineSlice != null)
+		{
+			w.WriteStartObject("nineSlice");
+			w.WriteNumber("left", sprite.V3NineSlice.Left);
+			w.WriteNumber("top", sprite.V3NineSlice.Top);
+			w.WriteNumber("right", sprite.V3NineSlice.Right);
+			w.WriteNumber("bottom", sprite.V3NineSlice.Bottom);
+			w.WriteBoolean("enabled", sprite.V3NineSlice.Enabled);
+			w.WriteStartArray("tileModes");
+			var tileModes = sprite.V3NineSlice.TileModes;
+			foreach (var itemValue2 in tileModes)
+			{
+				w.WriteNumberValue((int)itemValue2);
+			}
+			w.WriteEndArray();
+			w.WriteEndObject();
+		}
+		else
+		{
+			w.WriteNull("nineSlice");
+		}
+	}
+
+	private static void WriteSpriteTexturesHash(Utf8JsonWriter w, GameMakerSprite sprite, Dictionary<GameMakerEmbeddedTexture, int> pageIndexMap, ConcurrentDictionary<(int, ushort, ushort, ushort, ushort), string> frameHashes)
+	{
+		w.WriteStartArray("textures");
+		if (sprite.Textures != null)
+		{
+			foreach (var texture2 in sprite.Textures)
+			{
+				var gameMakerTexturePageItem = texture2?.Texture;
+				if (gameMakerTexturePageItem != null)
+				{
+					w.WriteStartObject();
+					w.WriteNumber("srcX", gameMakerTexturePageItem.SourceX);
+					w.WriteNumber("srcY", gameMakerTexturePageItem.SourceY);
+					w.WriteNumber("srcW", gameMakerTexturePageItem.SourceWidth);
+					w.WriteNumber("srcH", gameMakerTexturePageItem.SourceHeight);
+					w.WriteNumber("tgtX", gameMakerTexturePageItem.TargetX);
+					w.WriteNumber("tgtY", gameMakerTexturePageItem.TargetY);
+					w.WriteNumber("tgtW", gameMakerTexturePageItem.TargetWidth);
+					w.WriteNumber("tgtH", gameMakerTexturePageItem.TargetHeight);
+					w.WriteNumber("bndX", gameMakerTexturePageItem.BoundingWidth);
+					w.WriteNumber("bndY", gameMakerTexturePageItem.BoundingHeight);
+					var num = (gameMakerTexturePageItem.TexturePage != null && pageIndexMap.TryGetValue(gameMakerTexturePageItem.TexturePage, out var itemValue3)) ? itemValue3 : (-1);
+					w.WriteNumber("texPage", num);
+					var itemValue4 = "";
+					if (num >= 0)
+					{
+						frameHashes.TryGetValue((num, gameMakerTexturePageItem.SourceX, gameMakerTexturePageItem.SourceY, gameMakerTexturePageItem.SourceWidth, gameMakerTexturePageItem.SourceHeight), out itemValue4);
+					}
+					w.WriteString("frameHash", itemValue4 ?? "");
+					w.WriteEndObject();
+				}
+				else
+				{
+					w.WriteNullValue();
+				}
+			}
+		}
+		w.WriteEndArray();
+	}
+
+	private static void WriteSpriteCollisionMasksHash(Utf8JsonWriter w, GameMakerSprite sprite)
+	{
+		if (sprite.CollisionMasks != null)
+		{
+			w.WriteNumber("maskCount", sprite.CollisionMasks.Count);
+			w.WriteStartArray("masks");
+			foreach (var current in sprite.CollisionMasks)
+			{
+				if (current == null)
+				{
+					w.WriteNullValue();
+				}
+				else
+				{
+					w.WriteStartObject();
+					w.WriteNumber("width", current.Width);
+					w.WriteNumber("height", current.Height);
+					var secondData = current.Data;
+					w.WriteNumber("length", (secondData != null) ? secondData.Length : 0);
+					w.WriteString("dataHash", (current.Data != null) ? HexHash(current.Data) : "");
+					w.WriteEndObject();
+				}
+			}
+			w.WriteEndArray();
+		}
 	}
 
 	private static (int Width, int Height, byte[] Pixels) GetRgbaPixels(GMImage image)
@@ -753,12 +780,15 @@ public static class ResourceHashService
 		{
 			return "";
 		}
-		TryHashTextureRegionPixels(allPixels, -1, pageW, pageH, tpi.SourceX, tpi.SourceY, tpi.SourceWidth, tpi.SourceHeight, out var regionHash);
+		TryHashTextureRegionPixels(allPixels, new TextureRegion(-1, pageW, pageH, tpi.SourceX, tpi.SourceY, tpi.SourceWidth, tpi.SourceHeight), out var regionHash);
 		return regionHash;
 	}
 
-	private static void TryHashTextureRegionPixels(byte[] allPixels, int pageIdx, int pageW, int pageH, int srcX, int srcY, int srcW, int srcH, out string hash)
+	private readonly record struct TextureRegion(int PageIndex, int PageWidth, int PageHeight, int X, int Y, int Width, int Height);
+
+	private static void TryHashTextureRegionPixels(byte[] allPixels, TextureRegion region, out string hash)
 	{
+		var (pageIdx, pageW, pageH, srcX, srcY, srcW, srcH) = region;
 		var invalidPrefix = (pageIdx >= 0) ? $"invalid:{pageIdx}" : "invalid";
 		if (srcW <= 0 || srcH <= 0 || srcX < 0 || srcY < 0 || srcX >= pageW || srcY >= pageH || srcX > pageW - srcW || srcY > pageH - srcH)
 		{
@@ -1025,9 +1055,8 @@ public static class ResourceHashService
 					continue;
 				}
 				Dictionary<int, string> hashes = [];
-				for (var i = 0; i < audioGroupData.EmbeddedAudio.Count; i++)
+				foreach (var (i, audio) in audioGroupData.EmbeddedAudio.Index())
 				{
-					var audio = audioGroupData.EmbeddedAudio[i];
 					if (audio?.Data != null)
 					{
 						hashes[i] = HexHash(audio.Data);
@@ -1687,101 +1716,10 @@ public static class ResourceHashService
 					w.WriteNumber("gravityX", room.GravityX);
 					w.WriteNumber("gravityY", room.GravityY);
 					w.WriteNumber("metersPerPixel", room.MetersPerPixel);
-					w.WriteStartArray("backgrounds");
-					if (room.Backgrounds != null)
-					{
-						foreach (var current in room.Backgrounds)
-						{
-							w.WriteStartObject();
-							w.WriteBoolean("enabled", current.Enabled);
-							w.WriteBoolean("foreground", current.Foreground);
-							w.WriteString("bgDef", current.BackgroundDefinition?.Name?.Content ?? "");
-							w.WriteNumber("x", current.X);
-							w.WriteNumber("y", current.Y);
-							w.WriteBoolean("tiledH", current.TiledHorizontally);
-							w.WriteBoolean("tiledV", current.TiledVertically);
-							w.WriteNumber("speedX", current.SpeedX);
-							w.WriteNumber("speedY", current.SpeedY);
-							w.WriteBoolean("stretch", current.Stretch);
-							w.WriteEndObject();
-						}
-					}
-					w.WriteEndArray();
-					w.WriteStartArray("views");
-					if (room.Views != null)
-					{
-						foreach (var current2 in room.Views)
-						{
-							w.WriteStartObject();
-							w.WriteBoolean("enabled", current2.Enabled);
-							w.WriteNumber("viewX", current2.ViewX);
-							w.WriteNumber("viewY", current2.ViewY);
-							w.WriteNumber("viewW", current2.ViewWidth);
-							w.WriteNumber("viewH", current2.ViewHeight);
-							w.WriteNumber("portX", current2.PortX);
-							w.WriteNumber("portY", current2.PortY);
-							w.WriteNumber("portW", current2.PortWidth);
-							w.WriteNumber("portH", current2.PortHeight);
-							w.WriteNumber("borderX", current2.BorderX);
-							w.WriteNumber("borderY", current2.BorderY);
-							w.WriteNumber("speedX", current2.SpeedX);
-							w.WriteNumber("speedY", current2.SpeedY);
-							w.WriteString("objectId", current2.ObjectId?.Name?.Content ?? "");
-							w.WriteEndObject();
-						}
-					}
-					w.WriteEndArray();
-					w.WriteStartArray("instances");
-					if (room.GameObjects != null)
-					{
-						foreach (var current3 in room.GameObjects)
-						{
-							w.WriteStartObject();
-							w.WriteNumber("id", current3.InstanceID);
-							w.WriteString("obj", current3.ObjectDefinition?.Name?.Content ?? "");
-							w.WriteNumber("x", current3.X);
-							w.WriteNumber("y", current3.Y);
-							w.WriteString("cc", current3.CreationCode?.Name?.Content ?? "");
-							w.WriteNumber("scX", current3.ScaleX);
-							w.WriteNumber("scY", current3.ScaleY);
-							w.WriteNumber("rot", current3.Rotation);
-							w.WriteNumber("col", current3.Color);
-							w.WriteNumber("imgSpd", current3.ImageSpeed);
-							w.WriteNumber("imgIdx", current3.ImageIndex);
-							w.WriteEndObject();
-						}
-					}
-					w.WriteEndArray();
-					w.WriteStartArray("tiles");
-					if (room.Tiles != null)
-					{
-						foreach (var current4 in room.Tiles)
-						{
-							w.WriteStartObject();
-							w.WriteNumber("x", current4.X);
-							w.WriteNumber("y", current4.Y);
-							w.WriteBoolean("sm", current4.spriteMode);
-							if (current4.spriteMode)
-							{
-								w.WriteString("spr", current4.SpriteDefinition?.Name?.Content ?? "");
-							}
-							else
-							{
-								w.WriteString("bg", current4.BackgroundDefinition?.Name?.Content ?? "");
-							}
-							w.WriteNumber("sx", current4.SourceX);
-							w.WriteNumber("sy", current4.SourceY);
-							w.WriteNumber("w", current4.Width);
-							w.WriteNumber("h", current4.Height);
-							w.WriteNumber("d", current4.TileDepth);
-							w.WriteNumber("id", current4.InstanceID);
-							w.WriteNumber("scX", current4.ScaleX);
-							w.WriteNumber("scY", current4.ScaleY);
-							w.WriteNumber("col", current4.Color);
-							w.WriteEndObject();
-						}
-					}
-					w.WriteEndArray();
+					WriteRoomBackgroundsHash(w, room);
+					WriteRoomViewsHash(w, room);
+					WriteRoomInstancesHash(w, room);
+					WriteRoomTilesHash(w, room);
 					if (room.Layers != null)
 					{
 						w.WriteStartArray("layers");
@@ -1808,82 +1746,15 @@ public static class ResourceHashService
 							}
 							else if (current5.LayerType == GameMakerRoom.LayerType.Tiles && current5.TilesData != null)
 							{
-								w.WriteString("tilesBg", current5.TilesData.Background?.Name?.Content ?? "");
-								w.WriteNumber("tilesX", current5.TilesData.TilesX);
-								w.WriteNumber("tilesY", current5.TilesData.TilesY);
-								if (current5.TilesData.TileData != null)
-								{
-									w.WriteStartArray("td");
-									var tileData = current5.TilesData.TileData;
-									foreach (var array in tileData)
-									{
-										w.WriteStartArray();
-										if (array != null)
-										{
-											var array2 = array;
-											foreach (var itemValue2 in array2)
-											{
-												w.WriteNumberValue(itemValue2);
-											}
-										}
-										w.WriteEndArray();
-									}
-									w.WriteEndArray();
-								}
+								WriteLayerTilesHash(w, current5);
 							}
 							else if (current5.LayerType == GameMakerRoom.LayerType.Background && current5.BackgroundData != null)
 							{
-								var backgroundData = current5.BackgroundData;
-								w.WriteBoolean("bgVis", backgroundData.Visible);
-								w.WriteString("bgSpr", backgroundData.Sprite?.Name?.Content ?? "");
-								w.WriteBoolean("bgTH", backgroundData.TiledHorizontally);
-								w.WriteBoolean("bgTV", backgroundData.TiledVertically);
-								w.WriteBoolean("bgStr", backgroundData.Stretch);
-								w.WriteNumber("bgCol", backgroundData.Color);
-								w.WriteNumber("bgASpd", backgroundData.AnimationSpeed);
+								WriteLayerBackgroundHash(w, current5);
 							}
 							else if (current5.LayerType == GameMakerRoom.LayerType.Assets && current5.AssetsData != null)
 							{
-								var assetsData = current5.AssetsData;
-								w.WriteNumber("ltCount", assetsData.LegacyTiles?.Count ?? 0);
-								w.WriteNumber("sprCount", assetsData.Sprites?.Count ?? 0);
-								if (assetsData.LegacyTiles != null)
-								{
-									w.WriteStartArray("lt");
-									foreach (var current7 in assetsData.LegacyTiles)
-									{
-										w.WriteStartObject();
-										w.WriteNumber("x", current7.X);
-										w.WriteNumber("y", current7.Y);
-										w.WriteNumber("sx", current7.SourceX);
-										w.WriteNumber("sy", current7.SourceY);
-										w.WriteNumber("w", current7.Width);
-										w.WriteNumber("h", current7.Height);
-										w.WriteNumber("d", current7.TileDepth);
-										w.WriteNumber("id", current7.InstanceID);
-										w.WriteString("bg", current7.BackgroundDefinition?.Name?.Content ?? "");
-										w.WriteEndObject();
-									}
-									w.WriteEndArray();
-								}
-								if (assetsData.Sprites != null)
-								{
-									w.WriteStartArray("spr");
-									foreach (var current8 in assetsData.Sprites)
-									{
-										w.WriteStartObject();
-										w.WriteString("n", current8.Name?.Content ?? "");
-										w.WriteString("s", current8.Sprite?.Name?.Content ?? "");
-										w.WriteNumber("x", current8.X);
-										w.WriteNumber("y", current8.Y);
-										w.WriteNumber("scX", current8.ScaleX);
-										w.WriteNumber("scY", current8.ScaleY);
-										w.WriteNumber("col", current8.Color);
-										w.WriteNumber("rot", current8.Rotation);
-										w.WriteEndObject();
-									}
-									w.WriteEndArray();
-								}
+								WriteLayerAssetsHash(w, current5);
 							}
 							w.WriteEndObject();
 						}
@@ -1895,6 +1766,199 @@ public static class ResourceHashService
 			}
 		});
 		return new Dictionary<string, string>(result);
+	}
+
+	private static void WriteRoomBackgroundsHash(Utf8JsonWriter w, GameMakerRoom room)
+	{
+		w.WriteStartArray("backgrounds");
+		if (room.Backgrounds != null)
+		{
+			foreach (var current in room.Backgrounds)
+			{
+				w.WriteStartObject();
+				w.WriteBoolean("enabled", current.Enabled);
+				w.WriteBoolean("foreground", current.Foreground);
+				w.WriteString("bgDef", current.BackgroundDefinition?.Name?.Content ?? "");
+				w.WriteNumber("x", current.X);
+				w.WriteNumber("y", current.Y);
+				w.WriteBoolean("tiledH", current.TiledHorizontally);
+				w.WriteBoolean("tiledV", current.TiledVertically);
+				w.WriteNumber("speedX", current.SpeedX);
+				w.WriteNumber("speedY", current.SpeedY);
+				w.WriteBoolean("stretch", current.Stretch);
+				w.WriteEndObject();
+			}
+		}
+		w.WriteEndArray();
+	}
+
+	private static void WriteRoomViewsHash(Utf8JsonWriter w, GameMakerRoom room)
+	{
+		w.WriteStartArray("views");
+		if (room.Views != null)
+		{
+			foreach (var current2 in room.Views)
+			{
+				w.WriteStartObject();
+				w.WriteBoolean("enabled", current2.Enabled);
+				w.WriteNumber("viewX", current2.ViewX);
+				w.WriteNumber("viewY", current2.ViewY);
+				w.WriteNumber("viewW", current2.ViewWidth);
+				w.WriteNumber("viewH", current2.ViewHeight);
+				w.WriteNumber("portX", current2.PortX);
+				w.WriteNumber("portY", current2.PortY);
+				w.WriteNumber("portW", current2.PortWidth);
+				w.WriteNumber("portH", current2.PortHeight);
+				w.WriteNumber("borderX", current2.BorderX);
+				w.WriteNumber("borderY", current2.BorderY);
+				w.WriteNumber("speedX", current2.SpeedX);
+				w.WriteNumber("speedY", current2.SpeedY);
+				w.WriteString("objectId", current2.ObjectId?.Name?.Content ?? "");
+				w.WriteEndObject();
+			}
+		}
+		w.WriteEndArray();
+	}
+
+	private static void WriteRoomInstancesHash(Utf8JsonWriter w, GameMakerRoom room)
+	{
+		w.WriteStartArray("instances");
+		if (room.GameObjects != null)
+		{
+			foreach (var current3 in room.GameObjects)
+			{
+				w.WriteStartObject();
+				w.WriteNumber("id", current3.InstanceID);
+				w.WriteString("obj", current3.ObjectDefinition?.Name?.Content ?? "");
+				w.WriteNumber("x", current3.X);
+				w.WriteNumber("y", current3.Y);
+				w.WriteString("cc", current3.CreationCode?.Name?.Content ?? "");
+				w.WriteNumber("scX", current3.ScaleX);
+				w.WriteNumber("scY", current3.ScaleY);
+				w.WriteNumber("rot", current3.Rotation);
+				w.WriteNumber("col", current3.Color);
+				w.WriteNumber("imgSpd", current3.ImageSpeed);
+				w.WriteNumber("imgIdx", current3.ImageIndex);
+				w.WriteEndObject();
+			}
+		}
+		w.WriteEndArray();
+	}
+
+	private static void WriteRoomTilesHash(Utf8JsonWriter w, GameMakerRoom room)
+	{
+		w.WriteStartArray("tiles");
+		if (room.Tiles != null)
+		{
+			foreach (var current4 in room.Tiles)
+			{
+				w.WriteStartObject();
+				w.WriteNumber("x", current4.X);
+				w.WriteNumber("y", current4.Y);
+				w.WriteBoolean("sm", current4.spriteMode);
+				if (current4.spriteMode)
+				{
+					w.WriteString("spr", current4.SpriteDefinition?.Name?.Content ?? "");
+				}
+				else
+				{
+					w.WriteString("bg", current4.BackgroundDefinition?.Name?.Content ?? "");
+				}
+				w.WriteNumber("sx", current4.SourceX);
+				w.WriteNumber("sy", current4.SourceY);
+				w.WriteNumber("w", current4.Width);
+				w.WriteNumber("h", current4.Height);
+				w.WriteNumber("d", current4.TileDepth);
+				w.WriteNumber("id", current4.InstanceID);
+				w.WriteNumber("scX", current4.ScaleX);
+				w.WriteNumber("scY", current4.ScaleY);
+				w.WriteNumber("col", current4.Color);
+				w.WriteEndObject();
+			}
+		}
+		w.WriteEndArray();
+	}
+
+	private static void WriteLayerTilesHash(Utf8JsonWriter w, GameMakerRoom.Layer layer)
+	{
+		w.WriteString("tilesBg", layer.TilesData.Background?.Name?.Content ?? "");
+		w.WriteNumber("tilesX", layer.TilesData.TilesX);
+		w.WriteNumber("tilesY", layer.TilesData.TilesY);
+		if (layer.TilesData.TileData != null)
+		{
+			w.WriteStartArray("td");
+			var tileData = layer.TilesData.TileData;
+			foreach (var array in tileData)
+			{
+				w.WriteStartArray();
+				if (array != null)
+				{
+					var array2 = array;
+					foreach (var itemValue2 in array2)
+					{
+						w.WriteNumberValue(itemValue2);
+					}
+				}
+				w.WriteEndArray();
+			}
+			w.WriteEndArray();
+		}
+	}
+
+	private static void WriteLayerBackgroundHash(Utf8JsonWriter w, GameMakerRoom.Layer layer)
+	{
+		var backgroundData = layer.BackgroundData;
+		w.WriteBoolean("bgVis", backgroundData.Visible);
+		w.WriteString("bgSpr", backgroundData.Sprite?.Name?.Content ?? "");
+		w.WriteBoolean("bgTH", backgroundData.TiledHorizontally);
+		w.WriteBoolean("bgTV", backgroundData.TiledVertically);
+		w.WriteBoolean("bgStr", backgroundData.Stretch);
+		w.WriteNumber("bgCol", backgroundData.Color);
+		w.WriteNumber("bgASpd", backgroundData.AnimationSpeed);
+	}
+
+	private static void WriteLayerAssetsHash(Utf8JsonWriter w, GameMakerRoom.Layer layer)
+	{
+		var assetsData = layer.AssetsData;
+		w.WriteNumber("ltCount", assetsData.LegacyTiles?.Count ?? 0);
+		w.WriteNumber("sprCount", assetsData.Sprites?.Count ?? 0);
+		if (assetsData.LegacyTiles != null)
+		{
+			w.WriteStartArray("lt");
+			foreach (var current7 in assetsData.LegacyTiles)
+			{
+				w.WriteStartObject();
+				w.WriteNumber("x", current7.X);
+				w.WriteNumber("y", current7.Y);
+				w.WriteNumber("sx", current7.SourceX);
+				w.WriteNumber("sy", current7.SourceY);
+				w.WriteNumber("w", current7.Width);
+				w.WriteNumber("h", current7.Height);
+				w.WriteNumber("d", current7.TileDepth);
+				w.WriteNumber("id", current7.InstanceID);
+				w.WriteString("bg", current7.BackgroundDefinition?.Name?.Content ?? "");
+				w.WriteEndObject();
+			}
+			w.WriteEndArray();
+		}
+		if (assetsData.Sprites != null)
+		{
+			w.WriteStartArray("spr");
+			foreach (var current8 in assetsData.Sprites)
+			{
+				w.WriteStartObject();
+				w.WriteString("n", current8.Name?.Content ?? "");
+				w.WriteString("s", current8.Sprite?.Name?.Content ?? "");
+				w.WriteNumber("x", current8.X);
+				w.WriteNumber("y", current8.Y);
+				w.WriteNumber("scX", current8.ScaleX);
+				w.WriteNumber("scY", current8.ScaleY);
+				w.WriteNumber("col", current8.Color);
+				w.WriteNumber("rot", current8.Rotation);
+				w.WriteEndObject();
+			}
+			w.WriteEndArray();
+		}
 	}
 
 	private static Dictionary<string, string> HashCodeEntries(GameMakerData data)
@@ -1916,9 +1980,8 @@ public static class ResourceHashService
 		var perName = new Dictionary<string, List<string>>(StringComparer.Ordinal);
 		var entryHashes = new string[topLevel.Count];
 		CancellableParallel.For(0, topLevel.Count, index => entryHashes[index] = HashCodeEntry(topLevel[index], data.Variables, localsByName));
-		for (var index = 0; index < topLevel.Count; index++)
+		foreach (var (index, entry) in topLevel.Index())
 		{
-			var entry = topLevel[index];
 			if (!perName.TryGetValue(entry.Name.Content, out var hashes))
 			{
 				hashes = [];

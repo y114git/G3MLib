@@ -31,10 +31,7 @@ internal static class ExpressionNodeList
 {
     public static void PostClean(ASTCleaner cleaner, List<IExpressionNode> nodes)
     {
-        for (var i = 0; i < nodes.Count; i++)
-        {
-            nodes[i] = nodes[i].PostClean(cleaner);
-        }
+        nodes.ReplaceEach(cleaner, static (n, a) => n.PostClean(a));
     }
 }
 

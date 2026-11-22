@@ -425,98 +425,11 @@ public class GameMakerSprite : GameMakerNamedResource, IProjectAsset, PrePaddedO
                     writer.WriteGameMakerObject(YYSWF);
                     break;
                 case SpriteType.Spine:
-                    writer.Align(4);
-
-                    var encodedJson = EncodeSpineBlob(Encoding.UTF8.GetBytes(SpineJSON));
-                    var encodedAtlas = EncodeSpineBlob(Encoding.UTF8.GetBytes(SpineAtlas));
-
-                    if (writer.gameMakerData.IsNonLTSVersionAtLeast(2023, 1))
-                        writer.WriteGameMakerObject(Textures);
-
-                    // the header.
-                    writer.Write(SpineVersion);
-                    if (SpineVersion >= 3) writer.Write(SpineCacheVersion);
-                    writer.Write(encodedJson.Length);
-                    writer.Write(encodedAtlas.Length);
-
-                    switch (SpineVersion)
-                    {
-                        case 1:
-                            {
-                                var atlas = SpineTextures[0]; // will throw an exception if the list is null, what I want!
-                                writer.Write(atlas.TexBlob.Length);
-                                writer.Write(atlas.PageWidth);
-                                writer.Write(atlas.PageHeight);
-
-                                // the data.
-                                writer.Write(encodedJson);
-                                writer.Write(encodedAtlas);
-
-                                // the one and only atlas.
-                                writer.Write(atlas.TexBlob);
-
-                                break;
-                            }
-                        case 2:
-                        case 3:
-                            {
-                                writer.Write(SpineTextures.Count);
-
-                                // the data.
-                                writer.Write(encodedJson);
-                                writer.Write(encodedAtlas);
-
-                                // the length is stored in the header, so we can't use the list's method.
-                                foreach (var tex in SpineTextures)
-                                {
-                                    writer.WriteGameMakerObject(tex);
-                                }
-
-                                break;
-                            }
-                    }
+                    SerializeSpineSprite(writer);
 
                     break;
                 case SpriteType.Vector:
-                    writer.Write(VectorVersion);
-
-                    writer.WriteGameMakerObject(Textures);
-
-                    if (VectorVersion >= 4)
-                    {
-                        writer.Write(VectorFrameToShapeMap.Count);
-                        foreach (var n in VectorFrameToShapeMap)
-                        {
-                            writer.Write(n);
-                        }
-                        writer.Write(VectorShapes.Count);
-                        foreach (var s in VectorShapes)
-                        {
-                            writer.WriteGameMakerObject(s);
-                        }
-                    }
-                    else
-                    {
-                        DebugUtil.Assert(VectorShapes.Count == 1, "There must be only 1 vector collision mask before vector version 4");
-                        writer.WriteGameMakerObject(VectorShapes[0]);
-                    }
-
-                    writer.Write(VectorCollisionMaskRLEData.Count);
-                    writer.Write(VectorCollisionMaskWidth);
-                    writer.Write(VectorCollisionMaskHeight);
-                    if (VectorCollisionMaskRLEData.Count > 0)
-                    {
-                        if (VectorVersion <= 3)
-                        {
-                            DebugUtil.Assert(VectorCollisionMaskRLEData.Count == 1, "There must be only 1 vector collision mask before vector version 4");
-                        }
-                        foreach (var data in VectorCollisionMaskRLEData)
-                        {
-                            writer.Write(data.Length);
-                            writer.Write(data);
-                            writer.Align(4);
-                        }
-                    }
+                    SerializeVectorSprite(writer);
 
                     break;
             }
@@ -547,6 +460,103 @@ public class GameMakerSprite : GameMakerNamedResource, IProjectAsset, PrePaddedO
         }
     }
 
+    private void SerializeSpineSprite(GameMakerWriter writer)
+    {
+        writer.Align(4);
+
+        var encodedJson = EncodeSpineBlob(Encoding.UTF8.GetBytes(SpineJSON));
+        var encodedAtlas = EncodeSpineBlob(Encoding.UTF8.GetBytes(SpineAtlas));
+
+        if (writer.gameMakerData.IsNonLTSVersionAtLeast(2023, 1))
+            writer.WriteGameMakerObject(Textures);
+
+        // the header.
+        writer.Write(SpineVersion);
+        if (SpineVersion >= 3) writer.Write(SpineCacheVersion);
+        writer.Write(encodedJson.Length);
+        writer.Write(encodedAtlas.Length);
+
+        switch (SpineVersion)
+        {
+            case 1:
+                {
+                    var atlas = SpineTextures[0]; // will throw an exception if the list is null, what I want!
+                    writer.Write(atlas.TexBlob.Length);
+                    writer.Write(atlas.PageWidth);
+                    writer.Write(atlas.PageHeight);
+
+                    // the data.
+                    writer.Write(encodedJson);
+                    writer.Write(encodedAtlas);
+
+                    // the one and only atlas.
+                    writer.Write(atlas.TexBlob);
+
+                    break;
+                }
+            case 2:
+            case 3:
+                {
+                    writer.Write(SpineTextures.Count);
+
+                    // the data.
+                    writer.Write(encodedJson);
+                    writer.Write(encodedAtlas);
+
+                    // the length is stored in the header, so we can't use the list's method.
+                    foreach (var tex in SpineTextures)
+                    {
+                        writer.WriteGameMakerObject(tex);
+                    }
+
+                    break;
+                }
+        }
+    }
+
+    private void SerializeVectorSprite(GameMakerWriter writer)
+    {
+        writer.Write(VectorVersion);
+
+        writer.WriteGameMakerObject(Textures);
+
+        if (VectorVersion >= 4)
+        {
+            writer.Write(VectorFrameToShapeMap.Count);
+            foreach (var n in VectorFrameToShapeMap)
+            {
+                writer.Write(n);
+            }
+            writer.Write(VectorShapes.Count);
+            foreach (var s in VectorShapes)
+            {
+                writer.WriteGameMakerObject(s);
+            }
+        }
+        else
+        {
+            DebugUtil.Assert(VectorShapes.Count == 1, "There must be only 1 vector collision mask before vector version 4");
+            writer.WriteGameMakerObject(VectorShapes[0]);
+        }
+
+        writer.Write(VectorCollisionMaskRLEData.Count);
+        writer.Write(VectorCollisionMaskWidth);
+        writer.Write(VectorCollisionMaskHeight);
+        if (VectorCollisionMaskRLEData.Count > 0)
+        {
+            if (VectorVersion <= 3)
+            {
+                DebugUtil.Assert(VectorCollisionMaskRLEData.Count == 1, "There must be only 1 vector collision mask before vector version 4");
+            }
+            foreach (var data in VectorCollisionMaskRLEData)
+            {
+                writer.Write(data.Length);
+                writer.Write(data);
+                writer.Align(4);
+            }
+        }
+    }
+
     private void WriteMaskData(GameMakerWriter writer)
     {
         writer.Write((uint)CollisionMasks.Count);
@@ -571,9 +581,9 @@ public class GameMakerSprite : GameMakerNamedResource, IProjectAsset, PrePaddedO
     {
         // don't ask.
         uint k = 42;
-        for (var i = 0; i < blob.Length; i++)
+        foreach (ref var value in blob.AsSpan())
         {
-            blob[i] -= (byte)k;
+            value -= (byte)k;
             k *= k + 1;
         }
         return blob;
@@ -583,9 +593,9 @@ public class GameMakerSprite : GameMakerNamedResource, IProjectAsset, PrePaddedO
     {
         // don't ask.
         uint k = 42;
-        for (var i = 0; i < blob.Length; i++)
+        foreach (ref var value in blob.AsSpan())
         {
-            blob[i] += (byte)k;
+            value += (byte)k;
             k *= k + 1;
         }
         return blob;
@@ -611,27 +621,7 @@ public class GameMakerSprite : GameMakerNamedResource, IProjectAsset, PrePaddedO
         SepMasks = (SepMaskType)reader.ReadUInt32();
         OriginX = reader.ReadInt32();
         OriginY = reader.ReadInt32();
-        SVersion = 1;
-        SSpriteType = SpriteType.Normal;
-        GMS2PlaybackSpeed = 15.0f;
-        GMS2PlaybackSpeedType = 0;
-        IsSpecialType = false;
-        SpineVersion = 0;
-        SpineCacheVersion = 0;
-        SpineJSON = null;
-        SpineAtlas = null;
-        SpineTextures = null;
-        SpineHasTextureData = true;
-        SWFVersion = 0;
-        YYSWF = null;
-        VectorVersion = 0;
-        VectorShapes = null;
-        VectorCollisionMaskWidth = 0;
-        VectorCollisionMaskHeight = 0;
-        VectorCollisionMaskRLEData = null;
-        VectorFrameToShapeMap = null;
-        V2Sequence = null;
-        V3NineSlice = null;
+        ResetSpecialSpriteFields();
         if (reader.ReadInt32() == -1) // technically this seems to be able to occur on older versions, for special sprite types
         {
             var sequenceOffset = 0;
@@ -664,142 +654,17 @@ public class GameMakerSprite : GameMakerNamedResource, IProjectAsset, PrePaddedO
                     break;
                 case SpriteType.SWF:
                     {
-                        SWFVersion = reader.ReadInt32();
-                        DebugUtil.Assert(SWFVersion is 8 or 7, "Invalid SWF sprite format, expected 7 or 8, got " + SWFVersion);
-
-                        if (SWFVersion == 8)
-                        {
-                            Textures = reader.ReadGameMakerObject<GameMakerSimpleList<TextureEntry>>();
-                        }
-
-                        YYSWF = reader.ReadGameMakerObjectNoPool<GameMakerYYSWF>();
+                        UnserializeSwfSprite(reader);
                     }
                     break;
                 case SpriteType.Spine:
                     {
-                        reader.Align(4);
-
-                        if (reader.gameMakerData.IsNonLTSVersionAtLeast(2023, 1))
-                        {
-                            Textures = reader.ReadGameMakerObject<GameMakerSimpleList<TextureEntry>>();
-                            SpineHasTextureData = false;
-                        }
-
-                        SpineVersion = reader.ReadInt32();
-                        if (SpineVersion >= 3)
-                        {
-                            SpineCacheVersion = reader.ReadInt32();
-                            DebugUtil.Assert(SpineCacheVersion == 1, "Invalid Spine cache format version number, expected 1, got " + SpineCacheVersion);
-                        }
-                        DebugUtil.Assert(SpineVersion is <= 3 and >= 1,
-                                              "Invalid Spine format version number, expected 3, 2 or 1, got " + SpineVersion);
-                        var jsonLength = reader.ReadInt32();
-                        var atlasLength = reader.ReadInt32();
-                        var textures = reader.ReadInt32(); // count in v2(and newer) and size in bytes in v1.
-                        if (jsonLength < 0 || atlasLength < 0 || textures < 0)
-                            throw new IOException("Negative Spine sprite data length.");
-                        var minimumSize = (long)jsonLength + atlasLength + (SpineVersion == 1 ? 8L + textures : (long)textures * 12);
-                        if (minimumSize > reader.Length - reader.Position)
-                            throw new IOException("Spine sprite data exceeds the available input.");
-                        SpineTextures = [];
-
-                        switch (SpineVersion)
-                        {
-                            // Version 1 - only one single PNG atlas.
-                            // Version 2 - can be multiple atlases.
-                            // Version 3 - an atlas can be a QOI blob.
-                            case 1:
-                                {
-                                    var atlas = new GameMakerSpineTextureEntry();
-                                    var atlasWidth = reader.ReadInt32();
-                                    var atlasHeight = reader.ReadInt32();
-                                    SpineJSON = Encoding.UTF8.GetString(DecodeSpineBlob(reader.ReadBytes(jsonLength)));
-                                    SpineAtlas = Encoding.UTF8.GetString(DecodeSpineBlob(reader.ReadBytes(atlasLength)));
-
-                                    atlas.PageWidth = atlasWidth;
-                                    atlas.PageHeight = atlasHeight;
-                                    atlas.TexBlob = reader.ReadBytes(textures);
-                                    SpineTextures.InternalAdd(atlas);
-                                    break;
-                                }
-                            case 2:
-                            case 3:
-                                {
-                                    SpineJSON = Encoding.UTF8.GetString(DecodeSpineBlob(reader.ReadBytes(jsonLength)));
-                                    SpineAtlas = Encoding.UTF8.GetString(DecodeSpineBlob(reader.ReadBytes(atlasLength)));
-
-                                    SpineTextures.SetCapacity(textures);
-
-                                    // the length is stored before json and atlases so we can't use ReadGameMakerObjectList
-                                    // same goes for serialization.
-                                    for (var t = 0; t < textures; t++)
-                                    {
-                                        SpineTextures.InternalAdd(reader.ReadGameMakerObject<GameMakerSpineTextureEntry>());
-                                    }
-
-                                    break;
-                                }
-                        }
+                        UnserializeSpineSprite(reader);
                     }
                     break;
                 case SpriteType.Vector:
                     {
-                        VectorVersion = reader.ReadInt32();
-                        DebugUtil.Assert(VectorVersion is 3 or 4, "Invalid vector format version number, expected 3 or 4, got " + VectorVersion);
-                        if (VectorVersion >= 4 && !reader.gameMakerData.IsVersionAtLeast(2024, 14))
-                            reader.gameMakerData.SetGMS2Version(2024, 14);
-
-                        Textures = reader.ReadGameMakerObject<GameMakerSimpleList<TextureEntry>>();
-
-                        if (VectorVersion >= 4)
-                        {
-                            var mapCount = reader.ReadInt32();
-                            if (mapCount < 0 || (long)mapCount * sizeof(int) > reader.Length - reader.Position)
-                                throw new IOException("Invalid vector frame-to-shape map count.");
-                            VectorFrameToShapeMap = new(mapCount);
-                            for (var i = 0; i < mapCount; i++)
-                            {
-                                VectorFrameToShapeMap.InternalAdd(reader.ReadInt32());
-                            }
-
-                            var shapeCount = reader.ReadInt32();
-                            if (shapeCount < 0 || (long)shapeCount * 24 > reader.Length - reader.Position)
-                                throw new IOException("Invalid vector shape count.");
-                            VectorShapes = new(shapeCount);
-                            for (var i = 0; i < shapeCount; i++)
-                            {
-                                VectorShapes.InternalAdd(reader.ReadGameMakerObjectNoPool<GameMakerVectorShapeData>());
-                            }
-                        }
-                        else
-                        {
-                            VectorFrameToShapeMap = [0];
-                            VectorShapes = [reader.ReadGameMakerObjectNoPool<GameMakerVectorShapeData>()];
-                        }
-
-                        int collisionMaskCount;
-                        if (VectorVersion >= 4)
-                        {
-                            collisionMaskCount = reader.ReadInt32();
-                        }
-                        else
-                        {
-                            collisionMaskCount = reader.ReadBoolean() ? 1 : 0;
-                        }
-                        VectorCollisionMaskWidth = reader.ReadInt32();
-                        VectorCollisionMaskHeight = reader.ReadInt32();
-                        if (collisionMaskCount < 0 || (long)collisionMaskCount * sizeof(int) > reader.Length - reader.Position)
-                            throw new IOException("Invalid vector collision mask count.");
-                        VectorCollisionMaskRLEData = new(collisionMaskCount);
-                        for (var i = 0; i < collisionMaskCount; i++)
-                        {
-                            var dataLength = reader.ReadInt32();
-                            if (dataLength < 0)
-                                throw new IOException("Negative vector collision mask length.");
-                            VectorCollisionMaskRLEData.InternalAdd(reader.ReadBytes(dataLength));
-                            reader.Align(4);
-                        }
-
+                        UnserializeVectorSprite(reader);
                         break;
                     }
             }
@@ -822,6 +687,171 @@ public class GameMakerSprite : GameMakerNamedResource, IProjectAsset, PrePaddedO
             Textures = reader.ReadGameMakerObject<GameMakerSimpleList<TextureEntry>>();
             ReadMaskData(reader);
         }
+    }
+
+    private void ResetSpecialSpriteFields()
+    {
+        SVersion = 1;
+        SSpriteType = SpriteType.Normal;
+        GMS2PlaybackSpeed = 15.0f;
+        GMS2PlaybackSpeedType = 0;
+        IsSpecialType = false;
+        SpineVersion = 0;
+        SpineCacheVersion = 0;
+        SpineJSON = null;
+        SpineAtlas = null;
+        SpineTextures = null;
+        SpineHasTextureData = true;
+        SWFVersion = 0;
+        YYSWF = null;
+        VectorVersion = 0;
+        VectorShapes = null;
+        VectorCollisionMaskWidth = 0;
+        VectorCollisionMaskHeight = 0;
+        VectorCollisionMaskRLEData = null;
+        VectorFrameToShapeMap = null;
+        V2Sequence = null;
+        V3NineSlice = null;
+    }
+
+    private void UnserializeSwfSprite(GameMakerReader reader)
+    {
+        SWFVersion = reader.ReadInt32();
+        DebugUtil.Assert(SWFVersion is 8 or 7, "Invalid SWF sprite format, expected 7 or 8, got " + SWFVersion);
+
+        if (SWFVersion == 8)
+        {
+            Textures = reader.ReadGameMakerObject<GameMakerSimpleList<TextureEntry>>();
+        }
+
+        YYSWF = reader.ReadGameMakerObjectNoPool<GameMakerYYSWF>();
+    }
+
+    private void UnserializeSpineSprite(GameMakerReader reader)
+    {
+        reader.Align(4);
+
+        if (reader.gameMakerData.IsNonLTSVersionAtLeast(2023, 1))
+        {
+            Textures = reader.ReadGameMakerObject<GameMakerSimpleList<TextureEntry>>();
+            SpineHasTextureData = false;
+        }
+
+        SpineVersion = reader.ReadInt32();
+        if (SpineVersion >= 3)
+        {
+            SpineCacheVersion = reader.ReadInt32();
+            DebugUtil.Assert(SpineCacheVersion == 1, "Invalid Spine cache format version number, expected 1, got " + SpineCacheVersion);
+        }
+        DebugUtil.Assert(SpineVersion is <= 3 and >= 1,
+                              "Invalid Spine format version number, expected 3, 2 or 1, got " + SpineVersion);
+        var jsonLength = reader.ReadInt32();
+        var atlasLength = reader.ReadInt32();
+        var textures = reader.ReadInt32(); // count in v2(and newer) and size in bytes in v1.
+        if (jsonLength < 0 || atlasLength < 0 || textures < 0)
+            throw new IOException("Negative Spine sprite data length.");
+        var minimumSize = (long)jsonLength + atlasLength + (SpineVersion == 1 ? 8L + textures : (long)textures * 12);
+        if (minimumSize > reader.Length - reader.Position)
+            throw new IOException("Spine sprite data exceeds the available input.");
+        SpineTextures = [];
+
+        switch (SpineVersion)
+        {
+            // Version 1 - only one single PNG atlas.
+            // Version 2 - can be multiple atlases.
+            // Version 3 - an atlas can be a QOI blob.
+            case 1:
+                {
+                    var atlas = new GameMakerSpineTextureEntry();
+                    var atlasWidth = reader.ReadInt32();
+                    var atlasHeight = reader.ReadInt32();
+                    SpineJSON = Encoding.UTF8.GetString(DecodeSpineBlob(reader.ReadBytes(jsonLength)));
+                    SpineAtlas = Encoding.UTF8.GetString(DecodeSpineBlob(reader.ReadBytes(atlasLength)));
+
+                    atlas.PageWidth = atlasWidth;
+                    atlas.PageHeight = atlasHeight;
+                    atlas.TexBlob = reader.ReadBytes(textures);
+                    SpineTextures.InternalAdd(atlas);
+                    break;
+                }
+            case 2:
+            case 3:
+                {
+                    SpineJSON = Encoding.UTF8.GetString(DecodeSpineBlob(reader.ReadBytes(jsonLength)));
+                    SpineAtlas = Encoding.UTF8.GetString(DecodeSpineBlob(reader.ReadBytes(atlasLength)));
+
+                    SpineTextures.SetCapacity(textures);
+
+                    // the length is stored before json and atlases so we can't use ReadGameMakerObjectList
+                    // same goes for serialization.
+                    for (var t = 0; t < textures; t++)
+                    {
+                        SpineTextures.InternalAdd(reader.ReadGameMakerObject<GameMakerSpineTextureEntry>());
+                    }
+
+                    break;
+                }
+        }
+    }
+
+    private void UnserializeVectorSprite(GameMakerReader reader)
+    {
+        VectorVersion = reader.ReadInt32();
+        DebugUtil.Assert(VectorVersion is 3 or 4, "Invalid vector format version number, expected 3 or 4, got " + VectorVersion);
+        if (VectorVersion >= 4 && !reader.gameMakerData.IsVersionAtLeast(2024, 14))
+            reader.gameMakerData.SetGMS2Version(2024, 14);
+
+        Textures = reader.ReadGameMakerObject<GameMakerSimpleList<TextureEntry>>();
+
+        if (VectorVersion >= 4)
+        {
+            var mapCount = reader.ReadInt32();
+            if (mapCount < 0 || (long)mapCount * sizeof(int) > reader.Length - reader.Position)
+                throw new IOException("Invalid vector frame-to-shape map count.");
+            VectorFrameToShapeMap = new(mapCount);
+            for (var i = 0; i < mapCount; i++)
+            {
+                VectorFrameToShapeMap.InternalAdd(reader.ReadInt32());
+            }
+
+            var shapeCount = reader.ReadInt32();
+            if (shapeCount < 0 || (long)shapeCount * 24 > reader.Length - reader.Position)
+                throw new IOException("Invalid vector shape count.");
+            VectorShapes = new(shapeCount);
+            for (var i = 0; i < shapeCount; i++)
+            {
+                VectorShapes.InternalAdd(reader.ReadGameMakerObjectNoPool<GameMakerVectorShapeData>());
+            }
+        }
+        else
+        {
+            VectorFrameToShapeMap = [0];
+            VectorShapes = [reader.ReadGameMakerObjectNoPool<GameMakerVectorShapeData>()];
+        }
+
+        int collisionMaskCount;
+        if (VectorVersion >= 4)
+        {
+            collisionMaskCount = reader.ReadInt32();
+        }
+        else
+        {
+            collisionMaskCount = reader.ReadBoolean() ? 1 : 0;
+        }
+        VectorCollisionMaskWidth = reader.ReadInt32();
+        VectorCollisionMaskHeight = reader.ReadInt32();
+        if (collisionMaskCount < 0 || (long)collisionMaskCount * sizeof(int) > reader.Length - reader.Position)
+            throw new IOException("Invalid vector collision mask count.");
+        VectorCollisionMaskRLEData = new(collisionMaskCount);
+        for (var i = 0; i < collisionMaskCount; i++)
+        {
+            var dataLength = reader.ReadInt32();
+            if (dataLength < 0)
+                throw new IOException("Negative vector collision mask length.");
+            VectorCollisionMaskRLEData.InternalAdd(reader.ReadBytes(dataLength));
+            reader.Align(4);
+        }
+
     }
 
     /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>
@@ -869,7 +899,7 @@ public class GameMakerSprite : GameMakerNamedResource, IProjectAsset, PrePaddedO
             {
                 case SpriteType.Normal:
                     count += 1 + GameMakerSimpleList<TextureEntry>.UnserializeChildObjectCount(reader);
-                    SkipMaskData(reader, (int)width, (int)height, marginRight, marginLeft, marginBottom, marginTop);
+                    SkipMaskData(reader, (int)width, (int)height, new MaskMargins(marginRight, marginLeft, marginBottom, marginTop));
                     break;
 
                 case SpriteType.SWF:
@@ -951,7 +981,7 @@ public class GameMakerSprite : GameMakerNamedResource, IProjectAsset, PrePaddedO
         {
             reader.Position -= 4;
             count += 1 + GameMakerSimpleList<TextureEntry>.UnserializeChildObjectCount(reader);
-            SkipMaskData(reader, (int)width, (int)height, marginRight, marginLeft, marginBottom, marginTop);
+            SkipMaskData(reader, (int)width, (int)height, new MaskMargins(marginRight, marginLeft, marginBottom, marginTop));
         }
 
         return count;
@@ -1033,8 +1063,11 @@ public class GameMakerSprite : GameMakerNamedResource, IProjectAsset, PrePaddedO
         CollisionMasks = new(newMasks);
     }
 
-    private static void SkipMaskData(GameMakerReader reader, int width, int height, int marginRight, int marginLeft, int marginBottom, int marginTop)
+    private readonly record struct MaskMargins(int Right, int Left, int Bottom, int Top);
+
+    private static void SkipMaskData(GameMakerReader reader, int width, int height, MaskMargins margins)
     {
+        var (marginRight, marginLeft, marginBottom, marginTop) = margins;
         var maskCount = reader.ReadUInt32();
         if (reader.gameMakerData.IsVersionAtLeast(2024, 6))
         {
@@ -1259,10 +1292,10 @@ public class GameMakerYYSWFMatrixColor : GameMakerObject
         ArgumentNullException.ThrowIfNull(reader);
         Additive = new int[MATRIX_SIZE];
         Multiply = new int[MATRIX_SIZE];
-        for (var i = 0; i < Additive.Length; i++)
-            Additive[i] = reader.ReadInt32();
-        for (var i = 0; i < Multiply.Length; i++)
-            Multiply[i] = reader.ReadInt32();
+        foreach (ref var value in Additive.AsSpan())
+            value = reader.ReadInt32();
+        foreach (ref var value in Multiply.AsSpan())
+            value = reader.ReadInt32();
     }
 }
 
@@ -1285,8 +1318,8 @@ public class GameMakerVectorMatrix33 : GameMakerObject
     {
         ArgumentNullException.ThrowIfNull(reader);
         Values = new float[MATRIX_SIZE];
-        for (var i = 0; i < Values.Length; i++)
-            Values[i] = reader.ReadSingle();
+        foreach (ref var value in Values.AsSpan())
+            value = reader.ReadSingle();
     }
 }
 

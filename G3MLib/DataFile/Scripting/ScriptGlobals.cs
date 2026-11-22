@@ -3,6 +3,7 @@ using G3MLib.Analyzer.Decompiler;
 using G3MLib.DataFile.Decompiler;
 using G3MLib.DataFile.Models;
 using G3MLib.DataFile.Project;
+using G3MLib.Modding.Logging;
 
 namespace G3MLib.DataFile.Scripting;
 
@@ -136,7 +137,7 @@ public class ScriptGlobals : IScriptInterface
         {
             return new DecompileContext(context ?? new GlobalDecompileContext(Data), code, settings ?? Data.ToolInfo.DecompilerSettings).DecompileToString();
         }
-        catch (Exception)
+        catch (Exception e) when (!ModdingCancellation.IsCancellation(e))
         {
             return "/* DECOMPILER FAILED */";
         }
@@ -161,7 +162,7 @@ public class ScriptGlobals : IScriptInterface
         {
             return code.Disassemble(Data.Variables, Data.CodeLocals?.For(code), Data.CodeLocals is null);
         }
-        catch (Exception)
+        catch (Exception e) when (!ModdingCancellation.IsCancellation(e))
         {
             return "/* DISASSEMBLY FAILED */";
         }

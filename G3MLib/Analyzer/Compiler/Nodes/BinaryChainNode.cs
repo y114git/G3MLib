@@ -116,10 +116,7 @@ internal sealed class BinaryChainNode : IASTNode
     /// <inheritdoc/>
     public IASTNode PostProcess(ParseContext context)
     {
-        for (var i = 0; i < Arguments.Count; i++)
-        {
-            Arguments[i] = Arguments[i].PostProcess(context);
-        }
+        Arguments.ReplaceEach(context, static (n, a) => n.PostProcess(a));
 
         // Attempt to optimize while constants are present (at the start, according to official behavior)
         while (Arguments is [IConstantASTNode left, IConstantASTNode right, ..])

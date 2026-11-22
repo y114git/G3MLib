@@ -337,12 +337,12 @@ internal sealed class FunctionDeclNode : IMaybeStatementASTNode
                      !externalArrays && func.FunctionName is VMConstants.NewArrayFunction))
                 {
                     // Hoist individual elements of array/struct, rather than entire array/struct
-                    for (var i = 0; i < func.Arguments.Count; i++)
+                    foreach (ref var argument in func.Arguments.Items())
                     {
-                        if (func.Arguments[i] is not (IConstantASTNode or FunctionDeclNode))
+                        if (argument is not (IConstantASTNode or FunctionDeclNode))
                         {
                             // Array element is not constant itself, so hoist it
-                            func.Arguments[i] = HoistStructValue(args, func.Arguments[i]);
+                            argument = HoistStructValue(args, argument);
                         }
                     }
                 }

@@ -95,10 +95,7 @@ public sealed class DataStructureAccessorNode(IExpressionNode target, DataStruct
     public IExpressionNode Clean(ASTCleaner cleaner)
     {
         Target = Target.Clean(cleaner);
-        for (var i = 0; i < Indices.Count; i++)
-        {
-            Indices[i] = Indices[i].Clean(cleaner);
-        }
+        Indices.ReplaceEach(cleaner, static (n, a) => n.Clean(a));
         return this;
     }
 

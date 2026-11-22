@@ -132,7 +132,7 @@ public static class G3MProjectService
         {
             throw new ArgumentException("Delta mode needs the resources to write in Only", nameof(options));
         }
-        return Write(data, projectDirectory, baseDataFilePath, options, false, progress, cancellationToken);
+        return Write(data, new WriteRequest(projectDirectory, baseDataFilePath, options, false), progress, cancellationToken);
     }
 
     /// <summary>
@@ -161,12 +161,14 @@ public static class G3MProjectService
         {
             throw new ArgumentException("Update needs the resources to write in Only", nameof(options));
         }
-        return Write(data, projectDirectory, baseDataFilePath, options, true, progress, cancellationToken);
+        return Write(data, new WriteRequest(projectDirectory, baseDataFilePath, options, true), progress, cancellationToken);
     }
 
-    private static G3MProjectResult Write(GameMakerData data, string projectDirectory, string? baseDataFilePath, G3MProjectOptions options,
-        bool update, IProgress<BatchProgress> progress, CancellationToken cancellationToken)
+    private sealed record WriteRequest(string ProjectDirectory, string? BaseDataFilePath, G3MProjectOptions Options, bool Update);
+
+    private static G3MProjectResult Write(GameMakerData data, WriteRequest request, IProgress<BatchProgress> progress, CancellationToken cancellationToken)
     {
+        var (projectDirectory, baseDataFilePath, options, update) = request;
         using var gate = data.Gate.BeginRead(cancellationToken: cancellationToken);
         projectDirectory = Path.GetFullPath(projectDirectory);
         var projectPath = Path.Join(projectDirectory, options.Name + FileExtension);
@@ -237,7 +239,7 @@ public static class G3MProjectService
             List<(string Target, string? Aside)> replaced = [];
             try
             {
-                for (var i = 0; i < ResourceFolders.Length; i++)
+                foreach (var i in Enumerable.Range(0, ResourceFolders.Length))
                 {
                     (var type, var folder) = ResourceFolders[i];
                     var target = Path.Join(projectDirectory, folder);

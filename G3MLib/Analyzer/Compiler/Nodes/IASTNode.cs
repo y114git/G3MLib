@@ -50,19 +50,13 @@ internal static class ASTNodeList
 {
     public static void PostProcess(ParseContext context, List<IASTNode> nodes)
     {
-        for (var i = 0; i < nodes.Count; i++)
-        {
-            nodes[i] = nodes[i].PostProcess(context);
-        }
+        nodes.ReplaceEach(context, static (n, a) => n.PostProcess(a));
     }
 
     public static List<IASTNode> Duplicate(ParseContext context, List<IASTNode> nodes)
     {
         List<IASTNode> duplicate = [.. nodes];
-        for (var i = 0; i < duplicate.Count; i++)
-        {
-            duplicate[i] = duplicate[i].Duplicate(context);
-        }
+        duplicate.ReplaceEach(context, static (n, a) => n.Duplicate(a));
         return duplicate;
     }
 }

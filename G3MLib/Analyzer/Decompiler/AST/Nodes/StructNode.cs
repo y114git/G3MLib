@@ -50,24 +50,24 @@ public class StructNode(BlockNode body, ASTFragmentContext fragmentContext) : IF
     /// </summary>
     private void PreCleanBody(ASTCleaner cleaner)
     {
-        for (var i = 0; i < Body.Children.Count; i++)
+        foreach (ref var child in Body.Children.Items())
         {
             // Replace impossible fields that use "variable_struct_set" and make them use quoted fields instead.
-            if (Body.Children[i] is FunctionCallNode
+            if (child is FunctionCallNode
                 {
                     Function.Name.Content: VMConstants.StructSetFunction,
                     Arguments.Count: 3
                 }
                 callNode)
             {
-                Body.Children[i] = new AssignNode(callNode.Arguments[1], callNode.Arguments[2]);
+                child = new AssignNode(callNode.Arguments[1], callNode.Arguments[2]);
             }
 
             // If a negative constant integer is found, rewrite it as its (likely) corresponding constant name to be more accurate, if possible.
-            if (Body.Children[i] is AssignNode { Value: IExpressionNode rhs } assign && rhs is Int16Node i16Node && i16Node.Value < 0 &&
+            if (child is AssignNode { Value: IExpressionNode rhs } assign && rhs is Int16Node i16Node && i16Node.Value < 0 &&
                 cleaner.Context.GameContext.LookupCommonNegativeConstant(i16Node.Value, out var constantName))
             {
-                Body.Children[i] = new AssignNode(assign.Variable, new MacroValueNode(constantName));
+                child = new AssignNode(assign.Variable, new MacroValueNode(constantName));
             }
         }
 

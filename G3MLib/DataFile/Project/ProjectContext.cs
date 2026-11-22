@@ -289,25 +289,7 @@ public sealed partial class ProjectContext
         // Handle options
         ProcessFlags();
 
-        if (currentData is not null)
-        {
-            // Use already-loaded assets data file, if provided
-            Data = currentData;
-            BaseFileMatchesRecord();
-            VerifyGameVersion();
-        }
-        else if (TryFindFileFromPathList(_mainOptions.AssetsDataFilePath, out var loadDataPath, out var saveDataPath))
-        {
-            // No data currently loaded - adjust load/save data file paths if a valid one is found.
-            // Note that the load/save *directories* are unchanged.
-            LoadDataPath = loadDataPath;
-            SaveDataPath = saveDataPath;
-        }
-        else if (!_mainOptions.AssetsDataFilePath.Empty)
-        {
-            // If no assets data file was found, and at least one valid path is specified, throw a useful error
-            throw new ProjectException("Failed to locate a valid assets data file path");
-        }
+        ResolveAssetsDataFile(currentData);
 
         try
         {
@@ -359,6 +341,29 @@ public sealed partial class ProjectContext
             {
                 FinishNewBackup();
             }
+        }
+    }
+
+    private void ResolveAssetsDataFile(GameMakerData? currentData)
+    {
+        if (currentData is not null)
+        {
+            // Use already-loaded assets data file, if provided
+            Data = currentData;
+            BaseFileMatchesRecord();
+            VerifyGameVersion();
+        }
+        else if (TryFindFileFromPathList(_mainOptions.AssetsDataFilePath, out var loadDataPath, out var saveDataPath))
+        {
+            // No data currently loaded - adjust load/save data file paths if a valid one is found.
+            // Note that the load/save *directories* are unchanged.
+            LoadDataPath = loadDataPath;
+            SaveDataPath = saveDataPath;
+        }
+        else if (!_mainOptions.AssetsDataFilePath.Empty)
+        {
+            // If no assets data file was found, and at least one valid path is specified, throw a useful error
+            throw new ProjectException("Failed to locate a valid assets data file path");
         }
     }
 

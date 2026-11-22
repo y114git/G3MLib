@@ -146,19 +146,7 @@ internal sealed class TryCatchNode : IASTNode
     public IASTNode PostProcess(ParseContext context)
     {
         // Early post-process finally nodes, and add to finally nodes
-        if (Finally is not null)
-        {
-            // Awaiting official Underminers resolution: nested finally control flow varies by compiler version.
-
-            // Process finally, with special flag to ensure control flow statements are not used
-            var previousProcessingFinally = context.ProcessingFinally;
-            context.ProcessingFinally = true;
-            Finally = Finally.PostProcess(context);
-            context.ProcessingFinally = previousProcessingFinally;
-
-            // Add finally block to list of nodes (so they can be duplicated later...)
-            context.CurrentScope.TryFinallyNodes.Add(Finally);
-        }
+        PostProcessFinallyBlock(context);
 
         var uniqueIndex = context.CompileContext.GameContext.CodeBuilder.GenerateTryVariableID(context.TryStatementProcessIndex++);
         var breakName = $"{VMConstants.TryBreakVariable}{uniqueIndex}";
@@ -238,6 +226,23 @@ internal sealed class TryCatchNode : IASTNode
         }
 
         return this;
+    }
+
+    private void PostProcessFinallyBlock(ParseContext context)
+    {
+        if (Finally is not null)
+        {
+            // Awaiting official Underminers resolution: nested finally control flow varies by compiler version.
+
+            // Process finally, with special flag to ensure control flow statements are not used
+            var previousProcessingFinally = context.ProcessingFinally;
+            context.ProcessingFinally = true;
+            Finally = Finally.PostProcess(context);
+            context.ProcessingFinally = previousProcessingFinally;
+
+            // Add finally block to list of nodes (so they can be duplicated later...)
+            context.CurrentScope.TryFinallyNodes.Add(Finally);
+        }
     }
 
     /// <inheritdoc/>
@@ -327,6 +332,11 @@ internal sealed class TryCatchNode : IASTNode
         }
 
         // Generate finally block
+        GenerateFinallyBlock(context);
+    }
+
+    private void GenerateFinallyBlock(BytecodeContext context)
+    {
         if (Finally is IASTNode finallyBlock)
         {
             // Generate block immediately (no function to call before exit, apparently)

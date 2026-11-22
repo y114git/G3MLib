@@ -62,7 +62,7 @@ public static class DebugDataGenerator
             else
             {
                 texts[i] = entry.Disassemble(variables, localsByName.GetValueOrDefault(entry.Name.Content), true, out var lines);
-                for (var n = 0; n < lines.Count; n++)
+                foreach (var n in Enumerable.Range(0, lines.Count))
                 {
                     if (mode == DebugDataMode.FullAssembler || IsMarked(entry.Instructions[n].Kind))
                         info.Add(new GameMakerDebugInfo.DebugInfoPair { BytecodeOffset = (uint)lines[n].InstructionOffset, SourceCodeOffset = (uint)lines[n].TextOffset });
@@ -87,7 +87,7 @@ public static class DebugDataGenerator
             return made;
         }
 
-        for (var i = 0; i < code.Count; i++)
+        foreach (var i in Enumerable.Range(0, code.Count))
         {
             if (!known.TryGetValue(texts[i], out var source))
             {

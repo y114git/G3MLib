@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Reflection;
 using G3MLib.Analyzer;
 using G3MLib.DataFile.Models;
+using G3MLib.Modding.Logging;
 
 namespace G3MLib.DataFile.References;
 
@@ -470,7 +471,7 @@ public sealed class ReferenceIndex
         {
             return property.GetValue(data);
         }
-        catch (Exception)
+        catch (Exception e) when (!ModdingCancellation.IsCancellation(e))
         {
             return null;
         }
@@ -679,7 +680,7 @@ internal sealed class ModelWalker(GameMakerData data, HashSet<object> registry)
                 {
                     value = member.Get(holder);
                 }
-                catch (Exception)
+                catch (Exception e) when (!ModdingCancellation.IsCancellation(e))
                 {
                     continue;
                 }

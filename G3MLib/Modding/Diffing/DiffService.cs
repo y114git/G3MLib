@@ -223,7 +223,7 @@ public static class DiffService
 			LogService.ProgressComplete();
 			return new ResourceDiffSummary();
 		}
-		var resourceDiffs = await CompareWinFilesAsync(file1Path, file2Path, hash1, hash2, cached1, cached2, reportMode, cacheOptions).ConfigureAwait(false);
+		var resourceDiffs = await CompareWinFilesAsync(new DiffSide(file1Path, hash1, cached1), new DiffSide(file2Path, hash2, cached2), reportMode, cacheOptions).ConfigureAwait(false);
 		_ = resourceDiffs.TotalChanged;
 		_ = resourceDiffs.TotalNew;
 		_ = resourceDiffs.TotalDeleted;
@@ -1340,8 +1340,12 @@ public static class DiffService
 		return ops;
 	}
 
-	private static async Task<ResourceDiffSummary> CompareWinFilesAsync(string file1Path, string file2Path, string file1Md5, string file2Md5, G3MDataAnalysisCache? cached1, G3MDataAnalysisCache? cached2, DiffReportMode reportMode, G3MCacheOptions? cacheOptions)
+	private readonly record struct DiffSide(string Path, string Md5, G3MDataAnalysisCache? Cached);
+
+	private static async Task<ResourceDiffSummary> CompareWinFilesAsync(DiffSide first, DiffSide second, DiffReportMode reportMode, G3MCacheOptions? cacheOptions)
 	{
+		var (file1Path, file1Md5, cached1) = first;
+		var (file2Path, file2Md5, cached2) = second;
 		var summary = new ResourceDiffSummary();
 		var tempDir = Path.Combine(TempRoot.Path, $"g3mlib_diff_{Guid.NewGuid():N}");
 		var export1Dir = Path.Combine(tempDir, "file1");

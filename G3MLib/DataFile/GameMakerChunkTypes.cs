@@ -300,7 +300,7 @@ public abstract class GameMakerAlignUpdatedListChunk<T> : GameMakerListChunk<T> 
     {
         writer.Write(List.Count);
         var baseAddr = writer.Position;
-        for (var i = 0; i < List.Count; i++)
+        foreach (var _ in List)
             writer.Write(0);
         for (var i = 0; i < List.Count; i++)
         {

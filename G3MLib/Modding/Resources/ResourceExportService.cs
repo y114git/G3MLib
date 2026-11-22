@@ -316,234 +316,38 @@ public static partial class ResourceExportService
 		{
 			return;
 		}
-		switch (resourceType.Length)
+		switch (resourceType)
 		{
-			case 11:
-				switch (resourceType[4])
-				{
-					case 'r':
-						if (resourceType == "GeneralInfo")
-						{
-							ExportGeneralInfo(data, outputDir);
-						}
-						break;
-					case 'o':
-						if (resourceType == "AudioGroups")
-						{
-							ExportAudioGroups(data, outputDir);
-						}
-						break;
-					case 'g':
-						if (resourceType == "Backgrounds")
-						{
-							ExportBackgrounds(data, outputDir);
-						}
-						break;
-					case 'O':
-						if (resourceType == "GameObjects")
-						{
-							ExportGameObjects(data, outputDir);
-						}
-						break;
-					case 'E':
-						if (resourceType == "CodeEntries")
-						{
-							ExportCodeEntries(data, outputDir);
-						}
-						break;
-				}
-				break;
-			case 7:
-				switch (resourceType[4])
-				{
-					case 'o':
-						if (resourceType == "Options")
-						{
-							ExportOptions(data, outputDir);
-						}
-						break;
-					case 'p':
-						if (resourceType == "Scripts")
-						{
-							ExportScripts(data, outputDir);
-						}
-						break;
-					case 't':
-						if (resourceType == "Sprites")
-						{
-							ExportSprites(data, outputDir);
-						}
-						break;
-					case 'e':
-						if (resourceType == "Shaders")
-						{
-							ExportShaders(data, outputDir);
-						}
-						break;
-				}
-				break;
-			case 13:
-				switch (resourceType[0])
-				{
-					case 'G':
-						if (resourceType == "GlobalScripts")
-						{
-							ExportGlobalScripts(data, outputDir);
-						}
-						break;
-					case 'F':
-						if (resourceType == "FilterEffects")
-						{
-							ExportFilterEffects(data, outputDir);
-						}
-						break;
-					case 'E':
-						if (resourceType == "EmbeddedAudio")
-						{
-							ExportEmbeddedAudio(data, outputDir);
-						}
-						break;
-				}
-				break;
-			case 8:
-				switch (resourceType[0])
-				{
-					case 'L':
-						if (resourceType == "Language")
-						{
-							ExportLanguage(data, outputDir);
-						}
-						break;
-					case 'T':
-						if (resourceType == "Tilesets")
-						{
-							ExportTilesets(data, outputDir);
-						}
-						break;
-				}
-				break;
-			case 16:
-				switch (resourceType[7])
-				{
-					case 'G':
-						if (resourceType == "TextureGroupInfo")
-						{
-							ExportTextureGroupInfo(data, outputDir);
-						}
-						break;
-					case 'd':
-						if (resourceType == "EmbeddedTextures")
-						{
-							ExportEmbeddedTextures(data, outputDir);
-						}
-						break;
-					case 'P':
-						if (resourceType == "TexturePageItems")
-						{
-							ExportTexturePageItems(data, outputDir);
-						}
-						break;
-				}
-				break;
-			case 5:
-				switch (resourceType[0])
-				{
-					case 'F':
-						if (resourceType == "Fonts")
-						{
-							ExportFonts(data, outputDir);
-						}
-						break;
-					case 'P':
-						if (resourceType == "Paths")
-						{
-							ExportPaths(data, outputDir);
-						}
-						break;
-					case 'R':
-						if (resourceType == "Rooms")
-						{
-							ExportRooms(data, outputDir);
-						}
-						break;
-				}
-				break;
-			case 9:
-				switch (resourceType[0])
-				{
-					case 'T':
-						if (resourceType == "Timelines")
-						{
-							ExportTimelines(data, outputDir);
-						}
-						break;
-					case 'S':
-						if (resourceType == "Sequences")
-						{
-							ExportSequences(data, outputDir);
-						}
-						break;
-				}
-				break;
-			case 15:
-				switch (resourceType[0])
-				{
-					case 'P':
-						if (resourceType == "ParticleSystems")
-						{
-							ExportParticleSystems(data, outputDir);
-						}
-						break;
-					case 'A':
-						if (resourceType == "AnimationCurves")
-						{
-							ExportAnimationCurves(data, outputDir);
-						}
-						break;
-				}
-				break;
-			case 12:
-				if (resourceType == "FeatureFlags")
-				{
-					ExportFeatureFlags(data, outputDir);
-				}
-				break;
-			case 4:
-				if (resourceType == "Tags")
-				{
-					ExportTags(data, outputDir);
-				}
-				break;
-			case 14:
-				if (resourceType == "EmbeddedImages")
-				{
-					ExportEmbeddedImages(data, outputDir);
-				}
-				break;
-			case 6:
-				if (resourceType == "Sounds")
-				{
-					ExportSounds(data, outputDir, dataFilePath);
-				}
-				break;
-			case 22:
-				if (resourceType == "ParticleSystemEmitters")
-				{
-					ExportParticleSystemEmitters(data, outputDir);
-				}
-				break;
-			case 10:
-				if (resourceType == "Extensions")
-				{
-					ExportExtensions(data, outputDir);
-				}
-				break;
-			case 17:
-			case 18:
-			case 19:
-			case 20:
-			case 21:
-				break;
+			case "GeneralInfo": ExportGeneralInfo(data, outputDir); break;
+			case "AudioGroups": ExportAudioGroups(data, outputDir); break;
+			case "Backgrounds": ExportBackgrounds(data, outputDir); break;
+			case "GameObjects": ExportGameObjects(data, outputDir); break;
+			case "CodeEntries": ExportCodeEntries(data, outputDir); break;
+			case "Options": ExportOptions(data, outputDir); break;
+			case "Scripts": ExportScripts(data, outputDir); break;
+			case "Sprites": ExportSprites(data, outputDir); break;
+			case "Shaders": ExportShaders(data, outputDir); break;
+			case "GlobalScripts": ExportGlobalScripts(data, outputDir); break;
+			case "FilterEffects": ExportFilterEffects(data, outputDir); break;
+			case "EmbeddedAudio": ExportEmbeddedAudio(data, outputDir); break;
+			case "Language": ExportLanguage(data, outputDir); break;
+			case "Tilesets": ExportTilesets(data, outputDir); break;
+			case "TextureGroupInfo": ExportTextureGroupInfo(data, outputDir); break;
+			case "EmbeddedTextures": ExportEmbeddedTextures(data, outputDir); break;
+			case "TexturePageItems": ExportTexturePageItems(data, outputDir); break;
+			case "Fonts": ExportFonts(data, outputDir); break;
+			case "Paths": ExportPaths(data, outputDir); break;
+			case "Rooms": ExportRooms(data, outputDir); break;
+			case "Timelines": ExportTimelines(data, outputDir); break;
+			case "Sequences": ExportSequences(data, outputDir); break;
+			case "ParticleSystems": ExportParticleSystems(data, outputDir); break;
+			case "AnimationCurves": ExportAnimationCurves(data, outputDir); break;
+			case "FeatureFlags": ExportFeatureFlags(data, outputDir); break;
+			case "Tags": ExportTags(data, outputDir); break;
+			case "EmbeddedImages": ExportEmbeddedImages(data, outputDir); break;
+			case "Sounds": ExportSounds(data, outputDir, dataFilePath); break;
+			case "ParticleSystemEmitters": ExportParticleSystemEmitters(data, outputDir); break;
+			case "Extensions": ExportExtensions(data, outputDir); break;
 		}
 	}
 
@@ -2458,93 +2262,10 @@ public static partial class ResourceExportService
 		w.WriteNumber("gridWidth", (float)room.GridWidth);
 		w.WriteNumber("gridHeight", (float)room.GridHeight);
 		w.WriteNumber("gridThicknessPx", (float)room.GridThicknessPx);
-		w.WriteStartArray("backgrounds");
-		foreach (var bg in room.Backgrounds)
-		{
-			w.WriteStartObject();
-			w.WriteBoolean("enabled", bg.Enabled);
-			w.WriteBoolean("foreground", bg.Foreground);
-			w.WriteString("backgroundDefinition", bg.BackgroundDefinition?.Name?.Content ?? "");
-			w.WriteNumber("x", bg.X);
-			w.WriteNumber("y", bg.Y);
-			w.WriteBoolean("tiledHorizontally", bg.TiledHorizontally);
-			w.WriteBoolean("tiledVertically", bg.TiledVertically);
-			w.WriteNumber("speedX", bg.SpeedX);
-			w.WriteNumber("speedY", bg.SpeedY);
-			w.WriteBoolean("stretch", bg.Stretch);
-			w.WriteEndObject();
-		}
-		w.WriteEndArray();
-		w.WriteStartArray("views");
-		foreach (var v in room.Views)
-		{
-			w.WriteStartObject();
-			w.WriteBoolean("enabled", v.Enabled);
-			w.WriteNumber("viewX", v.ViewX);
-			w.WriteNumber("viewY", v.ViewY);
-			w.WriteNumber("viewWidth", v.ViewWidth);
-			w.WriteNumber("viewHeight", v.ViewHeight);
-			w.WriteNumber("portX", v.PortX);
-			w.WriteNumber("portY", v.PortY);
-			w.WriteNumber("portWidth", v.PortWidth);
-			w.WriteNumber("portHeight", v.PortHeight);
-			w.WriteNumber("borderX", v.BorderX);
-			w.WriteNumber("borderY", v.BorderY);
-			w.WriteNumber("speedX", v.SpeedX);
-			w.WriteNumber("speedY", v.SpeedY);
-			w.WriteString("objectId", v.ObjectId?.Name?.Content ?? "");
-			w.WriteEndObject();
-		}
-		w.WriteEndArray();
-		w.WriteStartArray("gameObjects");
-		foreach (var o in room.GameObjects)
-		{
-			w.WriteStartObject();
-			w.WriteNumber("x", o.X);
-			w.WriteNumber("y", o.Y);
-			w.WriteString("objectDefinition", o.ObjectDefinition?.Name?.Content ?? "");
-			w.WriteNumber("instanceID", o.InstanceID);
-			w.WriteString("creationCode", o.CreationCode?.Name?.Content ?? "");
-			w.WriteNumber("scaleX", o.ScaleX);
-			w.WriteNumber("scaleY", o.ScaleY);
-			w.WriteNumber("color", o.Color);
-			w.WriteNumber("rotation", o.Rotation);
-			w.WriteString("preCreateCode", o.PreCreateCode?.Name?.Content ?? "");
-			if (data.IsVersionAtLeast(2u, 2u, 2u, 302u))
-			{
-				w.WriteNumber("imageSpeed", o.ImageSpeed);
-				w.WriteNumber("imageIndex", o.ImageIndex);
-			}
-			w.WriteEndObject();
-		}
-		w.WriteEndArray();
-		w.WriteStartArray("tiles");
-		foreach (var t in room.Tiles)
-		{
-			w.WriteStartObject();
-			w.WriteNumber("x", t.X);
-			w.WriteNumber("y", t.Y);
-			w.WriteBoolean("spriteMode", t.spriteMode);
-			if (t.spriteMode)
-			{
-				w.WriteString("spriteDefinition", t.SpriteDefinition?.Name?.Content ?? "");
-			}
-			else
-			{
-				w.WriteString("backgroundDefinition", t.BackgroundDefinition?.Name?.Content ?? "");
-			}
-			w.WriteNumber("sourceX", t.SourceX);
-			w.WriteNumber("sourceY", t.SourceY);
-			w.WriteNumber("width", t.Width);
-			w.WriteNumber("height", t.Height);
-			w.WriteNumber("tileDepth", t.TileDepth);
-			w.WriteNumber("instanceID", t.InstanceID);
-			w.WriteNumber("scaleX", t.ScaleX);
-			w.WriteNumber("scaleY", t.ScaleY);
-			w.WriteNumber("color", t.Color);
-			w.WriteEndObject();
-		}
-		w.WriteEndArray();
+		WriteRoomBackgrounds(w, room);
+		WriteRoomViews(w, room);
+		WriteRoomGameObjects(data, w, room);
+		WriteRoomTiles(w, room);
 		if (data.IsGameMaker2())
 		{
 			var layers = room.Layers;
@@ -2587,6 +2308,109 @@ public static partial class ResourceExportService
 		w.WriteEndObject();
 	}
 
+	private static void WriteRoomBackgrounds(Utf8JsonWriter w, GameMakerRoom room)
+	{
+		w.WriteStartArray("backgrounds");
+		foreach (var bg in room.Backgrounds)
+		{
+			w.WriteStartObject();
+			w.WriteBoolean("enabled", bg.Enabled);
+			w.WriteBoolean("foreground", bg.Foreground);
+			w.WriteString("backgroundDefinition", bg.BackgroundDefinition?.Name?.Content ?? "");
+			w.WriteNumber("x", bg.X);
+			w.WriteNumber("y", bg.Y);
+			w.WriteBoolean("tiledHorizontally", bg.TiledHorizontally);
+			w.WriteBoolean("tiledVertically", bg.TiledVertically);
+			w.WriteNumber("speedX", bg.SpeedX);
+			w.WriteNumber("speedY", bg.SpeedY);
+			w.WriteBoolean("stretch", bg.Stretch);
+			w.WriteEndObject();
+		}
+		w.WriteEndArray();
+	}
+
+	private static void WriteRoomViews(Utf8JsonWriter w, GameMakerRoom room)
+	{
+		w.WriteStartArray("views");
+		foreach (var v in room.Views)
+		{
+			w.WriteStartObject();
+			w.WriteBoolean("enabled", v.Enabled);
+			w.WriteNumber("viewX", v.ViewX);
+			w.WriteNumber("viewY", v.ViewY);
+			w.WriteNumber("viewWidth", v.ViewWidth);
+			w.WriteNumber("viewHeight", v.ViewHeight);
+			w.WriteNumber("portX", v.PortX);
+			w.WriteNumber("portY", v.PortY);
+			w.WriteNumber("portWidth", v.PortWidth);
+			w.WriteNumber("portHeight", v.PortHeight);
+			w.WriteNumber("borderX", v.BorderX);
+			w.WriteNumber("borderY", v.BorderY);
+			w.WriteNumber("speedX", v.SpeedX);
+			w.WriteNumber("speedY", v.SpeedY);
+			w.WriteString("objectId", v.ObjectId?.Name?.Content ?? "");
+			w.WriteEndObject();
+		}
+		w.WriteEndArray();
+	}
+
+	private static void WriteRoomGameObjects(GameMakerData data, Utf8JsonWriter w, GameMakerRoom room)
+	{
+		w.WriteStartArray("gameObjects");
+		foreach (var o in room.GameObjects)
+		{
+			w.WriteStartObject();
+			w.WriteNumber("x", o.X);
+			w.WriteNumber("y", o.Y);
+			w.WriteString("objectDefinition", o.ObjectDefinition?.Name?.Content ?? "");
+			w.WriteNumber("instanceID", o.InstanceID);
+			w.WriteString("creationCode", o.CreationCode?.Name?.Content ?? "");
+			w.WriteNumber("scaleX", o.ScaleX);
+			w.WriteNumber("scaleY", o.ScaleY);
+			w.WriteNumber("color", o.Color);
+			w.WriteNumber("rotation", o.Rotation);
+			w.WriteString("preCreateCode", o.PreCreateCode?.Name?.Content ?? "");
+			if (data.IsVersionAtLeast(2u, 2u, 2u, 302u))
+			{
+				w.WriteNumber("imageSpeed", o.ImageSpeed);
+				w.WriteNumber("imageIndex", o.ImageIndex);
+			}
+			w.WriteEndObject();
+		}
+		w.WriteEndArray();
+	}
+
+	private static void WriteRoomTiles(Utf8JsonWriter w, GameMakerRoom room)
+	{
+		w.WriteStartArray("tiles");
+		foreach (var t in room.Tiles)
+		{
+			w.WriteStartObject();
+			w.WriteNumber("x", t.X);
+			w.WriteNumber("y", t.Y);
+			w.WriteBoolean("spriteMode", t.spriteMode);
+			if (t.spriteMode)
+			{
+				w.WriteString("spriteDefinition", t.SpriteDefinition?.Name?.Content ?? "");
+			}
+			else
+			{
+				w.WriteString("backgroundDefinition", t.BackgroundDefinition?.Name?.Content ?? "");
+			}
+			w.WriteNumber("sourceX", t.SourceX);
+			w.WriteNumber("sourceY", t.SourceY);
+			w.WriteNumber("width", t.Width);
+			w.WriteNumber("height", t.Height);
+			w.WriteNumber("tileDepth", t.TileDepth);
+			w.WriteNumber("instanceID", t.InstanceID);
+			w.WriteNumber("scaleX", t.ScaleX);
+			w.WriteNumber("scaleY", t.ScaleY);
+			w.WriteNumber("color", t.Color);
+			w.WriteEndObject();
+		}
+		w.WriteEndArray();
+	}
+
 	private static void WriteRoomLayer(GameMakerData data, Utf8JsonWriter w, GameMakerRoom.Layer layer)
 	{
 		w.WriteStartObject();
@@ -2618,103 +2442,118 @@ public static partial class ResourceExportService
 		}
 		else if (layer.LayerType == GameMakerRoom.LayerType.Tiles && layer.TilesData != null)
 		{
-			w.WriteString("tilesBackground", layer.TilesData.Background?.Name?.Content ?? "");
-			w.WriteNumber("tilesX", layer.TilesData.TilesX);
-			w.WriteNumber("tilesY", layer.TilesData.TilesY);
-			w.WriteStartArray("tileData");
-			if (layer.TilesData.TileData != null)
-			{
-				var tileData = layer.TilesData.TileData;
-				foreach (var row in tileData)
-				{
-					w.WriteStartArray();
-					if (row != null)
-					{
-						var array = row;
-						foreach (var val in array)
-						{
-							w.WriteNumberValue(val);
-						}
-					}
-					w.WriteEndArray();
-				}
-			}
-			w.WriteEndArray();
+			WriteLayerTilesData(w, layer);
 		}
 		else if (layer.LayerType == GameMakerRoom.LayerType.Background && layer.BackgroundData != null)
 		{
-			var bd = layer.BackgroundData;
-			w.WriteStartObject("backgroundData");
-			w.WriteBoolean("visible", bd.Visible);
-			w.WriteBoolean("foreground", bd.Foreground);
-			w.WriteString("sprite", bd.Sprite?.Name?.Content ?? "");
-			w.WriteBoolean("tiledHorizontally", bd.TiledHorizontally);
-			w.WriteBoolean("tiledVertically", bd.TiledVertically);
-			w.WriteBoolean("stretch", bd.Stretch);
-			w.WriteNumber("color", bd.Color);
-			w.WriteNumber("firstFrame", bd.FirstFrame);
-			w.WriteNumber("animationSpeed", bd.AnimationSpeed);
-			w.WriteNumber("animationSpeedType", (int)bd.AnimationSpeedType);
-			w.WriteEndObject();
+			WriteLayerBackgroundData(w, layer);
 		}
 		else if (layer.LayerType == GameMakerRoom.LayerType.Assets && layer.AssetsData != null)
 		{
-			var ad = layer.AssetsData;
-			w.WriteStartObject("assetsData");
-			w.WriteStartArray("legacyTiles");
-			if (ad.LegacyTiles != null)
-			{
-				foreach (var t in ad.LegacyTiles)
-				{
-					w.WriteStartObject();
-					w.WriteNumber("x", t.X);
-					w.WriteNumber("y", t.Y);
-					w.WriteNumber("sourceX", t.SourceX);
-					w.WriteNumber("sourceY", t.SourceY);
-					w.WriteNumber("width", t.Width);
-					w.WriteNumber("height", t.Height);
-					w.WriteNumber("tileDepth", t.TileDepth);
-					w.WriteNumber("instanceID", t.InstanceID);
-					w.WriteNumber("scaleX", t.ScaleX);
-					w.WriteNumber("scaleY", t.ScaleY);
-					w.WriteNumber("color", t.Color);
-					w.WriteBoolean("spriteMode", t.spriteMode);
-					if (t.spriteMode)
-					{
-						w.WriteString("spriteDefinition", t.SpriteDefinition?.Name?.Content ?? "");
-					}
-					else
-					{
-						w.WriteString("backgroundDefinition", t.BackgroundDefinition?.Name?.Content ?? "");
-					}
-					w.WriteString("background", t.BackgroundDefinition?.Name?.Content ?? "");
-					w.WriteEndObject();
-				}
-			}
-			w.WriteEndArray();
-			w.WriteStartArray("sprites");
-			if (ad.Sprites != null)
-			{
-				foreach (var spr in ad.Sprites)
-				{
-					w.WriteStartObject();
-					w.WriteString("name", spr.Name?.Content ?? "");
-					w.WriteString("sprite", spr.Sprite?.Name?.Content ?? "");
-					w.WriteNumber("x", spr.X);
-					w.WriteNumber("y", spr.Y);
-					w.WriteNumber("scaleX", spr.ScaleX);
-					w.WriteNumber("scaleY", spr.ScaleY);
-					w.WriteNumber("color", spr.Color);
-					w.WriteNumber("animationSpeed", spr.AnimationSpeed);
-					w.WriteNumber("animationSpeedType", (int)spr.AnimationSpeedType);
-					w.WriteNumber("frameIndex", spr.FrameIndex);
-					w.WriteNumber("rotation", spr.Rotation);
-					w.WriteEndObject();
-				}
-			}
-			w.WriteEndArray();
-			w.WriteEndObject();
+			WriteLayerAssetsData(w, layer);
 		}
+		w.WriteEndObject();
+	}
+
+	private static void WriteLayerTilesData(Utf8JsonWriter w, GameMakerRoom.Layer layer)
+	{
+		w.WriteString("tilesBackground", layer.TilesData.Background?.Name?.Content ?? "");
+		w.WriteNumber("tilesX", layer.TilesData.TilesX);
+		w.WriteNumber("tilesY", layer.TilesData.TilesY);
+		w.WriteStartArray("tileData");
+		if (layer.TilesData.TileData != null)
+		{
+			var tileData = layer.TilesData.TileData;
+			foreach (var row in tileData)
+			{
+				w.WriteStartArray();
+				if (row != null)
+				{
+					var array = row;
+					foreach (var val in array)
+					{
+						w.WriteNumberValue(val);
+					}
+				}
+				w.WriteEndArray();
+			}
+		}
+		w.WriteEndArray();
+	}
+
+	private static void WriteLayerBackgroundData(Utf8JsonWriter w, GameMakerRoom.Layer layer)
+	{
+		var bd = layer.BackgroundData;
+		w.WriteStartObject("backgroundData");
+		w.WriteBoolean("visible", bd.Visible);
+		w.WriteBoolean("foreground", bd.Foreground);
+		w.WriteString("sprite", bd.Sprite?.Name?.Content ?? "");
+		w.WriteBoolean("tiledHorizontally", bd.TiledHorizontally);
+		w.WriteBoolean("tiledVertically", bd.TiledVertically);
+		w.WriteBoolean("stretch", bd.Stretch);
+		w.WriteNumber("color", bd.Color);
+		w.WriteNumber("firstFrame", bd.FirstFrame);
+		w.WriteNumber("animationSpeed", bd.AnimationSpeed);
+		w.WriteNumber("animationSpeedType", (int)bd.AnimationSpeedType);
+		w.WriteEndObject();
+	}
+
+	private static void WriteLayerAssetsData(Utf8JsonWriter w, GameMakerRoom.Layer layer)
+	{
+		var ad = layer.AssetsData;
+		w.WriteStartObject("assetsData");
+		w.WriteStartArray("legacyTiles");
+		if (ad.LegacyTiles != null)
+		{
+			foreach (var t in ad.LegacyTiles)
+			{
+				w.WriteStartObject();
+				w.WriteNumber("x", t.X);
+				w.WriteNumber("y", t.Y);
+				w.WriteNumber("sourceX", t.SourceX);
+				w.WriteNumber("sourceY", t.SourceY);
+				w.WriteNumber("width", t.Width);
+				w.WriteNumber("height", t.Height);
+				w.WriteNumber("tileDepth", t.TileDepth);
+				w.WriteNumber("instanceID", t.InstanceID);
+				w.WriteNumber("scaleX", t.ScaleX);
+				w.WriteNumber("scaleY", t.ScaleY);
+				w.WriteNumber("color", t.Color);
+				w.WriteBoolean("spriteMode", t.spriteMode);
+				if (t.spriteMode)
+				{
+					w.WriteString("spriteDefinition", t.SpriteDefinition?.Name?.Content ?? "");
+				}
+				else
+				{
+					w.WriteString("backgroundDefinition", t.BackgroundDefinition?.Name?.Content ?? "");
+				}
+				w.WriteString("background", t.BackgroundDefinition?.Name?.Content ?? "");
+				w.WriteEndObject();
+			}
+		}
+		w.WriteEndArray();
+		w.WriteStartArray("sprites");
+		if (ad.Sprites != null)
+		{
+			foreach (var spr in ad.Sprites)
+			{
+				w.WriteStartObject();
+				w.WriteString("name", spr.Name?.Content ?? "");
+				w.WriteString("sprite", spr.Sprite?.Name?.Content ?? "");
+				w.WriteNumber("x", spr.X);
+				w.WriteNumber("y", spr.Y);
+				w.WriteNumber("scaleX", spr.ScaleX);
+				w.WriteNumber("scaleY", spr.ScaleY);
+				w.WriteNumber("color", spr.Color);
+				w.WriteNumber("animationSpeed", spr.AnimationSpeed);
+				w.WriteNumber("animationSpeedType", (int)spr.AnimationSpeedType);
+				w.WriteNumber("frameIndex", spr.FrameIndex);
+				w.WriteNumber("rotation", spr.Rotation);
+				w.WriteEndObject();
+			}
+		}
+		w.WriteEndArray();
 		w.WriteEndObject();
 	}
 
@@ -3102,7 +2941,7 @@ public static partial class ResourceExportService
 			{
 				var key2 = sprite.Name?.Content ?? data.Sprites.IndexOf(sprite).ToString(CultureInfo.InvariantCulture);
 				var indices = new int[sprite.Textures.Count];
-				for (var i = 0; i < sprite.Textures.Count; i++)
+				foreach (var i in Enumerable.Range(0, sprite.Textures.Count))
 				{
 					var tpi2 = sprite.Textures[i]?.Texture;
 					indices[i] = (tpi2 != null && texturePageItemIndices.TryGetValue(tpi2, out var tpiIndex)) ? tpiIndex : (-1);

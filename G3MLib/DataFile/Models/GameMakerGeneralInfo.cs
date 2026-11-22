@@ -605,6 +605,15 @@ public class GameMakerGeneralInfo : GameMakerObject, IDisposable
         if (BytecodeVersion >= 14)
             DebuggerPort = reader.ReadUInt32();
         RoomOrder = reader.ReadGameMakerObject<GameMakerSimpleResourcesList<GameMakerRoom, GameMakerChunkROOM>>();
+        UnserializeGMS2Fields(reader);
+        reader.gameMakerData.UnsupportedBytecodeVersion = BytecodeVersion is < 13 or > 17;
+        reader.Bytecode14OrLower = BytecodeVersion <= 14;
+        if (reader.gameMakerData.UnsupportedBytecodeVersion)
+            reader.SubmitWarning($"Unsupported bytecode version {BytecodeVersion}, the instructions of every code entry are kept as raw data", false, true);
+    }
+
+    private void UnserializeGMS2Fields(GameMakerReader reader)
+    {
         if (Major >= 2)
         {
             // Begin parsing random UID, and verify it based on original algorithm
@@ -645,10 +654,6 @@ public class GameMakerGeneralInfo : GameMakerObject, IDisposable
             GMS2AllowStatistics = reader.ReadBoolean();
             GMS2GameGUID = reader.ReadBytes(16);
         }
-        reader.gameMakerData.UnsupportedBytecodeVersion = BytecodeVersion is < 13 or > 17;
-        reader.Bytecode14OrLower = BytecodeVersion <= 14;
-        if (reader.gameMakerData.UnsupportedBytecodeVersion)
-            reader.SubmitWarning($"Unsupported bytecode version {BytecodeVersion}, the instructions of every code entry are kept as raw data", false, true);
     }
 
     /// <inheritdoc cref="GameMakerObject.UnserializeChildObjectCount(GameMakerReader)"/>

@@ -57,10 +57,7 @@ public class NewObjectNode(IExpressionNode function, List<IExpressionNode> argum
     private void CleanFunctionAndArgs(ASTCleaner cleaner)
     {
         Function = Function.Clean(cleaner);
-        for (var i = 0; i < Arguments.Count; i++)
-        {
-            Arguments[i] = Arguments[i].Clean(cleaner);
-        }
+        Arguments.ReplaceEach(cleaner, static (n, a) => n.Clean(a));
 
         // If function is a singular variable node with "self", that implies a compiler quirk when "self." is directly used.
         if (Function is VariableNode { Left: InstanceTypeNode { InstanceType: IGMInstruction.InstanceType.Self } } variable)

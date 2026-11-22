@@ -55,13 +55,17 @@ foreach (var script in Directory.EnumerateFiles(scriptsCopy, "*.csx", SearchOpti
     CompatGlobals globals = new(data, dataPath, script) { ExePath = work, ScriptRootPath = work, CanSave = true };
     Directory.SetCurrentDirectory(runDirectory);
     var run = Task.Run(() => ScriptRunner.RunAsync(script, globals));
-    if (!run.Wait(timeout))
+    ScriptRunResult result;
+    try
+    {
+        result = await run.WaitAsync(timeout);
+    }
+    catch (TimeoutException)
     {
         row.Reason = "run: no result after " + timeout.TotalSeconds + " s";
         continue;
     }
 
-    var result = run.Result;
     if (globals.DialogCalled is not null)
     {
         row.Runs = "needs dialog";

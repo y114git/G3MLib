@@ -60,6 +60,10 @@ public static class ScriptRunner
     /// A host must not save, import or start another script from such a callback while a script runs.
     /// </remarks>
     public static Task<ScriptRunResult> RunAsync(string scriptPath, ScriptGlobals globals, CancellationToken cancellationToken = default, TimeSpan? timeout = null)
+        => Task.FromResult(Run(scriptPath, globals, cancellationToken, timeout));
+
+    /// <summary>The synchronous core of <see cref="RunAsync"/>: the script runs on the calling thread (or on the host's main thread) and the result is ready when this returns.</summary>
+    internal static ScriptRunResult Run(string scriptPath, ScriptGlobals globals, CancellationToken cancellationToken = default, TimeSpan? timeout = null)
     {
         ArgumentNullException.ThrowIfNull(globals);
         TimeSpan? limit = timeout == Timeout.InfiniteTimeSpan ? null : timeout;
@@ -95,6 +99,7 @@ public static class ScriptRunner
                 gate?.Bind();
                 try
                 {
+                    // Roslyn has no synchronous run and MainThreadAction takes a synchronous Action: the script must end before the gate is released
                     script.RunAsync(globals, token).GetAwaiter().GetResult();
                 }
                 finally
@@ -102,17 +107,17 @@ public static class ScriptRunner
                     gate?.Unbind();
                 }
             });
-            return Task.FromResult(new ScriptRunResult(true));
+            return new ScriptRunResult(true);
         }
         catch (CompilationErrorException e)
         {
             globals.SetScriptError(e);
-            return Task.FromResult(new ScriptRunResult(false, "Compilation error:" + Environment.NewLine + string.Join(Environment.NewLine, e.Diagnostics)));
+            return new ScriptRunResult(false, "Compilation error:" + Environment.NewLine + string.Join(Environment.NewLine, e.Diagnostics));
         }
         catch (Exception e) when (token.IsCancellationRequested && ModdingCancellation.IsCancellation(e))
         {
             var timedOut = timeoutSource.IsCancellationRequested && !cancellationToken.IsCancellationRequested;
-            return Task.FromResult(new ScriptRunResult(false, timedOut ? $"Script timed out after {timeout}." : "Script was cancelled.") { Cancelled = true });
+            return new ScriptRunResult(false, timedOut ? $"Script timed out after {timeout}." : "Script was cancelled.") { Cancelled = true };
         }
         catch (Exception e)
         {
@@ -121,7 +126,7 @@ public static class ScriptRunner
                 globals.SetScriptError(e);
             }
             var inner = e is AggregateException { InnerExceptions: [Exception single] } ? single : e;
-            return Task.FromResult(new ScriptRunResult(false, inner is ScriptException ? inner.Message : "Script execution failed: " + ScriptingUtil.PrettifyException(in inner)));
+            return new ScriptRunResult(false, inner is ScriptException ? inner.Message : "Script execution failed: " + ScriptingUtil.PrettifyException(in inner));
         }
         finally
         {
@@ -147,7 +152,7 @@ public static class ScriptRunner
             throw new ScriptException("Script was not found: " + fullPath);
         }
 
-        var result = RunAsync(fullPath, globals).GetAwaiter().GetResult();
+        var result = Run(fullPath, globals);
         if (result.Cancelled)
         {
             // A ScriptException would make the outer run report a failure instead of a cancellation

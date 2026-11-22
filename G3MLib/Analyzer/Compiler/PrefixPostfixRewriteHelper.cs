@@ -43,17 +43,11 @@ internal static class PrefixPostfixRewriteHelper
 
                 return postfix.Expression;
             case SimpleFunctionCallNode funcCall:
-                for (var i = 0; i < funcCall.Arguments.Count; i++)
-                {
-                    funcCall.Arguments[i] = RemoveSideEffects(context, funcCall.Arguments[i], sideEffectOutput);
-                }
+                funcCall.Arguments.ReplaceEach((context, sideEffectOutput), static (node, state) => RemoveSideEffects(state.context, node, state.sideEffectOutput));
                 return funcCall;
             case FunctionCallNode funcCall:
                 funcCall.Expression = RemoveSideEffects(context, funcCall.Expression, sideEffectOutput);
-                for (var i = 0; i < funcCall.Arguments.Count; i++)
-                {
-                    funcCall.Arguments[i] = RemoveSideEffects(context, funcCall.Arguments[i], sideEffectOutput);
-                }
+                funcCall.Arguments.ReplaceEach((context, sideEffectOutput), static (node, state) => RemoveSideEffects(state.context, node, state.sideEffectOutput));
                 return funcCall;
             case DotVariableNode dotVariable:
                 dotVariable.LeftExpression = RemoveSideEffects(context, dotVariable.LeftExpression, sideEffectOutput);
@@ -69,10 +63,7 @@ internal static class PrefixPostfixRewriteHelper
                 unary.Expression = RemoveSideEffects(context, unary.Expression, sideEffectOutput);
                 return unary;
             case BinaryChainNode binary:
-                for (var i = 0; i < binary.Arguments.Count; i++)
-                {
-                    binary.Arguments[i] = RemoveSideEffects(context, binary.Arguments[i], sideEffectOutput);
-                }
+                binary.Arguments.ReplaceEach((context, sideEffectOutput), static (node, state) => RemoveSideEffects(state.context, node, state.sideEffectOutput));
                 return binary;
             case ConditionalNode conditional:
                 conditional.Condition = RemoveSideEffects(context, conditional.Condition, sideEffectOutput);
@@ -85,10 +76,7 @@ internal static class PrefixPostfixRewriteHelper
                 return nullish;
             case NewObjectNode newObj:
                 newObj.Expression = RemoveSideEffects(context, newObj.Expression, sideEffectOutput);
-                for (var i = 0; i < newObj.Arguments.Count; i++)
-                {
-                    newObj.Arguments[i] = RemoveSideEffects(context, newObj.Arguments[i], sideEffectOutput);
-                }
+                newObj.Arguments.ReplaceEach((context, sideEffectOutput), static (node, state) => RemoveSideEffects(state.context, node, state.sideEffectOutput));
                 return newObj;
             default:
                 return node;

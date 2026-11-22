@@ -460,9 +460,9 @@ public sealed class PatchFileSystem
 	public string[] ReadAllLines(string path)
 	{
 		var lines = ReadAllText(path).Split('\n');
-		for (var i = 0; i < lines.Length; i++)
+		foreach (ref var line in lines.AsSpan())
 		{
-			lines[i] = lines[i].TrimEnd('\r');
+			line = line.TrimEnd('\r');
 		}
 		return lines;
 	}

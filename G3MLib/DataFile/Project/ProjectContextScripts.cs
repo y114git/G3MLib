@@ -38,7 +38,7 @@ public partial class ProjectContext
             try
             {
                 ScriptPath = path;
-                result = ScriptRunner.RunAsync(path, CreateScriptGlobals()).GetAwaiter().GetResult();
+                result = ScriptRunner.Run(path, CreateScriptGlobals());
             }
             finally
             {

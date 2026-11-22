@@ -394,7 +394,7 @@ public partial class PatchService
 			bool shouldAppend;
 			if (resourceType == "CodeEntries")
 			{
-				if (PrepareCodeAssetOrder(data, pfs, resourceTypes, preparation.Helpers.HelpersDir, preparation.Helpers.AssetOrderLines, preparation.Helpers.ObjectEventsBytes, preCodeReorderSw))
+				if (PrepareCodeAssetOrder(data, pfs, resourceTypes, preparation.Helpers, preCodeReorderSw))
 				{
 					appliedCount++;
 				}
@@ -533,8 +533,11 @@ public partial class PatchService
 		return (AppliedCount: appliedCount, FailedCount: failedCount);
 	}
 
-	private static bool ApplyFinalAssetOrder(bool required, GameMakerData data, PatchFileSystem pfs, IReadOnlyList<string> resourceTypes, PatchHelperSnapshot helpers, string? stagedEmbeddedTexturesDir, bool scriptOrderOnly, Stopwatch reorderStopwatch)
+	private static bool ApplyFinalAssetOrder(PatchApplyPreparation preparation, GameMakerData data, PatchFileSystem pfs, IReadOnlyList<string> resourceTypes, bool scriptOrderOnly, Stopwatch reorderStopwatch)
 	{
+		var required = preparation.NeedsFinalAssetReorder;
+		var helpers = preparation.Helpers;
+		var stagedEmbeddedTexturesDir = preparation.StagedEmbeddedTexturesDir;
 		if (!required)
 		{
 			return false;
@@ -658,8 +661,11 @@ public partial class PatchService
 		}
 	}
 
-	private static bool PrepareCodeAssetOrder(GameMakerData data, PatchFileSystem pfs, IReadOnlyList<string> resourceTypes, string helpersDir, string[]? capturedAssetOrderLines, byte[]? objectEvents, Stopwatch reorderStopwatch)
+	private static bool PrepareCodeAssetOrder(GameMakerData data, PatchFileSystem pfs, IReadOnlyList<string> resourceTypes, PatchHelperSnapshot helpers, Stopwatch reorderStopwatch)
 	{
+		var helpersDir = helpers.HelpersDir;
+		var capturedAssetOrderLines = helpers.AssetOrderLines;
+		var objectEvents = helpers.ObjectEventsBytes;
 		var assetOrderPath = Path.Combine(helpersDir, "asset_order.txt");
 		if (!pfs.FileExists(assetOrderPath))
 		{
@@ -2321,7 +2327,7 @@ public partial class PatchService
 			preparation = PreparePatchApply(data, pfs, resourceTypesToProcess, applyPlan, hasCodeEntries, scriptOrderOnly);
 			(var appliedCount, var failedCount) = ImportPatchResources(data, pfs, manifest, resourceTypesToProcess, preparation, hasCodeEntries, dataPath, outputPath, nonCodeImportSw, codeImportSw, phaseSw, preCodeReorderSw, postSpriteReorderSw, logDetailedCodeImport, progress);
 			finalizeSw.Start();
-			appliedCount += ApplyFinalAssetOrder(preparation.NeedsFinalAssetReorder, data, pfs, resourceTypesToProcess, preparation.Helpers, preparation.StagedEmbeddedTexturesDir, scriptOrderOnly, finalReorderSw) ? 1 : 0;
+			appliedCount += ApplyFinalAssetOrder(preparation, data, pfs, resourceTypesToProcess, scriptOrderOnly, finalReorderSw) ? 1 : 0;
 			if (preparation.VariablesFunctionsContent != null && preparation.OriginalGmlForCodeRemap.Count > 0)
 			{
 				preparation.GmlCompilationRan |= RecompileUntouchedCodeForAssetOrderShifts(data, preparation.AssetNamesAtCodeImportStart, preparation.OriginalGmlForCodeRemap, preparation.PatchCodeEntryNames, preparation.Helpers.HelpersDir, preparation.VariablesFunctionsContent);
@@ -4524,7 +4530,7 @@ public partial class PatchService
 			{
 				continue;
 			}
-			for (var index = 0; index < slots.Count; index++)
+			foreach (var index in Enumerable.Range(0, slots.Count))
 			{
 				if (data.Functions[slots[index]] != expected[index])
 				{
@@ -7593,7 +7599,7 @@ public partial class PatchService
 			{
 				return false;
 			}
-			for (var i = 0; i < targetNames.Count; i++)
+			foreach (var i in Enumerable.Range(0, targetNames.Count))
 			{
 				if (!string.Equals(currentNames[i], targetNames[i], StringComparison.Ordinal))
 				{

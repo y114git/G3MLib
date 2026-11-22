@@ -194,7 +194,7 @@ public static partial class ResourceImportService
 		var created = 0;
 		var updated = 0;
 		var imported = 0;
-		for (var i2 = 0; i2 < importDataList.Count; i2++)
+		foreach (var i2 in Enumerable.Range(0, importDataList.Count))
 		{
 			var (targetIndex2, name, root2, isNew2, _) = importDataList[i2];
 			if (isNew2)
@@ -713,177 +713,148 @@ public static partial class ResourceImportService
 				var text2 = currentType;
 				if (text2 != null)
 				{
-					switch (text2.Length)
+					switch (text2)
 					{
-						case 7:
-							switch (text2[1])
+						case "sprites":
 							{
-								case 'p':
-									if (text2 == "sprites")
+								Reorganize(data.Sprites, currentList, "Sprites");
+								totalReorganized++;
+								break;
+							}
+						case "scripts":
+							{
+								var createdScripts = 0;
+								foreach (var sn in currentList)
+								{
+									if (data.Scripts.ByName(sn) == null)
 									{
-										Reorganize(data.Sprites, currentList, "Sprites");
-										totalReorganized++;
+										var script = new GameMakerScript
+										{
+											Name = data.Strings.MakeString(sn),
+											Code = PatchService.ScriptCodeResolver.Resolve(data, sn)
+										};
+										data.Scripts.Add(script);
+										createdScripts++;
 									}
-									break;
-								case 'c':
-									if (text2 == "scripts")
+								}
+								if (createdScripts > 0)
+								{
+									Log($"[ImportAssetOrder] Scripts: Created {createdScripts} new script entries");
+								}
+								Reorganize(data.Scripts, currentList, "Scripts");
+								totalReorganized++;
+								while (data.Scripts.Count > currentList.Count)
+								{
+									data.Scripts.RemoveAt(data.Scripts.Count - 1);
+								}
+								break;
+							}
+						case "objects":
+							{
+								List<(GameMakerGameObject, int, string)> collisionInfo = [];
+								foreach (var objNode2 in data.GameObjects)
+								{
+									if (objNode2 != null)
 									{
-										var createdScripts = 0;
-										foreach (var sn in currentList)
+										var collisions = objNode2.Events[4];
+										for (var ci = 0; ci < collisions.Count; ci++)
 										{
-											if (data.Scripts.ByName(sn) == null)
+											var sub = collisions[ci].EventSubtype;
+											if (sub < (uint)data.GameObjects.Count)
 											{
-												var script = new GameMakerScript
+												var target = data.GameObjects[(int)sub];
+												if (target != null && target.Name?.Content != null)
 												{
-													Name = data.Strings.MakeString(sn),
-													Code = PatchService.ScriptCodeResolver.Resolve(data, sn)
-												};
-												data.Scripts.Add(script);
-												createdScripts++;
-											}
-										}
-										if (createdScripts > 0)
-										{
-											Log($"[ImportAssetOrder] Scripts: Created {createdScripts} new script entries");
-										}
-										Reorganize(data.Scripts, currentList, "Scripts");
-										totalReorganized++;
-										while (data.Scripts.Count > currentList.Count)
-										{
-											data.Scripts.RemoveAt(data.Scripts.Count - 1);
-										}
-									}
-									break;
-								case 'b':
-									if (text2 == "objects")
-									{
-										List<(GameMakerGameObject, int, string)> collisionInfo = [];
-										foreach (var objNode2 in data.GameObjects)
-										{
-											if (objNode2 != null)
-											{
-												var collisions = objNode2.Events[4];
-												for (var ci = 0; ci < collisions.Count; ci++)
-												{
-													var sub = collisions[ci].EventSubtype;
-													if (sub < (uint)data.GameObjects.Count)
-													{
-														var target = data.GameObjects[(int)sub];
-														if (target != null && target.Name?.Content != null)
-														{
-															collisionInfo.Add((objNode2, ci, target.Name.Content));
-														}
-													}
+													collisionInfo.Add((objNode2, ci, target.Name.Content));
 												}
 											}
 										}
-										Reorganize(data.GameObjects, currentList, "GameObjects");
-										var objectIndicesByName = new Dictionary<string, uint>(StringComparer.Ordinal);
-										for (var objectIndex = 0; objectIndex < data.GameObjects.Count; objectIndex++)
-										{
-											var objectName = data.GameObjects[objectIndex]?.Name?.Content;
-											if (objectName != null)
-											{
-												objectIndicesByName.TryAdd(objectName, (uint)objectIndex);
-											}
-										}
-										var fixedCollisions = 0;
-										foreach (var (objNode3, evtIdx, tName) in collisionInfo)
-										{
-											if (objectIndicesByName.TryGetValue(tName, out var newIdx) && evtIdx < objNode3.Events[4].Count)
-											{
-												var collisions2 = objNode3.Events[4];
-												if (collisions2[evtIdx].EventSubtype != newIdx)
-												{
-													collisions2[evtIdx].EventSubtype = newIdx;
-													fixedCollisions++;
-												}
-											}
-										}
-										if (fixedCollisions > 0)
-										{
-											Log($"[ImportAssetOrder] Fixed {fixedCollisions} collision event subtypes");
-										}
-										totalReorganized++;
 									}
-									break;
-								case 'h':
-									if (text2 == "shaders")
+								}
+								Reorganize(data.GameObjects, currentList, "GameObjects");
+								var objectIndicesByName = new Dictionary<string, uint>(StringComparer.Ordinal);
+								for (var objectIndex = 0; objectIndex < data.GameObjects.Count; objectIndex++)
+								{
+									var objectName = data.GameObjects[objectIndex]?.Name?.Content;
+									if (objectName != null)
 									{
-										Reorganize(data.Shaders, currentList, "Shaders");
-										totalReorganized++;
+										objectIndicesByName.TryAdd(objectName, (uint)objectIndex);
 									}
-									break;
+								}
+								var fixedCollisions = 0;
+								foreach (var (objNode3, evtIdx, tName) in collisionInfo)
+								{
+									if (objectIndicesByName.TryGetValue(tName, out var newIdx) && evtIdx < objNode3.Events[4].Count)
+									{
+										var collisions2 = objNode3.Events[4];
+										if (collisions2[evtIdx].EventSubtype != newIdx)
+										{
+											collisions2[evtIdx].EventSubtype = newIdx;
+											fixedCollisions++;
+										}
+									}
+								}
+								if (fixedCollisions > 0)
+								{
+									Log($"[ImportAssetOrder] Fixed {fixedCollisions} collision event subtypes");
+								}
+								totalReorganized++;
+								break;
 							}
-							break;
-						case 11:
-							switch (text2[0])
+						case "shaders":
 							{
-								case 'b':
-									if (text2 == "backgrounds")
-									{
-										Reorganize(data.Backgrounds, currentList, "Backgrounds");
-										totalReorganized++;
-									}
-									break;
-								case 'a':
-									if (text2 == "audiogroups")
-									{
-										Reorganize(data.AudioGroups, currentList, "AudioGroups");
-										totalReorganized++;
-									}
-									break;
+								Reorganize(data.Shaders, currentList, "Shaders");
+								totalReorganized++;
+								break;
 							}
-							break;
-						case 5:
-							switch (text2[0])
+						case "backgrounds":
 							{
-								case 'p':
-									if (text2 == "paths")
-									{
-										Reorganize(data.Paths, currentList, "Paths");
-										totalReorganized++;
-									}
-									break;
-								case 'f':
-									if (text2 == "fonts")
-									{
-										Reorganize(data.Fonts, currentList, "Fonts");
-										totalReorganized++;
-									}
-									break;
-								case 'r':
-									if (text2 == "rooms")
-									{
-										Reorganize(data.Rooms, currentList, "Rooms");
-										totalReorganized++;
-									}
-									break;
+								Reorganize(data.Backgrounds, currentList, "Backgrounds");
+								totalReorganized++;
+								break;
 							}
-							break;
-						case 6:
-							if (text2 == "sounds")
+						case "audiogroups":
+							{
+								Reorganize(data.AudioGroups, currentList, "AudioGroups");
+								totalReorganized++;
+								break;
+							}
+						case "paths":
+							{
+								Reorganize(data.Paths, currentList, "Paths");
+								totalReorganized++;
+								break;
+							}
+						case "fonts":
+							{
+								Reorganize(data.Fonts, currentList, "Fonts");
+								totalReorganized++;
+								break;
+							}
+						case "rooms":
+							{
+								Reorganize(data.Rooms, currentList, "Rooms");
+								totalReorganized++;
+								break;
+							}
+						case "sounds":
 							{
 								Reorganize(data.Sounds, currentList, "Sounds");
 								totalReorganized++;
+								break;
 							}
-							break;
-						case 9:
-							if (text2 == "timelines")
+						case "timelines":
 							{
 								Reorganize(data.Timelines, currentList, "Timelines");
 								totalReorganized++;
+								break;
 							}
-							break;
-						case 10:
-							if (text2 == "extensions")
+						case "extensions":
 							{
 								Reorganize(data.Extensions, currentList, "Extensions");
 								totalReorganized++;
+								break;
 							}
-							break;
-						case 8:
-							break;
 					}
 				}
 			}
@@ -3362,92 +3333,72 @@ public static partial class ResourceImportService
 				{
 					continue;
 				}
-				switch (fileName2.Length)
+				switch (fileName2)
 				{
-					case 21:
-						switch (fileName2[0])
+					case "HLSL11_VertexData.bin":
 						{
-							case 'H':
-								if (fileName2 == "HLSL11_VertexData.bin")
-								{
-									var gameMakerShader = shader;
-									var objNode7 = gameMakerShader.HLSL11_VertexData ??= new GameMakerShader.GameMakerRawShaderData();
-									objNode7.Data = bytes;
-									objNode7.IsNull = false;
-								}
-								break;
-							case 'C':
-								if (fileName2 == "Cg_PS3_VertexData.bin")
-								{
-									var gameMakerShader = shader;
-									var objNode6 = gameMakerShader.Cg_PS3_VertexData ??= new GameMakerShader.GameMakerRawShaderData();
-									objNode6.Data = bytes;
-									objNode6.IsNull = false;
-								}
-								break;
+							var gameMakerShader = shader;
+							var objNode7 = gameMakerShader.HLSL11_VertexData ??= new GameMakerShader.GameMakerRawShaderData();
+							objNode7.Data = bytes;
+							objNode7.IsNull = false;
+							break;
 						}
-						break;
-					case 20:
-						switch (fileName2[0])
+					case "Cg_PS3_VertexData.bin":
 						{
-							case 'H':
-								if (fileName2 == "HLSL11_PixelData.bin")
-								{
-									var gameMakerShader = shader;
-									var objNode4 = gameMakerShader.HLSL11_PixelData ??= new GameMakerShader.GameMakerRawShaderData();
-									objNode4.Data = bytes;
-									objNode4.IsNull = false;
-								}
-								break;
-							case 'C':
-								if (fileName2 == "Cg_PS3_PixelData.bin")
-								{
-									var gameMakerShader = shader;
-									var objNode3 = gameMakerShader.Cg_PS3_PixelData ??= new GameMakerShader.GameMakerRawShaderData();
-									objNode3.Data = bytes;
-									objNode3.IsNull = false;
-								}
-								break;
+							var gameMakerShader = shader;
+							var objNode6 = gameMakerShader.Cg_PS3_VertexData ??= new GameMakerShader.GameMakerRawShaderData();
+							objNode6.Data = bytes;
+							objNode6.IsNull = false;
+							break;
 						}
-						break;
-					case 19:
-						if (fileName2 == "PSSL_VertexData.bin")
+					case "HLSL11_PixelData.bin":
+						{
+							var gameMakerShader = shader;
+							var objNode4 = gameMakerShader.HLSL11_PixelData ??= new GameMakerShader.GameMakerRawShaderData();
+							objNode4.Data = bytes;
+							objNode4.IsNull = false;
+							break;
+						}
+					case "Cg_PS3_PixelData.bin":
+						{
+							var gameMakerShader = shader;
+							var objNode3 = gameMakerShader.Cg_PS3_PixelData ??= new GameMakerShader.GameMakerRawShaderData();
+							objNode3.Data = bytes;
+							objNode3.IsNull = false;
+							break;
+						}
+					case "PSSL_VertexData.bin":
 						{
 							var gameMakerShader = shader;
 							var objNode9 = gameMakerShader.PSSL_VertexData ??= new GameMakerShader.GameMakerRawShaderData();
 							objNode9.Data = bytes;
 							objNode9.IsNull = false;
+							break;
 						}
-						break;
-					case 18:
-						if (fileName2 == "PSSL_PixelData.bin")
+					case "PSSL_PixelData.bin":
 						{
 							var gameMakerShader = shader;
 							var objNode5 = gameMakerShader.PSSL_PixelData ??= new GameMakerShader.GameMakerRawShaderData();
 							objNode5.Data = bytes;
 							objNode5.IsNull = false;
+							break;
 						}
-						break;
-					case 24:
-						if (fileName2 == "Cg_PSVita_VertexData.bin")
+					case "Cg_PSVita_VertexData.bin":
 						{
 							var gameMakerShader = shader;
 							var objNode8 = gameMakerShader.Cg_PSVita_VertexData ??= new GameMakerShader.GameMakerRawShaderData();
 							objNode8.Data = bytes;
 							objNode8.IsNull = false;
+							break;
 						}
-						break;
-					case 23:
-						if (fileName2 == "Cg_PSVita_PixelData.bin")
+					case "Cg_PSVita_PixelData.bin":
 						{
 							var gameMakerShader = shader;
 							var objNode2 = gameMakerShader.Cg_PSVita_PixelData ??= new GameMakerShader.GameMakerRawShaderData();
 							objNode2.Data = bytes;
 							objNode2.IsNull = false;
+							break;
 						}
-						break;
-					case 22:
-						break;
 				}
 			}
 			catch (Exception ex) when (!ModdingCancellation.IsCancellation(ex))
@@ -5041,6 +4992,56 @@ public static partial class ResourceImportService
 		{
 			room.DrawBackgroundColor = dbcElm.GetBoolean();
 		}
+		ReadRoomCreationCode(data, room, lookup, d);
+		ReadRoomPhysicsProperties(room, d);
+		ImportRoomBackgrounds(room, lookup, d);
+		ImportRoomViews(room, lookup, d);
+		ImportRoomGameObjects(data, room, lookup, d);
+		var roomGameObjectsByInstanceId = new Dictionary<uint, GameMakerRoom.GameObject>(room.GameObjects.Count);
+		foreach (var go2 in room.GameObjects)
+		{
+			roomGameObjectsByInstanceId.TryAdd(go2.InstanceID, go2);
+		}
+		ImportRoomTiles(room, lookup, d);
+		ImportRoomLayers(data, room, lookup, d, roomGameObjectsByInstanceId);
+		if (data.IsVersionAtLeast(2u, 3u) && d.TryGetProperty("sequences", out var seqsElm) && seqsElm.ValueKind == JsonValueKind.Array)
+		{
+			room.Sequences.Clear();
+			foreach (var sElm3 in seqsElm.EnumerateArray())
+			{
+				if (sElm3.ValueKind == JsonValueKind.String)
+				{
+					var sn5 = sElm3.GetString() ?? "";
+					if (sn5.Length != 0 && lookup.Sequences.TryGetValue(sn5, out var seq))
+					{
+						room.Sequences.Add(new GameMakerResourceById<GameMakerSequence, GameMakerChunkSEQN>
+						{
+							Resource = seq
+						});
+					}
+				}
+			}
+		}
+		if (!data.IsVersionAtLeast(2024u, 13u) || !d.TryGetProperty("instanceCreationOrderIDs", out var icoElm) || icoElm.ValueKind != JsonValueKind.Array)
+		{
+			return;
+		}
+		if (room.InstanceCreationOrderIDs == null)
+		{
+			var instanceIDList = room.InstanceCreationOrderIDs = new GameMakerRoom.InstanceIDList();
+		}
+		room.InstanceCreationOrderIDs.InstanceIDs.Clear();
+		foreach (var idElm in icoElm.EnumerateArray())
+		{
+			if (idElm.ValueKind == JsonValueKind.Number)
+			{
+				room.InstanceCreationOrderIDs.InstanceIDs.Add((uint)Math.Max(0, idElm.GetInt32()));
+			}
+		}
+	}
+
+	private static void ReadRoomCreationCode(GameMakerData data, GameMakerRoom room, RoomImportLookup lookup, JsonElement d)
+	{
 		if (d.TryGetProperty("creationCodeId", out var ccElm) && ccElm.ValueKind == JsonValueKind.String)
 		{
 			var cn = ccElm.GetString() ?? "";
@@ -5064,6 +5065,10 @@ public static partial class ResourceImportService
 				room.CreationCodeId = code;
 			}
 		}
+	}
+
+	private static void ReadRoomPhysicsProperties(GameMakerRoom room, JsonElement d)
+	{
 		if (d.TryGetProperty("flags", out var flElm) && flElm.ValueKind == JsonValueKind.Number)
 		{
 			room.Flags = (GameMakerRoom.RoomEntryFlags)flElm.GetInt32();
@@ -5112,6 +5117,10 @@ public static partial class ResourceImportService
 		{
 			room.GridThicknessPx = gtElm.GetDouble();
 		}
+	}
+
+	private static void ImportRoomBackgrounds(GameMakerRoom room, RoomImportLookup lookup, JsonElement d)
+	{
 		if (d.TryGetProperty("backgrounds", out var bgsElm) && bgsElm.ValueKind == JsonValueKind.Array)
 		{
 			room.Backgrounds.Clear();
@@ -5168,6 +5177,10 @@ public static partial class ResourceImportService
 				room.Backgrounds.Add(bg);
 			}
 		}
+	}
+
+	private static void ImportRoomViews(GameMakerRoom room, RoomImportLookup lookup, JsonElement d)
+	{
 		if (d.TryGetProperty("views", out var viewsElm) && viewsElm.ValueKind == JsonValueKind.Array)
 		{
 			room.Views.Clear();
@@ -5237,6 +5250,10 @@ public static partial class ResourceImportService
 				room.Views.Add(view);
 			}
 		}
+	}
+
+	private static void ImportRoomGameObjects(GameMakerData data, GameMakerRoom room, RoomImportLookup lookup, JsonElement d)
+	{
 		if (d.TryGetProperty("gameObjects", out var gosElm) && gosElm.ValueKind == JsonValueKind.Array)
 		{
 			room.GameObjects.Clear();
@@ -5309,11 +5326,10 @@ public static partial class ResourceImportService
 				room.GameObjects.Add(go);
 			}
 		}
-		var roomGameObjectsByInstanceId = new Dictionary<uint, GameMakerRoom.GameObject>(room.GameObjects.Count);
-		foreach (var go2 in room.GameObjects)
-		{
-			roomGameObjectsByInstanceId.TryAdd(go2.InstanceID, go2);
-		}
+	}
+
+	private static void ImportRoomTiles(GameMakerRoom room, RoomImportLookup lookup, JsonElement d)
+	{
 		if (d.TryGetProperty("tiles", out var tilesElm) && tilesElm.ValueKind == JsonValueKind.Array)
 		{
 			room.Tiles.Clear();
@@ -5390,6 +5406,10 @@ public static partial class ResourceImportService
 				room.Tiles.Add(tile);
 			}
 		}
+	}
+
+	private static void ImportRoomLayers(GameMakerData data, GameMakerRoom room, RoomImportLookup lookup, JsonElement d, Dictionary<uint, GameMakerRoom.GameObject> roomGameObjectsByInstanceId)
+	{
 		if (data.IsGameMaker2() && d.TryGetProperty("layers", out var layersElm) && layersElm.ValueKind == JsonValueKind.Array)
 		{
 			List<GameMakerRoom.Layer> previousLayers = [.. room.Layers];
@@ -5406,316 +5426,27 @@ public static partial class ResourceImportService
 					LayerType = (GameMakerRoom.LayerType)lt,
 					ParentRoom = room
 				};
-				if (lElm.TryGetProperty("layerName", out var lnElm) && lnElm.ValueKind == JsonValueKind.String)
-				{
-					layer.LayerName = MakeRoomString(data, lookup, lnElm.GetString());
-				}
-				if (lElm.TryGetProperty("layerId", out var liElm) && TryGetUInt32(liElm, out var layerId))
-				{
-					layer.LayerId = layerId;
-				}
-				if (lElm.TryGetProperty("layerDepth", out var ldElm) && ldElm.ValueKind == JsonValueKind.Number)
-				{
-					layer.LayerDepth = ldElm.GetInt32();
-				}
-				if (lElm.TryGetProperty("xOffset", out var xoElm) && xoElm.ValueKind == JsonValueKind.Number)
-				{
-					layer.XOffset = (float)xoElm.GetDouble();
-				}
-				if (lElm.TryGetProperty("yOffset", out var yoElm) && yoElm.ValueKind == JsonValueKind.Number)
-				{
-					layer.YOffset = (float)yoElm.GetDouble();
-				}
-				if (lElm.TryGetProperty("hSpeed", out var hsElm) && hsElm.ValueKind == JsonValueKind.Number)
-				{
-					layer.HSpeed = (float)hsElm.GetDouble();
-				}
-				if (lElm.TryGetProperty("vSpeed", out var vsElm) && vsElm.ValueKind == JsonValueKind.Number)
-				{
-					layer.VSpeed = (float)vsElm.GetDouble();
-				}
-				if (lElm.TryGetProperty("isVisible", out var ivElm) && (ivElm.ValueKind == JsonValueKind.True || ivElm.ValueKind == JsonValueKind.False))
-				{
-					layer.IsVisible = ivElm.GetBoolean();
-				}
-				if (data.IsVersionAtLeast(2022u, 1u))
-				{
-					if (lElm.TryGetProperty("effectEnabled", out var eeElm) && (eeElm.ValueKind == JsonValueKind.True || eeElm.ValueKind == JsonValueKind.False))
-					{
-						layer.EffectEnabled = eeElm.GetBoolean();
-					}
-					if (lElm.TryGetProperty("effectType", out var etElm) && etElm.ValueKind == JsonValueKind.String)
-					{
-						layer.EffectType = MakeRoomString(data, lookup, etElm.GetString());
-					}
-				}
+				ReadRoomLayerProperties(data, lookup, lElm, layer);
 				switch (lt)
 				{
 					case 2:
 						{
-							var instData = new GameMakerRoom.Layer.LayerInstancesData();
-							if (lElm.TryGetProperty("instanceIds", out var idsElm) && idsElm.ValueKind == JsonValueKind.Array)
-							{
-								foreach (var item in idsElm.EnumerateArray())
-								{
-									if (TryGetUInt32(item, out var iid) && roomGameObjectsByInstanceId.TryGetValue(iid, out var go3))
-									{
-										instData.Instances.Add(go3);
-									}
-								}
-							}
-							layer.Data = instData;
+							ImportRoomInstancesLayer(lElm, layer, roomGameObjectsByInstanceId);
 							break;
 						}
 					case 4:
 						{
-							var tilesData = new GameMakerRoom.Layer.LayerTilesData
-							{
-								ParentLayer = layer
-							};
-							if (lElm.TryGetProperty("tilesBackground", out var tbElm) && tbElm.ValueKind == JsonValueKind.String)
-							{
-								var bn5 = tbElm.GetString() ?? "";
-								if (bn5.Length > 0 && lookup.Backgrounds.TryGetValue(bn5, out var bg5))
-								{
-									tilesData.Background = bg5;
-								}
-							}
-							if (lElm.TryGetProperty("tilesX", out var txElm) && TryGetUInt32(txElm, out var tilesX))
-							{
-								tilesData.TilesX = tilesX;
-							}
-							if (lElm.TryGetProperty("tilesY", out var tyElm) && TryGetUInt32(tyElm, out var tilesY))
-							{
-								tilesData.TilesY = tilesY;
-							}
-							if (lElm.TryGetProperty("tileData", out var tdElm2) && tdElm2.ValueKind == JsonValueKind.Array)
-							{
-								List<uint[]> rows = [];
-								foreach (var rowElm in tdElm2.EnumerateArray())
-								{
-									if (rowElm.ValueKind == JsonValueKind.Array)
-									{
-										rows.Add([.. from c in rowElm.EnumerateArray()
-												  where c.ValueKind == JsonValueKind.Number
-												  select (uint)c.GetInt32()]);
-									}
-								}
-								tilesData.TileData = [.. rows];
-							}
-							layer.Data = tilesData;
+							ImportRoomTilesLayer(lookup, lElm, layer);
 							break;
 						}
 					case 1:
 						{
-							var bgData = new GameMakerRoom.Layer.LayerBackgroundData
-							{
-								ParentLayer = layer
-							};
-							if (lElm.TryGetProperty("backgroundData", out var bdElm4) && bdElm4.ValueKind == JsonValueKind.Object)
-							{
-								if (bdElm4.TryGetProperty("visible", out var vElm2) && (vElm2.ValueKind == JsonValueKind.True || vElm2.ValueKind == JsonValueKind.False))
-								{
-									bgData.Visible = vElm2.GetBoolean();
-								}
-								if (bdElm4.TryGetProperty("foreground", out var fElm) && (fElm.ValueKind == JsonValueKind.True || fElm.ValueKind == JsonValueKind.False))
-								{
-									bgData.Foreground = fElm.GetBoolean();
-								}
-								if (bdElm4.TryGetProperty("sprite", out var sElm2) && sElm2.ValueKind == JsonValueKind.String)
-								{
-									var sn4 = sElm2.GetString() ?? "";
-									if (sn4.Length > 0 && lookup.Sprites.TryGetValue(sn4, out var spr4))
-									{
-										bgData.Sprite = spr4;
-									}
-								}
-								if (bdElm4.TryGetProperty("tiledHorizontally", out var thElm2) && (thElm2.ValueKind == JsonValueKind.True || thElm2.ValueKind == JsonValueKind.False))
-								{
-									bgData.TiledHorizontally = thElm2.GetBoolean();
-								}
-								if (bdElm4.TryGetProperty("tiledVertically", out var tvElm2) && (tvElm2.ValueKind == JsonValueKind.True || tvElm2.ValueKind == JsonValueKind.False))
-								{
-									bgData.TiledVertically = tvElm2.GetBoolean();
-								}
-								if (bdElm4.TryGetProperty("stretch", out var stElm2) && (stElm2.ValueKind == JsonValueKind.True || stElm2.ValueKind == JsonValueKind.False))
-								{
-									bgData.Stretch = stElm2.GetBoolean();
-								}
-								if (bdElm4.TryGetProperty("color", out var cElm) && TryGetUInt32(cElm, out var backgroundLayerColor))
-								{
-									bgData.Color = backgroundLayerColor;
-								}
-								if (bdElm4.TryGetProperty("firstFrame", out var ffElm) && ffElm.ValueKind == JsonValueKind.Number)
-								{
-									bgData.FirstFrame = (float)ffElm.GetDouble();
-								}
-								if (bdElm4.TryGetProperty("animationSpeed", out var asElm2) && asElm2.ValueKind == JsonValueKind.Number)
-								{
-									bgData.AnimationSpeed = (float)asElm2.GetDouble();
-								}
-								if (bdElm4.TryGetProperty("animationSpeedType", out var astElm2) && astElm2.ValueKind == JsonValueKind.Number)
-								{
-									bgData.AnimationSpeedType = (AnimationSpeedType)astElm2.GetInt32();
-								}
-							}
-							layer.Data = bgData;
+							ImportRoomBackgroundLayer(lookup, lElm, layer);
 							break;
 						}
 					case 3:
 						{
-							var assetsData = new GameMakerRoom.Layer.LayerAssetsData
-							{
-								LegacyTiles = [],
-								Sprites = []
-							};
-							if (data.IsVersionAtLeast(2u, 3u))
-							{
-								assetsData.Sequences = [];
-							}
-							if (lElm.TryGetProperty("assetsData", out var adElm) && adElm.ValueKind == JsonValueKind.Object)
-							{
-								if (adElm.TryGetProperty("legacyTiles", out var ltElm2) && ltElm2.ValueKind == JsonValueKind.Array)
-								{
-									foreach (var tElm2 in ltElm2.EnumerateArray())
-									{
-										var tile2 = new GameMakerRoom.Tile();
-										if (tElm2.TryGetProperty("x", out var xElm4) && xElm4.ValueKind == JsonValueKind.Number)
-										{
-											tile2.X = xElm4.GetInt32();
-										}
-										if (tElm2.TryGetProperty("y", out var yElm4) && yElm4.ValueKind == JsonValueKind.Number)
-										{
-											tile2.Y = yElm4.GetInt32();
-										}
-										if (tElm2.TryGetProperty("spriteMode", out var smElm2) && (smElm2.ValueKind == JsonValueKind.True || smElm2.ValueKind == JsonValueKind.False))
-										{
-											tile2.spriteMode = smElm2.GetBoolean();
-										}
-										if (tElm2.TryGetProperty("sourceX", out var sxElm5) && sxElm5.ValueKind == JsonValueKind.Number)
-										{
-											tile2.SourceX = sxElm5.GetInt32();
-										}
-										if (tElm2.TryGetProperty("sourceY", out var syElm5) && syElm5.ValueKind == JsonValueKind.Number)
-										{
-											tile2.SourceY = syElm5.GetInt32();
-										}
-										if (tElm2.TryGetProperty("width", out var wElm3) && TryGetUInt32(wElm3, out var legacyWidth))
-										{
-											tile2.Width = legacyWidth;
-										}
-										if (tElm2.TryGetProperty("height", out var hElm3) && TryGetUInt32(hElm3, out var legacyHeight))
-										{
-											tile2.Height = legacyHeight;
-										}
-										if (tElm2.TryGetProperty("tileDepth", out var dElm) && dElm.ValueKind == JsonValueKind.Number)
-										{
-											tile2.TileDepth = dElm.GetInt32();
-										}
-										if (tElm2.TryGetProperty("instanceID", out var iiElm3) && TryGetUInt32(iiElm3, out var legacyInstanceId))
-										{
-											tile2.InstanceID = legacyInstanceId;
-										}
-										if (tElm2.TryGetProperty("scaleX", out var scxElm2) && scxElm2.ValueKind == JsonValueKind.Number)
-										{
-											tile2.ScaleX = (float)scxElm2.GetDouble();
-										}
-										if (tElm2.TryGetProperty("scaleY", out var scyElm2) && scyElm2.ValueKind == JsonValueKind.Number)
-										{
-											tile2.ScaleY = (float)scyElm2.GetDouble();
-										}
-										if (tElm2.TryGetProperty("color", out var colElm3) && TryGetUInt32(colElm3, out var legacyTileColor))
-										{
-											tile2.Color = legacyTileColor;
-										}
-										if (tile2.spriteMode)
-										{
-											if (tElm2.TryGetProperty("spriteDefinition", out var sdElm2) && sdElm2.ValueKind == JsonValueKind.String)
-											{
-												var sn2 = sdElm2.GetString() ?? "";
-												if (sn2.Length > 0 && lookup.Sprites.TryGetValue(sn2, out var spr2))
-												{
-													tile2.SpriteDefinition = spr2;
-												}
-											}
-										}
-										else if (tElm2.TryGetProperty("backgroundDefinition", out var bdElm3) && bdElm3.ValueKind == JsonValueKind.String)
-										{
-											var bn3 = bdElm3.GetString() ?? "";
-											if (bn3.Length > 0 && lookup.Backgrounds.TryGetValue(bn3, out var bg3))
-											{
-												tile2.BackgroundDefinition = bg3;
-											}
-										}
-										else if (tElm2.TryGetProperty("background", out var bgElm2) && bgElm2.ValueKind == JsonValueKind.String)
-										{
-											var bn4 = bgElm2.GetString() ?? "";
-											if (bn4.Length > 0 && lookup.Backgrounds.TryGetValue(bn4, out var bg4))
-											{
-												tile2.BackgroundDefinition = bg4;
-											}
-										}
-										assetsData.LegacyTiles.Add(tile2);
-									}
-								}
-								if (adElm.TryGetProperty("sprites", out var sprElm) && sprElm.ValueKind == JsonValueKind.Array)
-								{
-									foreach (var sElm in sprElm.EnumerateArray())
-									{
-										var si = new GameMakerRoom.SpriteInstance();
-										if (sElm.TryGetProperty("name", out var nElm) && nElm.ValueKind == JsonValueKind.String)
-										{
-											si.Name = MakeRoomString(data, lookup, nElm.GetString());
-										}
-										if (sElm.TryGetProperty("sprite", out var srElm) && srElm.ValueKind == JsonValueKind.String)
-										{
-											var sn3 = srElm.GetString() ?? "";
-											if (sn3.Length > 0 && lookup.Sprites.TryGetValue(sn3, out var spr3))
-											{
-												si.Sprite = spr3;
-											}
-										}
-										if (sElm.TryGetProperty("x", out var xElm5) && xElm5.ValueKind == JsonValueKind.Number)
-										{
-											si.X = xElm5.GetInt32();
-										}
-										if (sElm.TryGetProperty("y", out var yElm5) && yElm5.ValueKind == JsonValueKind.Number)
-										{
-											si.Y = yElm5.GetInt32();
-										}
-										if (sElm.TryGetProperty("scaleX", out var sxElm6) && sxElm6.ValueKind == JsonValueKind.Number)
-										{
-											si.ScaleX = (float)sxElm6.GetDouble();
-										}
-										if (sElm.TryGetProperty("scaleY", out var syElm6) && syElm6.ValueKind == JsonValueKind.Number)
-										{
-											si.ScaleY = (float)syElm6.GetDouble();
-										}
-										if (sElm.TryGetProperty("color", out var colElm4) && TryGetUInt32(colElm4, out var spriteColor))
-										{
-											si.Color = spriteColor;
-										}
-										if (sElm.TryGetProperty("animationSpeed", out var asElm) && asElm.ValueKind == JsonValueKind.Number)
-										{
-											si.AnimationSpeed = (float)asElm.GetDouble();
-										}
-										if (sElm.TryGetProperty("animationSpeedType", out var astElm) && astElm.ValueKind == JsonValueKind.Number)
-										{
-											si.AnimationSpeedType = (AnimationSpeedType)astElm.GetInt32();
-										}
-										if (sElm.TryGetProperty("frameIndex", out var fiElm) && fiElm.ValueKind == JsonValueKind.Number)
-										{
-											si.FrameIndex = (float)fiElm.GetDouble();
-										}
-										if (sElm.TryGetProperty("rotation", out var rotElm2) && rotElm2.ValueKind == JsonValueKind.Number)
-										{
-											si.Rotation = (float)rotElm2.GetDouble();
-										}
-										assetsData.Sprites.Add(si);
-									}
-								}
-							}
-							layer.Data = assetsData;
+							ImportRoomAssetsLayer(data, lookup, lElm, layer);
 							break;
 						}
 					case 6:
@@ -5730,38 +5461,328 @@ public static partial class ResourceImportService
 				room.Layers.Add(layer);
 			}
 		}
-		if (data.IsVersionAtLeast(2u, 3u) && d.TryGetProperty("sequences", out var seqsElm) && seqsElm.ValueKind == JsonValueKind.Array)
+	}
+
+	private static void ReadRoomLayerProperties(GameMakerData data, RoomImportLookup lookup, JsonElement lElm, GameMakerRoom.Layer layer)
+	{
+		if (lElm.TryGetProperty("layerName", out var lnElm) && lnElm.ValueKind == JsonValueKind.String)
 		{
-			room.Sequences.Clear();
-			foreach (var sElm3 in seqsElm.EnumerateArray())
+			layer.LayerName = MakeRoomString(data, lookup, lnElm.GetString());
+		}
+		if (lElm.TryGetProperty("layerId", out var liElm) && TryGetUInt32(liElm, out var layerId))
+		{
+			layer.LayerId = layerId;
+		}
+		if (lElm.TryGetProperty("layerDepth", out var ldElm) && ldElm.ValueKind == JsonValueKind.Number)
+		{
+			layer.LayerDepth = ldElm.GetInt32();
+		}
+		if (lElm.TryGetProperty("xOffset", out var xoElm) && xoElm.ValueKind == JsonValueKind.Number)
+		{
+			layer.XOffset = (float)xoElm.GetDouble();
+		}
+		if (lElm.TryGetProperty("yOffset", out var yoElm) && yoElm.ValueKind == JsonValueKind.Number)
+		{
+			layer.YOffset = (float)yoElm.GetDouble();
+		}
+		if (lElm.TryGetProperty("hSpeed", out var hsElm) && hsElm.ValueKind == JsonValueKind.Number)
+		{
+			layer.HSpeed = (float)hsElm.GetDouble();
+		}
+		if (lElm.TryGetProperty("vSpeed", out var vsElm) && vsElm.ValueKind == JsonValueKind.Number)
+		{
+			layer.VSpeed = (float)vsElm.GetDouble();
+		}
+		if (lElm.TryGetProperty("isVisible", out var ivElm) && (ivElm.ValueKind == JsonValueKind.True || ivElm.ValueKind == JsonValueKind.False))
+		{
+			layer.IsVisible = ivElm.GetBoolean();
+		}
+		if (data.IsVersionAtLeast(2022u, 1u))
+		{
+			if (lElm.TryGetProperty("effectEnabled", out var eeElm) && (eeElm.ValueKind == JsonValueKind.True || eeElm.ValueKind == JsonValueKind.False))
 			{
-				if (sElm3.ValueKind == JsonValueKind.String)
+				layer.EffectEnabled = eeElm.GetBoolean();
+			}
+			if (lElm.TryGetProperty("effectType", out var etElm) && etElm.ValueKind == JsonValueKind.String)
+			{
+				layer.EffectType = MakeRoomString(data, lookup, etElm.GetString());
+			}
+		}
+	}
+
+	private static void ImportRoomInstancesLayer(JsonElement lElm, GameMakerRoom.Layer layer, Dictionary<uint, GameMakerRoom.GameObject> roomGameObjectsByInstanceId)
+	{
+		var instData = new GameMakerRoom.Layer.LayerInstancesData();
+		if (lElm.TryGetProperty("instanceIds", out var idsElm) && idsElm.ValueKind == JsonValueKind.Array)
+		{
+			foreach (var item in idsElm.EnumerateArray())
+			{
+				if (TryGetUInt32(item, out var iid) && roomGameObjectsByInstanceId.TryGetValue(iid, out var go3))
 				{
-					var sn5 = sElm3.GetString() ?? "";
-					if (sn5.Length != 0 && lookup.Sequences.TryGetValue(sn5, out var seq))
-					{
-						room.Sequences.Add(new GameMakerResourceById<GameMakerSequence, GameMakerChunkSEQN>
-						{
-							Resource = seq
-						});
-					}
+					instData.Instances.Add(go3);
 				}
 			}
 		}
-		if (!data.IsVersionAtLeast(2024u, 13u) || !d.TryGetProperty("instanceCreationOrderIDs", out var icoElm) || icoElm.ValueKind != JsonValueKind.Array)
+		layer.Data = instData;
+	}
+
+	private static void ImportRoomTilesLayer(RoomImportLookup lookup, JsonElement lElm, GameMakerRoom.Layer layer)
+	{
+		var tilesData = new GameMakerRoom.Layer.LayerTilesData
 		{
-			return;
-		}
-		if (room.InstanceCreationOrderIDs == null)
+			ParentLayer = layer
+		};
+		if (lElm.TryGetProperty("tilesBackground", out var tbElm) && tbElm.ValueKind == JsonValueKind.String)
 		{
-			var instanceIDList = room.InstanceCreationOrderIDs = new GameMakerRoom.InstanceIDList();
-		}
-		room.InstanceCreationOrderIDs.InstanceIDs.Clear();
-		foreach (var idElm in icoElm.EnumerateArray())
-		{
-			if (idElm.ValueKind == JsonValueKind.Number)
+			var bn5 = tbElm.GetString() ?? "";
+			if (bn5.Length > 0 && lookup.Backgrounds.TryGetValue(bn5, out var bg5))
 			{
-				room.InstanceCreationOrderIDs.InstanceIDs.Add((uint)Math.Max(0, idElm.GetInt32()));
+				tilesData.Background = bg5;
+			}
+		}
+		if (lElm.TryGetProperty("tilesX", out var txElm) && TryGetUInt32(txElm, out var tilesX))
+		{
+			tilesData.TilesX = tilesX;
+		}
+		if (lElm.TryGetProperty("tilesY", out var tyElm) && TryGetUInt32(tyElm, out var tilesY))
+		{
+			tilesData.TilesY = tilesY;
+		}
+		if (lElm.TryGetProperty("tileData", out var tdElm2) && tdElm2.ValueKind == JsonValueKind.Array)
+		{
+			List<uint[]> rows = [];
+			foreach (var rowElm in tdElm2.EnumerateArray())
+			{
+				if (rowElm.ValueKind == JsonValueKind.Array)
+				{
+					rows.Add([.. from c in rowElm.EnumerateArray()
+							  where c.ValueKind == JsonValueKind.Number
+							  select (uint)c.GetInt32()]);
+				}
+			}
+			tilesData.TileData = [.. rows];
+		}
+		layer.Data = tilesData;
+	}
+
+	private static void ImportRoomBackgroundLayer(RoomImportLookup lookup, JsonElement lElm, GameMakerRoom.Layer layer)
+	{
+		var bgData = new GameMakerRoom.Layer.LayerBackgroundData
+		{
+			ParentLayer = layer
+		};
+		if (lElm.TryGetProperty("backgroundData", out var bdElm4) && bdElm4.ValueKind == JsonValueKind.Object)
+		{
+			if (bdElm4.TryGetProperty("visible", out var vElm2) && (vElm2.ValueKind == JsonValueKind.True || vElm2.ValueKind == JsonValueKind.False))
+			{
+				bgData.Visible = vElm2.GetBoolean();
+			}
+			if (bdElm4.TryGetProperty("foreground", out var fElm) && (fElm.ValueKind == JsonValueKind.True || fElm.ValueKind == JsonValueKind.False))
+			{
+				bgData.Foreground = fElm.GetBoolean();
+			}
+			if (bdElm4.TryGetProperty("sprite", out var sElm2) && sElm2.ValueKind == JsonValueKind.String)
+			{
+				var sn4 = sElm2.GetString() ?? "";
+				if (sn4.Length > 0 && lookup.Sprites.TryGetValue(sn4, out var spr4))
+				{
+					bgData.Sprite = spr4;
+				}
+			}
+			if (bdElm4.TryGetProperty("tiledHorizontally", out var thElm2) && (thElm2.ValueKind == JsonValueKind.True || thElm2.ValueKind == JsonValueKind.False))
+			{
+				bgData.TiledHorizontally = thElm2.GetBoolean();
+			}
+			if (bdElm4.TryGetProperty("tiledVertically", out var tvElm2) && (tvElm2.ValueKind == JsonValueKind.True || tvElm2.ValueKind == JsonValueKind.False))
+			{
+				bgData.TiledVertically = tvElm2.GetBoolean();
+			}
+			if (bdElm4.TryGetProperty("stretch", out var stElm2) && (stElm2.ValueKind == JsonValueKind.True || stElm2.ValueKind == JsonValueKind.False))
+			{
+				bgData.Stretch = stElm2.GetBoolean();
+			}
+			if (bdElm4.TryGetProperty("color", out var cElm) && TryGetUInt32(cElm, out var backgroundLayerColor))
+			{
+				bgData.Color = backgroundLayerColor;
+			}
+			if (bdElm4.TryGetProperty("firstFrame", out var ffElm) && ffElm.ValueKind == JsonValueKind.Number)
+			{
+				bgData.FirstFrame = (float)ffElm.GetDouble();
+			}
+			if (bdElm4.TryGetProperty("animationSpeed", out var asElm2) && asElm2.ValueKind == JsonValueKind.Number)
+			{
+				bgData.AnimationSpeed = (float)asElm2.GetDouble();
+			}
+			if (bdElm4.TryGetProperty("animationSpeedType", out var astElm2) && astElm2.ValueKind == JsonValueKind.Number)
+			{
+				bgData.AnimationSpeedType = (AnimationSpeedType)astElm2.GetInt32();
+			}
+		}
+		layer.Data = bgData;
+	}
+
+	private static void ImportRoomAssetsLayer(GameMakerData data, RoomImportLookup lookup, JsonElement lElm, GameMakerRoom.Layer layer)
+	{
+		var assetsData = new GameMakerRoom.Layer.LayerAssetsData
+		{
+			LegacyTiles = [],
+			Sprites = []
+		};
+		if (data.IsVersionAtLeast(2u, 3u))
+		{
+			assetsData.Sequences = [];
+		}
+		if (lElm.TryGetProperty("assetsData", out var adElm) && adElm.ValueKind == JsonValueKind.Object)
+		{
+			ReadRoomAssetLegacyTiles(data, lookup, adElm, assetsData);
+			ReadRoomAssetSprites(data, lookup, adElm, assetsData);
+		}
+		layer.Data = assetsData;
+	}
+
+	private static void ReadRoomAssetLegacyTiles(GameMakerData data, RoomImportLookup lookup, JsonElement adElm, GameMakerRoom.Layer.LayerAssetsData assetsData)
+	{
+		if (adElm.TryGetProperty("legacyTiles", out var ltElm2) && ltElm2.ValueKind == JsonValueKind.Array)
+		{
+			foreach (var tElm2 in ltElm2.EnumerateArray())
+			{
+				var tile2 = new GameMakerRoom.Tile();
+				if (tElm2.TryGetProperty("x", out var xElm4) && xElm4.ValueKind == JsonValueKind.Number)
+				{
+					tile2.X = xElm4.GetInt32();
+				}
+				if (tElm2.TryGetProperty("y", out var yElm4) && yElm4.ValueKind == JsonValueKind.Number)
+				{
+					tile2.Y = yElm4.GetInt32();
+				}
+				if (tElm2.TryGetProperty("spriteMode", out var smElm2) && (smElm2.ValueKind == JsonValueKind.True || smElm2.ValueKind == JsonValueKind.False))
+				{
+					tile2.spriteMode = smElm2.GetBoolean();
+				}
+				if (tElm2.TryGetProperty("sourceX", out var sxElm5) && sxElm5.ValueKind == JsonValueKind.Number)
+				{
+					tile2.SourceX = sxElm5.GetInt32();
+				}
+				if (tElm2.TryGetProperty("sourceY", out var syElm5) && syElm5.ValueKind == JsonValueKind.Number)
+				{
+					tile2.SourceY = syElm5.GetInt32();
+				}
+				if (tElm2.TryGetProperty("width", out var wElm3) && TryGetUInt32(wElm3, out var legacyWidth))
+				{
+					tile2.Width = legacyWidth;
+				}
+				if (tElm2.TryGetProperty("height", out var hElm3) && TryGetUInt32(hElm3, out var legacyHeight))
+				{
+					tile2.Height = legacyHeight;
+				}
+				if (tElm2.TryGetProperty("tileDepth", out var dElm) && dElm.ValueKind == JsonValueKind.Number)
+				{
+					tile2.TileDepth = dElm.GetInt32();
+				}
+				if (tElm2.TryGetProperty("instanceID", out var iiElm3) && TryGetUInt32(iiElm3, out var legacyInstanceId))
+				{
+					tile2.InstanceID = legacyInstanceId;
+				}
+				if (tElm2.TryGetProperty("scaleX", out var scxElm2) && scxElm2.ValueKind == JsonValueKind.Number)
+				{
+					tile2.ScaleX = (float)scxElm2.GetDouble();
+				}
+				if (tElm2.TryGetProperty("scaleY", out var scyElm2) && scyElm2.ValueKind == JsonValueKind.Number)
+				{
+					tile2.ScaleY = (float)scyElm2.GetDouble();
+				}
+				if (tElm2.TryGetProperty("color", out var colElm3) && TryGetUInt32(colElm3, out var legacyTileColor))
+				{
+					tile2.Color = legacyTileColor;
+				}
+				if (tile2.spriteMode)
+				{
+					if (tElm2.TryGetProperty("spriteDefinition", out var sdElm2) && sdElm2.ValueKind == JsonValueKind.String)
+					{
+						var sn2 = sdElm2.GetString() ?? "";
+						if (sn2.Length > 0 && lookup.Sprites.TryGetValue(sn2, out var spr2))
+						{
+							tile2.SpriteDefinition = spr2;
+						}
+					}
+				}
+				else if (tElm2.TryGetProperty("backgroundDefinition", out var bdElm3) && bdElm3.ValueKind == JsonValueKind.String)
+				{
+					var bn3 = bdElm3.GetString() ?? "";
+					if (bn3.Length > 0 && lookup.Backgrounds.TryGetValue(bn3, out var bg3))
+					{
+						tile2.BackgroundDefinition = bg3;
+					}
+				}
+				else if (tElm2.TryGetProperty("background", out var bgElm2) && bgElm2.ValueKind == JsonValueKind.String)
+				{
+					var bn4 = bgElm2.GetString() ?? "";
+					if (bn4.Length > 0 && lookup.Backgrounds.TryGetValue(bn4, out var bg4))
+					{
+						tile2.BackgroundDefinition = bg4;
+					}
+				}
+				assetsData.LegacyTiles.Add(tile2);
+			}
+		}
+	}
+
+	private static void ReadRoomAssetSprites(GameMakerData data, RoomImportLookup lookup, JsonElement adElm, GameMakerRoom.Layer.LayerAssetsData assetsData)
+	{
+		if (adElm.TryGetProperty("sprites", out var sprElm) && sprElm.ValueKind == JsonValueKind.Array)
+		{
+			foreach (var sElm in sprElm.EnumerateArray())
+			{
+				var si = new GameMakerRoom.SpriteInstance();
+				if (sElm.TryGetProperty("name", out var nElm) && nElm.ValueKind == JsonValueKind.String)
+				{
+					si.Name = MakeRoomString(data, lookup, nElm.GetString());
+				}
+				if (sElm.TryGetProperty("sprite", out var srElm) && srElm.ValueKind == JsonValueKind.String)
+				{
+					var sn3 = srElm.GetString() ?? "";
+					if (sn3.Length > 0 && lookup.Sprites.TryGetValue(sn3, out var spr3))
+					{
+						si.Sprite = spr3;
+					}
+				}
+				if (sElm.TryGetProperty("x", out var xElm5) && xElm5.ValueKind == JsonValueKind.Number)
+				{
+					si.X = xElm5.GetInt32();
+				}
+				if (sElm.TryGetProperty("y", out var yElm5) && yElm5.ValueKind == JsonValueKind.Number)
+				{
+					si.Y = yElm5.GetInt32();
+				}
+				if (sElm.TryGetProperty("scaleX", out var sxElm6) && sxElm6.ValueKind == JsonValueKind.Number)
+				{
+					si.ScaleX = (float)sxElm6.GetDouble();
+				}
+				if (sElm.TryGetProperty("scaleY", out var syElm6) && syElm6.ValueKind == JsonValueKind.Number)
+				{
+					si.ScaleY = (float)syElm6.GetDouble();
+				}
+				if (sElm.TryGetProperty("color", out var colElm4) && TryGetUInt32(colElm4, out var spriteColor))
+				{
+					si.Color = spriteColor;
+				}
+				if (sElm.TryGetProperty("animationSpeed", out var asElm) && asElm.ValueKind == JsonValueKind.Number)
+				{
+					si.AnimationSpeed = (float)asElm.GetDouble();
+				}
+				if (sElm.TryGetProperty("animationSpeedType", out var astElm) && astElm.ValueKind == JsonValueKind.Number)
+				{
+					si.AnimationSpeedType = (AnimationSpeedType)astElm.GetInt32();
+				}
+				if (sElm.TryGetProperty("frameIndex", out var fiElm) && fiElm.ValueKind == JsonValueKind.Number)
+				{
+					si.FrameIndex = (float)fiElm.GetDouble();
+				}
+				if (sElm.TryGetProperty("rotation", out var rotElm2) && rotElm2.ValueKind == JsonValueKind.Number)
+				{
+					si.Rotation = (float)rotElm2.GetDouble();
+				}
+				assetsData.Sprites.Add(si);
 			}
 		}
 	}
@@ -6748,6 +6769,7 @@ public static partial class ResourceImportService
 					}
 				}
 				maskNodes.Clear();
+				// The import is synchronous: this semaphore only caps how many PNG encodes run at once
 				encodeSlots.Wait();
 				var encodePage = page.Key;
 				encodes.Add(Task.Run(() =>

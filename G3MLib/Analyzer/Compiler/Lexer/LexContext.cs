@@ -216,9 +216,9 @@ internal sealed class LexContext : ISubCompileContext
                     i--;
 
                     // Push existing macro expansion endings back by however many tokens we just added
-                    for (var j = 0; j < macroExpansionEnd.Count; j++)
+                    foreach (ref var expansionEnd in macroExpansionEnd.Items())
                     {
-                        macroExpansionEnd[j] += tokensToInsert.Count - 1;
+                        expansionEnd += tokensToInsert.Count - 1;
                     }
 
                     // Create a new macro expansion ending

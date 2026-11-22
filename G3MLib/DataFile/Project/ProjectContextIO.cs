@@ -100,11 +100,11 @@ public partial class ProjectContext
 
         // Replace every invalid character in place, so no separators or dots survive and the length is kept
         var chars = text.ToCharArray();
-        for (var i = 0; i < chars.Length; i++)
+        foreach (ref var c in chars.AsSpan())
         {
-            if (!char.IsAsciiLetterOrDigit(chars[i]) && chars[i] != '_')
+            if (!char.IsAsciiLetterOrDigit(c) && c != '_')
             {
-                chars[i] = '_';
+                c = '_';
             }
         }
 

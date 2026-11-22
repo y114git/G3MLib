@@ -40,10 +40,7 @@ public class TemplateStringNode(IGMString format, List<IExpressionNode> fields)
     /// <inheritdoc/>
     public IExpressionNode Clean(ASTCleaner cleaner)
     {
-        for (var i = 0; i < Fields.Count; i++)
-        {
-            Fields[i] = Fields[i].Clean(cleaner);
-        }
+        Fields.ReplaceEach(cleaner, static (n, a) => n.Clean(a));
         return this;
     }
 
@@ -54,10 +51,7 @@ public class TemplateStringNode(IGMString format, List<IExpressionNode> fields)
 
     public IExpressionNode PostClean(ASTCleaner cleaner)
     {
-        for (var i = 0; i < Fields.Count; i++)
-        {
-            Fields[i] = Fields[i].PostClean(cleaner);
-        }
+        Fields.ReplaceEach(cleaner, static (n, a) => n.PostClean(a));
         return this;
     }
 

@@ -113,10 +113,7 @@ internal sealed class SwitchNode : IASTNode
             {
                 context.CompileContext.PushError("Switch statement body must begin with \"case\" or \"default\"", NearbyToken);
             }
-            for (var i = 0; i < Children.Count; i++)
-            {
-                Children[i] = Children[i].PostProcess(context);
-            }
+            Children.ReplaceEach(context, static (n, a) => n.PostProcess(a));
 
             // Awaiting official Underminers resolution: duplicate-case diagnostics vary by compiler version.
         }
@@ -131,10 +128,7 @@ internal sealed class SwitchNode : IASTNode
     public IASTNode Duplicate(ParseContext context)
     {
         List<IASTNode> newChildren = [.. Children];
-        for (var i = 0; i < newChildren.Count; i++)
-        {
-            newChildren[i] = newChildren[i].Duplicate(context);
-        }
+        newChildren.ReplaceEach(context, static (n, a) => n.Duplicate(a));
         return new SwitchNode(NearbyToken, Expression.Duplicate(context), newChildren);
     }
 

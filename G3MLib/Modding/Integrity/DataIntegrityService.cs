@@ -254,7 +254,7 @@ public static class DataIntegrityService
 			List<int> referencedOrdered = [.. referencedOrdinals.Order()];
 			if (liveOrdered.Count >= referencedOrdered.Count)
 			{
-				for (var i = 0; i < referencedOrdered.Count; i++)
+				foreach (var i in Enumerable.Range(0, referencedOrdered.Count))
 				{
 					result[family3 + "|" + referencedOrdered[i]] = liveOrdered[i];
 				}
@@ -588,7 +588,7 @@ public static class DataIntegrityService
 		ValidateObjects(data, codeSet, objectSet, spriteSet, result);
 		ValidateTextures(data, spriteSet, texturePageItemSet, embeddedTextureSet, result);
 		ValidateSounds(data, audioGroupSet, result);
-		ValidateRooms(data, codeSet, objectSet, spriteSet, backgroundSet, sequenceSet, particleSystemSet, result);
+		ValidateRooms(data, new RoomReferenceSets(codeSet, objectSet, spriteSet, backgroundSet, sequenceSet, particleSystemSet), result);
 		ValidateParticles(data, spriteSet, particleEmitterSet, result);
 	}
 
@@ -772,8 +772,11 @@ public static class DataIntegrityService
 		}
 	}
 
-	private static void ValidateRooms(GameMakerData data, HashSet<GameMakerCode> codeSet, HashSet<GameMakerGameObject> objectSet, HashSet<GameMakerSprite> spriteSet, HashSet<GameMakerBackground> backgroundSet, HashSet<GameMakerSequence> sequenceSet, HashSet<GameMakerParticleSystem> particleSystemSet, DataIntegrityResult result)
+	private readonly record struct RoomReferenceSets(HashSet<GameMakerCode> Codes, HashSet<GameMakerGameObject> Objects, HashSet<GameMakerSprite> Sprites, HashSet<GameMakerBackground> Backgrounds, HashSet<GameMakerSequence> Sequences, HashSet<GameMakerParticleSystem> ParticleSystems);
+
+	private static void ValidateRooms(GameMakerData data, RoomReferenceSets sets, DataIntegrityResult result)
 	{
+		var (codeSet, objectSet, spriteSet, backgroundSet, sequenceSet, particleSystemSet) = sets;
 		foreach (var room in data.Rooms)
 		{
 			if (room == null)

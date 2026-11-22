@@ -241,7 +241,124 @@ public class BuiltinList : IBuiltins
         var gms2 = major >= 2;
         var gms2_3 = major > 2 || gms2 && minor >= 3;
 
+        var version = new GameVersion(major, minor, release, build, gms2, gms2_3);
         // Functions
+        InitializeFunctions(version);
+        // Constants
+        InitializeConstants(version);
+        // Global variables
+        InitializeGlobalVariables(version);
+        // Instance variables
+        InitializeInstanceVariables(version);
+        // Instance variables, limited to certain (physics) events
+        InitializeLimitedInstanceVariables(version);
+    }
+
+    private void InitializeFunctions(GameVersion v)
+    {
+        var gms2 = v.Gms2;
+        var gms2_3 = v.Gms2_3;
+        InitializeFunctions1(v);
+        if (!gms2)
+        {
+            InitializeFunctions2(v);
+            InitializeFunctions3(v);
+            InitializeFunctions4(v);
+            InitializeFunctions5(v);
+        }
+        InitializeFunctions6(v);
+        InitializeFunctions7(v);
+        InitializeFunctions8(v);
+        InitializeFunctions9(v);
+        InitializeFunctions10(v);
+        InitializeFunctions11(v);
+        InitializeFunctions12(v);
+        InitializeFunctions13(v);
+        InitializeFunctions14(v);
+        InitializeFunctions15(v);
+        InitializeFunctions16(v);
+        InitializeFunctions17(v);
+        InitializeFunctions18(v);
+        InitializeFunctions19(v);
+        InitializeFunctions20(v);
+        InitializeFunctions21(v);
+        InitializeFunctions22(v);
+        InitializeFunctions23(v);
+        InitializeFunctions24(v);
+        InitializeFunctions25(v);
+        InitializeFunctions26(v);
+        if (gms2)
+        {
+            InitializeFunctions27(v);
+            InitializeFunctions28(v);
+        }
+        InitializeFunctions29(v);
+        InitializeFunctions30(v);
+        InitializeFunctions31(v);
+        InitializeFunctions32(v);
+        InitializeFunctions33(v);
+        InitializeFunctions34(v);
+        InitializeFunctions35(v);
+        InitializeFunctions36(v);
+        InitializeFunctions37(v);
+        InitializeFunctions38(v);
+        if (gms2)
+        {
+            InitializeFunctions39(v);
+            InitializeFunctions40(v);
+            InitializeFunctions41(v);
+        }
+        InitializeFunctions42(v);
+        InitializeFunctions43(v);
+        if (gms2_3)
+        {
+            InitializeFunctions44(v);
+            InitializeFunctions45(v);
+            InitializeFunctions46(v);
+            InitializeFunctions47(v);
+            InitializeFunctions48(v);
+        }
+    }
+
+    private void InitializeConstants(GameVersion v)
+    {
+        InitializeConstants1(v);
+        InitializeConstants2(v);
+        InitializeConstants3(v);
+        InitializeConstants4(v);
+        InitializeConstants5(v);
+        InitializeConstants6(v);
+        InitializeConstants7(v);
+        InitializeConstants8(v);
+        InitializeConstants9(v);
+        InitializeConstants10(v);
+        InitializeConstants11(v);
+        InitializeConstants12(v);
+        InitializeConstants13(v);
+        InitializeConstants14(v);
+        InitializeConstants15(v);
+    }
+
+    private void InitializeGlobalVariables(GameVersion v)
+    {
+        InitializeGlobalVariables1(v);
+        InitializeGlobalVariables2(v);
+        InitializeGlobalVariables3(v);
+    }
+
+    private void InitializeInstanceVariables(GameVersion v)
+    {
+        InitializeInstanceVariables1(v);
+        InitializeInstanceVariables2(v);
+    }
+
+    private void InitializeLimitedInstanceVariables(GameVersion v)
+    {
+        InitializeLimitedInstanceVariables1(v);
+    }
+
+    private void InitializeFunctions1(GameVersion v)
+    {
         Functions = new(4096);
         DefineFunction("@@This@@", 0);
         DefineFunction("@@Other@@", 0);
@@ -274,233 +391,250 @@ public class BuiltinList : IBuiltins
         DefineFunction("matrix_stack_clear", 0);
         DefineFunction("matrix_stack_top", 0);
         DefineFunction("matrix_stack_is_empty", 0);
-        if (!gms2)
-        {
-            DefineFunction("d3d_start", 0);
-            DefineFunction("d3d_end", 0);
-            DefineFunction("d3d_set_perspective", 1);
-            DefineFunction("d3d_set_hidden", 1);
-            DefineFunction("d3d_set_depth", 1);
-            DefineFunction("d3d_set_shading", 1);
-            DefineFunction("d3d_set_fog", 4);
-            DefineFunction("d3d_set_culling", 1);
-            DefineFunction("d3d_set_zwriteenable", 1);
-            DefineFunction("d3d_set_projection", 9);
-            DefineFunction("d3d_set_projection_ext", 13);
-            DefineFunction("d3d_set_projection_ortho", 5);
-            DefineFunction("d3d_set_projection_perspective", 5);
-            DefineFunction("d3d_transform_set_identity", 0);
-            DefineFunction("d3d_transform_set_translation", 3);
-            DefineFunction("d3d_transform_set_scaling", 3);
-            DefineFunction("d3d_transform_set_rotation_x", 1);
-            DefineFunction("d3d_transform_set_rotation_y", 1);
-            DefineFunction("d3d_transform_set_rotation_z", 1);
-            DefineFunction("d3d_transform_set_rotation_axis", 4);
-            DefineFunction("d3d_transform_add_translation", 3);
-            DefineFunction("d3d_transform_add_scaling", 3);
-            DefineFunction("d3d_transform_add_rotation_x", 1);
-            DefineFunction("d3d_transform_add_rotation_y", 1);
-            DefineFunction("d3d_transform_add_rotation_z", 1);
-            DefineFunction("d3d_transform_add_rotation_axis", 4);
-            DefineFunction("d3d_transform_stack_clear", 0);
-            DefineFunction("d3d_transform_stack_empty", 0);
-            DefineFunction("d3d_transform_stack_push", 0);
-            DefineFunction("d3d_transform_stack_pop", 0);
-            DefineFunction("d3d_transform_stack_top", 0);
-            DefineFunction("d3d_transform_stack_discard", 0);
-            DefineFunction("d3d_transform_vertex", 3);
-            DefineFunction("d3d_primitive_begin", 1);
-            DefineFunction("d3d_primitive_begin_texture", 2);
-            DefineFunction("d3d_primitive_end", 0);
-            DefineFunction("d3d_vertex", 3);
-            DefineFunction("d3d_vertex_color", 5);
-            DefineFunction("d3d_vertex_colour", 5);
-            DefineFunction("d3d_vertex_texture", 5);
-            DefineFunction("d3d_vertex_texture_color", 7);
-            DefineFunction("d3d_vertex_texture_colour", 7);
-            DefineFunction("d3d_vertex_normal", 6);
-            DefineFunction("d3d_vertex_normal_color", 8);
-            DefineFunction("d3d_vertex_normal_colour", 8);
-            DefineFunction("d3d_vertex_normal_texture", 8);
-            DefineFunction("d3d_vertex_normal_texture_color", 10);
-            DefineFunction("d3d_vertex_normal_texture_colour", 10);
-            DefineFunction("d3d_draw_block", 9);
-            DefineFunction("d3d_draw_cylinder", 11);
-            DefineFunction("d3d_draw_cone", 11);
-            DefineFunction("d3d_draw_ellipsoid", 10);
-            DefineFunction("d3d_draw_wall", 9);
-            DefineFunction("d3d_draw_floor", 9);
-            DefineFunction("d3d_model_create", 0);
-            DefineFunction("d3d_model_destroy", 1);
-            DefineFunction("d3d_model_clear", 1);
-            DefineFunction("d3d_model_load", 2);
-            DefineFunction("d3d_model_save", 2);
-            DefineFunction("d3d_model_load_buffer", 2);
-            DefineFunction("d3d_model_save_buffer", 2);
-            DefineFunction("d3d_model_draw", 5);
-            DefineFunction("d3d_model_primitive_begin", 2);
-            DefineFunction("d3d_model_primitive_end", 1);
-            DefineFunction("d3d_model_vertex", 4);
-            DefineFunction("d3d_model_vertex_color", 6);
-            DefineFunction("d3d_model_vertex_colour", 6);
-            DefineFunction("d3d_model_vertex_texture", 6);
-            DefineFunction("d3d_model_vertex_texture_color", 8);
-            DefineFunction("d3d_model_vertex_texture_colour", 8);
-            DefineFunction("d3d_model_vertex_normal", 7);
-            DefineFunction("d3d_model_vertex_normal_color", 9);
-            DefineFunction("d3d_model_vertex_normal_colour", 9);
-            DefineFunction("d3d_model_vertex_normal_texture", 9);
-            DefineFunction("d3d_model_vertex_normal_texture_color", 11);
-            DefineFunction("d3d_model_vertex_normal_texture_colour", 11);
-            DefineFunction("d3d_model_block", 9);
-            DefineFunction("d3d_model_cylinder", 11);
-            DefineFunction("d3d_model_cone", 11);
-            DefineFunction("d3d_model_ellipsoid", 10);
-            DefineFunction("d3d_model_wall", 9);
-            DefineFunction("d3d_model_floor", 9);
-            DefineFunction("d3d_light_define_ambient", 1);
-            DefineFunction("d3d_light_define_direction", 5);
-            DefineFunction("d3d_light_define_point", 6);
-            DefineFunction("d3d_light_enable", 2);
-            DefineFunction("d3d_set_lighting", 1);
-            DefineFunction("action_path_old", 3);
-            DefineFunction("action_set_sprite", 2);
-            DefineFunction("action_draw_font", 1);
-            DefineFunction("action_draw_font_old", 6);
-            DefineFunction("action_fill_color", 1);
-            DefineFunction("action_fill_colour", 1);
-            DefineFunction("action_line_color", 1);
-            DefineFunction("action_line_colour", 1);
-            DefineFunction("action_highscore", 0);
-            DefineFunction("action_set_relative", 1);
-            DefineFunction("action_move", 2);
-            DefineFunction("action_set_motion", 2);
-            DefineFunction("action_set_hspeed", 1);
-            DefineFunction("action_set_vspeed", 1);
-            DefineFunction("action_set_gravity", 2);
-            DefineFunction("action_set_friction", 1);
-            DefineFunction("action_move_point", 3);
-            DefineFunction("action_move_to", 2);
-            DefineFunction("action_move_start", 0);
-            DefineFunction("action_move_random", 2);
-            DefineFunction("action_snap", 2);
-            DefineFunction("action_wrap", 1);
-            DefineFunction("action_reverse_xdir", 0);
-            DefineFunction("action_reverse_ydir", 0);
-            DefineFunction("action_move_contact", 3);
-            DefineFunction("action_bounce", 2);
-            DefineFunction("action_path", 4);
-            DefineFunction("action_path_end", 0);
-            DefineFunction("action_path_position", 1);
-            DefineFunction("action_path_speed", 1);
-            DefineFunction("action_linear_step", 4);
-            DefineFunction("action_potential_step", 4);
-            DefineFunction("action_kill_object", 0);
-            DefineFunction("action_create_object", 3);
-            DefineFunction("action_create_object_motion", 5);
-            DefineFunction("action_create_object_random", 6);
-            DefineFunction("action_change_object", 2);
-            DefineFunction("action_kill_position", 2);
-            DefineFunction("action_sprite_set", 3);
-            DefineFunction("action_sprite_transform", 4);
-            DefineFunction("action_sprite_color", 2);
-            DefineFunction("action_sprite_colour", 2);
-            DefineFunction("action_sound", 2);
-            DefineFunction("action_end_sound", 1);
-            DefineFunction("action_if_sound", 1);
-            DefineFunction("action_another_room", 1);
-            DefineFunction("action_current_room", 0);
-            DefineFunction("action_previous_room", 0);
-            DefineFunction("action_next_room", 0);
-            DefineFunction("action_if_previous_room", 0);
-            DefineFunction("action_if_next_room", 0);
-            DefineFunction("action_set_alarm", 2);
-            DefineFunction("action_sleep", 2);
-            DefineFunction("action_set_timeline", 2);
-            DefineFunction("action_timeline_set", 4);
-            DefineFunction("action_timeline_start", 0);
-            DefineFunction("action_timeline_stop", 0);
-            DefineFunction("action_timeline_pause", 0);
-            DefineFunction("action_set_timeline_position", 1);
-            DefineFunction("action_set_timeline_speed", 1);
-            DefineFunction("action_message", 1);
-            DefineFunction("action_show_info", 0);
-            DefineFunction("action_show_video", 3);
-            DefineFunction("action_end_game", 0);
-            DefineFunction("action_restart_game", 0);
-            DefineFunction("action_save_game", 1);
-            DefineFunction("action_load_game", 1);
-            DefineFunction("action_replace_sprite", 3);
-            DefineFunction("action_replace_sound", 2);
-            DefineFunction("action_replace_background", 2);
-            DefineFunction("action_if_empty", 3);
-            DefineFunction("action_if_collision", 3);
-            DefineFunction("action_if", 1);
-            DefineFunction("action_if_number", 3);
-            DefineFunction("action_if_object", 3);
-            DefineFunction("action_if_question", 1);
-            DefineFunction("action_if_dice", 1);
-            DefineFunction("action_if_mouse", 1);
-            DefineFunction("action_if_aligned", 2);
-            DefineFunction("action_execute_script", 6);
-            DefineFunction("action_inherited", 0);
-            DefineFunction("action_if_variable", 3);
-            DefineFunction("action_draw_variable", 3);
-            DefineFunction("action_set_score", 1);
-            DefineFunction("action_if_score", 2);
-            DefineFunction("action_draw_score", 3);
-            DefineFunction("action_highscore_show", 11);
-            DefineFunction("action_highscore_clear", 0);
-            DefineFunction("action_set_life", 1);
-            DefineFunction("action_if_life", 2);
-            DefineFunction("action_draw_life", 3);
-            DefineFunction("action_draw_life_images", 3);
-            DefineFunction("action_set_health", 1);
-            DefineFunction("action_if_health", 2);
-            DefineFunction("action_draw_health", 6);
-            DefineFunction("action_set_caption", 6);
-            DefineFunction("action_partsyst_create", 1);
-            DefineFunction("action_partsyst_destroy", 0);
-            DefineFunction("action_partsyst_clear", 0);
-            DefineFunction("action_parttype_create_old", 6);
-            DefineFunction("action_parttype_create", 6);
-            DefineFunction("action_parttype_color", 6);
-            DefineFunction("action_parttype_colour", 6);
-            DefineFunction("action_parttype_life", 3);
-            DefineFunction("action_parttype_speed", 6);
-            DefineFunction("action_parttype_gravity", 3);
-            DefineFunction("action_parttype_secondary", 5);
-            DefineFunction("action_partemit_create", 6);
-            DefineFunction("action_partemit_destroy", 1);
-            DefineFunction("action_partemit_burst", 3);
-            DefineFunction("action_partemit_stream", 3);
-            DefineFunction("action_cd_play", 2);
-            DefineFunction("action_cd_stop", 0);
-            DefineFunction("action_cd_pause", 0);
-            DefineFunction("action_cd_resume", 0);
-            DefineFunction("action_cd_present", 0);
-            DefineFunction("action_cd_playing", 0);
-            DefineFunction("action_set_cursor", 2);
-            DefineFunction("action_webpage", 1);
-            DefineFunction("action_splash_web", 1);
-            DefineFunction("action_draw_sprite", 4);
-            DefineFunction("action_draw_background", 4);
-            DefineFunction("action_draw_text", 3);
-            DefineFunction("action_draw_text_transformed", 6);
-            DefineFunction("action_draw_rectangle", 5);
-            DefineFunction("action_draw_gradient_hor", 6);
-            DefineFunction("action_draw_gradient_vert", 6);
-            DefineFunction("action_draw_ellipse", 5);
-            DefineFunction("action_draw_ellipse_gradient", 6);
-            DefineFunction("action_draw_line", 4);
-            DefineFunction("action_draw_arrow", 5);
-            DefineFunction("action_color", 1);
-            DefineFunction("action_colour", 1);
-            DefineFunction("action_font", 2);
-            DefineFunction("action_fullscreen", 1);
-            DefineFunction("action_snapshot", 1);
-            DefineFunction("action_effect", 6);
-        }
+    }
+
+    private void InitializeFunctions2(GameVersion v)
+    {
+        DefineFunction("d3d_start", 0);
+        DefineFunction("d3d_end", 0);
+        DefineFunction("d3d_set_perspective", 1);
+        DefineFunction("d3d_set_hidden", 1);
+        DefineFunction("d3d_set_depth", 1);
+        DefineFunction("d3d_set_shading", 1);
+        DefineFunction("d3d_set_fog", 4);
+        DefineFunction("d3d_set_culling", 1);
+        DefineFunction("d3d_set_zwriteenable", 1);
+        DefineFunction("d3d_set_projection", 9);
+        DefineFunction("d3d_set_projection_ext", 13);
+        DefineFunction("d3d_set_projection_ortho", 5);
+        DefineFunction("d3d_set_projection_perspective", 5);
+        DefineFunction("d3d_transform_set_identity", 0);
+        DefineFunction("d3d_transform_set_translation", 3);
+        DefineFunction("d3d_transform_set_scaling", 3);
+        DefineFunction("d3d_transform_set_rotation_x", 1);
+        DefineFunction("d3d_transform_set_rotation_y", 1);
+        DefineFunction("d3d_transform_set_rotation_z", 1);
+        DefineFunction("d3d_transform_set_rotation_axis", 4);
+        DefineFunction("d3d_transform_add_translation", 3);
+        DefineFunction("d3d_transform_add_scaling", 3);
+        DefineFunction("d3d_transform_add_rotation_x", 1);
+        DefineFunction("d3d_transform_add_rotation_y", 1);
+        DefineFunction("d3d_transform_add_rotation_z", 1);
+        DefineFunction("d3d_transform_add_rotation_axis", 4);
+        DefineFunction("d3d_transform_stack_clear", 0);
+        DefineFunction("d3d_transform_stack_empty", 0);
+        DefineFunction("d3d_transform_stack_push", 0);
+        DefineFunction("d3d_transform_stack_pop", 0);
+        DefineFunction("d3d_transform_stack_top", 0);
+        DefineFunction("d3d_transform_stack_discard", 0);
+        DefineFunction("d3d_transform_vertex", 3);
+        DefineFunction("d3d_primitive_begin", 1);
+        DefineFunction("d3d_primitive_begin_texture", 2);
+        DefineFunction("d3d_primitive_end", 0);
+        DefineFunction("d3d_vertex", 3);
+        DefineFunction("d3d_vertex_color", 5);
+        DefineFunction("d3d_vertex_colour", 5);
+        DefineFunction("d3d_vertex_texture", 5);
+        DefineFunction("d3d_vertex_texture_color", 7);
+        DefineFunction("d3d_vertex_texture_colour", 7);
+        DefineFunction("d3d_vertex_normal", 6);
+        DefineFunction("d3d_vertex_normal_color", 8);
+        DefineFunction("d3d_vertex_normal_colour", 8);
+        DefineFunction("d3d_vertex_normal_texture", 8);
+        DefineFunction("d3d_vertex_normal_texture_color", 10);
+        DefineFunction("d3d_vertex_normal_texture_colour", 10);
+        DefineFunction("d3d_draw_block", 9);
+        DefineFunction("d3d_draw_cylinder", 11);
+        DefineFunction("d3d_draw_cone", 11);
+        DefineFunction("d3d_draw_ellipsoid", 10);
+        DefineFunction("d3d_draw_wall", 9);
+        DefineFunction("d3d_draw_floor", 9);
+        DefineFunction("d3d_model_create", 0);
+        DefineFunction("d3d_model_destroy", 1);
+        DefineFunction("d3d_model_clear", 1);
+        DefineFunction("d3d_model_load", 2);
+        DefineFunction("d3d_model_save", 2);
+        DefineFunction("d3d_model_load_buffer", 2);
+        DefineFunction("d3d_model_save_buffer", 2);
+        DefineFunction("d3d_model_draw", 5);
+        DefineFunction("d3d_model_primitive_begin", 2);
+        DefineFunction("d3d_model_primitive_end", 1);
+        DefineFunction("d3d_model_vertex", 4);
+        DefineFunction("d3d_model_vertex_color", 6);
+        DefineFunction("d3d_model_vertex_colour", 6);
+        DefineFunction("d3d_model_vertex_texture", 6);
+        DefineFunction("d3d_model_vertex_texture_color", 8);
+        DefineFunction("d3d_model_vertex_texture_colour", 8);
+    }
+
+    private void InitializeFunctions3(GameVersion v)
+    {
+        DefineFunction("d3d_model_vertex_normal", 7);
+        DefineFunction("d3d_model_vertex_normal_color", 9);
+        DefineFunction("d3d_model_vertex_normal_colour", 9);
+        DefineFunction("d3d_model_vertex_normal_texture", 9);
+        DefineFunction("d3d_model_vertex_normal_texture_color", 11);
+        DefineFunction("d3d_model_vertex_normal_texture_colour", 11);
+        DefineFunction("d3d_model_block", 9);
+        DefineFunction("d3d_model_cylinder", 11);
+        DefineFunction("d3d_model_cone", 11);
+        DefineFunction("d3d_model_ellipsoid", 10);
+        DefineFunction("d3d_model_wall", 9);
+        DefineFunction("d3d_model_floor", 9);
+        DefineFunction("d3d_light_define_ambient", 1);
+        DefineFunction("d3d_light_define_direction", 5);
+        DefineFunction("d3d_light_define_point", 6);
+        DefineFunction("d3d_light_enable", 2);
+        DefineFunction("d3d_set_lighting", 1);
+        DefineFunction("action_path_old", 3);
+        DefineFunction("action_set_sprite", 2);
+        DefineFunction("action_draw_font", 1);
+        DefineFunction("action_draw_font_old", 6);
+        DefineFunction("action_fill_color", 1);
+        DefineFunction("action_fill_colour", 1);
+        DefineFunction("action_line_color", 1);
+        DefineFunction("action_line_colour", 1);
+        DefineFunction("action_highscore", 0);
+        DefineFunction("action_set_relative", 1);
+        DefineFunction("action_move", 2);
+        DefineFunction("action_set_motion", 2);
+        DefineFunction("action_set_hspeed", 1);
+        DefineFunction("action_set_vspeed", 1);
+        DefineFunction("action_set_gravity", 2);
+        DefineFunction("action_set_friction", 1);
+        DefineFunction("action_move_point", 3);
+        DefineFunction("action_move_to", 2);
+        DefineFunction("action_move_start", 0);
+        DefineFunction("action_move_random", 2);
+        DefineFunction("action_snap", 2);
+        DefineFunction("action_wrap", 1);
+        DefineFunction("action_reverse_xdir", 0);
+        DefineFunction("action_reverse_ydir", 0);
+        DefineFunction("action_move_contact", 3);
+        DefineFunction("action_bounce", 2);
+        DefineFunction("action_path", 4);
+        DefineFunction("action_path_end", 0);
+        DefineFunction("action_path_position", 1);
+        DefineFunction("action_path_speed", 1);
+        DefineFunction("action_linear_step", 4);
+        DefineFunction("action_potential_step", 4);
+        DefineFunction("action_kill_object", 0);
+        DefineFunction("action_create_object", 3);
+        DefineFunction("action_create_object_motion", 5);
+        DefineFunction("action_create_object_random", 6);
+        DefineFunction("action_change_object", 2);
+        DefineFunction("action_kill_position", 2);
+        DefineFunction("action_sprite_set", 3);
+        DefineFunction("action_sprite_transform", 4);
+        DefineFunction("action_sprite_color", 2);
+        DefineFunction("action_sprite_colour", 2);
+        DefineFunction("action_sound", 2);
+        DefineFunction("action_end_sound", 1);
+        DefineFunction("action_if_sound", 1);
+        DefineFunction("action_another_room", 1);
+        DefineFunction("action_current_room", 0);
+        DefineFunction("action_previous_room", 0);
+        DefineFunction("action_next_room", 0);
+        DefineFunction("action_if_previous_room", 0);
+        DefineFunction("action_if_next_room", 0);
+        DefineFunction("action_set_alarm", 2);
+        DefineFunction("action_sleep", 2);
+    }
+
+    private void InitializeFunctions4(GameVersion v)
+    {
+        DefineFunction("action_set_timeline", 2);
+        DefineFunction("action_timeline_set", 4);
+        DefineFunction("action_timeline_start", 0);
+        DefineFunction("action_timeline_stop", 0);
+        DefineFunction("action_timeline_pause", 0);
+        DefineFunction("action_set_timeline_position", 1);
+        DefineFunction("action_set_timeline_speed", 1);
+        DefineFunction("action_message", 1);
+        DefineFunction("action_show_info", 0);
+        DefineFunction("action_show_video", 3);
+        DefineFunction("action_end_game", 0);
+        DefineFunction("action_restart_game", 0);
+        DefineFunction("action_save_game", 1);
+        DefineFunction("action_load_game", 1);
+        DefineFunction("action_replace_sprite", 3);
+        DefineFunction("action_replace_sound", 2);
+        DefineFunction("action_replace_background", 2);
+        DefineFunction("action_if_empty", 3);
+        DefineFunction("action_if_collision", 3);
+        DefineFunction("action_if", 1);
+        DefineFunction("action_if_number", 3);
+        DefineFunction("action_if_object", 3);
+        DefineFunction("action_if_question", 1);
+        DefineFunction("action_if_dice", 1);
+        DefineFunction("action_if_mouse", 1);
+        DefineFunction("action_if_aligned", 2);
+        DefineFunction("action_execute_script", 6);
+        DefineFunction("action_inherited", 0);
+        DefineFunction("action_if_variable", 3);
+        DefineFunction("action_draw_variable", 3);
+        DefineFunction("action_set_score", 1);
+        DefineFunction("action_if_score", 2);
+        DefineFunction("action_draw_score", 3);
+        DefineFunction("action_highscore_show", 11);
+        DefineFunction("action_highscore_clear", 0);
+        DefineFunction("action_set_life", 1);
+        DefineFunction("action_if_life", 2);
+        DefineFunction("action_draw_life", 3);
+        DefineFunction("action_draw_life_images", 3);
+        DefineFunction("action_set_health", 1);
+        DefineFunction("action_if_health", 2);
+        DefineFunction("action_draw_health", 6);
+        DefineFunction("action_set_caption", 6);
+        DefineFunction("action_partsyst_create", 1);
+        DefineFunction("action_partsyst_destroy", 0);
+        DefineFunction("action_partsyst_clear", 0);
+        DefineFunction("action_parttype_create_old", 6);
+        DefineFunction("action_parttype_create", 6);
+        DefineFunction("action_parttype_color", 6);
+        DefineFunction("action_parttype_colour", 6);
+        DefineFunction("action_parttype_life", 3);
+        DefineFunction("action_parttype_speed", 6);
+        DefineFunction("action_parttype_gravity", 3);
+        DefineFunction("action_parttype_secondary", 5);
+        DefineFunction("action_partemit_create", 6);
+        DefineFunction("action_partemit_destroy", 1);
+        DefineFunction("action_partemit_burst", 3);
+        DefineFunction("action_partemit_stream", 3);
+        DefineFunction("action_cd_play", 2);
+        DefineFunction("action_cd_stop", 0);
+        DefineFunction("action_cd_pause", 0);
+        DefineFunction("action_cd_resume", 0);
+        DefineFunction("action_cd_present", 0);
+        DefineFunction("action_cd_playing", 0);
+        DefineFunction("action_set_cursor", 2);
+        DefineFunction("action_webpage", 1);
+        DefineFunction("action_splash_web", 1);
+        DefineFunction("action_draw_sprite", 4);
+        DefineFunction("action_draw_background", 4);
+        DefineFunction("action_draw_text", 3);
+    }
+
+    private void InitializeFunctions5(GameVersion v)
+    {
+        DefineFunction("action_draw_text_transformed", 6);
+        DefineFunction("action_draw_rectangle", 5);
+        DefineFunction("action_draw_gradient_hor", 6);
+        DefineFunction("action_draw_gradient_vert", 6);
+        DefineFunction("action_draw_ellipse", 5);
+        DefineFunction("action_draw_ellipse_gradient", 6);
+        DefineFunction("action_draw_line", 4);
+        DefineFunction("action_draw_arrow", 5);
+        DefineFunction("action_color", 1);
+        DefineFunction("action_colour", 1);
+        DefineFunction("action_font", 2);
+        DefineFunction("action_fullscreen", 1);
+        DefineFunction("action_snapshot", 1);
+        DefineFunction("action_effect", 6);
+    }
+
+    private void InitializeFunctions6(GameVersion v)
+    {
         DefineFunction("ds_set_precision", 1);
         DefineFunction("ds_exists", 2);
         DefineFunction("ds_stack_create", 0);
@@ -571,6 +705,10 @@ public class BuiltinList : IBuiltins
         DefineFunction("ds_map_secure_save", 2);
         DefineFunction("ds_map_secure_load", 1);
         DefineFunction("ds_map_secure_load_buffer", 1);
+    }
+
+    private void InitializeFunctions7(GameVersion v)
+    {
         DefineFunction("ds_map_secure_save_buffer", 2);
         DefineFunction("ds_map_set", 3);
         DefineFunction("ds_map_set_pre", 3);
@@ -641,6 +779,10 @@ public class BuiltinList : IBuiltins
         DefineFunction("file_bin_write_byte", 2);
         DefineFunction("file_text_open_from_string", 1);
         DefineFunction("file_text_open_read", 1);
+    }
+
+    private void InitializeFunctions8(GameVersion v)
+    {
         DefineFunction("file_text_open_write", 1);
         DefineFunction("file_text_open_append", 1);
         DefineFunction("file_text_close", 1);
@@ -711,6 +853,11 @@ public class BuiltinList : IBuiltins
         DefineFunction("move_towards_point", 3);
         DefineFunction("move_contact", 1);
         DefineFunction("move_contact_solid", 2);
+    }
+
+    private void InitializeFunctions9(GameVersion v)
+    {
+        var gms2 = v.Gms2;
         DefineFunction("move_contact_all", 2);
         DefineFunction("move_outside_solid", 2);
         DefineFunction("move_outside_all", 2);
@@ -781,6 +928,10 @@ public class BuiltinList : IBuiltins
         DefineFunction("instance_change", 2);
         DefineFunction("instance_destroy");
         DefineFunction("instance_sprite", 1);
+    }
+
+    private void InitializeFunctions10(GameVersion v)
+    {
         DefineFunction("position_empty", 2);
         DefineFunction("position_meeting", 3);
         DefineFunction("position_destroy", 2);
@@ -851,6 +1002,11 @@ public class BuiltinList : IBuiltins
         DefineFunction("window_get_width", 0);
         DefineFunction("window_get_height", 0);
         DefineFunction("window_mouse_get_x", 0);
+    }
+
+    private void InitializeFunctions11(GameVersion v)
+    {
+        var gms2 = v.Gms2;
         DefineFunction("window_mouse_get_y", 0);
         DefineFunction("window_mouse_set", 2);
         DefineFunction("window_view_mouse_get_x", 1);
@@ -921,6 +1077,13 @@ public class BuiltinList : IBuiltins
         DefineFunction("draw_roundrect_color", 7);
         DefineFunction("draw_roundrect_color_ext", 9);
         DefineFunction("draw_triangle_color", 10);
+    }
+
+    private void InitializeFunctions12(GameVersion v)
+    {
+        var major = v.Major;
+        var minor = v.Minor;
+        var gms2 = v.Gms2;
         DefineFunction("draw_circle_color", 6);
         DefineFunction("draw_ellipse_color", 7);
         DefineFunction("draw_point_colour", 3);
@@ -991,6 +1154,11 @@ public class BuiltinList : IBuiltins
         DefineFunction("draw_text_ext_transformed", 8);
         DefineFunction("draw_text_color", 8);
         DefineFunction("draw_text_transformed_color", 11);
+    }
+
+    private void InitializeFunctions13(GameVersion v)
+    {
+        var gms2 = v.Gms2;
         DefineFunction("draw_text_ext_color", 10);
         DefineFunction("draw_text_ext_transformed_color", 13);
         DefineFunction("draw_text_colour", 8);
@@ -1023,6 +1191,11 @@ public class BuiltinList : IBuiltins
             DefineFunction("draw_background_tiled", 3);
             DefineFunction("draw_background_tiled_ext", 7);
         }
+    }
+
+    private void InitializeFunctions14(GameVersion v)
+    {
+        var gms2 = v.Gms2;
         if (!gms2)
         {
             DefineFunction("tile_get_x", 1);
@@ -1093,6 +1266,11 @@ public class BuiltinList : IBuiltins
         DefineFunction("surface_copy", 4);
         DefineFunction("surface_copy_part", 8);
         DefineFunction("application_surface_draw_enable", 1);
+    }
+
+    private void InitializeFunctions15(GameVersion v)
+    {
+        var gms2 = v.Gms2;
         DefineFunction("application_get_position", 0);
         DefineFunction("application_surface_enable", 1);
         DefineFunction("application_surface_is_enabled", 0);
@@ -1163,6 +1341,12 @@ public class BuiltinList : IBuiltins
             DefineFunction("joystick_vpos", 1, FunctionClassification.Joystick);
             DefineFunction("joystick_pov", 1, FunctionClassification.Joystick);
         }
+    }
+
+    private void InitializeFunctions16(GameVersion v)
+    {
+        var gms2 = v.Gms2;
+        var gms2_3 = v.Gms2_3;
         DefineFunction("keyboard_clear", 1);
         DefineFunction("mouse_clear", 1);
         DefineFunction("io_clear", 0);
@@ -1232,6 +1416,11 @@ public class BuiltinList : IBuiltins
         DefineFunction("array_equals", 2);
         DefineFunction("array_create");
         DefineFunction("array_copy", 5);
+    }
+
+    private void InitializeFunctions17(GameVersion v)
+    {
+        var gms2_3 = v.Gms2_3;
         if (gms2_3)
         {
             DefineFunction("array_length", 1);
@@ -1302,6 +1491,10 @@ public class BuiltinList : IBuiltins
         DefineFunction("irandom_range", 2);
         DefineFunction("random_set_seed", 1);
         DefineFunction("random_get_seed", 0);
+    }
+
+    private void InitializeFunctions18(GameVersion v)
+    {
         DefineFunction("randomize", 0);
         DefineFunction("randomise", 0);
         DefineFunction("random_use_old_version", 1);
@@ -1372,6 +1565,11 @@ public class BuiltinList : IBuiltins
         DefineFunction("string_set_byte_at", 3);
         DefineFunction("string_delete", 3);
         DefineFunction("string_insert", 3);
+    }
+
+    private void InitializeFunctions19(GameVersion v)
+    {
+        var gms2_3 = v.Gms2_3;
         DefineFunction("string_lower", 1);
         DefineFunction("string_upper", 1);
         DefineFunction("string_repeat", 2);
@@ -1442,6 +1640,10 @@ public class BuiltinList : IBuiltins
         DefineFunction("alarm_set", 2);
         DefineFunction("clipboard_has_text", 0);
         DefineFunction("clipboard_set_text", 1);
+    }
+
+    private void InitializeFunctions20(GameVersion v)
+    {
         DefineFunction("clipboard_get_text", 0);
         DefineFunction("date_current_datetime", 0);
         DefineFunction("date_create_datetime", 6);
@@ -1512,6 +1714,11 @@ public class BuiltinList : IBuiltins
         DefineFunction("part_type_color", 4);
         DefineFunction("part_type_colour_mix", 3);
         DefineFunction("part_type_colour_rgb", 7);
+    }
+
+    private void InitializeFunctions21(GameVersion v)
+    {
+        var gms2 = v.Gms2;
         DefineFunction("part_type_colour_hsv", 7);
         DefineFunction("part_type_colour1", 2);
         DefineFunction("part_type_colour2", 3);
@@ -1582,6 +1789,11 @@ public class BuiltinList : IBuiltins
         DefineFunction("sprite_add", 6);
         DefineFunction("sprite_replace", 7);
         DefineFunction("sprite_create_from_surface", 9);
+    }
+
+    private void InitializeFunctions22(GameVersion v)
+    {
+        var gms2 = v.Gms2;
         DefineFunction("sprite_add_from_surface", 8);
         DefineFunction("sprite_delete", 1);
         DefineFunction("sprite_duplicate", 1);
@@ -1652,6 +1864,10 @@ public class BuiltinList : IBuiltins
         DefineFunction("audio_emitter_free", 1);
         DefineFunction("audio_emitter_pitch", 2);
         DefineFunction("audio_emitter_velocity", 4);
+    }
+
+    private void InitializeFunctions23(GameVersion v)
+    {
         DefineFunction("audio_emitter_falloff", 4);
         DefineFunction("audio_emitter_gain", 2);
         DefineFunction("audio_play_sound", 3);
@@ -1722,6 +1938,10 @@ public class BuiltinList : IBuiltins
         DefineFunction("audio_create_stream", 1);
         DefineFunction("audio_destroy_stream", 1);
         DefineFunction("audio_start_recording", 1);
+    }
+
+    private void InitializeFunctions24(GameVersion v)
+    {
         DefineFunction("audio_stop_recording", 1);
         DefineFunction("audio_get_recorder_count", 0);
         DefineFunction("audio_get_recorder_info", 1);
@@ -1792,6 +2012,11 @@ public class BuiltinList : IBuiltins
         DefineFunction("path_flip", 1);
         DefineFunction("path_rotate", 2);
         DefineFunction("path_rescale", 3);
+    }
+
+    private void InitializeFunctions25(GameVersion v)
+    {
+        var gms2 = v.Gms2;
         DefineFunction("path_shift", 3);
         DefineFunction("timeline_name", 1);
         DefineFunction("timeline_exists", 1);
@@ -1862,6 +2087,11 @@ public class BuiltinList : IBuiltins
             DefineFunction("room_get_camera", 2);
             DefineFunction("room_set_camera", 3);
         }
+    }
+
+    private void InitializeFunctions26(GameVersion v)
+    {
+        var gms2 = v.Gms2;
         if (!gms2)
         {
             DefineFunction("sound_play", 1);
@@ -1927,93 +2157,102 @@ public class BuiltinList : IBuiltins
         }
         DefineFunction("draw_texture_flush", 0);
         DefineFunction("draw_flush", 0);
-        if (gms2)
-        {
-            DefineFunction("gpu_set_blendenable", 1);
-            DefineFunction("gpu_set_ztestenable", 1);
-            DefineFunction("gpu_set_zfunc", 1);
-            DefineFunction("gpu_set_zwriteenable", 1);
-            DefineFunction("gpu_set_fog", 4);
-            DefineFunction("gpu_set_cullmode", 1);
-            DefineFunction("gpu_set_blendmode", 1);
-            DefineFunction("gpu_set_blendmode_ext", 2);
-            DefineFunction("gpu_set_blendmode_ext_sepalpha", 4);
-            DefineFunction("gpu_set_colorwriteenable");
-            DefineFunction("gpu_set_colourwriteenable");
-            DefineFunction("gpu_set_alphatestenable", 1);
-            DefineFunction("gpu_set_alphatestref", 1);
-            DefineFunction("gpu_set_alphatestfunc", 1);
-            DefineFunction("gpu_set_texfilter", 1);
-            DefineFunction("gpu_set_texfilter_ext", 2);
-            DefineFunction("gpu_set_texrepeat", 1);
-            DefineFunction("gpu_set_texrepeat_ext", 2);
-            DefineFunction("gpu_set_tex_filter", 1);
-            DefineFunction("gpu_set_tex_filter_ext", 2);
-            DefineFunction("gpu_set_tex_repeat", 1);
-            DefineFunction("gpu_set_tex_repeat_ext", 2);
-            DefineFunction("gpu_set_tex_mip_filter", 1);
-            DefineFunction("gpu_set_tex_mip_filter_ext", 2);
-            DefineFunction("gpu_set_tex_mip_bias", 1);
-            DefineFunction("gpu_set_tex_mip_bias_ext", 2);
-            DefineFunction("gpu_set_tex_min_mip", 1);
-            DefineFunction("gpu_set_tex_min_mip_ext", 2);
-            DefineFunction("gpu_set_tex_max_mip", 1);
-            DefineFunction("gpu_set_tex_max_mip_ext", 2);
-            DefineFunction("gpu_set_tex_max_aniso", 1);
-            DefineFunction("gpu_set_tex_max_aniso_ext", 2);
-            DefineFunction("gpu_set_tex_mip_enable", 1);
-            DefineFunction("gpu_set_tex_mip_enable_ext", 2);
-            DefineFunction("gpu_get_blendenable", 0);
-            DefineFunction("gpu_get_ztestenable", 0);
-            DefineFunction("gpu_get_zfunc", 0);
-            DefineFunction("gpu_get_zwriteenable", 0);
-            DefineFunction("gpu_get_fog", 0);
-            DefineFunction("gpu_get_cullmode", 0);
-            DefineFunction("gpu_get_blendmode", 0);
-            DefineFunction("gpu_get_blendmode_ext", 0);
-            DefineFunction("gpu_get_blendmode_ext_sepalpha", 0);
-            DefineFunction("gpu_get_blendmode_src", 0);
-            DefineFunction("gpu_get_blendmode_dest", 0);
-            DefineFunction("gpu_get_blendmode_srcalpha", 0);
-            DefineFunction("gpu_get_blendmode_destalpha", 0);
-            DefineFunction("gpu_get_colorwriteenable", 0);
-            DefineFunction("gpu_get_colourwriteenable", 0);
-            DefineFunction("gpu_get_alphatestenable", 0);
-            DefineFunction("gpu_get_alphatestref", 0);
-            DefineFunction("gpu_get_alphatestfunc", 0);
-            DefineFunction("gpu_get_texfilter", 0);
-            DefineFunction("gpu_get_texfilter_ext", 1);
-            DefineFunction("gpu_get_texrepeat", 0);
-            DefineFunction("gpu_get_texrepeat_ext", 1);
-            DefineFunction("gpu_get_tex_filter", 0);
-            DefineFunction("gpu_get_tex_filter_ext", 1);
-            DefineFunction("gpu_get_tex_repeat", 0);
-            DefineFunction("gpu_get_tex_repeat_ext", 1);
-            DefineFunction("gpu_get_tex_mip_filter", 0);
-            DefineFunction("gpu_get_tex_mip_filter_ext", 1);
-            DefineFunction("gpu_get_tex_mip_bias", 0);
-            DefineFunction("gpu_get_tex_mip_bias_ext", 1);
-            DefineFunction("gpu_get_tex_min_mip", 0);
-            DefineFunction("gpu_get_tex_min_mip_ext", 1);
-            DefineFunction("gpu_get_tex_max_mip", 0);
-            DefineFunction("gpu_get_tex_max_mip_ext", 1);
-            DefineFunction("gpu_get_tex_max_aniso", 0);
-            DefineFunction("gpu_get_tex_max_aniso_ext", 1);
-            DefineFunction("gpu_get_tex_mip_enable", 0);
-            DefineFunction("gpu_get_tex_mip_enable_ext", 1);
-            DefineFunction("gpu_push_state", 0);
-            DefineFunction("gpu_pop_state", 0);
-            DefineFunction("gpu_get_state", 0);
-            DefineFunction("gpu_set_state", 1);
-            DefineFunction("draw_light_define_ambient", 1);
-            DefineFunction("draw_light_define_direction", 5);
-            DefineFunction("draw_light_define_point", 6);
-            DefineFunction("draw_light_enable", 2);
-            DefineFunction("draw_set_lighting", 1);
-            DefineFunction("draw_light_get_ambient", 0);
-            DefineFunction("draw_light_get", 1);
-            DefineFunction("draw_get_lighting", 0);
-        }
+    }
+
+    private void InitializeFunctions27(GameVersion v)
+    {
+        DefineFunction("gpu_set_blendenable", 1);
+        DefineFunction("gpu_set_ztestenable", 1);
+        DefineFunction("gpu_set_zfunc", 1);
+        DefineFunction("gpu_set_zwriteenable", 1);
+        DefineFunction("gpu_set_fog", 4);
+        DefineFunction("gpu_set_cullmode", 1);
+        DefineFunction("gpu_set_blendmode", 1);
+        DefineFunction("gpu_set_blendmode_ext", 2);
+        DefineFunction("gpu_set_blendmode_ext_sepalpha", 4);
+        DefineFunction("gpu_set_colorwriteenable");
+        DefineFunction("gpu_set_colourwriteenable");
+        DefineFunction("gpu_set_alphatestenable", 1);
+        DefineFunction("gpu_set_alphatestref", 1);
+        DefineFunction("gpu_set_alphatestfunc", 1);
+        DefineFunction("gpu_set_texfilter", 1);
+        DefineFunction("gpu_set_texfilter_ext", 2);
+        DefineFunction("gpu_set_texrepeat", 1);
+        DefineFunction("gpu_set_texrepeat_ext", 2);
+        DefineFunction("gpu_set_tex_filter", 1);
+        DefineFunction("gpu_set_tex_filter_ext", 2);
+        DefineFunction("gpu_set_tex_repeat", 1);
+        DefineFunction("gpu_set_tex_repeat_ext", 2);
+        DefineFunction("gpu_set_tex_mip_filter", 1);
+        DefineFunction("gpu_set_tex_mip_filter_ext", 2);
+        DefineFunction("gpu_set_tex_mip_bias", 1);
+        DefineFunction("gpu_set_tex_mip_bias_ext", 2);
+        DefineFunction("gpu_set_tex_min_mip", 1);
+        DefineFunction("gpu_set_tex_min_mip_ext", 2);
+        DefineFunction("gpu_set_tex_max_mip", 1);
+        DefineFunction("gpu_set_tex_max_mip_ext", 2);
+        DefineFunction("gpu_set_tex_max_aniso", 1);
+        DefineFunction("gpu_set_tex_max_aniso_ext", 2);
+        DefineFunction("gpu_set_tex_mip_enable", 1);
+        DefineFunction("gpu_set_tex_mip_enable_ext", 2);
+        DefineFunction("gpu_get_blendenable", 0);
+        DefineFunction("gpu_get_ztestenable", 0);
+        DefineFunction("gpu_get_zfunc", 0);
+        DefineFunction("gpu_get_zwriteenable", 0);
+        DefineFunction("gpu_get_fog", 0);
+        DefineFunction("gpu_get_cullmode", 0);
+        DefineFunction("gpu_get_blendmode", 0);
+        DefineFunction("gpu_get_blendmode_ext", 0);
+        DefineFunction("gpu_get_blendmode_ext_sepalpha", 0);
+        DefineFunction("gpu_get_blendmode_src", 0);
+        DefineFunction("gpu_get_blendmode_dest", 0);
+        DefineFunction("gpu_get_blendmode_srcalpha", 0);
+        DefineFunction("gpu_get_blendmode_destalpha", 0);
+        DefineFunction("gpu_get_colorwriteenable", 0);
+        DefineFunction("gpu_get_colourwriteenable", 0);
+        DefineFunction("gpu_get_alphatestenable", 0);
+        DefineFunction("gpu_get_alphatestref", 0);
+        DefineFunction("gpu_get_alphatestfunc", 0);
+        DefineFunction("gpu_get_texfilter", 0);
+        DefineFunction("gpu_get_texfilter_ext", 1);
+        DefineFunction("gpu_get_texrepeat", 0);
+        DefineFunction("gpu_get_texrepeat_ext", 1);
+        DefineFunction("gpu_get_tex_filter", 0);
+        DefineFunction("gpu_get_tex_filter_ext", 1);
+        DefineFunction("gpu_get_tex_repeat", 0);
+        DefineFunction("gpu_get_tex_repeat_ext", 1);
+        DefineFunction("gpu_get_tex_mip_filter", 0);
+        DefineFunction("gpu_get_tex_mip_filter_ext", 1);
+        DefineFunction("gpu_get_tex_mip_bias", 0);
+        DefineFunction("gpu_get_tex_mip_bias_ext", 1);
+        DefineFunction("gpu_get_tex_min_mip", 0);
+        DefineFunction("gpu_get_tex_min_mip_ext", 1);
+        DefineFunction("gpu_get_tex_max_mip", 0);
+        DefineFunction("gpu_get_tex_max_mip_ext", 1);
+        DefineFunction("gpu_get_tex_max_aniso", 0);
+        DefineFunction("gpu_get_tex_max_aniso_ext", 1);
+    }
+
+    private void InitializeFunctions28(GameVersion v)
+    {
+        DefineFunction("gpu_get_tex_mip_enable", 0);
+        DefineFunction("gpu_get_tex_mip_enable_ext", 1);
+        DefineFunction("gpu_push_state", 0);
+        DefineFunction("gpu_pop_state", 0);
+        DefineFunction("gpu_get_state", 0);
+        DefineFunction("gpu_set_state", 1);
+        DefineFunction("draw_light_define_ambient", 1);
+        DefineFunction("draw_light_define_direction", 5);
+        DefineFunction("draw_light_define_point", 6);
+        DefineFunction("draw_light_enable", 2);
+        DefineFunction("draw_set_lighting", 1);
+        DefineFunction("draw_light_get_ambient", 0);
+        DefineFunction("draw_light_get", 1);
+        DefineFunction("draw_get_lighting", 0);
+    }
+
+    private void InitializeFunctions29(GameVersion v)
+    {
         DefineFunction("get_timer", 0);
         DefineFunction("os_get_config", 0);
         DefineFunction("os_get_info", 0);
@@ -2084,6 +2323,10 @@ public class BuiltinList : IBuiltins
         DefineFunction("gamepad_axis_value", 2, FunctionClassification.Gamepad);
         DefineFunction("gamepad_set_vibration", 3, FunctionClassification.Gamepad);
         DefineFunction("gamepad_set_colour", 2, FunctionClassification.Gamepad);
+    }
+
+    private void InitializeFunctions30(GameVersion v)
+    {
         DefineFunction("gamepad_set_color", 2, FunctionClassification.Gamepad);
         DefineFunction("gamepad_add_mapping_from_string", 1, FunctionClassification.Gamepad);
         DefineFunction("gamepad_add_mapping_from_file", 1, FunctionClassification.Gamepad);
@@ -2154,6 +2397,10 @@ public class BuiltinList : IBuiltins
         DefineFunction("physics_joint_wheel_create", 12);
         DefineFunction("physics_joint_weld_create", 8);
         DefineFunction("physics_joint_friction_create", 7);
+    }
+
+    private void InitializeFunctions31(GameVersion v)
+    {
         DefineFunction("physics_joint_gear_create", 5);
         DefineFunction("physics_joint_delete", 1);
         DefineFunction("physics_particle_create", 8);
@@ -2224,6 +2471,15 @@ public class BuiltinList : IBuiltins
         DefineFunction("win8_settingscharm_set_xaml_property", 4);
         DefineFunction("win8_settingscharm_get_xaml_property", 3);
         DefineFunction("win8_settingscharm_remove_entry", 1);
+    }
+
+    private void InitializeFunctions32(GameVersion v)
+    {
+        var major = v.Major;
+        var minor = v.Minor;
+        var release = v.Release;
+        var gms2 = v.Gms2;
+        var gms2_3 = v.Gms2_3;
         DefineFunction("win8_share_image", 4);
         DefineFunction("win8_share_screenshot", 3);
         DefineFunction("win8_share_file", 4);
@@ -2294,6 +2550,10 @@ public class BuiltinList : IBuiltins
         DefineFunction("buffer_set_surface", 5);
         DefineFunction("buffer_set_network_safe", 2);
         DefineFunction("buffer_create_from_vertex_buffer", 3);
+    }
+
+    private void InitializeFunctions33(GameVersion v)
+    {
         DefineFunction("buffer_create_from_vertex_buffer_ext", 5);
         DefineFunction("buffer_copy_from_vertex_buffer", 5);
         DefineFunction("buffer_compress", 3);
@@ -2364,6 +2624,10 @@ public class BuiltinList : IBuiltins
         DefineFunction("steam_activate_overlay_browser", 1);
         DefineFunction("steam_activate_overlay_user", 2);
         DefineFunction("steam_activate_overlay_store", 1);
+    }
+
+    private void InitializeFunctions34(GameVersion v)
+    {
         DefineFunction("steam_get_user_persona_name", 1);
         DefineFunction("steam_get_app_id", 0);
         DefineFunction("steam_get_user_account_id", 0);
@@ -2434,6 +2698,10 @@ public class BuiltinList : IBuiltins
         DefineFunction("vertex_begin", 2);
         DefineFunction("vertex_end", 1);
         DefineFunction("vertex_position", 3);
+    }
+
+    private void InitializeFunctions35(GameVersion v)
+    {
         DefineFunction("vertex_position_3d", 4);
         DefineFunction("vertex_colour", 3);
         DefineFunction("vertex_color", 3);
@@ -2504,6 +2772,10 @@ public class BuiltinList : IBuiltins
         DefineFunction("psn_init_np_libs");
         DefineFunction("psn_exit_np_libs", 0);
         DefineFunction("psn_get_leaderboard_score", 2);
+    }
+
+    private void InitializeFunctions36(GameVersion v)
+    {
         DefineFunction("psn_post_leaderboard_score", 3);
         DefineFunction("psn_post_leaderboard_score_comment", 4);
         DefineFunction("psn_check_np_availability", 2);
@@ -2574,6 +2846,10 @@ public class BuiltinList : IBuiltins
         DefineFunction("xboxone_pad_count_for_user", 1);
         DefineFunction("xboxone_sponsor_for_user", 1);
         DefineFunction("xboxone_pad_for_user", 2);
+    }
+
+    private void InitializeFunctions37(GameVersion v)
+    {
         DefineFunction("xboxone_show_account_picker", 2);
         DefineFunction("xboxone_sprite_add_from_gamerpicture", 4);
         DefineFunction("xboxone_show_profile_card_for_user", 2);
@@ -2644,6 +2920,10 @@ public class BuiltinList : IBuiltins
         DefineFunction("xboxlive_user_for_pad", 1);
         DefineFunction("xboxlive_pad_count_for_user", 1);
         DefineFunction("xboxlive_sponsor_for_user", 1);
+    }
+
+    private void InitializeFunctions38(GameVersion v)
+    {
         DefineFunction("xboxlive_pad_for_user", 2);
         DefineFunction("xboxlive_show_account_picker");
         DefineFunction("xboxlive_sprite_add_from_gamerpicture", 4);
@@ -2696,207 +2976,220 @@ public class BuiltinList : IBuiltins
         DefineFunction("xboxlive_set_service_configuration_id", 1);
         DefineFunction("xboxlive_generate_player_session_id", 0);
         DefineFunction("browser_input_capture", 1);
-        if (gms2)
-        {
-            DefineFunction("layer_get_id", 1);
-            DefineFunction("layer_get_id_at_depth", 1);
-            DefineFunction("layer_get_depth", 1);
-            DefineFunction("layer_create");
-            DefineFunction("layer_destroy", 1);
-            DefineFunction("layer_destroy_instances", 1);
-            DefineFunction("layer_add_instance", 2);
-            DefineFunction("layer_has_instance", 2);
-            DefineFunction("layer_set_visible", 2);
-            DefineFunction("layer_get_visible", 1);
-            DefineFunction("layer_exists", 1);
-            DefineFunction("layer_x", 2);
-            DefineFunction("layer_y", 2);
-            DefineFunction("layer_get_x", 1);
-            DefineFunction("layer_get_y", 1);
-            DefineFunction("layer_hspeed", 2);
-            DefineFunction("layer_vspeed", 2);
-            DefineFunction("layer_get_hspeed", 1);
-            DefineFunction("layer_get_vspeed", 1);
-            DefineFunction("layer_sprite_get_id", 2);
-            DefineFunction("layer_sprite_exists", 2);
-            DefineFunction("layer_script_begin", 2);
-            DefineFunction("layer_script_end", 2);
-            DefineFunction("layer_shader", 2);
-            DefineFunction("layer_get_script_begin", 1);
-            DefineFunction("layer_get_script_end", 1);
-            DefineFunction("layer_get_shader", 1);
-            DefineFunction("layer_set_target_room", 1);
-            DefineFunction("layer_get_target_room", 0);
-            DefineFunction("layer_reset_target_room", 0);
-            DefineFunction("layer_get_all", 0);
-            DefineFunction("layer_get_all_elements", 1);
-            DefineFunction("layer_get_name", 1);
-            DefineFunction("layer_depth", 2);
-            DefineFunction("layer_get_element_layer", 1);
-            DefineFunction("layer_get_element_type", 1);
-            DefineFunction("layer_element_move", 2);
-            DefineFunction("layer_force_draw_depth", 2);
-            DefineFunction("layer_is_draw_depth_forced", 0);
-            DefineFunction("layer_get_forced_depth", 0);
-            DefineFunction("layer_background_get_id", 1);
-            DefineFunction("layer_background_exists", 2);
-            DefineFunction("layer_background_create", 2);
-            DefineFunction("layer_background_destroy", 1);
-            DefineFunction("layer_background_visible", 2);
-            DefineFunction("layer_background_htiled", 2);
-            DefineFunction("layer_background_vtiled", 2);
-            DefineFunction("layer_background_xscale", 2);
-            DefineFunction("layer_background_yscale", 2);
-            DefineFunction("layer_background_stretch", 2);
-            DefineFunction("layer_background_blend", 2);
-            DefineFunction("layer_background_alpha", 2);
-            DefineFunction("layer_background_index", 2);
-            DefineFunction("layer_background_speed", 2);
-            DefineFunction("layer_background_sprite", 2);
-            DefineFunction("layer_background_change", 2);
-            DefineFunction("layer_background_get_visible", 1);
-            DefineFunction("layer_background_get_sprite", 1);
-            DefineFunction("layer_background_get_htiled", 1);
-            DefineFunction("layer_background_get_vtiled", 1);
-            DefineFunction("layer_background_get_stretch", 1);
-            DefineFunction("layer_background_get_xscale", 1);
-            DefineFunction("layer_background_get_yscale", 1);
-            DefineFunction("layer_background_get_blend", 1);
-            DefineFunction("layer_background_get_alpha", 1);
-            DefineFunction("layer_background_get_index", 1);
-            DefineFunction("layer_background_get_speed", 1);
-            DefineFunction("layer_sprite_create", 4);
-            DefineFunction("layer_sprite_destroy", 1);
-            DefineFunction("layer_sprite_change", 2);
-            DefineFunction("layer_sprite_index", 2);
-            DefineFunction("layer_sprite_speed", 2);
-            DefineFunction("layer_sprite_xscale", 2);
-            DefineFunction("layer_sprite_yscale", 2);
-            DefineFunction("layer_sprite_angle", 2);
-            DefineFunction("layer_sprite_blend", 2);
-            DefineFunction("layer_sprite_alpha", 2);
-            DefineFunction("layer_sprite_x", 2);
-            DefineFunction("layer_sprite_y", 2);
-            DefineFunction("layer_sprite_get_sprite", 1);
-            DefineFunction("layer_sprite_get_index", 1);
-            DefineFunction("layer_sprite_get_speed", 1);
-            DefineFunction("layer_sprite_get_xscale", 1);
-            DefineFunction("layer_sprite_get_yscale", 1);
-            DefineFunction("layer_sprite_get_angle", 1);
-            DefineFunction("layer_sprite_get_blend", 1);
-            DefineFunction("layer_sprite_get_alpha", 1);
-            DefineFunction("layer_sprite_get_x", 1);
-            DefineFunction("layer_sprite_get_y", 1);
-            DefineFunction("layer_tilemap_get_id", 1);
-            DefineFunction("layer_tilemap_exists", 2);
-            DefineFunction("layer_tilemap_create", 6);
-            DefineFunction("layer_tilemap_destroy", 1);
-            DefineFunction("tilemap_tileset", 2);
-            DefineFunction("tilemap_x", 2);
-            DefineFunction("tilemap_y", 2);
-            DefineFunction("tilemap_set", 4);
-            DefineFunction("tilemap_set_at_pixel", 4);
-            DefineFunction("tilemap_get_tileset", 1);
-            DefineFunction("tilemap_get_tile_width", 1);
-            DefineFunction("tilemap_get_tile_height", 1);
-            DefineFunction("tilemap_get_width", 1);
-            DefineFunction("tilemap_get_height", 1);
-            DefineFunction("tilemap_set_width", 2);
-            DefineFunction("tilemap_set_height", 2);
-            DefineFunction("tilemap_get_x", 1);
-            DefineFunction("tilemap_get_y", 1);
-            DefineFunction("tilemap_get", 3);
-            DefineFunction("tilemap_get_at_pixel", 3);
-            DefineFunction("tilemap_get_cell_x_at_pixel", 3);
-            DefineFunction("tilemap_get_cell_y_at_pixel", 3);
-            DefineFunction("tilemap_clear", 2);
-            DefineFunction("draw_tilemap", 3);
-            DefineFunction("draw_tile", 5);
-            DefineFunction("tilemap_set_global_mask", 1);
-            DefineFunction("tilemap_get_global_mask", 0);
-            DefineFunction("tilemap_set_mask", 2);
-            DefineFunction("tilemap_get_mask", 1);
-            DefineFunction("tilemap_get_frame", 1);
-            DefineFunction("tile_set_empty", 1);
-            DefineFunction("tile_set_index", 2);
-            DefineFunction("tile_set_flip", 2);
-            DefineFunction("tile_set_mirror", 2);
-            DefineFunction("tile_set_rotate", 2);
-            DefineFunction("tile_get_empty", 1);
-            DefineFunction("tile_get_index", 1);
-            DefineFunction("tile_get_flip", 1);
-            DefineFunction("tile_get_mirror", 1);
-            DefineFunction("tile_get_rotate", 1);
-            DefineFunction("layer_tile_exists");
-            DefineFunction("layer_tile_create", 8);
-            DefineFunction("layer_tile_destroy", 1);
-            DefineFunction("layer_tile_change", 2);
-            DefineFunction("layer_tile_xscale", 2);
-            DefineFunction("layer_tile_yscale", 2);
-            DefineFunction("layer_tile_blend", 2);
-            DefineFunction("layer_tile_alpha", 2);
-            DefineFunction("layer_tile_x", 2);
-            DefineFunction("layer_tile_y", 2);
-            DefineFunction("layer_tile_region", 5);
-            DefineFunction("layer_tile_visible", 2);
-            DefineFunction("layer_tile_get_sprite", 1);
-            DefineFunction("layer_tile_get_xscale", 1);
-            DefineFunction("layer_tile_get_yscale", 1);
-            DefineFunction("layer_tile_get_blend", 1);
-            DefineFunction("layer_tile_get_alpha", 1);
-            DefineFunction("layer_tile_get_x", 1);
-            DefineFunction("layer_tile_get_y", 1);
-            DefineFunction("layer_tile_get_region", 1);
-            DefineFunction("layer_tile_get_visible", 1);
-            DefineFunction("layer_instance_get_instance", 1);
-            DefineFunction("camera_create", 0);
-            DefineFunction("camera_create_view");
-            DefineFunction("camera_destroy", 1);
-            DefineFunction("camera_apply", 1);
-            DefineFunction("camera_get_active", 0);
-            DefineFunction("camera_get_default", 0);
-            DefineFunction("camera_set_default", 1);
-            DefineFunction("camera_set_view_mat", 2);
-            DefineFunction("camera_set_proj_mat", 2);
-            DefineFunction("camera_set_update_script", 2);
-            DefineFunction("camera_set_begin_script", 2);
-            DefineFunction("camera_set_end_script", 2);
-            DefineFunction("camera_set_view_pos", 3);
-            DefineFunction("camera_set_view_size", 3);
-            DefineFunction("camera_set_view_speed", 3);
-            DefineFunction("camera_set_view_border", 3);
-            DefineFunction("camera_set_view_angle", 2);
-            DefineFunction("camera_set_view_target", 2);
-            DefineFunction("camera_get_view_mat", 1);
-            DefineFunction("camera_get_proj_mat", 1);
-            DefineFunction("camera_get_update_script", 1);
-            DefineFunction("camera_get_begin_script", 1);
-            DefineFunction("camera_get_end_script", 1);
-            DefineFunction("camera_get_view_x", 1);
-            DefineFunction("camera_get_view_y", 1);
-            DefineFunction("camera_get_view_width", 1);
-            DefineFunction("camera_get_view_height", 1);
-            DefineFunction("camera_get_view_speed_x", 1);
-            DefineFunction("camera_get_view_speed_y", 1);
-            DefineFunction("camera_get_view_border_x", 1);
-            DefineFunction("camera_get_view_border_y", 1);
-            DefineFunction("camera_get_view_angle", 1);
-            DefineFunction("camera_get_view_target", 1);
-            DefineFunction("view_get_camera", 1);
-            DefineFunction("view_get_visible", 1);
-            DefineFunction("view_get_xport", 1);
-            DefineFunction("view_get_yport", 1);
-            DefineFunction("view_get_wport", 1);
-            DefineFunction("view_get_hport", 1);
-            DefineFunction("view_get_surface_id", 1);
-            DefineFunction("view_set_camera", 2);
-            DefineFunction("view_set_visible", 2);
-            DefineFunction("view_set_xport", 2);
-            DefineFunction("view_set_yport", 2);
-            DefineFunction("view_set_wport", 2);
-            DefineFunction("view_set_hport", 2);
-            DefineFunction("view_set_surface_id", 2);
-        }
+    }
+
+    private void InitializeFunctions39(GameVersion v)
+    {
+        DefineFunction("layer_get_id", 1);
+        DefineFunction("layer_get_id_at_depth", 1);
+        DefineFunction("layer_get_depth", 1);
+        DefineFunction("layer_create");
+        DefineFunction("layer_destroy", 1);
+        DefineFunction("layer_destroy_instances", 1);
+        DefineFunction("layer_add_instance", 2);
+        DefineFunction("layer_has_instance", 2);
+        DefineFunction("layer_set_visible", 2);
+        DefineFunction("layer_get_visible", 1);
+        DefineFunction("layer_exists", 1);
+        DefineFunction("layer_x", 2);
+        DefineFunction("layer_y", 2);
+        DefineFunction("layer_get_x", 1);
+        DefineFunction("layer_get_y", 1);
+        DefineFunction("layer_hspeed", 2);
+        DefineFunction("layer_vspeed", 2);
+        DefineFunction("layer_get_hspeed", 1);
+        DefineFunction("layer_get_vspeed", 1);
+        DefineFunction("layer_sprite_get_id", 2);
+        DefineFunction("layer_sprite_exists", 2);
+        DefineFunction("layer_script_begin", 2);
+        DefineFunction("layer_script_end", 2);
+        DefineFunction("layer_shader", 2);
+        DefineFunction("layer_get_script_begin", 1);
+        DefineFunction("layer_get_script_end", 1);
+        DefineFunction("layer_get_shader", 1);
+        DefineFunction("layer_set_target_room", 1);
+        DefineFunction("layer_get_target_room", 0);
+        DefineFunction("layer_reset_target_room", 0);
+        DefineFunction("layer_get_all", 0);
+        DefineFunction("layer_get_all_elements", 1);
+        DefineFunction("layer_get_name", 1);
+        DefineFunction("layer_depth", 2);
+        DefineFunction("layer_get_element_layer", 1);
+        DefineFunction("layer_get_element_type", 1);
+        DefineFunction("layer_element_move", 2);
+        DefineFunction("layer_force_draw_depth", 2);
+        DefineFunction("layer_is_draw_depth_forced", 0);
+        DefineFunction("layer_get_forced_depth", 0);
+        DefineFunction("layer_background_get_id", 1);
+        DefineFunction("layer_background_exists", 2);
+        DefineFunction("layer_background_create", 2);
+        DefineFunction("layer_background_destroy", 1);
+        DefineFunction("layer_background_visible", 2);
+        DefineFunction("layer_background_htiled", 2);
+        DefineFunction("layer_background_vtiled", 2);
+        DefineFunction("layer_background_xscale", 2);
+        DefineFunction("layer_background_yscale", 2);
+        DefineFunction("layer_background_stretch", 2);
+        DefineFunction("layer_background_blend", 2);
+        DefineFunction("layer_background_alpha", 2);
+        DefineFunction("layer_background_index", 2);
+        DefineFunction("layer_background_speed", 2);
+        DefineFunction("layer_background_sprite", 2);
+        DefineFunction("layer_background_change", 2);
+        DefineFunction("layer_background_get_visible", 1);
+        DefineFunction("layer_background_get_sprite", 1);
+        DefineFunction("layer_background_get_htiled", 1);
+        DefineFunction("layer_background_get_vtiled", 1);
+        DefineFunction("layer_background_get_stretch", 1);
+        DefineFunction("layer_background_get_xscale", 1);
+        DefineFunction("layer_background_get_yscale", 1);
+        DefineFunction("layer_background_get_blend", 1);
+        DefineFunction("layer_background_get_alpha", 1);
+        DefineFunction("layer_background_get_index", 1);
+        DefineFunction("layer_background_get_speed", 1);
+        DefineFunction("layer_sprite_create", 4);
+        DefineFunction("layer_sprite_destroy", 1);
+        DefineFunction("layer_sprite_change", 2);
+    }
+
+    private void InitializeFunctions40(GameVersion v)
+    {
+        DefineFunction("layer_sprite_index", 2);
+        DefineFunction("layer_sprite_speed", 2);
+        DefineFunction("layer_sprite_xscale", 2);
+        DefineFunction("layer_sprite_yscale", 2);
+        DefineFunction("layer_sprite_angle", 2);
+        DefineFunction("layer_sprite_blend", 2);
+        DefineFunction("layer_sprite_alpha", 2);
+        DefineFunction("layer_sprite_x", 2);
+        DefineFunction("layer_sprite_y", 2);
+        DefineFunction("layer_sprite_get_sprite", 1);
+        DefineFunction("layer_sprite_get_index", 1);
+        DefineFunction("layer_sprite_get_speed", 1);
+        DefineFunction("layer_sprite_get_xscale", 1);
+        DefineFunction("layer_sprite_get_yscale", 1);
+        DefineFunction("layer_sprite_get_angle", 1);
+        DefineFunction("layer_sprite_get_blend", 1);
+        DefineFunction("layer_sprite_get_alpha", 1);
+        DefineFunction("layer_sprite_get_x", 1);
+        DefineFunction("layer_sprite_get_y", 1);
+        DefineFunction("layer_tilemap_get_id", 1);
+        DefineFunction("layer_tilemap_exists", 2);
+        DefineFunction("layer_tilemap_create", 6);
+        DefineFunction("layer_tilemap_destroy", 1);
+        DefineFunction("tilemap_tileset", 2);
+        DefineFunction("tilemap_x", 2);
+        DefineFunction("tilemap_y", 2);
+        DefineFunction("tilemap_set", 4);
+        DefineFunction("tilemap_set_at_pixel", 4);
+        DefineFunction("tilemap_get_tileset", 1);
+        DefineFunction("tilemap_get_tile_width", 1);
+        DefineFunction("tilemap_get_tile_height", 1);
+        DefineFunction("tilemap_get_width", 1);
+        DefineFunction("tilemap_get_height", 1);
+        DefineFunction("tilemap_set_width", 2);
+        DefineFunction("tilemap_set_height", 2);
+        DefineFunction("tilemap_get_x", 1);
+        DefineFunction("tilemap_get_y", 1);
+        DefineFunction("tilemap_get", 3);
+        DefineFunction("tilemap_get_at_pixel", 3);
+        DefineFunction("tilemap_get_cell_x_at_pixel", 3);
+        DefineFunction("tilemap_get_cell_y_at_pixel", 3);
+        DefineFunction("tilemap_clear", 2);
+        DefineFunction("draw_tilemap", 3);
+        DefineFunction("draw_tile", 5);
+        DefineFunction("tilemap_set_global_mask", 1);
+        DefineFunction("tilemap_get_global_mask", 0);
+        DefineFunction("tilemap_set_mask", 2);
+        DefineFunction("tilemap_get_mask", 1);
+        DefineFunction("tilemap_get_frame", 1);
+        DefineFunction("tile_set_empty", 1);
+        DefineFunction("tile_set_index", 2);
+        DefineFunction("tile_set_flip", 2);
+        DefineFunction("tile_set_mirror", 2);
+        DefineFunction("tile_set_rotate", 2);
+        DefineFunction("tile_get_empty", 1);
+        DefineFunction("tile_get_index", 1);
+        DefineFunction("tile_get_flip", 1);
+        DefineFunction("tile_get_mirror", 1);
+        DefineFunction("tile_get_rotate", 1);
+        DefineFunction("layer_tile_exists");
+        DefineFunction("layer_tile_create", 8);
+        DefineFunction("layer_tile_destroy", 1);
+        DefineFunction("layer_tile_change", 2);
+        DefineFunction("layer_tile_xscale", 2);
+        DefineFunction("layer_tile_yscale", 2);
+        DefineFunction("layer_tile_blend", 2);
+        DefineFunction("layer_tile_alpha", 2);
+        DefineFunction("layer_tile_x", 2);
+        DefineFunction("layer_tile_y", 2);
+        DefineFunction("layer_tile_region", 5);
+    }
+
+    private void InitializeFunctions41(GameVersion v)
+    {
+        DefineFunction("layer_tile_visible", 2);
+        DefineFunction("layer_tile_get_sprite", 1);
+        DefineFunction("layer_tile_get_xscale", 1);
+        DefineFunction("layer_tile_get_yscale", 1);
+        DefineFunction("layer_tile_get_blend", 1);
+        DefineFunction("layer_tile_get_alpha", 1);
+        DefineFunction("layer_tile_get_x", 1);
+        DefineFunction("layer_tile_get_y", 1);
+        DefineFunction("layer_tile_get_region", 1);
+        DefineFunction("layer_tile_get_visible", 1);
+        DefineFunction("layer_instance_get_instance", 1);
+        DefineFunction("camera_create", 0);
+        DefineFunction("camera_create_view");
+        DefineFunction("camera_destroy", 1);
+        DefineFunction("camera_apply", 1);
+        DefineFunction("camera_get_active", 0);
+        DefineFunction("camera_get_default", 0);
+        DefineFunction("camera_set_default", 1);
+        DefineFunction("camera_set_view_mat", 2);
+        DefineFunction("camera_set_proj_mat", 2);
+        DefineFunction("camera_set_update_script", 2);
+        DefineFunction("camera_set_begin_script", 2);
+        DefineFunction("camera_set_end_script", 2);
+        DefineFunction("camera_set_view_pos", 3);
+        DefineFunction("camera_set_view_size", 3);
+        DefineFunction("camera_set_view_speed", 3);
+        DefineFunction("camera_set_view_border", 3);
+        DefineFunction("camera_set_view_angle", 2);
+        DefineFunction("camera_set_view_target", 2);
+        DefineFunction("camera_get_view_mat", 1);
+        DefineFunction("camera_get_proj_mat", 1);
+        DefineFunction("camera_get_update_script", 1);
+        DefineFunction("camera_get_begin_script", 1);
+        DefineFunction("camera_get_end_script", 1);
+        DefineFunction("camera_get_view_x", 1);
+        DefineFunction("camera_get_view_y", 1);
+        DefineFunction("camera_get_view_width", 1);
+        DefineFunction("camera_get_view_height", 1);
+        DefineFunction("camera_get_view_speed_x", 1);
+        DefineFunction("camera_get_view_speed_y", 1);
+        DefineFunction("camera_get_view_border_x", 1);
+        DefineFunction("camera_get_view_border_y", 1);
+        DefineFunction("camera_get_view_angle", 1);
+        DefineFunction("camera_get_view_target", 1);
+        DefineFunction("view_get_camera", 1);
+        DefineFunction("view_get_visible", 1);
+        DefineFunction("view_get_xport", 1);
+        DefineFunction("view_get_yport", 1);
+        DefineFunction("view_get_wport", 1);
+        DefineFunction("view_get_hport", 1);
+        DefineFunction("view_get_surface_id", 1);
+        DefineFunction("view_set_camera", 2);
+        DefineFunction("view_set_visible", 2);
+        DefineFunction("view_set_xport", 2);
+        DefineFunction("view_set_yport", 2);
+        DefineFunction("view_set_wport", 2);
+        DefineFunction("view_set_hport", 2);
+        DefineFunction("view_set_surface_id", 2);
+    }
+
+    private void InitializeFunctions42(GameVersion v)
+    {
         DefineFunction("switch_accounts_get_accounts", 0);
         DefineFunction("switch_accounts_get_nickname", 1);
         DefineFunction("switch_accounts_open_user", 1);
@@ -2967,6 +3260,13 @@ public class BuiltinList : IBuiltins
         DefineFunction("switch_irsensor_cluster_config_set_external_light_filtering", 2);
         DefineFunction("switch_irsensor_cluster_create_state_buffer", 1);
         DefineFunction("switch_irsensor_moment_config_set_defaults", 1);
+    }
+
+    private void InitializeFunctions43(GameVersion v)
+    {
+        var major = v.Major;
+        var minor = v.Minor;
+        var build = v.Build;
         DefineFunction("switch_irsensor_moment_config_set_window_of_interest", 5);
         DefineFunction("switch_irsensor_moment_config_set_preprocess", 2);
         DefineFunction("switch_irsensor_moment_config_set_preprocess_intensity_threshold", 2);
@@ -3020,313 +3320,333 @@ public class BuiltinList : IBuiltins
             DefineFunction("dbg_same_line", 0);
             DefineFunction("dbg_add_font_glyphs");
         }
-        if (gms2_3)
-        {
-            DefineFunction("scheduler_resolution_set", 1);
-            DefineFunction("scheduler_resolution_get", 0);
-            DefineFunction("event_perform_async", 2);
-            DefineFunction("show_debug_message_ext", 2);
-            DefineFunction("ref_create");
-            DefineFunction("gif_open");
-            DefineFunction("gif_add_surface");
-            DefineFunction("gif_save", 2);
-            DefineFunction("gif_save_buffer", 1);
-            DefineFunction("draw_get_font", 0);
-            DefineFunction("draw_get_halign", 0);
-            DefineFunction("draw_get_valign", 0);
-            DefineFunction("font_get_info", 1);
-            DefineFunction("font_cache_glyph", 2);
-            DefineFunction("surface_get_format", 1);
-            DefineFunction("surface_get_target", 0);
-            DefineFunction("surface_get_target_ext", 1);
-            DefineFunction("surface_format_is_supported", 1);
-            DefineFunction("video_pause", 0);
-            DefineFunction("video_resume", 0);
-            DefineFunction("video_enable_loop", 1);
-            DefineFunction("video_seek_to", 1);
-            DefineFunction("video_get_duration", 0);
-            DefineFunction("video_get_position", 0);
-            DefineFunction("video_get_status", 0);
-            DefineFunction("video_get_format", 0);
-            DefineFunction("video_is_looping", 0);
-            DefineFunction("video_get_volume", 0);
-            DefineFunction("display_get_frequency", 0);
-            DefineFunction("window_set_showborder", 1);
-            DefineFunction("window_get_showborder", 0);
-            DefineFunction("window_mouse_set_locked", 1);
-            DefineFunction("window_mouse_get_locked", 0);
-            DefineFunction("window_mouse_get_delta_x", 0);
-            DefineFunction("window_mouse_get_delta_y", 0);
-            DefineFunction("audio_play_sound_ext", 1);
-            DefineFunction("audio_system_is_available", 0);
-            DefineFunction("audio_system_is_initialised", 0);
-            DefineFunction("audio_sound_is_playable", 1);
-            DefineFunction("audio_sound_loop", 2);
-            DefineFunction("audio_sound_get_loop", 1);
-            DefineFunction("audio_sound_loop_start", 2);
-            DefineFunction("audio_sound_get_loop_start", 1);
-            DefineFunction("audio_sound_loop_end", 2);
-            DefineFunction("audio_sound_get_loop_end", 1);
-            DefineFunction("audio_sync_group_is_paused", 1);
-            DefineFunction("audio_group_get_gain", 1);
-            DefineFunction("audio_group_get_assets", 1);
-            DefineFunction("audio_sound_get_audio_group", 1);
-            DefineFunction("sprite_get_info", 1);
-            DefineFunction("sprite_get_nineslice", 1);
-            DefineFunction("sprite_set_nineslice", 2);
-            DefineFunction("sprite_nineslice_create", 0);
-            DefineFunction("texturegroup_get_names", 0);
-            DefineFunction("texturegroup_load", 1);
-            DefineFunction("texturegroup_unload", 1);
-            DefineFunction("texturegroup_get_status", 1);
-            DefineFunction("texturegroup_set_mode", 3);
-            DefineFunction("room_get_info", 1);
-            DefineFunction("sprite_add_ext", 5);
-            DefineFunction("font_enable_sdf", 2);
-            DefineFunction("font_get_sdf_enabled", 1);
-            DefineFunction("font_sdf_spread", 2);
-            DefineFunction("font_get_sdf_spread", 1);
-            DefineFunction("font_enable_effects", 2);
-            DefineFunction("script_execute_ext");
-            DefineFunction("method_call");
-            DefineFunction("asset_get_ids", 1);
-            DefineFunction("ds_list_is_map", 2);
-            DefineFunction("ds_list_is_list", 2);
-            DefineFunction("ds_map_values_to_array");
-            DefineFunction("ds_map_keys_to_array");
-            DefineFunction("ds_map_is_map", 2);
-            DefineFunction("ds_map_is_list", 2);
-            DefineFunction("ds_grid_to_mp_grid", 2);
-            DefineFunction("effect_create_layer", 6);
-            DefineFunction("effect_create_depth", 6);
-            DefineFunction("part_type_subimage", 2);
-            DefineFunction("part_type_size_x", 5);
-            DefineFunction("part_type_size_y", 5);
-            DefineFunction("particle_get_info", 1);
-            DefineFunction("particle_exists", 1);
-            DefineFunction("part_system_color", 3);
-            DefineFunction("part_system_colour", 3);
-            DefineFunction("part_system_angle", 2);
-            DefineFunction("part_system_global_space", 2);
-            DefineFunction("part_system_get_info", 1);
-            DefineFunction("part_particles_burst", 4);
-            DefineFunction("part_emitter_enable", 3);
-            DefineFunction("part_emitter_delay", 5);
-            DefineFunction("part_emitter_interval", 5);
-            DefineFunction("part_emitter_relative", 3);
-            DefineFunction("os_set_orientation_lock", 2);
-            DefineFunction("gpu_set_depth", 1);
-            DefineFunction("gpu_get_depth", 0);
-            DefineFunction("gamepad_hat_count", 1);
-            DefineFunction("gamepad_hat_value", 2);
-            DefineFunction("gamepad_remove_mapping", 1);
-            DefineFunction("gamepad_test_mapping", 2);
-            DefineFunction("gamepad_get_mapping", 1);
-            DefineFunction("gamepad_get_guid", 1);
-            DefineFunction("gamepad_set_option", 3);
-            DefineFunction("gamepad_get_option", 2);
-            DefineFunction("http_get_request_crossorigin", 0);
-            DefineFunction("http_set_request_crossorigin", 1);
-            DefineFunction("zip_unzip_async", 2);
-            DefineFunction("zip_create", 0);
-            DefineFunction("zip_add_file", 3);
-            DefineFunction("zip_save", 2);
-            DefineFunction("uwp_livetile_tile_clear", 0);
-            DefineFunction("uwp_livetile_badge_notification", 1);
-            DefineFunction("uwp_livetile_badge_clear", 0);
-            DefineFunction("uwp_livetile_queue_enable", 1);
-            DefineFunction("uwp_secondarytile_pin", 8);
-            DefineFunction("uwp_secondarytile_badge_notification", 2);
-            DefineFunction("uwp_secondarytile_delete", 1);
-            DefineFunction("uwp_secondarytile_badge_clear", 1);
-            DefineFunction("uwp_secondarytile_tile_clear", 1);
-            DefineFunction("uwp_livetile_notification_begin", 1);
-            DefineFunction("uwp_livetile_notification_secondary_begin", 2);
-            DefineFunction("uwp_livetile_notification_expiry", 1);
-            DefineFunction("uwp_livetile_notification_tag", 1);
-            DefineFunction("uwp_livetile_notification_text_add", 1);
-            DefineFunction("uwp_livetile_notification_image_add", 1);
-            DefineFunction("uwp_livetile_notification_end", 0);
-            DefineFunction("uwp_livetile_notification_template_add", 1);
-            DefineFunction("uwp_appbar_enable", 1);
-            DefineFunction("uwp_appbar_add_element", 7);
-            DefineFunction("uwp_appbar_remove_element", 1);
-            DefineFunction("uwp_device_touchscreen_available", 0);
-            DefineFunction("network_connect_async", 3);
-            DefineFunction("network_connect_raw_async", 3);
-            DefineFunction("buffer_set_used_size", 2);
-            DefineFunction("buffer_copy_stride", 8);
-            DefineFunction("buffer_crc32", 3);
-            DefineFunction("shader_set_uniform_f_buffer", 4);
-            DefineFunction("vertex_format_get_info", 1);
-            DefineFunction("vertex_update_buffer_from_buffer", 3);
-            DefineFunction("vertex_update_buffer_from_vertex", 3);
-            DefineFunction("push_get_application_badge_number", 0);
-            DefineFunction("push_set_application_badge_number", 0);
-            DefineFunction("skeleton_skin_create", 2);
-            DefineFunction("skeleton_attachment_create_colour", 10);
-            DefineFunction("skeleton_attachment_create_color", 10);
-            DefineFunction("skeleton_attachment_exists", 1);
-            DefineFunction("skeleton_attachment_replace", 8);
-            DefineFunction("skeleton_attachment_replace_colour", 10);
-            DefineFunction("skeleton_attachment_replace_color", 10);
-            DefineFunction("skeleton_attachment_destroy", 1);
-            DefineFunction("skeleton_slot_colour_set", 3);
-            DefineFunction("skeleton_slot_color_set", 3);
-            DefineFunction("skeleton_slot_colour_get", 1);
-            DefineFunction("skeleton_slot_color_get", 1);
-            DefineFunction("skeleton_slot_alpha_get", 1);
-            DefineFunction("skeleton_find_slot", 3);
-            DefineFunction("skeleton_animation_get_position", 1);
-            DefineFunction("skeleton_animation_set_position", 2);
-            DefineFunction("skeleton_animation_get_event_frames", 2);
-            DefineFunction("skeleton_animation_is_looping", 1);
-            DefineFunction("skeleton_animation_is_finished", 1);
-            DefineFunction("draw_enable_skeleton_blendmodes", 1);
-            DefineFunction("draw_get_enable_skeleton_blendmodes", 0);
-            DefineFunction("skeleton_bone_list", 2);
-            DefineFunction("skeleton_slot_list", 2);
-            DefineFunction("skeleton_slot_data_instance", 1);
-            DefineFunction("tileset_get_texture", 1);
-            DefineFunction("tileset_get_uvs", 1);
-            DefineFunction("tileset_get_name", 1);
-            DefineFunction("tileset_get_info", 1);
-            DefineFunction("camera_copy_transforms", 2);
-            DefineFunction("tag_get_asset_ids", 2);
-            DefineFunction("tag_get_assets", 1);
-            DefineFunction("asset_get_tags", 1);
-            DefineFunction("asset_add_tags", 2);
-            DefineFunction("asset_remove_tags", 2);
-            DefineFunction("asset_has_tags", 2);
-            DefineFunction("asset_has_any_tag", 2);
-            DefineFunction("asset_clear_tags", 1);
-            DefineFunction("extension_exists", 1);
-            DefineFunction("extension_get_version", 1);
-            DefineFunction("extension_get_option_count", 1);
-            DefineFunction("extension_get_option_names", 1);
-            DefineFunction("extension_get_option_value", 2);
-            DefineFunction("extension_get_options", 1);
-            DefineFunction("layer_sequence_get_instance", 1);
-            DefineFunction("layer_sequence_create", 4);
-            DefineFunction("layer_sequence_destroy", 1);
-            DefineFunction("layer_sequence_exists", 2);
-            DefineFunction("layer_sequence_x", 2);
-            DefineFunction("layer_sequence_y", 2);
-            DefineFunction("layer_sequence_angle", 2);
-            DefineFunction("layer_sequence_xscale", 2);
-            DefineFunction("layer_sequence_yscale", 2);
-            DefineFunction("layer_sequence_headpos", 2);
-            DefineFunction("layer_sequence_headdir", 2);
-            DefineFunction("layer_sequence_pause", 1);
-            DefineFunction("layer_sequence_play", 1);
-            DefineFunction("layer_sequence_speedscale", 2);
-            DefineFunction("layer_sequence_get_x", 1);
-            DefineFunction("layer_sequence_get_y", 1);
-            DefineFunction("layer_sequence_get_angle", 1);
-            DefineFunction("layer_sequence_get_xscale", 1);
-            DefineFunction("layer_sequence_get_yscale", 1);
-            DefineFunction("layer_sequence_get_headpos", 1);
-            DefineFunction("layer_sequence_get_headdir", 1);
-            DefineFunction("layer_sequence_get_sequence", 1);
-            DefineFunction("layer_sequence_is_paused", 1);
-            DefineFunction("layer_sequence_is_finished", 1);
-            DefineFunction("layer_sequence_get_speedscale", 1);
-            DefineFunction("layer_sequence_get_length", 1);
-            DefineFunction("animcurve_get", 1);
-            DefineFunction("animcurve_get_channel", 2);
-            DefineFunction("animcurve_get_channel_index", 2);
-            DefineFunction("animcurve_channel_evaluate", 2);
-            DefineFunction("sequence_create", 0);
-            DefineFunction("sequence_destroy", 1);
-            DefineFunction("sequence_exists", 1);
-            DefineFunction("sequence_get", 1);
-            DefineFunction("sequence_keyframe_new", 1);
-            DefineFunction("sequence_keyframedata_new", 1);
-            DefineFunction("sequence_track_new", 1);
-            DefineFunction("sequence_get_objects", 1);
-            DefineFunction("sequence_instance_override_object", 3);
-            DefineFunction("animcurve_create", 0);
-            DefineFunction("animcurve_destroy", 1);
-            DefineFunction("animcurve_exists", 1);
-            DefineFunction("animcurve_channel_new", 0);
-            DefineFunction("animcurve_point_new", 0);
-            DefineFunction("fx_create", 1);
-            DefineFunction("fx_get_name", 1);
-            DefineFunction("fx_get_parameter_names", 1);
-            DefineFunction("fx_get_parameter", 2);
-            DefineFunction("fx_get_parameters", 1);
-            DefineFunction("fx_get_single_layer", 1);
-            DefineFunction("fx_set_parameter");
-            DefineFunction("fx_set_parameters", 2);
-            DefineFunction("fx_set_single_layer", 2);
-            DefineFunction("layer_set_fx", 2);
-            DefineFunction("layer_get_fx", 1);
-            DefineFunction("layer_clear_fx", 1);
-            DefineFunction("layer_enable_fx", 2);
-            DefineFunction("layer_fx_is_enabled", 1);
-            DefineFunction("gc_collect", 0);
-            DefineFunction("gc_enable", 1);
-            DefineFunction("gc_is_enabled", 0);
-            DefineFunction("gc_get_stats", 0);
-            DefineFunction("gc_target_frame_time", 1);
-            DefineFunction("gc_get_target_frame_time", 0);
-            DefineFunction("weak_ref_create", 1);
-            DefineFunction("weak_ref_alive", 1);
-            DefineFunction("weak_ref_any_alive", 1);
-            DefineFunction("time_source_create", 4);
-            DefineFunction("time_source_destroy", 1);
-            DefineFunction("time_source_start", 1);
-            DefineFunction("time_source_stop", 1);
-            DefineFunction("time_source_pause", 1);
-            DefineFunction("time_source_resume", 1);
-            DefineFunction("time_source_reset", 1);
-            DefineFunction("time_source_reconfigure", 4);
-            DefineFunction("time_source_get_period", 1);
-            DefineFunction("time_source_get_reps_completed", 1);
-            DefineFunction("time_source_get_reps_remaining", 1);
-            DefineFunction("time_source_get_units", 1);
-            DefineFunction("time_source_get_time_remaining", 1);
-            DefineFunction("time_source_get_state", 1);
-            DefineFunction("time_source_get_parent", 1);
-            DefineFunction("time_source_get_children", 1);
-            DefineFunction("time_source_exists", 1);
-            DefineFunction("time_seconds_to_bpm", 1);
-            DefineFunction("time_bpm_to_seconds", 1);
-            DefineFunction("call_later", 3);
-            DefineFunction("call_cancel", 1);
-            DefineFunction("rollback_use_manual_start", 0);
-            DefineFunction("rollback_use_late_join", 0);
-            DefineFunction("rollback_define_player");
-            DefineFunction("rollback_define_input", 1);
-            DefineFunction("rollback_define_mock_input", 2);
-            DefineFunction("rollback_define_input_frame_delay", 1);
-            DefineFunction("rollback_define_extra_network_latency", 1);
-            DefineFunction("rollback_create_game");
-            DefineFunction("rollback_join_game");
-            DefineFunction("rollback_start_game", 0);
-            DefineFunction("rollback_leave_game", 0);
-            DefineFunction("rollback_get_input");
-            DefineFunction("rollback_chat");
-            DefineFunction("rollback_use_player_prefs");
-            DefineFunction("rollback_set_player_prefs", 1);
-            DefineFunction("rollback_get_player_prefs");
-            DefineFunction("rollback_get_info");
-            DefineFunction("rollback_use_random_input", 1);
-            DefineFunction("rollback_display_events", 1);
-            DefineFunction("rollback_sync_on_frame", 0);
-            DefineFunction("wallpaper_set_config", 1);
-            DefineFunction("wallpaper_set_subscriptions", 1);
-            DefineFunction("audio_bus_create", 0);
-            DefineFunction("audio_effect_create", 1);
-            DefineFunction("audio_emitter_bus", 2);
-            DefineFunction("audio_emitter_get_bus", 1);
-            DefineFunction("audio_bus_get_emitters", 1);
-            DefineFunction("audio_bus_clear_emitters", 1);
-            DefineFunction("lin_to_db", 1);
-            DefineFunction("db_to_lin", 1);
-        }
+    }
 
-        // Constants
+    private void InitializeFunctions44(GameVersion v)
+    {
+        DefineFunction("scheduler_resolution_set", 1);
+        DefineFunction("scheduler_resolution_get", 0);
+        DefineFunction("event_perform_async", 2);
+        DefineFunction("show_debug_message_ext", 2);
+        DefineFunction("ref_create");
+        DefineFunction("gif_open");
+        DefineFunction("gif_add_surface");
+        DefineFunction("gif_save", 2);
+        DefineFunction("gif_save_buffer", 1);
+        DefineFunction("draw_get_font", 0);
+        DefineFunction("draw_get_halign", 0);
+        DefineFunction("draw_get_valign", 0);
+        DefineFunction("font_get_info", 1);
+        DefineFunction("font_cache_glyph", 2);
+        DefineFunction("surface_get_format", 1);
+        DefineFunction("surface_get_target", 0);
+        DefineFunction("surface_get_target_ext", 1);
+        DefineFunction("surface_format_is_supported", 1);
+        DefineFunction("video_pause", 0);
+        DefineFunction("video_resume", 0);
+        DefineFunction("video_enable_loop", 1);
+        DefineFunction("video_seek_to", 1);
+        DefineFunction("video_get_duration", 0);
+        DefineFunction("video_get_position", 0);
+        DefineFunction("video_get_status", 0);
+        DefineFunction("video_get_format", 0);
+        DefineFunction("video_is_looping", 0);
+        DefineFunction("video_get_volume", 0);
+        DefineFunction("display_get_frequency", 0);
+        DefineFunction("window_set_showborder", 1);
+        DefineFunction("window_get_showborder", 0);
+        DefineFunction("window_mouse_set_locked", 1);
+        DefineFunction("window_mouse_get_locked", 0);
+        DefineFunction("window_mouse_get_delta_x", 0);
+        DefineFunction("window_mouse_get_delta_y", 0);
+        DefineFunction("audio_play_sound_ext", 1);
+        DefineFunction("audio_system_is_available", 0);
+        DefineFunction("audio_system_is_initialised", 0);
+        DefineFunction("audio_sound_is_playable", 1);
+        DefineFunction("audio_sound_loop", 2);
+        DefineFunction("audio_sound_get_loop", 1);
+        DefineFunction("audio_sound_loop_start", 2);
+        DefineFunction("audio_sound_get_loop_start", 1);
+        DefineFunction("audio_sound_loop_end", 2);
+        DefineFunction("audio_sound_get_loop_end", 1);
+        DefineFunction("audio_sync_group_is_paused", 1);
+        DefineFunction("audio_group_get_gain", 1);
+        DefineFunction("audio_group_get_assets", 1);
+        DefineFunction("audio_sound_get_audio_group", 1);
+        DefineFunction("sprite_get_info", 1);
+        DefineFunction("sprite_get_nineslice", 1);
+        DefineFunction("sprite_set_nineslice", 2);
+        DefineFunction("sprite_nineslice_create", 0);
+        DefineFunction("texturegroup_get_names", 0);
+        DefineFunction("texturegroup_load", 1);
+        DefineFunction("texturegroup_unload", 1);
+        DefineFunction("texturegroup_get_status", 1);
+        DefineFunction("texturegroup_set_mode", 3);
+        DefineFunction("room_get_info", 1);
+        DefineFunction("sprite_add_ext", 5);
+        DefineFunction("font_enable_sdf", 2);
+        DefineFunction("font_get_sdf_enabled", 1);
+        DefineFunction("font_sdf_spread", 2);
+        DefineFunction("font_get_sdf_spread", 1);
+        DefineFunction("font_enable_effects", 2);
+        DefineFunction("script_execute_ext");
+        DefineFunction("method_call");
+        DefineFunction("asset_get_ids", 1);
+        DefineFunction("ds_list_is_map", 2);
+        DefineFunction("ds_list_is_list", 2);
+    }
+
+    private void InitializeFunctions45(GameVersion v)
+    {
+        DefineFunction("ds_map_values_to_array");
+        DefineFunction("ds_map_keys_to_array");
+        DefineFunction("ds_map_is_map", 2);
+        DefineFunction("ds_map_is_list", 2);
+        DefineFunction("ds_grid_to_mp_grid", 2);
+        DefineFunction("effect_create_layer", 6);
+        DefineFunction("effect_create_depth", 6);
+        DefineFunction("part_type_subimage", 2);
+        DefineFunction("part_type_size_x", 5);
+        DefineFunction("part_type_size_y", 5);
+        DefineFunction("particle_get_info", 1);
+        DefineFunction("particle_exists", 1);
+        DefineFunction("part_system_color", 3);
+        DefineFunction("part_system_colour", 3);
+        DefineFunction("part_system_angle", 2);
+        DefineFunction("part_system_global_space", 2);
+        DefineFunction("part_system_get_info", 1);
+        DefineFunction("part_particles_burst", 4);
+        DefineFunction("part_emitter_enable", 3);
+        DefineFunction("part_emitter_delay", 5);
+        DefineFunction("part_emitter_interval", 5);
+        DefineFunction("part_emitter_relative", 3);
+        DefineFunction("os_set_orientation_lock", 2);
+        DefineFunction("gpu_set_depth", 1);
+        DefineFunction("gpu_get_depth", 0);
+        DefineFunction("gamepad_hat_count", 1);
+        DefineFunction("gamepad_hat_value", 2);
+        DefineFunction("gamepad_remove_mapping", 1);
+        DefineFunction("gamepad_test_mapping", 2);
+        DefineFunction("gamepad_get_mapping", 1);
+        DefineFunction("gamepad_get_guid", 1);
+        DefineFunction("gamepad_set_option", 3);
+        DefineFunction("gamepad_get_option", 2);
+        DefineFunction("http_get_request_crossorigin", 0);
+        DefineFunction("http_set_request_crossorigin", 1);
+        DefineFunction("zip_unzip_async", 2);
+        DefineFunction("zip_create", 0);
+        DefineFunction("zip_add_file", 3);
+        DefineFunction("zip_save", 2);
+        DefineFunction("uwp_livetile_tile_clear", 0);
+        DefineFunction("uwp_livetile_badge_notification", 1);
+        DefineFunction("uwp_livetile_badge_clear", 0);
+        DefineFunction("uwp_livetile_queue_enable", 1);
+        DefineFunction("uwp_secondarytile_pin", 8);
+        DefineFunction("uwp_secondarytile_badge_notification", 2);
+        DefineFunction("uwp_secondarytile_delete", 1);
+        DefineFunction("uwp_secondarytile_badge_clear", 1);
+        DefineFunction("uwp_secondarytile_tile_clear", 1);
+        DefineFunction("uwp_livetile_notification_begin", 1);
+        DefineFunction("uwp_livetile_notification_secondary_begin", 2);
+        DefineFunction("uwp_livetile_notification_expiry", 1);
+        DefineFunction("uwp_livetile_notification_tag", 1);
+        DefineFunction("uwp_livetile_notification_text_add", 1);
+        DefineFunction("uwp_livetile_notification_image_add", 1);
+        DefineFunction("uwp_livetile_notification_end", 0);
+        DefineFunction("uwp_livetile_notification_template_add", 1);
+        DefineFunction("uwp_appbar_enable", 1);
+        DefineFunction("uwp_appbar_add_element", 7);
+        DefineFunction("uwp_appbar_remove_element", 1);
+        DefineFunction("uwp_device_touchscreen_available", 0);
+        DefineFunction("network_connect_async", 3);
+        DefineFunction("network_connect_raw_async", 3);
+        DefineFunction("buffer_set_used_size", 2);
+        DefineFunction("buffer_copy_stride", 8);
+        DefineFunction("buffer_crc32", 3);
+        DefineFunction("shader_set_uniform_f_buffer", 4);
+        DefineFunction("vertex_format_get_info", 1);
+        DefineFunction("vertex_update_buffer_from_buffer", 3);
+        DefineFunction("vertex_update_buffer_from_vertex", 3);
+        DefineFunction("push_get_application_badge_number", 0);
+    }
+
+    private void InitializeFunctions46(GameVersion v)
+    {
+        DefineFunction("push_set_application_badge_number", 0);
+        DefineFunction("skeleton_skin_create", 2);
+        DefineFunction("skeleton_attachment_create_colour", 10);
+        DefineFunction("skeleton_attachment_create_color", 10);
+        DefineFunction("skeleton_attachment_exists", 1);
+        DefineFunction("skeleton_attachment_replace", 8);
+        DefineFunction("skeleton_attachment_replace_colour", 10);
+        DefineFunction("skeleton_attachment_replace_color", 10);
+        DefineFunction("skeleton_attachment_destroy", 1);
+        DefineFunction("skeleton_slot_colour_set", 3);
+        DefineFunction("skeleton_slot_color_set", 3);
+        DefineFunction("skeleton_slot_colour_get", 1);
+        DefineFunction("skeleton_slot_color_get", 1);
+        DefineFunction("skeleton_slot_alpha_get", 1);
+        DefineFunction("skeleton_find_slot", 3);
+        DefineFunction("skeleton_animation_get_position", 1);
+        DefineFunction("skeleton_animation_set_position", 2);
+        DefineFunction("skeleton_animation_get_event_frames", 2);
+        DefineFunction("skeleton_animation_is_looping", 1);
+        DefineFunction("skeleton_animation_is_finished", 1);
+        DefineFunction("draw_enable_skeleton_blendmodes", 1);
+        DefineFunction("draw_get_enable_skeleton_blendmodes", 0);
+        DefineFunction("skeleton_bone_list", 2);
+        DefineFunction("skeleton_slot_list", 2);
+        DefineFunction("skeleton_slot_data_instance", 1);
+        DefineFunction("tileset_get_texture", 1);
+        DefineFunction("tileset_get_uvs", 1);
+        DefineFunction("tileset_get_name", 1);
+        DefineFunction("tileset_get_info", 1);
+        DefineFunction("camera_copy_transforms", 2);
+        DefineFunction("tag_get_asset_ids", 2);
+        DefineFunction("tag_get_assets", 1);
+        DefineFunction("asset_get_tags", 1);
+        DefineFunction("asset_add_tags", 2);
+        DefineFunction("asset_remove_tags", 2);
+        DefineFunction("asset_has_tags", 2);
+        DefineFunction("asset_has_any_tag", 2);
+        DefineFunction("asset_clear_tags", 1);
+        DefineFunction("extension_exists", 1);
+        DefineFunction("extension_get_version", 1);
+        DefineFunction("extension_get_option_count", 1);
+        DefineFunction("extension_get_option_names", 1);
+        DefineFunction("extension_get_option_value", 2);
+        DefineFunction("extension_get_options", 1);
+        DefineFunction("layer_sequence_get_instance", 1);
+        DefineFunction("layer_sequence_create", 4);
+        DefineFunction("layer_sequence_destroy", 1);
+        DefineFunction("layer_sequence_exists", 2);
+        DefineFunction("layer_sequence_x", 2);
+        DefineFunction("layer_sequence_y", 2);
+        DefineFunction("layer_sequence_angle", 2);
+        DefineFunction("layer_sequence_xscale", 2);
+        DefineFunction("layer_sequence_yscale", 2);
+        DefineFunction("layer_sequence_headpos", 2);
+        DefineFunction("layer_sequence_headdir", 2);
+        DefineFunction("layer_sequence_pause", 1);
+        DefineFunction("layer_sequence_play", 1);
+        DefineFunction("layer_sequence_speedscale", 2);
+        DefineFunction("layer_sequence_get_x", 1);
+        DefineFunction("layer_sequence_get_y", 1);
+        DefineFunction("layer_sequence_get_angle", 1);
+        DefineFunction("layer_sequence_get_xscale", 1);
+        DefineFunction("layer_sequence_get_yscale", 1);
+        DefineFunction("layer_sequence_get_headpos", 1);
+        DefineFunction("layer_sequence_get_headdir", 1);
+        DefineFunction("layer_sequence_get_sequence", 1);
+        DefineFunction("layer_sequence_is_paused", 1);
+        DefineFunction("layer_sequence_is_finished", 1);
+        DefineFunction("layer_sequence_get_speedscale", 1);
+        DefineFunction("layer_sequence_get_length", 1);
+    }
+
+    private void InitializeFunctions47(GameVersion v)
+    {
+        DefineFunction("animcurve_get", 1);
+        DefineFunction("animcurve_get_channel", 2);
+        DefineFunction("animcurve_get_channel_index", 2);
+        DefineFunction("animcurve_channel_evaluate", 2);
+        DefineFunction("sequence_create", 0);
+        DefineFunction("sequence_destroy", 1);
+        DefineFunction("sequence_exists", 1);
+        DefineFunction("sequence_get", 1);
+        DefineFunction("sequence_keyframe_new", 1);
+        DefineFunction("sequence_keyframedata_new", 1);
+        DefineFunction("sequence_track_new", 1);
+        DefineFunction("sequence_get_objects", 1);
+        DefineFunction("sequence_instance_override_object", 3);
+        DefineFunction("animcurve_create", 0);
+        DefineFunction("animcurve_destroy", 1);
+        DefineFunction("animcurve_exists", 1);
+        DefineFunction("animcurve_channel_new", 0);
+        DefineFunction("animcurve_point_new", 0);
+        DefineFunction("fx_create", 1);
+        DefineFunction("fx_get_name", 1);
+        DefineFunction("fx_get_parameter_names", 1);
+        DefineFunction("fx_get_parameter", 2);
+        DefineFunction("fx_get_parameters", 1);
+        DefineFunction("fx_get_single_layer", 1);
+        DefineFunction("fx_set_parameter");
+        DefineFunction("fx_set_parameters", 2);
+        DefineFunction("fx_set_single_layer", 2);
+        DefineFunction("layer_set_fx", 2);
+        DefineFunction("layer_get_fx", 1);
+        DefineFunction("layer_clear_fx", 1);
+        DefineFunction("layer_enable_fx", 2);
+        DefineFunction("layer_fx_is_enabled", 1);
+        DefineFunction("gc_collect", 0);
+        DefineFunction("gc_enable", 1);
+        DefineFunction("gc_is_enabled", 0);
+        DefineFunction("gc_get_stats", 0);
+        DefineFunction("gc_target_frame_time", 1);
+        DefineFunction("gc_get_target_frame_time", 0);
+        DefineFunction("weak_ref_create", 1);
+        DefineFunction("weak_ref_alive", 1);
+        DefineFunction("weak_ref_any_alive", 1);
+        DefineFunction("time_source_create", 4);
+        DefineFunction("time_source_destroy", 1);
+        DefineFunction("time_source_start", 1);
+        DefineFunction("time_source_stop", 1);
+        DefineFunction("time_source_pause", 1);
+        DefineFunction("time_source_resume", 1);
+        DefineFunction("time_source_reset", 1);
+        DefineFunction("time_source_reconfigure", 4);
+        DefineFunction("time_source_get_period", 1);
+        DefineFunction("time_source_get_reps_completed", 1);
+        DefineFunction("time_source_get_reps_remaining", 1);
+        DefineFunction("time_source_get_units", 1);
+        DefineFunction("time_source_get_time_remaining", 1);
+        DefineFunction("time_source_get_state", 1);
+        DefineFunction("time_source_get_parent", 1);
+        DefineFunction("time_source_get_children", 1);
+        DefineFunction("time_source_exists", 1);
+        DefineFunction("time_seconds_to_bpm", 1);
+        DefineFunction("time_bpm_to_seconds", 1);
+        DefineFunction("call_later", 3);
+        DefineFunction("call_cancel", 1);
+        DefineFunction("rollback_use_manual_start", 0);
+        DefineFunction("rollback_use_late_join", 0);
+        DefineFunction("rollback_define_player");
+        DefineFunction("rollback_define_input", 1);
+        DefineFunction("rollback_define_mock_input", 2);
+        DefineFunction("rollback_define_input_frame_delay", 1);
+        DefineFunction("rollback_define_extra_network_latency", 1);
+        DefineFunction("rollback_create_game");
+    }
+
+    private void InitializeFunctions48(GameVersion v)
+    {
+        DefineFunction("rollback_join_game");
+        DefineFunction("rollback_start_game", 0);
+        DefineFunction("rollback_leave_game", 0);
+        DefineFunction("rollback_get_input");
+        DefineFunction("rollback_chat");
+        DefineFunction("rollback_use_player_prefs");
+        DefineFunction("rollback_set_player_prefs", 1);
+        DefineFunction("rollback_get_player_prefs");
+        DefineFunction("rollback_get_info");
+        DefineFunction("rollback_use_random_input", 1);
+        DefineFunction("rollback_display_events", 1);
+        DefineFunction("rollback_sync_on_frame", 0);
+        DefineFunction("wallpaper_set_config", 1);
+        DefineFunction("wallpaper_set_subscriptions", 1);
+        DefineFunction("audio_bus_create", 0);
+        DefineFunction("audio_effect_create", 1);
+        DefineFunction("audio_emitter_bus", 2);
+        DefineFunction("audio_emitter_get_bus", 1);
+        DefineFunction("audio_bus_get_emitters", 1);
+        DefineFunction("audio_bus_clear_emitters", 1);
+        DefineFunction("lin_to_db", 1);
+        DefineFunction("db_to_lin", 1);
+    }
+
+    private void InitializeConstants1(GameVersion v)
+    {
+        var gms2 = v.Gms2;
         Constants = new(1024)
         {
             ["self"] = -1.0,
@@ -3397,6 +3717,11 @@ public class BuiltinList : IBuiltins
         Constants["audio_falloff_inverse_distance"] = 1.0;
         Constants["audio_falloff_inverse_distance_clamped"] = 2.0;
         Constants["audio_falloff_linear_distance"] = 3.0;
+    }
+
+    private void InitializeConstants2(GameVersion v)
+    {
+        var gms2_3 = v.Gms2_3;
         Constants["audio_falloff_linear_distance_clamped"] = 4.0;
         Constants["audio_falloff_exponent_distance"] = 5.0;
         Constants["audio_falloff_exponent_distance_clamped"] = 6.0;
@@ -3467,6 +3792,10 @@ public class BuiltinList : IBuiltins
         Constants["vk_numpad5"] = 101.0;
         Constants["vk_numpad6"] = 102.0;
         Constants["vk_numpad7"] = 103.0;
+    }
+
+    private void InitializeConstants3(GameVersion v)
+    {
         Constants["vk_numpad8"] = 104.0;
         Constants["vk_numpad9"] = 105.0;
         Constants["vk_divide"] = 111.0;
@@ -3534,6 +3863,11 @@ public class BuiltinList : IBuiltins
         Constants["ev_keypress"] = 9.0;
         Constants["ev_keyrelease"] = 10.0;
         Constants["ev_trigger"] = 11.0;
+    }
+
+    private void InitializeConstants4(GameVersion v)
+    {
+        var gms2 = v.Gms2;
         if (gms2)
         {
             Constants["ev_cleanup"] = 11.0;
@@ -3604,6 +3938,10 @@ public class BuiltinList : IBuiltins
         Constants["ev_user2"] = 12.0;
         Constants["ev_user3"] = 13.0;
         Constants["ev_user4"] = 14.0;
+    }
+
+    private void InitializeConstants5(GameVersion v)
+    {
         Constants["ev_user5"] = 15.0;
         Constants["ev_user6"] = 16.0;
         Constants["ev_user7"] = 17.0;
@@ -3660,6 +3998,11 @@ public class BuiltinList : IBuiltins
         Constants["ev_system_event"] = 75.0;
         Constants["ev_broadcast_message"] = 76.0;
         Constants["ev_audio_playback_ended"] = 80.0;
+    }
+
+    private void InitializeConstants6(GameVersion v)
+    {
+        var gms2 = v.Gms2;
         if (gms2)
         {
             Constants["ev_gesture_tap"] = 0.0;
@@ -3730,6 +4073,11 @@ public class BuiltinList : IBuiltins
         Constants["cr_size_all"] = -22.0;
         Constants["pt_shape_pixel"] = 0.0;
         Constants["pt_shape_disk"] = 1.0;
+    }
+
+    private void InitializeConstants7(GameVersion v)
+    {
+        var gms2 = v.Gms2;
         Constants["pt_shape_square"] = 2.0;
         Constants["pt_shape_line"] = 3.0;
         Constants["pt_shape_star"] = 4.0;
@@ -3800,6 +4148,11 @@ public class BuiltinList : IBuiltins
         // Unfortunately, it shares an id with tvos.
         // However, since this tool is written for GameMaker, we give it priority over tvos.
         Constants["os_switch_beta"] = 20.0;
+    }
+
+    private void InitializeConstants8(GameVersion v)
+    {
+        var gms2 = v.Gms2;
         Constants["os_tvos"] = 20.0;
         Constants["os_switch"] = 21.0;
         Constants["os_ps5"] = 22.0;
@@ -3870,6 +4223,10 @@ public class BuiltinList : IBuiltins
         Constants["phy_joint_motor_torque"] = 9.0;
         Constants["phy_joint_max_motor_torque"] = 10.0;
         Constants["phy_joint_translation"] = 11.0;
+    }
+
+    private void InitializeConstants9(GameVersion v)
+    {
         Constants["phy_joint_speed"] = 12.0;
         Constants["phy_joint_motor_force"] = 13.0;
         Constants["phy_joint_max_motor_force"] = 14.0;
@@ -3940,6 +4297,10 @@ public class BuiltinList : IBuiltins
         Constants["buffer_fast"] = 3.0;
         Constants["buffer_vbuffer"] = 4.0;
         Constants["buffer_network"] = 5.0;
+    }
+
+    private void InitializeConstants10(GameVersion v)
+    {
         Constants["buffer_u8"] = 1.0;
         Constants["buffer_s8"] = 2.0;
         Constants["buffer_u16"] = 3.0;
@@ -4010,6 +4371,10 @@ public class BuiltinList : IBuiltins
         Constants["ugc_query_RankedByVotesUp"] = 10.0;
         Constants["ugc_query_RankedByTextSearch"] = 11.0;
         Constants["ugc_sortorder_CreationOrderDesc"] = 0.0;
+    }
+
+    private void InitializeConstants11(GameVersion v)
+    {
         Constants["ugc_sortorder_CreationOrderAsc"] = 1.0;
         Constants["ugc_sortorder_TitleAsc"] = 2.0;
         Constants["ugc_sortorder_LastUpdatedDesc"] = 3.0;
@@ -4080,6 +4445,11 @@ public class BuiltinList : IBuiltins
         Constants["iap_failed"] = -3.0;
         Constants["iap_unavailable"] = -2.0;
         Constants["iap_available"] = -1.0;
+    }
+
+    private void InitializeConstants12(GameVersion v)
+    {
+        var gms2 = v.Gms2;
         Constants["iap_purchased"] = 0.0;
         Constants["iap_canceled"] = 1.0;
         Constants["iap_refunded"] = 2.0;
@@ -4150,6 +4520,10 @@ public class BuiltinList : IBuiltins
         Constants["xboxlive_fileerror_providedbuffertoosmall"] = 12.0;
         Constants["xboxlive_fileerror_quotaexceeded"] = 13.0;
         Constants["xboxlive_fileerror_updatetoobig"] = 14.0;
+    }
+
+    private void InitializeConstants13(GameVersion v)
+    {
         Constants["xboxlive_fileerror_usercanceled"] = 15.0;
         Constants["xboxlive_gamerpic_small"] = 1.0;
         Constants["xboxlive_gamerpic_medium"] = 2.0;
@@ -4220,6 +4594,10 @@ public class BuiltinList : IBuiltins
         Constants["switch_irsensor_light_target_none"] = 3.0;
         Constants["switch_irsensor_ambient_noise_low"] = 0.0;
         Constants["switch_irsensor_ambient_noise_middle"] = 1.0;
+    }
+
+    private void InitializeConstants14(GameVersion v)
+    {
         Constants["switch_irsensor_ambient_noise_high"] = 2.0;
         Constants["switch_irsensor_ambient_noise_unknown"] = 3.0;
         Constants["switch_irsensor_mode_none"] = 0.0;
@@ -4280,6 +4658,11 @@ public class BuiltinList : IBuiltins
         Constants["vbm_most_compatible"] = 2.0;
         Constants["tm_sleep"] = 0.0;
         Constants["tm_countvsyncs"] = 1.0;
+    }
+
+    private void InitializeConstants15(GameVersion v)
+    {
+        var gms2 = v.Gms2;
         if (gms2)
         {
             Constants["layerelementtype_undefined"] = 0.0;
@@ -4350,8 +4733,11 @@ public class BuiltinList : IBuiltins
             Constants["time_source_state_paused"] = 2.0;
             Constants["time_source_state_stopped"] = 3.0;
         }
+    }
 
-        // Global variables
+    private void InitializeGlobalVariables1(GameVersion v)
+    {
+        var gms2 = v.Gms2;
         GlobalVars = new(128);
         GlobalArrayVars = new(128);
         DefineGlobal("argument_relative", false);
@@ -4408,6 +4794,11 @@ public class BuiltinList : IBuiltins
         DefineGlobal("background_showcolor", true);
         DefineGlobal("background_colour", true);
         DefineGlobal("background_showcolour", true);
+    }
+
+    private void InitializeGlobalVariables2(GameVersion v)
+    {
+        var gms2 = v.Gms2;
         if (!gms2)
         {
             DefineGlobalAutoArray("background_visible", true);
@@ -4478,6 +4869,13 @@ public class BuiltinList : IBuiltins
         DefineGlobal("gamemaker_registered", false);
         DefineGlobal("gamemaker_pro", false);
         DefineGlobal("application_surface", false);
+    }
+
+    private void InitializeGlobalVariables3(GameVersion v)
+    {
+        var major = v.Major;
+        var minor = v.Minor;
+        var gms2 = v.Gms2;
         if (gms2)
             DefineGlobal("font_texture_page_size", true);
 
@@ -4495,8 +4893,10 @@ public class BuiltinList : IBuiltins
         DefineGlobal("cursor_sprite", true);
         DefineGlobal("delta_time", true);
         DefineGlobal("webgl_enabled", false);
+    }
 
-        // Instance variables
+    private void InitializeInstanceVariables1(GameVersion v)
+    {
         InstanceVars = new(128);
         DefineInstanceVar("x", true);
         DefineInstanceVar("y", true);
@@ -4567,14 +4967,20 @@ public class BuiltinList : IBuiltins
         DefineInstanceVar("phy_inertia", false);
         DefineInstanceVar("phy_com_x", false);
         DefineInstanceVar("phy_com_y", false);
+    }
+
+    private void InitializeInstanceVariables2(GameVersion v)
+    {
         DefineInstanceVar("phy_dynamic", false);
         DefineInstanceVar("phy_kinematic", false);
         DefineInstanceVar("phy_sleeping", false);
         DefineInstanceVar("phy_position_xprevious", true);
         DefineInstanceVar("phy_position_yprevious", true);
         DefineInstanceVar("phy_collision_points", false);
+    }
 
-        // Instance variables, limited to certain (physics) events
+    private void InitializeLimitedInstanceVariables1(GameVersion v)
+    {
         InstanceLimitedVars = new Dictionary<string, VariableInfo>
         {
             ["phy_collision_x"] = new VariableInfo("phy_collision_x", false, false, true),
@@ -4583,4 +4989,6 @@ public class BuiltinList : IBuiltins
             ["phy_col_normal_y"] = new VariableInfo("phy_col_normal_y", false, false, true),
         };
     }
+
+    private readonly record struct GameVersion(uint Major, uint Minor, uint Release, uint Build, bool Gms2, bool Gms2_3);
 }

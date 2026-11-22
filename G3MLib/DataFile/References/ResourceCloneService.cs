@@ -438,7 +438,7 @@ public static class ResourceCloneService
             }
             if (room.InstanceCreationOrderIDs is { } order)
             {
-                for (var i = 0; i < order.InstanceIDs.Count; i++)
+                foreach (var i in Enumerable.Range(0, order.InstanceIDs.Count))
                 {
                     if (_newInstanceIds.TryGetValue(order.InstanceIDs[i], out var mapped))
                     {

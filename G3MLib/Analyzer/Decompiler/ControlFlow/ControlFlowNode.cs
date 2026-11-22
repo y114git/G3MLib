@@ -152,11 +152,11 @@ internal interface IControlFlowNode
     /// </summary>
     static void ReplaceConnections(List<IControlFlowNode> list, IControlFlowNode search, IControlFlowNode replace)
     {
-        for (var i = 0; i < list.Count; i++)
+        foreach (ref var node in list.Items())
         {
-            if (list[i] == search)
+            if (node == search)
             {
-                list[i] = replace;
+                node = replace;
             }
         }
     }
@@ -166,11 +166,11 @@ internal interface IControlFlowNode
     /// </summary>
     static void ReplaceConnectionsNullable(List<IControlFlowNode?> list, IControlFlowNode search, IControlFlowNode replace)
     {
-        for (var i = 0; i < list.Count; i++)
+        foreach (ref var node in list.Items())
         {
-            if (list[i] == search)
+            if (node == search)
             {
-                list[i] = replace;
+                node = replace;
             }
         }
     }

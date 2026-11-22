@@ -662,6 +662,11 @@ public class GameMakerSequence : GameMakerNamedResource, IProjectAsset, INotifyP
                 Tracks.Add(reader.ReadGameMakerObject<Track>());
 
             // Now, handle specific keyframe/etc. data
+            UnserializeKeyframes(reader);
+        }
+
+        private void UnserializeKeyframes(GameMakerReader reader)
+        {
             switch (ModelName.Content)
             {
                 case "GMAudioTrack":

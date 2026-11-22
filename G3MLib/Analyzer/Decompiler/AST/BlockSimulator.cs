@@ -212,11 +212,11 @@ internal static class BlockSimulator
             // If duplication type is boolean, then cast all non-converted int16s being duplicated to booleans
             if (dupType == DataType.Boolean)
             {
-                for (var i = 0; i < toDuplicate.Count; i++)
+                foreach (ref var duplicated in toDuplicate.Items())
                 {
-                    if (toDuplicate[i] is Int16Node { Value: 0 or 1, StackType: not DataType.Boolean } i16)
+                    if (duplicated is Int16Node { Value: 0 or 1, StackType: not DataType.Boolean } i16)
                     {
-                        toDuplicate[i] = new BooleanNode(i16.Value == 1)
+                        duplicated = new BooleanNode(i16.Value == 1)
                         {
                             StackType = i16.StackType
                         };

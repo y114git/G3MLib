@@ -1497,7 +1497,7 @@ public static partial class MergeService
 					}
 
 					normalizedPatchPaths = await Task.WhenAll(normalizeTasks).ConfigureAwait(false);
-					for (var i = 0; i < normalizedPatchPaths.Length; i++)
+					foreach (var i in Enumerable.Range(0, normalizedPatchPaths.Length))
 					{
 						if (!string.Equals(normalizedPatchPaths[i], patchPaths[i], StringComparison.OrdinalIgnoreCase))
 							tempFiles.Add(normalizedPatchPaths[i]);
@@ -2286,7 +2286,7 @@ public static partial class MergeService
 	private static Dictionary<string, List<string>>[] LoadPatchAssetOrders(PatchFileSystem[] patches)
 	{
 		var result = new Dictionary<string, List<string>>[patches.Length];
-		for (var i = 0; i < patches.Length; i++)
+		foreach (var i in Enumerable.Range(0, patches.Length))
 		{
 			var aoPath = $"{patches[i].HelpersPrefix}/asset_order.txt";
 			if (!patches[i].FileExists(aoPath))
@@ -2329,7 +2329,7 @@ public static partial class MergeService
 				.Where(kvp => kvp.Value.Count == 1)
 				.ToDictionary(kvp => kvp.Key, kvp => kvp.Value[0], StringComparer.Ordinal);
 
-			for (var pi = 0; pi < patchOrders.Length; pi++)
+			foreach (var pi in Enumerable.Range(0, patchOrders.Length))
 			{
 				result[pi] ??= new PatchAssetRemaps();
 				if (!patchOrders[pi].TryGetValue(section, out var patchList))
@@ -2363,7 +2363,7 @@ public static partial class MergeService
 			}
 		}
 
-		for (var i = 0; i < result.Length; i++)
+		foreach (var i in Enumerable.Range(0, result.Length))
 			result[i] ??= new PatchAssetRemaps();
 		return result;
 	}
@@ -2799,7 +2799,7 @@ public static partial class MergeService
 		var mergedTextureCount = originalEmbeddedTextureCount;
 		if (HasEmbeddedTexturePayload(patches))
 		{
-			for (var pi = 0; pi < patches.Length; pi++)
+			foreach (var pi in Enumerable.Range(0, patches.Length))
 			{
 				textureOffsets[pi] = mergedTextureCount - originalEmbeddedTextureCount;
 
@@ -2873,7 +2873,7 @@ public static partial class MergeService
 				? (int[])originalTpis[i].Clone()
 				: [];
 
-			for (var pi = 0; pi < patches.Length; pi++)
+			foreach (var pi in Enumerable.Range(0, patches.Length))
 			{
 				var patchTpis = allTpis[pi];
 				if (i >= patchTpis.Length)
@@ -2895,7 +2895,7 @@ public static partial class MergeService
 		}
 
 		// Append new TPIs from each patch, tracking offsets
-		for (var pi = 0; pi < patches.Length; pi++)
+		foreach (var pi in Enumerable.Range(0, patches.Length))
 		{
 			tpiOffsets[pi] = tpiList.Count - originalTpiCount;
 			var patchTpis = allTpis[pi];
@@ -2917,7 +2917,7 @@ public static partial class MergeService
 		var mergedBgs = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 		var mergedFonts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
-		for (var pi = 0; pi < patches.Length; pi++)
+		foreach (var pi in Enumerable.Range(0, patches.Length))
 		{
 			var sfmPath = $"{patches[pi].HelpersPrefix}/sprite_frame_map.json";
 			if (!patches[pi].FileExists(sfmPath)) continue;
@@ -2934,10 +2934,10 @@ public static partial class MergeService
 
 					var indices = sp.Value.EnumerateArray().Select(e => e.GetInt32()).ToArray();
 					// Shift indices for new TPIs (>= originalTpiCount)
-					for (var i = 0; i < indices.Length; i++)
+					foreach (ref var index in indices.AsSpan())
 					{
-						if (indices[i] >= originalTpiCount)
-							indices[i] += offset;
+						if (index >= originalTpiCount)
+							index += offset;
 					}
 					mergedSprites[sp.Name] = indices; // Later patches overwrite
 				}
@@ -3030,7 +3030,7 @@ public static partial class MergeService
 		}
 
 		var result = new int[data.TexturePageItems.Count][];
-		for (var i = 0; i < data.TexturePageItems.Count; i++)
+		foreach (var i in Enumerable.Range(0, data.TexturePageItems.Count))
 		{
 			var tpi = data.TexturePageItems[i];
 			var texIdx = tpi?.TexturePage != null && embeddedTextureIndices.TryGetValue(tpi.TexturePage, out var textureIndex)
@@ -3054,14 +3054,7 @@ public static partial class MergeService
 
 	private static bool TexturePageItemEquals(int[] left, int[] right)
 	{
-		if (left.Length != right.Length)
-			return false;
-		for (var i = 0; i < left.Length; i++)
-		{
-			if (left[i] != right[i])
-				return false;
-		}
-		return true;
+		return left.AsSpan().SequenceEqual(right);
 	}
 
 	internal static bool PatchHasResourcePayload(PatchFileSystem pfs, string resourceRoot, string resourceName)
@@ -3801,7 +3794,7 @@ public static partial class MergeService
 		if (baseArray.Count == oursArray.Count && baseArray.Count == theirsArray.Count)
 		{
 			var result = new JsonArray();
-			for (var i = 0; i < baseArray.Count; i++)
+			foreach (var i in Enumerable.Range(0, baseArray.Count))
 			{
 				var baseValue = baseArray[i];
 				var oursValue = oursArray[i];
@@ -3950,7 +3943,7 @@ public static partial class MergeService
 		if (target.Count == source.Count)
 		{
 			var result = new JsonArray();
-			for (var i = 0; i < target.Count; i++)
+			foreach (var i in Enumerable.Range(0, target.Count))
 			{
 				if (target[i] is JsonObject targetObj && source[i] is JsonObject sourceObj)
 				{

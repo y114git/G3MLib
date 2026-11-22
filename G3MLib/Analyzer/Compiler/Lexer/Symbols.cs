@@ -74,6 +74,20 @@ internal static class Symbols
                 context.Tokens.Add(new TokenSeparator(context, startPosition, SeparatorKind.ArrayClose));
                 return startPosition + 1;
 
+            default:
+                return ParseOperator(context, startPosition, currChar, nextChar, out success);
+        }
+    }
+
+    /// <summary>
+    /// Parses an operator symbol from the given text position.
+    /// </summary>
+    private static int ParseOperator(LexContext context, int startPosition, char currChar, char nextChar, out bool success)
+    {
+        success = true;
+
+        switch (currChar)
+        {
             case '=':
                 if (nextChar == '=')
                 {

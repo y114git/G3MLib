@@ -136,9 +136,9 @@ public class BlockNode(ASTFragmentContext fragmentContext) : IFragmentNode, IBlo
             // Handle switch statement case local scopes
             var inCaseScope = false;
             var endingCaseScope = false;
-            for (var i = 0; i < Children.Count; i++)
+            foreach (ref var child in Children.Items())
             {
-                if (Children[i] is SwitchCaseNode && (!inCaseScope || endingCaseScope))
+                if (child is SwitchCaseNode && (!inCaseScope || endingCaseScope))
                 {
                     inCaseScope = true;
                     if (endingCaseScope)
@@ -149,14 +149,14 @@ public class BlockNode(ASTFragmentContext fragmentContext) : IFragmentNode, IBlo
                     }
                     cleaner.TopFragmentContext.PushLocalScope(cleaner.Context, prevPostCleanupBlock, parentSwitch);
                 }
-                else if (inCaseScope && Children[i] is BreakNode or ContinueNode)
+                else if (inCaseScope && child is BreakNode or ContinueNode)
                 {
                     // Upon discovering a break/continue statement, prepare to end local scope at next case
                     endingCaseScope = true;
                 }
 
                 // Regular post-cleanup
-                Children[i] = Children[i].PostClean(cleaner);
+                child = child.PostClean(cleaner);
             }
             if (inCaseScope)
             {
@@ -166,10 +166,7 @@ public class BlockNode(ASTFragmentContext fragmentContext) : IFragmentNode, IBlo
         else
         {
             // Normal cleanup
-            for (var i = 0; i < Children.Count; i++)
-            {
-                Children[i] = Children[i].PostClean(cleaner);
-            }
+            Children.ReplaceEach(cleaner, static (n, a) => n.PostClean(a));
         }
 
         cleaner.TopFragmentContext.CurrentPostCleanupBlock = prevPostCleanupBlock;

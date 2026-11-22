@@ -36,20 +36,14 @@ public class ArrayInitNode(List<IExpressionNode> elements) : IConditionalValueNo
     /// <inheritdoc/>
     public IExpressionNode Clean(ASTCleaner cleaner)
     {
-        for (var i = 0; i < Elements.Count; i++)
-        {
-            Elements[i] = Elements[i].Clean(cleaner);
-        }
+        Elements.ReplaceEach(cleaner, static (n, a) => n.Clean(a));
         return this;
     }
 
     /// <inheritdoc/>
     public IExpressionNode PostClean(ASTCleaner cleaner)
     {
-        for (var i = 0; i < Elements.Count; i++)
-        {
-            Elements[i] = Elements[i].PostClean(cleaner);
-        }
+        Elements.ReplaceEach(cleaner, static (n, a) => n.PostClean(a));
         return this;
     }
 

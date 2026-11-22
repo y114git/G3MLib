@@ -23,9 +23,9 @@ public class ArrayInitMacroType(IMacroType type) : IMacroTypeArrayInit
         ArgumentNullException.ThrowIfNull(arrayInit);
         var didAnything = false;
 
-        for (var i = 0; i < arrayInit.Elements.Count; i++)
+        foreach (ref var element in arrayInit.Elements.Items())
         {
-            if (arrayInit.Elements[i] is not IMacroResolvableNode node)
+            if (element is not IMacroResolvableNode node)
             {
                 // Current element is not resolvable as a macro
                 continue;
@@ -37,7 +37,7 @@ public class ArrayInitMacroType(IMacroType type) : IMacroTypeArrayInit
                 continue;
             }
 
-            arrayInit.Elements[i] = nodeResolved;
+            element = nodeResolved;
             didAnything = true;
         }
 

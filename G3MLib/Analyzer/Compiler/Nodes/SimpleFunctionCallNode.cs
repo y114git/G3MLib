@@ -478,10 +478,7 @@ internal sealed class SimpleFunctionCallNode : IMaybeStatementASTNode
     /// </summary>
     public void PostProcessChildrenOnly(ParseContext context)
     {
-        for (var i = 0; i < Arguments.Count; i++)
-        {
-            Arguments[i] = Arguments[i].PostProcess(context);
-        }
+        Arguments.ReplaceEach(context, static (n, a) => n.PostProcess(a));
     }
 
     /// <summary>

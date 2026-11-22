@@ -103,10 +103,7 @@ internal sealed class LocalVarDeclNode : IASTNode
     /// <inheritdoc/>
     public IASTNode PostProcess(ParseContext context)
     {
-        for (var i = 0; i < AssignedValues.Count; i++)
-        {
-            AssignedValues[i] = AssignedValues[i]?.PostProcess(context);
-        }
+        AssignedValues.ReplaceEach(context, static (n, a) => n?.PostProcess(a));
         return this;
     }
 
@@ -114,10 +111,7 @@ internal sealed class LocalVarDeclNode : IASTNode
     public IASTNode Duplicate(ParseContext context)
     {
         List<IASTNode?> newAssignedValues = [.. AssignedValues];
-        for (var i = 0; i < newAssignedValues.Count; i++)
-        {
-            newAssignedValues[i] = newAssignedValues[i]?.Duplicate(context);
-        }
+        newAssignedValues.ReplaceEach(context, static (n, a) => n?.Duplicate(a));
         return new LocalVarDeclNode(NearbyToken, [.. DeclaredLocals], newAssignedValues);
     }
 
@@ -125,7 +119,7 @@ internal sealed class LocalVarDeclNode : IASTNode
     public void GenerateCode(BytecodeContext context)
     {
         // Generate local variable initial assignments (for ones that have them)
-        for (var i = 0; i < AssignedValues.Count; i++)
+        foreach (var i in Enumerable.Range(0, AssignedValues.Count))
         {
             if (AssignedValues[i] is IASTNode expression)
             {

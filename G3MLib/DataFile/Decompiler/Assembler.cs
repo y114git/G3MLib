@@ -444,8 +444,7 @@ public static partial class Assembler
 
                 // Find function being referenced
                 var funcName = match.Groups[1].Value;
-                var func = FindFunction(funcName, data.Functions) ??
-                    throw new KeyNotFoundException($"Could not find function with name \"{funcName}\"");
+                var func = FindFunction(funcName, data.Functions) ?? throw new KeyNotFoundException($"Could not find function with name \"{funcName}\"");
                 instr.ValueFunction = func;
 
                 instr.ArgumentsCount = ushort.Parse(match.Groups[2].Value, CultureInfo.InvariantCulture);
