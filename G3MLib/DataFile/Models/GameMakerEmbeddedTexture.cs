@@ -359,7 +359,9 @@ public class GameMakerEmbeddedTexture : GameMakerNamedResource, IDisposable
     {
         GC.SuppressFinalize(this);
 
-        _textureData?.Dispose();
+        // The blank placeholder is shared by every file, so disposing it would blank the textures of the next file read.
+        if (!ReferenceEquals(_textureData, _placeholderTexture))
+            _textureData?.Dispose();
         _textureData = null;
         Name = null;
         TextureInfo = null;

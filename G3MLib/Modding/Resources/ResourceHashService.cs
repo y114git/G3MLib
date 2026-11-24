@@ -666,8 +666,20 @@ public static class ResourceHashService
 				if (gameMakerTexturePageItem != null)
 				{
 					w.WriteStartObject();
-					w.WriteNumber("srcX", gameMakerTexturePageItem.SourceX);
-					w.WriteNumber("srcY", gameMakerTexturePageItem.SourceY);
+					var num = (gameMakerTexturePageItem.TexturePage != null && pageIndexMap.TryGetValue(gameMakerTexturePageItem.TexturePage, out var itemValue3)) ? itemValue3 : (-1);
+					var itemValue4 = "";
+					if (num >= 0)
+					{
+						frameHashes.TryGetValue((num, gameMakerTexturePageItem.SourceX, gameMakerTexturePageItem.SourceY, gameMakerTexturePageItem.SourceWidth, gameMakerTexturePageItem.SourceHeight), out itemValue4);
+					}
+					// A frame that moved to another spot or page (a repacked atlas) is the same frame while its pixels match.
+					var pixelsKnown = !string.IsNullOrEmpty(itemValue4) && !itemValue4.StartsWith("invalid", StringComparison.Ordinal);
+					if (!pixelsKnown)
+					{
+						w.WriteNumber("srcX", gameMakerTexturePageItem.SourceX);
+						w.WriteNumber("srcY", gameMakerTexturePageItem.SourceY);
+						w.WriteNumber("texPage", num);
+					}
 					w.WriteNumber("srcW", gameMakerTexturePageItem.SourceWidth);
 					w.WriteNumber("srcH", gameMakerTexturePageItem.SourceHeight);
 					w.WriteNumber("tgtX", gameMakerTexturePageItem.TargetX);
@@ -676,13 +688,6 @@ public static class ResourceHashService
 					w.WriteNumber("tgtH", gameMakerTexturePageItem.TargetHeight);
 					w.WriteNumber("bndX", gameMakerTexturePageItem.BoundingWidth);
 					w.WriteNumber("bndY", gameMakerTexturePageItem.BoundingHeight);
-					var num = (gameMakerTexturePageItem.TexturePage != null && pageIndexMap.TryGetValue(gameMakerTexturePageItem.TexturePage, out var itemValue3)) ? itemValue3 : (-1);
-					w.WriteNumber("texPage", num);
-					var itemValue4 = "";
-					if (num >= 0)
-					{
-						frameHashes.TryGetValue((num, gameMakerTexturePageItem.SourceX, gameMakerTexturePageItem.SourceY, gameMakerTexturePageItem.SourceWidth, gameMakerTexturePageItem.SourceHeight), out itemValue4);
-					}
 					w.WriteString("frameHash", itemValue4 ?? "");
 					w.WriteEndObject();
 				}
@@ -998,10 +1003,15 @@ public static class ResourceHashService
 					w.WriteBoolean("preload", snd.Preload);
 					w.WriteNumber("pitch", snd.Pitch);
 					w.WriteString("audioGroup", snd.AudioGroup?.Name?.Content ?? "");
-					w.WriteNumber("audioID", snd.AudioID);
 					w.WriteNumber("groupID", snd.GroupID);
 					w.WriteNumber("audioLength", snd.AudioLength);
-					w.WriteString("audioHash", GetSoundAudioHash(snd, externalAudioHashes));
+					var audioHash = GetSoundAudioHash(snd, externalAudioHashes);
+					// The audio slot moves when sounds are added or removed; it only matters when the audio itself cannot be hashed.
+					if (audioHash.Length == 0)
+					{
+						w.WriteNumber("audioID", snd.AudioID);
+					}
+					w.WriteString("audioHash", audioHash);
 					w.WriteEndObject();
 				});
 				result[snd.Name.Content] = value;
