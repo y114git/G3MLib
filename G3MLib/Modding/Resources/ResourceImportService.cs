@@ -4066,6 +4066,15 @@ public static partial class ResourceImportService
 						BatchRun.Item(soundName, ResultKind.Skipped, "Audio is stored outside the main data file");
 						continue;
 					}
+					var slot = metadataAudioId;
+					byte[]? carriedAudio = null;
+					if (AudioSlotOwnedByOtherSound(data, null, slot))
+					{
+						// The patch was made against a file where this slot was free: its audio moves to a new slot.
+						var carried = Path.Combine(Path.GetDirectoryName(inputDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)) ?? "", "EmbeddedAudio", $"audio_{slot:D4}", $"audio_{slot:D4}.bin");
+						carriedAudio = FExists(carried) ? FReadBytes(carried) : null;
+						slot = data.EmbeddedAudio.Count;
+					}
 					existing = new GameMakerSound
 					{
 						Name = data.Strings.MakeString(soundName),
@@ -4075,9 +4084,13 @@ public static partial class ResourceImportService
 						Pitch = 1f,
 						Preload = true,
 						Flags = GameMakerSound.AudioEntryFlags.Regular | GameMakerSound.AudioEntryFlags.IsEmbedded,
-						AudioID = metadataAudioId,
-						AudioFile = EnsureEmbeddedAudioSlot(data, metadataAudioId)
+						AudioID = slot,
+						AudioFile = EnsureEmbeddedAudioSlot(data, slot)
 					};
+					if (carriedAudio != null)
+					{
+						existing.AudioFile.Data = carriedAudio;
+					}
 					data.Sounds.Add(existing);
 					created++;
 				}
@@ -4125,7 +4138,7 @@ public static partial class ResourceImportService
 					{
 						sound.Flags |= GameMakerSound.AudioEntryFlags.IsCompressed;
 					}
-					if (metadataGroupId <= 0 && metadataAudioId2 >= 0)
+					if (metadataGroupId <= 0 && metadataAudioId2 >= 0 && !AudioSlotOwnedByOtherSound(data, sound, metadataAudioId2))
 					{
 						sound.AudioID = metadataAudioId2;
 						sound.AudioFile = EnsureEmbeddedAudioSlot(data, metadataAudioId2);
@@ -4147,7 +4160,7 @@ public static partial class ResourceImportService
 				}
 				else
 				{
-					if (metadataGroupId <= 0 && metadataAudioId2 >= 0)
+					if (metadataGroupId <= 0 && metadataAudioId2 >= 0 && !AudioSlotOwnedByOtherSound(data, sound, metadataAudioId2))
 					{
 						sound.AudioID = metadataAudioId2;
 						sound.AudioFile = EnsureEmbeddedAudioSlot(data, metadataAudioId2);
@@ -4226,6 +4239,10 @@ public static partial class ResourceImportService
 		}
 	}
 
+	// Two patches that each add a sound can name the same slot; reusing it would overwrite the other sound's audio.
+	private static bool AudioSlotOwnedByOtherSound(GameMakerData data, GameMakerSound? sound, int audioId) =>
+		data.Sounds.Any(other => other != null && !ReferenceEquals(other, sound) && other.GroupID <= 0 && other.AudioID == audioId);
+
 	private static GameMakerEmbeddedAudio EnsureEmbeddedAudioSlot(GameMakerData data, int audioId)
 	{
 		while (data.EmbeddedAudio.Count <= audioId)
@@ -4263,6 +4280,11 @@ public static partial class ResourceImportService
 			{
 				using var doc = JsonDocument.Parse(FReadText(jsonPath));
 				var index = (doc.RootElement.TryGetProperty("index", out var idxElm) && idxElm.ValueKind == JsonValueKind.Number) ? idxElm.GetInt32() : data.EmbeddedAudio.Count;
+				if (SlotBelongsToSoundTheImportLeavesAlone(data, inputDir, index))
+				{
+					BatchRun.Item(folderName, ResultKind.Skipped, "Slot belongs to a sound this import does not change");
+					continue;
+				}
 				while (data.EmbeddedAudio.Count <= index)
 				{
 					data.EmbeddedAudio.Add(new GameMakerEmbeddedAudio());
@@ -4278,6 +4300,20 @@ public static partial class ResourceImportService
 			}
 		}
 		Log($"[ImportEmbeddedAudio] Imported {imported} embedded audio slot(s).");
+	}
+
+	// A patch made against another file names its new sounds' slots by number. When a sound already sits there and the patch carries
+	// no folder for it, the slot is not the patch's to overwrite; the new sound gets a free slot when its own folder is imported.
+	private static bool SlotBelongsToSoundTheImportLeavesAlone(GameMakerData data, string embeddedAudioDir, int index)
+	{
+		var root = Path.GetDirectoryName(embeddedAudioDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+		var soundsDir = root == null ? null : Path.Combine(root, "Sounds");
+		if (soundsDir == null || !DirExists(soundsDir))
+		{
+			return false;
+		}
+		var owner = data.Sounds.FirstOrDefault(sound => sound?.Name?.Content != null && sound.GroupID <= 0 && sound.AudioID == index);
+		return owner != null && !DirExists(Path.Combine(soundsDir, owner.Name.Content));
 	}
 
 	private static (int AudioId, int GroupId) ReadSoundAudioPlacement(string metaFile)
@@ -4339,7 +4375,7 @@ public static partial class ResourceImportService
 		{
 			sound.Flags = (GameMakerSound.AudioEntryFlags)fElm.GetInt32();
 		}
-		if (root.TryGetProperty("audioID", out var audioIdElm))
+		if (root.TryGetProperty("audioID", out var audioIdElm) && !AudioSlotOwnedByOtherSound(data, sound, audioIdElm.GetInt32()))
 		{
 			sound.AudioID = audioIdElm.GetInt32();
 		}
