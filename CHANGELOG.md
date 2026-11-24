@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.1.6] - 2026-11-25
+
+### Fixed
+
+- A diff, patch or merge no longer reports hundreds of sprites and embedded textures as changed when nothing changed. Reading a second data file blanked the shared 1x1 placeholder texture of every file after the first (disposing one file disposed it for all), so the textures that point at it hashed differently in the second file.
+- A sprite frame that only moved to another spot or page of the texture atlas hashes the same while its pixels match, so a repacked atlas no longer marks untouched sprites as changed. A real pixel change still does.
+- A sound that only moved to another audio slot hashes the same while its audio matches. The slot only counts when the audio cannot be hashed.
+- Merging patches one after another no longer lets two new sounds that name the same audio slot overwrite each other's audio: a new sound whose slot is held by another sound gets a free slot and keeps its own audio.
+- The data cache layout changed (schema 4), so caches written by older versions are rebuilt once.
+
 ## [1.1.5] - 2026-11-20
 
 ### Fixed
