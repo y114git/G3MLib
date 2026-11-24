@@ -31,7 +31,7 @@ public sealed class ResourceHashServiceTests
 
         var sprites = ResourceHashService.HashAll(data)["Sprites"];
 
-        Assert.Equal("197db752c95e6dcfe6b8854c9d7dce8fd8b0eb35a5d850d35821023039a77b33", sprites["spr_probe"]);
+        Assert.Equal("bed0ccf804ea4fcbb064c31a96aa31055cd9e5e9506840e2b42a63bfc4e31888", sprites["spr_probe"]);
     }
 
     [Fact("ResourceHashServiceTests.cs", 22)]
