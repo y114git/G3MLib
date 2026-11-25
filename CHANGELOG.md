@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.7] - 2026-11-25
+
+### Fixed
+
+- Merging patches no longer loses an edit when another patch deletes an object. An object's content hash included its position in the list, so a patch that deleted one object made every later object look changed and could overwrite another patch's edit to it, in both the fast and the sequential merge. The hash no longer depends on the position.
+- A sound in an external audio group keeps the audio number a patch gives it. The slot check added in 1.1.6 now applies only to sounds in the embedded audio group.
+- The data cache layout changed again (schema 5), so caches written by older versions are rebuilt once.
+
 ## [1.1.6] - 2026-11-25
 
 ### Fixed
