@@ -4375,7 +4375,9 @@ public static partial class ResourceImportService
 		{
 			sound.Flags = (GameMakerSound.AudioEntryFlags)fElm.GetInt32();
 		}
-		if (root.TryGetProperty("audioID", out var audioIdElm) && !AudioSlotOwnedByOtherSound(data, sound, audioIdElm.GetInt32()))
+		// An id in an external group counts inside that group's file, so only an embedded sound can clash with an embedded slot.
+		var inExternalGroup = (root.TryGetProperty("groupID", out var metaGroupElm) ? metaGroupElm.GetInt32() : sound.GroupID) > 0;
+		if (root.TryGetProperty("audioID", out var audioIdElm) && (inExternalGroup || !AudioSlotOwnedByOtherSound(data, sound, audioIdElm.GetInt32())))
 		{
 			sound.AudioID = audioIdElm.GetInt32();
 		}
