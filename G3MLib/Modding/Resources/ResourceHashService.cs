@@ -1644,10 +1644,9 @@ public static class ResourceHashService
 			var hash = JsonHash(delegate (Utf8JsonWriter w)
 			{
 				w.WriteStartArray();
-				foreach (var (gameMakerGameObject, value) in group.OrderBy(((GameMakerGameObject obj, int index) item) => item.index))
+				foreach (var (gameMakerGameObject, _) in group.OrderBy(((GameMakerGameObject obj, int index) item) => item.index))
 				{
 					w.WriteStartObject();
-					w.WriteNumber("index", value);
 					w.WriteString("name", gameMakerGameObject.Name.Content);
 					w.WriteString("spriteName", gameMakerGameObject.Sprite?.Name?.Content ?? "");
 					w.WriteBoolean("visible", gameMakerGameObject.Visible);

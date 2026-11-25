@@ -4,7 +4,7 @@ namespace G3MLib.Modding.Caching;
 
 public sealed class G3MCacheManifest
 {
-	public const int CurrentSchema = 4;
+	public const int CurrentSchema = 5;
 
 	[JsonPropertyName("schema")]
 	public int Schema { get; set; } = CurrentSchema;
